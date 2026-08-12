@@ -95,10 +95,15 @@
         "timestamp": "2026-03-21T18:00:10.000Z",
         "source": { "id": "custom-agent" },
         "title": "Build failed",
-        "summary": "The latest build failed and may need a retry.",
+        "summary": "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
         "status": "failed",
         "semanticHints": {
-          "confidence": "low"
+          "consequence": "high",
+          "confidence": "low",
+          "factors": ["source evidence truncated"],
+          "reasons": [
+            "source failure evidence was truncated before Aperture saw the full output"
+          ]
         }
       }
     },
@@ -123,10 +128,7 @@
         "source": { "id": "custom-agent" },
         "title": "Build failed again",
         "summary": "The latest build failed again and should be reviewed.",
-        "status": "failed",
-        "semanticHints": {
-          "confidence": "high"
-        }
+        "status": "failed"
       }
     }
   ]

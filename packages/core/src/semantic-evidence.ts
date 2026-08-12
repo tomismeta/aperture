@@ -174,7 +174,7 @@ export function readTaskFailureSemanticEvidence(
     readSemanticTextEvidence(event.title, toolFamily).shapes.includes("terminal_failure")
       ? { shapes: ["terminal_failure"] as const }
       : readSemanticTextEvidence(event.summary ?? event.title, toolFamily);
-  const signals = readTaskFailureSemanticSignals({ summary: event.summary, toolFamily });
+  const signals = readTaskFailureSemanticSignals({ ...event, toolFamily });
   const selectedProfile = readTaskFailureEvidenceProfile({
     summary: event.summary,
     signals,

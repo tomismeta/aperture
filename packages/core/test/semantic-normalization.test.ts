@@ -1321,7 +1321,7 @@ test("public trajectory structured outcome-only exits match raw bare-exit semant
   assert.equal(interpretation.provenance?.consequence, "inferred");
 });
 
-test("truncated source evidence hints keep failed outcome-only exits high consequence", () => {
+test("truncated source markers cannot alter complete outcome-only exits", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:public-truncated-outcome-only-exit",
     type: "task.updated",
@@ -1338,10 +1338,10 @@ test("truncated source evidence hints keep failed outcome-only exits high conseq
 
   assert.equal(interpretation.intentFrame, "failure");
   assert.equal(interpretation.activityClass, "tool_failure");
-  assert.equal(interpretation.consequence, "high");
-  assert.equal(interpretation.confidence, "low");
-  assert.equal(interpretation.provenance?.consequence, "hint");
-  assert.equal(interpretation.provenance?.confidence, "hint");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "high");
+  assert.equal(interpretation.provenance?.consequence, "inferred");
+  assert.equal(interpretation.provenance?.confidence, "inferred");
 });
 
 test("public trajectory benign then real terminal wording stays high-consequence", () => {

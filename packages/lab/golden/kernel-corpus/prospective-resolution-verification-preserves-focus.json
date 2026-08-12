@@ -28,7 +28,7 @@
           "blocking": "non_blocking",
           "episode": "resurfaced",
           "confidence": "high",
-          "source": "hinted"
+          "source": "explicit"
         }
       }
     ],

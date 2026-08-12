@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { semanticHintsForTruncatedSourceEvidence } from "@tomismeta/aperture-core/semantic";
+
 import {
   auditSessionBundleReplay,
   auditSessionBundleReplays,
@@ -27,10 +29,8 @@ const LOW_CONFIDENCE_FAILURE_SCENARIO: ReplayScenario = {
         type: "task.updated",
         status: "failed",
         title: "Build may have failed",
-        summary: "The build may have failed; the signal is not fully clear yet.",
-        semanticHints: {
-          confidence: "low",
-        },
+        summary: "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
+        semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
       },
     },
   ],
@@ -251,9 +251,6 @@ function createTwoStepBundle(sessionId: string): ReplaySessionBundle {
             status: "failed",
             title: "Build failed",
             summary: "The build failed and needs attention.",
-            semanticHints: {
-              confidence: "high",
-            },
           },
         },
       ],

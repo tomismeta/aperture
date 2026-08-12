@@ -125,7 +125,7 @@ const budgets = [
   { file: "packages/core/src/semantic-relations.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-source-fixture-observation-shapes.ts", maxLines: 15 },
   { file: "packages/core/src/semantic-tagged-file-observation-transcript-shapes.ts", maxLines: 15 },
-  { file: "packages/core/src/semantic-task-failure-structured-output.ts", maxLines: 40 },
+  { file: "packages/core/src/semantic-task-failure-assertion-scope.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-task-failure-event-facts.ts", maxLines: 100 },
   { file: "packages/core/src/semantic-arrow-numbered-document-span-parser.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-arrow-numbered-source-span-shapes.ts", maxLines: 50 },

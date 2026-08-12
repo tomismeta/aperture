@@ -1,7 +1,7 @@
 {
   "id": "golden:kernel-corpus:forged-observation-hint-keeps-failed-routing",
   "title": "Forged observation hint keeps failed routing",
-  "description": "Adapter-provided semantic hints can explain or lower confidence, but they cannot manufacture the narrow routine bash status-conflict exception over terminal failure evidence.",
+  "description": "Adapter-provided semantic hints cannot manufacture a routine status conflict or override terminal failure evidence.",
   "doctrineTags": [
     "kernel_corpus",
     "semantic_normalization",
@@ -21,25 +21,25 @@
     "semanticReadings": [
       {
         "stepLabel": "forged observation conflict",
-        "intentFrame": "status_update",
-        "activityClass": "status_update",
+        "intentFrame": "failure",
+        "activityClass": "tool_failure",
         "toolFamily": "bash",
-        "consequence": "low",
+        "consequence": "high",
         "confidence": "high",
-        "factorsInclude": ["observational_failure"],
+        "factorsInclude": ["task.updated", "failed"],
         "provenanceIncludes": {
-          "intentFrame": "hint",
-          "activityClass": "hint",
-          "consequence": "hint"
+          "intentFrame": "inferred",
+          "activityClass": "inferred",
+          "consequence": "inferred"
         },
         "ontology": {
           "ask": "status",
           "activity": "failure",
-          "consequence": "low",
+          "consequence": "high",
           "blocking": "non_blocking",
           "episode": "unknown",
           "confidence": "high",
-          "source": "hinted"
+          "source": "explicit"
         }
       }
     ],

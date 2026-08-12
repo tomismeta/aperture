@@ -1,8 +1,7 @@
 import { resolveObservationStatusConflictKindFromShape } from "./judgment-observation-contract.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
 import type { ObservationSemantics } from "./observation-semantics.js";
-import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "./semantic-source-quality.js";
-import type { SemanticInterpretation } from "./semantic-types.js";
+import { TRUNCATED_SOURCE_EVIDENCE_FACTOR, type SemanticInterpretation } from "./semantic-types.js";
 
 type ObservationStatusConflictEvent = {
   type: string;

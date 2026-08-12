@@ -1,6 +1,7 @@
-import { hasToolOutputFailureDiagnosticEvidence } from "./semantic-diagnostic-shapes.js";
-import { looksLikeWarningOnlyCommandOutputObservation } from "./semantic-command-warning-observation-shapes.js";
-import { hasVisibleTruncationBoundary } from "./semantic-observation-text.js";
+import {
+  looksLikeWarningOnlyCommandOutputObservation,
+  safeTruncatedCommandOutput,
+} from "./semantic-command-warning-observation-shapes.js";
 import { looksLikeRecoveredCommandSourceObservation } from "./semantic-recovered-command-source-observation-shapes.js";
 
 export type RecoveredCommandOutputObservation = {
@@ -34,9 +35,7 @@ function looksLikeRecoveredCommandReadbackObservation(value: string): boolean {
   const documentLocationRows = countLocationRows(text, DOCUMENT_LOCATION_READBACK_PATTERN);
   const sourceLocationRows = countLocationRows(text, SOURCE_LOCATION_READBACK_PATTERN);
   return (
-    text.length > 0 &&
-    hasVisibleTruncationBoundary(text) &&
-    !hasToolOutputFailureDiagnosticEvidence(text) &&
+    safeTruncatedCommandOutput(text) &&
     (looksLikeWarningOnlyCommandOutputObservation(text) ||
       documentLocationRows >= 2 ||
       sourceLocationRows >= 2 ||

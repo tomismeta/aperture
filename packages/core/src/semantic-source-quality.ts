@@ -1,7 +1,5 @@
 import type { TaskStatus } from "./events.js";
-import type { SemanticInterpretationHints } from "./semantic-types.js";
-
-export const TRUNCATED_SOURCE_EVIDENCE_FACTOR = "source evidence truncated";
+import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "./semantic-types.js";
 
 export type TruncatedSourceEvidenceHintOptions = {
   status?: TaskStatus;
@@ -9,33 +7,27 @@ export type TruncatedSourceEvidenceHintOptions = {
   reason?: string;
 };
 
+export type TruncatedSourceEvidenceHints = {
+  consequence?: "high";
+  confidence: "low";
+  factors: [typeof TRUNCATED_SOURCE_EVIDENCE_FACTOR];
+  reasons?: string[];
+};
+
 export function semanticHintsForTruncatedSourceEvidence(
   options: TruncatedSourceEvidenceHintOptions = {},
-): SemanticInterpretationHints {
-  const consequence = truncatedSourceEvidenceConsequence(options);
-
+): TruncatedSourceEvidenceHints {
+  const consequence =
+    options.consequence === "high" || (options.consequence !== false && options.status === "failed")
+      ? "high"
+      : undefined;
   return {
-    ...(consequence !== undefined ? { consequence } : {}),
+    ...(consequence === undefined ? {} : { consequence }),
     confidence: "low",
     factors: [TRUNCATED_SOURCE_EVIDENCE_FACTOR],
-    reasons: [options.reason ?? defaultTruncatedSourceEvidenceReason(options.status)],
+    reasons: [
+      options.reason ??
+        `source ${options.status === "failed" ? "failure " : ""}evidence was truncated before Aperture saw the full output`,
+    ],
   };
-}
-
-function truncatedSourceEvidenceConsequence(
-  options: TruncatedSourceEvidenceHintOptions,
-): "high" | undefined {
-  if (options.consequence === false) {
-    return undefined;
-  }
-  if (options.consequence === "high") {
-    return "high";
-  }
-  return options.status === "failed" ? "high" : undefined;
-}
-
-function defaultTruncatedSourceEvidenceReason(status: TaskStatus | undefined): string {
-  return status === "failed"
-    ? "source failure evidence was truncated before Aperture saw the full output"
-    : "source evidence was truncated before Aperture saw the full output";
 }

@@ -1,8 +1,6 @@
 export { interpretSourceEvent } from "./semantic-interpreter.js";
-export {
-  TRUNCATED_SOURCE_EVIDENCE_FACTOR,
-  semanticHintsForTruncatedSourceEvidence,
-} from "./semantic-source-quality.js";
+export { semanticHintsForTruncatedSourceEvidence } from "./semantic-source-quality.js";
+export { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "./semantic-types.js";
 export { readAttentionOntologyDiagnostic } from "./semantic-ontology.js";
 export { enrichApertureEvent, normalizeSourceEvent } from "./semantic-normalizer.js";
 

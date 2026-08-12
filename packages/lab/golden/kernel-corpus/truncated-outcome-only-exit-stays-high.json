@@ -1,7 +1,7 @@
 {
   "id": "golden:kernel-corpus:truncated-outcome-only-exit-stays-high",
-  "title": "Truncated outcome-only exit stays high",
-  "description": "A source-truncated nonzero no-output envelope may still expose outcome-only failure detail, but low-confidence source quality must keep failed-status routing conservative.",
+  "title": "Complete outcome-only exit rejects a truncation hint",
+  "description": "A complete nonzero no-output envelope remains authoritative when an unverified source-quality hint claims truncation.",
   "doctrineTags": [
     "kernel_corpus",
     "semantic_normalization",
@@ -26,25 +26,23 @@
         "intentFrame": "failure",
         "activityClass": "tool_failure",
         "toolFamily": "exec_command",
-        "consequence": "high",
-        "confidence": "low",
+        "consequence": "medium",
+        "confidence": "high",
         "whyNowIncludes": "failed and should be reviewed",
-        "factorsInclude": ["failed", "source evidence truncated"],
-        "reasonsInclude": [
-          "source failure evidence was truncated before Aperture saw the full output"
-        ],
+        "factorsInclude": ["task.updated", "failed"],
+        "reasonsInclude": ["task status explicitly indicates failure"],
         "provenanceIncludes": {
-          "consequence": "hint",
-          "confidence": "hint"
+          "consequence": "inferred",
+          "confidence": "inferred"
         },
         "ontology": {
           "ask": "status",
           "activity": "failure",
-          "consequence": "high",
+          "consequence": "medium",
           "blocking": "non_blocking",
           "episode": "unknown",
-          "confidence": "low",
-          "source": "hinted"
+          "confidence": "high",
+          "source": "explicit"
         }
       }
     ],
@@ -57,16 +55,15 @@
         "decisionRecordRoute": "queue",
         "plannedLane": "next",
         "resultLane": "now",
-        "semanticConfidence": "low",
-        "ambiguityReason": "low_signal",
-        "ambiguityResolution": "queue",
+        "semanticConfidence": "high",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": [
           "route:queue",
           "lane:next",
-          "criterion:ambiguity:low_signal",
           "criterion:peripheral_resolution:queue",
-          "policy:may_interrupt"
+          "policy_criterion:semantic_uncertainty:noop"
         ],
         "semanticInfluenceIncludes": [
           "task status stayed authoritative for candidate routing; semantic details still affected context, continuity, ambiguity handling, and ontology diagnostics"

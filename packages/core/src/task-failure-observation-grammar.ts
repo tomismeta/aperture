@@ -6,7 +6,6 @@ import {
   readReadOutputPayloadObservation,
   readStructuredOutputPayloadObservation,
 } from "./semantic-payload-observation-shapes.js";
-import type { TaskFailureStructuredOutputEnvelope } from "./semantic-task-failure-structured-output.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
 import {
   createTaskFailureObservationSyntax,
@@ -22,17 +21,16 @@ type TaskFailureEventFact =
   | "absent_failure"
   | "authorization_control"
   | "document_payload"
+  | "expected_source_diagnostic"
   | "outcome_failure"
   | "runtime_diagnostic"
   | "source_diagnostic"
   | "source_limit"
   | "terminal_success";
-
 type TaskFailureObservationGrammarInput = {
   editOutputOutcome: EditOutputOutcome | null;
   eventFact: TaskFailureEventFact | null;
   observationTranscript: ExplicitObservationTranscript | null;
-  preExecutionControlOutcome: { executionEvidence: "absent" | "unspecified" } | null;
   structuredOutputEnvelope: TaskFailureStructuredOutputEnvelope;
   structuredOutputZeroExitSuccess: boolean;
   summary: string;
@@ -43,11 +41,16 @@ type ObservationSubject = TaskFailureObservationSyntax["subject"];
 type ObservationSyntaxDetails = Partial<
   Pick<TaskFailureObservationSyntax, "diagnosticClass" | "evidenceLoss" | "recoveryHint">
 > & { completeBoundary?: true };
+type TaskFailureStructuredOutputEnvelope =
+  | { kind: "unsupported" | "raw" | "invalid" }
+  | { kind: "valid" | "recovered"; output: { exitCode?: number; output: string } };
 
 export function readTaskFailureObservationSyntax(
   input: TaskFailureObservationGrammarInput,
 ): TaskFailureObservationSyntax | null {
-  const { summary, toolFamily } = input;
+  const { eventFact, summary, toolFamily } = input;
+  if (eventFact !== null && eventFact !== "source_limit")
+    return eventFactSyntax(eventFact, toolFamily);
   const boundedSource = syntaxObservation(
     readReadOutputPayloadObservation(summary, "complete_bounded"),
     "read_output",
@@ -55,10 +58,7 @@ export function readTaskFailureObservationSyntax(
     toolFamily,
   );
   if (boundedSource !== null) return { ...boundedSource, completeBoundary: true };
-  const eventFact = input.eventFact;
-  if (eventFact !== null && eventFact !== "authorization_control")
-    return eventFactSyntax(eventFact, toolFamily);
-  if (input.preExecutionControlOutcome) return eventFactSyntax("authorization_control", toolFamily);
+  if (eventFact !== null) return eventFactSyntax(eventFact, toolFamily);
   if (input.observationTranscript)
     return transcriptObservation(input.observationTranscript, toolFamily);
   if (input.editOutputOutcome === "applied")
@@ -79,7 +79,7 @@ export function readTaskFailureObservationSyntax(
 }
 
 function eventFactSyntax(fact: TaskFailureEventFact, toolFamily?: string) {
-  const source = fact === "source_limit" || fact === "source_diagnostic";
+  const source = ["source_limit", "source_diagnostic", "expected_source_diagnostic"].includes(fact);
   const diagnostic = source || fact === "runtime_diagnostic";
   const control = fact === "authorization_control";
   const payload = fact === "document_payload";
@@ -101,10 +101,10 @@ function eventFactSyntax(fact: TaskFailureEventFact, toolFamily?: string) {
 function eventFactDetails(fact: TaskFailureEventFact): ObservationSyntaxDetails {
   if (fact === "authorization_control")
     return { completeBoundary: true, recoveryHint: "await_authorization" };
-  if (fact === "runtime_diagnostic")
+  if (fact === "runtime_diagnostic" || fact === "expected_source_diagnostic")
     return {
       completeBoundary: true,
-      diagnosticClass: "runtime",
+      diagnosticClass: fact === "runtime_diagnostic" ? "runtime" : "expected",
       recoveryHint: "inspect_diagnostic",
     };
   if (fact === "source_diagnostic")

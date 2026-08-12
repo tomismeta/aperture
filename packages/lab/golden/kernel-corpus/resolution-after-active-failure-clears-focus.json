@@ -27,7 +27,7 @@
           "consequence": "low",
           "blocking": "non_blocking",
           "episode": "resolved",
-          "source": "hinted"
+          "source": "explicit"
         }
       }
     ],

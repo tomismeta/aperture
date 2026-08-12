@@ -243,9 +243,9 @@ const OBSERVATION_KERNEL_CALIBRATION_EXPECTATIONS: Readonly<
   ],
   "source-limit-recovery-flow": [
     expected(
-      fields("diagnostic", "failure", "tool", "read", "source", "partial", "qualified", {
+      fields("diagnostic", "failure", "tool", "read", "source", "partial", "strong", {
         origin: "read_output",
-        authority: "hinted",
+        authority: "explicit",
         diagnosticClass: "source_limit",
         recoveryHint: "narrow_evidence_scope",
         baseline: "medium",

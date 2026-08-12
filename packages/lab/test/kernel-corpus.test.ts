@@ -31,18 +31,18 @@ test("kernel corpus profile declares a stable exact scenario set", async () => {
 
   assert.equal(new Set(KERNEL_CORPUS_SCENARIO_IDS).size, KERNEL_CORPUS_SCENARIO_IDS.length);
   assert.deepEqual(actualCorpusIds, [...KERNEL_CORPUS_SCENARIO_IDS]);
-  assert.equal(KERNEL_CORPUS_PROFILE.id, "aperture.kernel.messy_event_corpus.v2");
-  assert.equal(KERNEL_CORPUS_PROFILE.version, 2);
+  assert.equal(KERNEL_CORPUS_PROFILE.id, "aperture.kernel.messy_event_corpus.v3");
+  assert.equal(KERNEL_CORPUS_PROFILE.version, 3);
   assert.equal(KERNEL_CORPUS_PROFILE.coverageDimensions, KERNEL_CORPUS_COVERAGE_DIMENSIONS);
 });
 
-test("kernel corpus conformance report matches the committed v2 artifact", async () => {
+test("kernel corpus conformance report matches the committed v3 artifact", async () => {
   const report = await buildKernelCorpusConformanceReport();
   const scenarios = await loadGoldenScenarios();
   const scorecard = buildKernelCorpusScorecard(report, scenarios);
-  const committed = await readFile("packages/lab/conformance/kernel-corpus-v2.json", "utf8");
+  const committed = await readFile("packages/lab/conformance/kernel-corpus-v3.json", "utf8");
   const committedScorecard = await readFile(
-    "packages/lab/conformance/kernel-corpus-scorecard-v6.json",
+    "packages/lab/conformance/kernel-corpus-scorecard-v7.json",
     "utf8",
   );
   const parsedCommittedScorecard = parseKernelCorpusScorecard(committedScorecard);
@@ -169,7 +169,7 @@ test("kernel corpus scorecard comparison protects the committed quality baseline
   const scenarios = await loadGoldenScenarios();
   const scorecard = buildKernelCorpusScorecard(report, scenarios);
   const committedScorecard = parseKernelCorpusScorecard(
-    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v6.json", "utf8"),
+    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v7.json", "utf8"),
   );
   const comparison = buildKernelCorpusScorecardComparison(committedScorecard, scorecard);
 

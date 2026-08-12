@@ -28,7 +28,7 @@
           "consequence": "high",
           "blocking": "blocking",
           "episode": "same_issue",
-          "source": "hinted"
+          "source": "explicit"
         }
       },
       {
@@ -45,7 +45,7 @@
           "consequence": "high",
           "blocking": "blocking",
           "episode": "resurfaced",
-          "source": "hinted"
+          "source": "explicit"
         }
       }
     ],

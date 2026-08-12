@@ -6,7 +6,7 @@ import { evaluateAttention } from "../src/attention-evaluator.js";
 import { EventEvaluator } from "../src/event-evaluator.js";
 import { JudgmentCoordinator } from "../src/judgment-coordinator.js";
 import { normalizePublicEvaluationInput } from "../src/attention-evaluator-input.js";
-import { semanticHintsForTruncatedSourceEvidence } from "../src/semantic-source-quality.js";
+import { semanticHintsForTruncatedSourceEvidence } from "../src/semantic.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const evaluation = new EventEvaluator();
@@ -379,7 +379,7 @@ test("high-risk empty failed payloads keep critical routing", () => {
   assert.equal(result.candidate.judgmentInput.semanticEvidence?.strength, "strong");
 });
 
-test("truncated outcome-only hints keep failed statuses conservative", () => {
+test("truncation markers cannot alter complete outcome-only evidence", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:failed-truncated-outcome-only-exit",
@@ -400,15 +400,15 @@ test("truncated outcome-only hints keep failed statuses conservative", () => {
     return;
   }
 
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "medium");
   assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
   assert.equal(result.candidate.judgmentInput.observation?.kind, "outcome");
-  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "uncertain");
-  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "low");
-  assert.equal(result.candidate.judgmentInput.ontology?.consequence, "high");
-  assert.equal(result.candidate.judgmentInput.ontology?.confidence, "low");
+  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "stable");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "high");
+  assert.equal(result.candidate.judgmentInput.ontology?.consequence, "medium");
+  assert.equal(result.candidate.judgmentInput.ontology?.confidence, "high");
 });
 
 test("truncated source evidence helper cannot undercut failed status consequence", () => {
@@ -435,14 +435,14 @@ test("truncated source evidence helper cannot undercut failed status consequence
     return;
   }
 
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.consequence, "high");
-  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "low");
-  assert.equal(result.candidate.judgmentInput.ontology?.consequence, "high");
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "medium");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "high");
+  assert.equal(result.candidate.judgmentInput.ontology?.consequence, "medium");
 });
 
-test("hinted outcome-only softening is rejected for diagnostic failures", () => {
+test("generic failed-event hints cannot soften diagnostic observations", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:failed-forged-outcome-only-softening",
@@ -470,8 +470,8 @@ test("hinted outcome-only softening is rejected for diagnostic failures", () => 
   assert.equal(result.candidate.consequence, "high");
   assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
   assert.equal(result.candidate.judgmentInput.observation?.kind, "diagnostic");
-  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "overridden");
-  assert.equal(result.candidate.judgmentInput.observation?.evidenceStrength, "weak");
+  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "stable");
+  assert.equal(result.candidate.judgmentInput.observation?.evidenceStrength, "strong");
 });
 
 test("failed-status routine bash observations route as non-interruptive status", () => {
@@ -775,7 +775,7 @@ test("metadata tool family cannot forge routine bash status-conflict routing", (
   assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
 });
 
-test("medium-confidence routine bash observations keep failed-status routing", () => {
+test("generic confidence hints cannot suppress routine bash observations", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:medium-confidence-routine-observation",
@@ -797,11 +797,11 @@ test("medium-confidence routine bash observations keep failed-status routing", (
     return;
   }
 
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.consequence, "high");
-  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.consequence, "low");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
 test("low-consequence failed read observations use observational status-conflict routing", () => {
@@ -1254,7 +1254,7 @@ test("tool-use rejection outcomes route as background status updates", () => {
   }
 });
 
-test("tool-use rejection hints cannot forge status-conflict routing", () => {
+test("generic tool hints cannot suppress tool-use rejection observations", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:hinted-tool-use-rejection",
@@ -1276,13 +1276,13 @@ test("tool-use rejection hints cannot forge status-conflict routing", () => {
   }
 
   assert.equal(result.candidate.toolFamily, undefined);
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
-test("successful-test observation hints cannot forge status-conflict routing", () => {
+test("generic tool hints cannot suppress successful-test observations", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:hinted-successful-test-observation",
@@ -1304,11 +1304,11 @@ test("successful-test observation hints cannot forge status-conflict routing", (
   }
 
   assert.equal(result.candidate.toolFamily, undefined);
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
-  assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
 });
 
 test("nonmatching rejection prose keeps failed-status routing", () => {
@@ -1338,7 +1338,7 @@ test("nonmatching rejection prose keeps failed-status routing", () => {
   assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
-test("mismatched command alias hints cannot forge status-conflict routing", () => {
+test("mismatched command hints cannot suppress canonical observations", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:mismatched-command-alias-observation",
@@ -1361,10 +1361,10 @@ test("mismatched command alias hints cannot forge status-conflict routing", () =
   }
 
   assert.equal(result.candidate.toolFamily, "exec_command");
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
-  assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
 });
 
 test("task.updated semantics enrich provenance without overriding status routing", () => {

@@ -9,6 +9,7 @@ import {
   subscribeInternalTrace,
   type ApertureTrace as InternalApertureTrace,
 } from "../src/internal-contract.js";
+import { semanticHintsForTruncatedSourceEvidence } from "../src/semantic.js";
 
 test("global urgent backlog demotes lower-value queued status into ambient", () => {
   const core = new ApertureCore();
@@ -1402,10 +1403,10 @@ test("repeated low-confidence failures stay queued behind ambiguity gate", () =>
     timestamp: "2026-03-08T12:06:10.000Z",
     source: { id: "custom-agent" },
     title: "Build maybe failed",
-    summary: "The latest build failed and may need retry.",
+    summary: "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
     status: "failed",
     semanticHints: {
-      confidence: "low",
+      ...semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
       relationHints: [{ kind: "same_issue", target: "issue:low-confidence-failure" }],
     },
   });
@@ -1436,10 +1437,10 @@ test("repeated low-confidence failures stay queued behind ambiguity gate", () =>
     timestamp: "2026-03-08T12:06:20.000Z",
     source: { id: "custom-agent" },
     title: "Build maybe failed again",
-    summary: "The same build may have failed again and may need retry.",
+    summary: "Showing lines 40 to 60 of 900; the rest was clipped at the output boundary.",
     status: "failed",
     semanticHints: {
-      confidence: "low",
+      ...semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
       relationHints: [
         { kind: "same_issue", target: "issue:low-confidence-failure" },
         { kind: "repeats", target: "issue:low-confidence-failure" },
@@ -1518,10 +1519,10 @@ test("high-confidence recurrence can promote a queued uncertain failure", () => 
     timestamp: "2026-03-08T12:07:10.000Z",
     source: { id: "custom-agent" },
     title: "Build maybe failed",
-    summary: "The latest build failed and may need retry.",
+    summary: "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
     status: "failed",
     semanticHints: {
-      confidence: "low",
+      ...semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
       relationHints: [{ kind: "same_issue", target: "issue:recovery-failure" }],
     },
   });
@@ -1551,7 +1552,6 @@ test("high-confidence recurrence can promote a queued uncertain failure", () => 
     summary: "The same build failed again and should be reviewed.",
     status: "failed",
     semanticHints: {
-      confidence: "high",
       relationHints: [
         { kind: "same_issue", target: "issue:recovery-failure" },
         { kind: "repeats", target: "issue:recovery-failure" },
@@ -1612,10 +1612,10 @@ test("low-confidence recurrence cannot refresh an active failure", () => {
     timestamp: "2026-03-08T12:08:20.000Z",
     source: { id: "custom-agent" },
     title: "Build maybe failed again",
-    summary: "The same build may have failed again and may need retry.",
+    summary: "Showing lines 40 to 60 of 900; the rest was clipped at the output boundary.",
     status: "failed",
     semanticHints: {
-      confidence: "low",
+      ...semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
       relationHints: [
         { kind: "same_issue", target: "issue:active-failure" },
         { kind: "repeats", target: "issue:active-failure" },

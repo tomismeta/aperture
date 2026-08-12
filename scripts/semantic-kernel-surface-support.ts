@@ -45,8 +45,8 @@ export const TASK_FAILURE_PARSING_FILES = [
   "packages/core/src/semantic-evidence.ts",
   "packages/core/src/semantic-failure-detail.ts",
   "packages/core/src/semantic-edit-output-shapes.ts",
+  "packages/core/src/semantic-task-failure-assertion-scope.ts",
   "packages/core/src/semantic-task-failure-event-facts.ts",
-  "packages/core/src/semantic-task-failure-structured-output.ts",
 ] as const;
 
 export type SemanticKernelSurfaceFamily =
@@ -200,9 +200,9 @@ export const SEMANTIC_KERNEL_SURFACE_MANIFEST = [
       "packages/core/src/semantic-edit-output-shapes.ts",
       "packages/core/src/semantic-evidence.ts",
       "packages/core/src/semantic-failure-detail.ts",
+      "packages/core/src/semantic-task-failure-assertion-scope.ts",
       "packages/core/src/semantic-task-failure-event-facts.ts",
       "packages/core/src/semantic-task-failure-signals.ts",
-      "packages/core/src/semantic-task-failure-structured-output.ts",
       "packages/core/src/semantic-terminal-evidence.ts",
     ],
   },

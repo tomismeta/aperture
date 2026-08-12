@@ -39,10 +39,10 @@ type SourceEventBase = {
    */
   metadata?: Record<string, unknown>;
   /**
-   * Adapter-provided semantic hints.
+   * Adapter inputs into interpretation, never canonical semantic output.
    *
-   * These are source-side inputs into interpretation, not canonical semantic
-   * output from Aperture Core.
+   * On failed task updates, Core honors relation hints and independently
+   * verified truncated-source hints; other semantic fields are ignored.
    */
   semanticHints?: SemanticInterpretationHints;
 };

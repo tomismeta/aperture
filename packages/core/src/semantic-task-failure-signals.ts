@@ -14,27 +14,27 @@ import {
   looksLikeExplicitDiagnosticReferenceObservationTranscript,
 } from "./semantic-observation-transcript-reference-shapes.js";
 import { hasOwnedReadTerminalDiagnosticEvidence } from "./semantic-owned-read-observation-shapes.js";
-import { readSemanticStructuredOutputOwnership } from "./semantic-structured-output-ownership.js";
-import { readTaskFailureEvidenceEnvelope } from "./semantic-task-failure-structured-output.js";
-import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
 import {
-  parseTaskFailureEventFact,
-  readPreExecutionControl,
-} from "./semantic-task-failure-event-facts.js";
+  resolveSemanticStructuredOutputEnvelope,
+  readSemanticStructuredOutputOwnership,
+} from "./semantic-structured-output-ownership.js";
+import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
+import { parseTaskFailureEventFact } from "./semantic-task-failure-event-facts.js";
 import {
   readTaskFailureObservationSyntax,
   type TaskFailureObservationSyntax,
 } from "./task-failure-observation-grammar.js";
 
 export type TaskFailureSemanticSignals = ReturnType<typeof readTaskFailureSemanticSignals>;
-type SemanticSignalInput = { summary?: string | undefined; toolFamily?: string | undefined };
+type SemanticSignalInput = Partial<Record<"title" | "summary" | "toolFamily", string | undefined>>;
 
 export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
   const { toolFamily } = input;
   const summary = input.summary ?? "";
+  const eventFields = [input.title ?? "", summary];
   const commandExecutionToolFamily = isSemanticCommandExecutionToolFamily(toolFamily);
   const structuredOutputOwnership = readSemanticStructuredOutputOwnership(toolFamily);
-  const structuredOutputEnvelope = readTaskFailureEvidenceEnvelope(
+  const structuredOutputEnvelope = resolveSemanticStructuredOutputEnvelope(
     input.summary,
     structuredOutputOwnership,
   );
@@ -69,14 +69,12 @@ export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
     (toolFamily === undefined ? readExplicitObservationTranscript(summary) : null);
   const strongDiagnostic = hasStrongRuntimeDiagnosticEvidence(summary);
   const controlDiagnostic = hasToolOutputFailureDiagnosticEvidence(summary, true);
-  const control = readPreExecutionControl(summary, controlDiagnostic);
-  const preExecutionControlOutcome =
-    control?.conflictingDiagnostic === false ? control.outcome : null;
+  const eventFact = parseTaskFailureEventFact(eventFields, controlDiagnostic);
+  const controlContext = parseTaskFailureEventFact(eventFields) === "authorization_control";
   const observationSyntax = readTaskFailureObservationSyntax({
     editOutputOutcome,
-    eventFact: parseTaskFailureEventFact(summary, controlDiagnostic),
+    eventFact,
     observationTranscript,
-    preExecutionControlOutcome,
     structuredOutputEnvelope,
     structuredOutputZeroExitSuccess,
     summary,
@@ -110,9 +108,9 @@ export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
       structuredOutputOwnership !== "unsupported" &&
       diagnosticStructuredToolOutput === null &&
       structuredOutputEnvelope.kind === "raw" &&
-      preExecutionControlOutcome?.executionEvidence !== "absent" &&
+      observationSyntax?.kind !== "control" &&
       !protectedPayload &&
-      hasToolOutputFailureDiagnosticEvidence(summary, control !== null),
+      hasToolOutputFailureDiagnosticEvidence(summary, controlContext),
     strongSourceRuntimeDiagnostic:
       (structuredOutputEnvelope.kind === "valid" &&
         structuredSourcePayloadObservation &&

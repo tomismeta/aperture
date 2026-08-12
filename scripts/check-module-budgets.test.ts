@@ -161,15 +161,14 @@ test("module budget checker counts task-failure parsing as one governed surface"
     );
     await writeRepoFile(
       root,
-      "packages/core/src/semantic-task-failure-event-facts.ts",
+      "packages/core/src/semantic-task-failure-assertion-scope.ts",
       "const one = 1;\n",
     );
     await writeRepoFile(
       root,
-      "packages/core/src/semantic-task-failure-structured-output.ts",
+      "packages/core/src/semantic-task-failure-event-facts.ts",
       "const one = 1;\n",
     );
-
     assert.equal(await countTaskFailureParsingLines(root), 19);
   } finally {
     await rm(root, { recursive: true, force: true });

@@ -76,7 +76,7 @@ test("observation kernel scorecard covers the normalized observation contract", 
       .map((observation) => observation.judgment.statusEvidence),
     ["limited_failure", "stable_observation"],
   );
-  assert.notEqual(
+  assert.equal(
     scorecard.observations.find(
       (observation) => observation.fixtureId === "read-source-window-limit",
     )?.semanticDigest,

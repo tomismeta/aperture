@@ -776,7 +776,7 @@ test("semantic review candidate reports shortlist deterministic review pressure"
   assert.equal(report.input.scannedBundleCount, 1);
   assert.ok(report.summary.countsByKind.failure_attention > 0);
   assert.equal(report.coverage.shapeSchemaVersion, 1);
-  assert.equal(report.coverage.baseline.profileId, "aperture.kernel.messy_event_corpus.v2");
+  assert.equal(report.coverage.baseline.profileId, "aperture.kernel.messy_event_corpus.v3");
   assert.equal(report.coverage.baseline.engineFingerprint, report.input.engine.fingerprint);
   assert.equal(report.coverage.baseline.evaluationMode, report.input.evaluationMode);
   assert.equal(report.coverage.baseline.signatureSetDigest, null);
@@ -858,7 +858,7 @@ test("semantic review candidate reports ledger corpus novelty and judgment cover
   });
   const coverage = report.coverage;
 
-  assert.equal(coverage.baseline.profileId, "aperture.kernel.messy_event_corpus.v2");
+  assert.equal(coverage.baseline.profileId, "aperture.kernel.messy_event_corpus.v3");
   assert.equal(coverage.baseline.authority, "engine_observation_coverage");
   assert.match(coverage.baseline.profileDigest, /^sha256:/);
   assert.equal(coverage.observations.stepCount, 4);

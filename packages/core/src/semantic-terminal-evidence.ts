@@ -1,8 +1,6 @@
 import { ISSUE_SIGNAL_PHRASES, TERMINAL_FAILURE_PHRASES } from "./semantic-patterns.js";
 import { normalizeSemanticText } from "./semantic-text.js";
 
-export { looksLikeBareNonzeroTerminalExitEvidence } from "./semantic-task-failure-event-facts.js";
-
 export function looksLikeTerminalFailureEvidence(text: string): boolean {
   if (
     looksLikeNonzeroTerminalExit(text) ||
@@ -155,7 +153,6 @@ const BENIGN_EXCEPTION_PATTERNS = [
 const BENIGN_TRACEBACK_PATTERNS = [
   /\b(?:no tracebacks?(?: occurred| raised| reported| found| seen| present)?|without (?:a )?tracebacks?|expected tracebacks?(?: was| were)? (?:caught|handled|raised|produced)|tracebacks?(?: was| were)? expected)\b/,
 ] as const;
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

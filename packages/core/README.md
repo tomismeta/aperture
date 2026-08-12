@@ -340,7 +340,9 @@ typed evidence variant, such as clipped stderr or a transcript window that
 omitted earlier evidence. It lowers semantic confidence and, for failed status
 by default, preserves high consequence. It cannot lower failed evidence to
 medium or low consequence. It does not parse logs, recover missing evidence, or
-make unrelated failures severe.
+make unrelated failures severe. Failed task updates are status-authoritative:
+Core also accepts relation hints, but ignores every other generic semantic hint
+field rather than allowing adapter claims to override observed failure facts.
 
 If you want to type `onTrace(...)` callbacks directly or inspect why a route
 happened through the public explanation contract, use the trace entrypoint:

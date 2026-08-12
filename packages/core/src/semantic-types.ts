@@ -19,6 +19,7 @@ export type SemanticActivityClass = AttentionActivityClass;
 export type SemanticConsequenceLevel = AttentionConsequenceLevel;
 
 export type SemanticConfidence = "low" | "medium" | "high";
+export const TRUNCATED_SOURCE_EVIDENCE_FACTOR = "source evidence truncated";
 
 export type SemanticProvenanceKind = "source" | "inferred" | "hint";
 

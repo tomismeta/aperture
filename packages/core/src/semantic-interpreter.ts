@@ -1,11 +1,12 @@
 import type { SourceEvent } from "./source-event.js";
-import type {
-  SemanticConsequenceLevel,
-  SemanticConfidence,
-  SemanticFieldProvenance,
-  SemanticInterpretation,
-  SemanticInterpretationHints,
-  SemanticRelationHint,
+import {
+  TRUNCATED_SOURCE_EVIDENCE_FACTOR,
+  type SemanticConsequenceLevel,
+  type SemanticConfidence,
+  type SemanticFieldProvenance,
+  type SemanticInterpretation,
+  type SemanticInterpretationHints,
+  type SemanticRelationHint,
 } from "./semantic-types.js";
 import {
   detectSemanticBlockingSignal,
@@ -31,18 +32,34 @@ import {
 import { observationReadsAsStatusUpdate } from "./observation-semantic-read.js";
 import { projectTaskFailureObservationFromEvent } from "./task-failure-observation-reader.js";
 
-export type SemanticInterpreter = (event: SourceEvent) => SemanticInterpretation;
 type SemanticProvenanceField = keyof SemanticFieldProvenance;
 
 export function interpretSourceEvent(event: SourceEvent): SemanticInterpretation {
-  const inferred = inferSemanticInterpretation(event);
-  const hints =
-    event.type === "task.updated" && event.status === "failed" && event.evidence !== undefined
-      ? event.semanticHints?.relationHints === undefined
-        ? undefined
-        : { relationHints: event.semanticHints.relationHints }
-      : event.semanticHints;
-  return applySemanticHints(inferred, hints);
+  return applySemanticHints(inferSemanticInterpretation(event), readApplicableSemanticHints(event));
+}
+
+function readApplicableSemanticHints(event: SourceEvent): SemanticInterpretationHints | undefined {
+  const hints = event.semanticHints;
+  if (event.type !== "task.updated" || event.status !== "failed" || hints === undefined)
+    return hints;
+  const relationOnly = hints.relationHints && { relationHints: hints.relationHints };
+  const observation = projectTaskFailureObservationFromEvent(event);
+  if (
+    event.evidence === undefined &&
+    observation !== null &&
+    observation.evidenceLoss === "partial" &&
+    hints.confidence === "low" &&
+    hints.factors?.includes(TRUNCATED_SOURCE_EVIDENCE_FACTOR) === true &&
+    (hints.consequence === undefined || hints.consequence === "high")
+  )
+    return {
+      ...relationOnly,
+      ...(hints.consequence === undefined ? {} : { consequence: hints.consequence }),
+      confidence: "low",
+      factors: [TRUNCATED_SOURCE_EVIDENCE_FACTOR],
+      ...(hints.reasons === undefined ? {} : { reasons: hints.reasons }),
+    };
+  return relationOnly;
 }
 
 function inferSemanticInterpretation(event: SourceEvent): SemanticInterpretation {
@@ -506,25 +523,10 @@ function mergeSemanticConfidence(
   inferred: SemanticConfidence,
   hinted: SemanticConfidence | undefined,
 ): SemanticConfidence {
-  if (!hinted) {
-    return inferred;
-  }
-
-  return semanticConfidenceWeight(hinted) < semanticConfidenceWeight(inferred) ? hinted : inferred;
+  if (hinted === undefined) return inferred;
+  return CONFIDENCE_WEIGHT[hinted] < CONFIDENCE_WEIGHT[inferred] ? hinted : inferred;
 }
-
-function semanticConfidenceWeight(confidence: SemanticConfidence): number {
-  switch (confidence) {
-    case "low":
-      return 1;
-    case "medium":
-      return 2;
-    case "high":
-      return 3;
-    default:
-      return unreachableSemanticConfidence(confidence);
-  }
-}
+const CONFIDENCE_WEIGHT: Record<SemanticConfidence, number> = { high: 3, low: 1, medium: 2 };
 
 function mergeSemanticRelationHints(
   inferred: SemanticRelationHint[],
@@ -640,8 +642,4 @@ function unreachableRequestKind(kind: never): never {
 
 function unreachableToolFamilySource(source: never): never {
   throw new Error(`Unhandled tool family provenance source in semantic interpreter: ${source}`);
-}
-
-function unreachableSemanticConfidence(confidence: never): never {
-  throw new Error(`Unhandled semantic confidence in semantic interpreter: ${confidence}`);
 }

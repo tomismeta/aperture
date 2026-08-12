@@ -149,7 +149,7 @@ test("same-issue repeats project to a resurfaced episode diagnostic", () => {
   assert.equal(diagnostic.activity, "failure");
   assert.equal(diagnostic.blocking, "non_blocking");
   assert.equal(diagnostic.episode, "resurfaced");
-  assert.equal(diagnostic.source, "hinted");
+  assert.equal(diagnostic.source, "explicit");
 });
 
 test("duplicate relation hints do not demote source-shaped ontology reads to hinted", () => {
@@ -194,7 +194,7 @@ test("attention ontology read derives observational status conflicts through can
   });
 });
 
-test("forged observational hints do not project failed terminal evidence as task progress", () => {
+test("generic observational hints do not project failed terminal evidence as task progress", () => {
   const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:forged-observation-conflict",
     taskId: "task:ontology:forged-observation-conflict",
@@ -214,7 +214,7 @@ test("forged observational hints do not project failed terminal evidence as task
   });
 
   assert.equal(diagnostic.activity, "failure");
-  assert.equal(diagnostic.source, "hinted");
+  assert.equal(diagnostic.source, "explicit");
 });
 
 test("blocked wording can promote a waiting status into a blocking ontology read", () => {
@@ -285,6 +285,22 @@ test("decorative whyNow hints do not demote explicit status-shaped ontology read
   assert.equal(diagnostic.source, "explicit");
 });
 
+test("relation hints affect continuity without changing observation authority", () => {
+  const diagnostic = readAttentionOntologyDiagnostic({
+    id: "evt:ontology:relation-only-authority",
+    taskId: "task:ontology:relation-only-authority",
+    type: "task.updated",
+    timestamp,
+    title: "Deploy failed",
+    summary: "The deployment command failed during verification.",
+    status: "failed",
+    semanticHints: { relationHints: [{ kind: "same_issue", target: "task:prior" }] },
+  });
+
+  assert.equal(diagnostic.episode, "same_issue");
+  assert.equal(diagnostic.source, "explicit");
+});
+
 test("operator-directed status asks stay inferred in ontology even when the lifecycle fact is explicit", () => {
   const diagnostic = readAttentionOntologyDiagnostic({
     id: "evt:ontology:direct-ask-status",
@@ -324,7 +340,7 @@ test("resolving relation hints project to a resolved episode diagnostic", () => 
 
   assert.equal(diagnostic.activity, "task_completion");
   assert.equal(diagnostic.episode, "resolved");
-  assert.equal(diagnostic.source, "hinted");
+  assert.equal(diagnostic.source, "explicit");
 });
 
 test("attention ontology preserves explicit lifecycle activity while relation hints shape episode", () => {
@@ -349,7 +365,7 @@ test("attention ontology preserves explicit lifecycle activity while relation hi
   assert.equal(diagnostic.activity, "task_completion");
   assert.equal(diagnostic.blocking, "non_blocking");
   assert.equal(diagnostic.episode, "resurfaced");
-  assert.equal(diagnostic.source, "hinted");
+  assert.equal(diagnostic.source, "explicit");
 });
 
 test("normalized events can project ontology diagnostics without re-interpreting source events", () => {

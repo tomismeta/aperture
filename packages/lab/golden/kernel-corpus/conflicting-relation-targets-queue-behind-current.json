@@ -27,7 +27,7 @@
           "consequence": "high",
           "blocking": "blocking",
           "episode": "same_issue",
-          "source": "hinted"
+          "source": "explicit"
         }
       }
     ],

@@ -1,5 +1,4 @@
 import type { TaskFailureSemanticSignals } from "./semantic-task-failure-signals.js";
-import { looksLikeBareNonzeroTerminalExitEvidence } from "./semantic-task-failure-event-facts.js";
 import { looksLikeTerminalFailureEvidence } from "./semantic-terminal-evidence.js";
 import { normalizeSemanticText } from "./semantic-text.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
@@ -103,9 +102,14 @@ function isBareNonzeroTerminalExit(input: TerminalInput): boolean {
     looksLikeBareNonzeroTerminalExitEvidence(input.summary ?? "")
   );
 }
+export function looksLikeBareNonzeroTerminalExitEvidence(value: string): boolean {
+  return BARE_NONZERO_EXIT.test(value.toLowerCase().replace(/\W+/g, " ").trim());
+}
 function looksLikeOutcomeOnlyCommandOutput(output: string): boolean {
   const text = normalizeSemanticText(output).replace(/[.]+$/g, "").replace(/\s+/g, " ");
   return /^(?:no output|without output|no stdout no stderr|no stderr no stdout|empty stdout empty stderr|stdout empty stderr empty|no tests? found(?: exiting with code -?\d+)?|no test files(?: were)? found|no files matching .+ (?:were )?found|collected 0 items|found 0 tests?|0 tests? found)$/.test(
     text,
   );
 }
+const BARE_NONZERO_EXIT =
+  /^(?:(?:no output|without output|no stdout no stderr|no stderr no stdout|empty stdout empty stderr|stdout empty stderr empty)\s+(?:(?:command|process|tool|subprocess)\s+)?(?:(?:exit|return)(?:ed)?\s+(?:with\s+)?(?:code|status)\s*(?:is|was)?\s*-?[1-9]\d*|(?:failed\s+with\s+)?(?:a\s+)?non[- ]?zero\s+exit)|(?:the )?(?:command|process|tool|subprocess)\s+(?:exit|return)(?:ed)?\s+(?:with\s+)?(?:code|status)\s*(?:is|was)?\s*-?[1-9]\d*\s+(?:no|without)\s+(?:(?:standard|error) output|stdout|stderr|diagnostic (?:text|output))(?:\s*(?:and|or)?\s*(?:(?:standard|error) output|stdout|stderr|diagnostic (?:text|output))){1,3}\s+(?:(?:was|were)\s+)?(?:retained|captured|available|produced))$/i;

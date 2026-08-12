@@ -7,10 +7,8 @@ import { hasToolOutputFailureDiagnosticEvidence } from "../src/semantic-diagnost
 import { readTaskFailureSemanticEvidence } from "../src/semantic-evidence.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 import { looksLikeSearchResultObservation } from "../src/semantic-search-observation-shapes.js";
-import {
-  looksLikeBareNonzeroTerminalExitEvidence,
-  readPreExecutionControl,
-} from "../src/semantic-task-failure-event-facts.js";
+import { parseTaskFailureEventFact } from "../src/semantic-task-failure-event-facts.js";
+import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-failure-detail.js";
 import { readTestOutputObservation } from "../src/semantic-test-output-observation-shapes.js";
 import { normalizeSemanticText } from "../src/semantic-text.js";
 
@@ -37,14 +35,14 @@ function looksLikeSearch(summary: string): boolean {
   return looksLikeSearchResultObservation(normalizeSemanticText(summary), summary);
 }
 
-function readCleanPreExecutionControl(summary: string) {
-  const read = readControl(summary);
-  return read?.conflictingDiagnostic === false ? read.outcome : null;
-}
-
-function readControl(summary: string) {
-  return readPreExecutionControl(summary, hasToolOutputFailureDiagnosticEvidence(summary, true));
-}
+const readCleanAuthorizationControl = (summary: string) =>
+  parseTaskFailureEventFact(summary) === "authorization_control" &&
+  !hasToolOutputFailureDiagnosticEvidence(summary, true)
+    ? "authorization_control"
+    : null;
+const hasConflictingAuthorizationDiagnostic = (summary: string) =>
+  parseTaskFailureEventFact(summary) === "authorization_control" &&
+  hasToolOutputFailureDiagnosticEvidence(summary, true);
 
 test("outcome-only exits require nonzero status and multiple explicitly absent evidence channels", () => {
   for (const summary of [
@@ -219,13 +217,246 @@ test("complete document facts require content and yield to asserted outcomes", (
   assert.equal(outcome?.observationSyntax?.polarity, "failure");
 
   for (const summary of [
+    "A complete document read was returned. It says execution started and RuntimeError was returned in a complete diagnostic record.",
+    "The complete document payload was returned in full and reports that execution started with RuntimeError in a complete diagnostic record.",
+    "A complete document read was returned. The returned document reports execution started with RuntimeError in a complete diagnostic record.",
+    "A complete document read was returned. Within it, the contents state execution started with RuntimeError in a complete diagnostic record.",
+    "A complete document read was returned. Its contents state execution started with RuntimeError in a complete diagnostic record.",
+  ]) {
+    assert.equal(readFailure(summary, "Opaque.Reader/4")?.observationSyntax?.kind, "payload");
+  }
+
+  const assertedAfterPayload = readFailure(
+    "A complete document read was returned. It says RuntimeError is an example, but execution started and RuntimeError was returned in a complete runtime diagnostic.",
+    "Opaque.Reader/4",
+  );
+  assert.equal(assertedAfterPayload?.observationSyntax?.kind, "diagnostic");
+
+  for (const summary of [
     "A complete document read was returned.",
     "A complete document read was requested, but no payload was returned.",
+    "A complete document read might be returned. It contains example text.",
+    "A complete document read was not returned. It contains example text.",
+    "A complete document read is not available. It contains example text.",
+    "A complete document read was never delivered. It contains example text.",
+    "A complete document read was unavailable. It contains example text.",
     "A complete document read was returned. It contains no content.",
     "A complete document read was returned. It does not contain a payload.",
   ]) {
     assert.notEqual(readFailure(summary, "Opaque.Reader/4")?.observationSyntax?.kind, "payload");
   }
+});
+
+test("event facts compose complete boundaries without sentence-template coupling", () => {
+  const cases = [
+    [
+      "terminal_success",
+      "Execution finished and the terminal record is complete. Return status 0 was reported; stdout contains a completion marker and stderr is empty.",
+    ],
+    [
+      "outcome_failure",
+      "Execution completed with return status 27. This is the complete outcome-only record, and diagnostic content is excluded from it.",
+    ],
+    [
+      "absent_failure",
+      "Execution completed and failed with return status 9. The expected failure output is explicitly empty, and no diagnostic text was supplied.",
+    ],
+    [
+      "runtime_diagnostic",
+      "The worker terminated with exit status 71 after allocator exhaustion. The complete runtime diagnostic was returned.",
+    ],
+    [
+      "runtime_diagnostic",
+      "The process executed and ended with a segmentation fault. A complete stderr diagnostic record was returned.",
+    ],
+    [
+      "source_limit",
+      "The read returned a bounded partial view of 75 lines starting at offset 25 from 600 total lines.",
+    ],
+    [
+      "expected_source_diagnostic",
+      "The bounded diagnostic check completed. Its expected observation is a failed source validation for an unmatched delimiter.",
+    ],
+    [
+      "expected_source_diagnostic",
+      "The validation record is complete. The requested diagnostic reports a parse error in the document.",
+    ],
+    [
+      "expected_source_diagnostic",
+      "The validation record is complete. Expected diagnostic reports a parse error in the document.",
+    ],
+    [
+      "document_payload",
+      'The complete document payload was returned in full and includes the quoted example "runtime failure: exit code 88" as source text, not an event outcome.',
+    ],
+    [
+      "authorization_control",
+      "A decision is required before the operation. Execution has not started, and no result exists.",
+    ],
+  ] as const;
+
+  for (const [expected, summary] of cases) {
+    assert.equal(parseTaskFailureEventFact(summary), expected, summary);
+  }
+});
+
+test("event facts preserve uncertainty for incomplete and non-asserted shapes", () => {
+  for (const summary of [
+    'The template quotes "runtime failure: exit code 71" without an asserted diagnostic.',
+    "A timeout might occur if execution starts, but no timeout occurred.",
+    "Execution may have completed, but no result boundary is available.",
+    "The read returned some lines from a larger source.",
+    "A decision may be required before a future operation.",
+  ]) {
+    assert.equal(parseTaskFailureEventFact(summary), null, summary);
+  }
+});
+
+test("event facts preserve assertion scope across negation, modality, and fields", () => {
+  for (const summary of [
+    "Execution started and no segmentation fault occurred. A complete stderr diagnostic record was returned.",
+    "The complete outcome-only record reports exit code 9 was not returned; output channels were excluded from it.",
+    "The validation record is complete. The requested diagnostic reports no parse error.",
+    "Authorization is required before operation only in a hypothetical scenario. Execution has not started and no result exists.",
+    "Authorization was declined before invocation. No tool call occurred and no result exists. The operation subsequently ran.",
+    "The record denies a segmentation fault. Execution started. A complete stderr diagnostic record was returned.",
+    "The validation record is complete. The requested diagnostic failed to report a parse error in the document.",
+    "A complete document read is not available. It contains a report that execution started and RuntimeError was returned in a complete diagnostic record.",
+    "A complete document read was never delivered. It reports that execution started and RuntimeError was returned in a complete diagnostic record.",
+    "The command was not a failure. No diagnostic payload was returned.",
+  ]) {
+    assert.equal(parseTaskFailureEventFact(summary), null, summary);
+  }
+
+  assert.equal(
+    parseTaskFailureEventFact(
+      "No runtime failure occurred initially, but execution later crashed and a complete runtime diagnostic was returned.",
+    ),
+    "runtime_diagnostic",
+  );
+  assert.equal(
+    parseTaskFailureEventFact(
+      "Execution started and did not stop before RuntimeError was returned. A complete stderr diagnostic record was returned.",
+    ),
+    "runtime_diagnostic",
+  );
+  assert.equal(
+    parseTaskFailureEventFact(
+      "Execution was not prevented and later crashed. A complete runtime diagnostic was returned.",
+    ),
+    "runtime_diagnostic",
+  );
+  assert.equal(
+    parseTaskFailureEventFact([
+      "Hypothetical diagnostic",
+      "Execution started. RuntimeError was returned in a complete stderr diagnostic record.",
+    ]),
+    null,
+  );
+  assert.equal(
+    parseTaskFailureEventFact([
+      "Segmentation fault was not observed",
+      "Execution started. A complete stderr diagnostic record was returned.",
+    ]),
+    null,
+  );
+  assert.equal(
+    parseTaskFailureEventFact([
+      "The operation subsequently ran",
+      "Authorization was declined before invocation. No tool call occurred and no result exists.",
+    ]),
+    null,
+  );
+});
+
+test("event facts reject negated, modal, and contradictory evidence", () => {
+  for (const summary of [
+    "Execution occurred and the complete diagnostic was returned. No runtime failure occurred.",
+    "The terminal record is complete and stdout and stderr were returned. Exit code 0 was not returned.",
+    "No authorization is required before execution. Execution has not started and no result exists.",
+    "A runtime failure might occur if execution starts. The diagnostic record is complete.",
+  ]) {
+    assert.equal(parseTaskFailureEventFact(summary), null, summary);
+  }
+  assert.notEqual(
+    parseTaskFailureEventFact(
+      "Authorization is required before execution. Execution has not started and no result exists. Execution completed and returned a result.",
+    ),
+    "authorization_control",
+  );
+});
+
+test("event facts reject structurally negated propositions across fields", () => {
+  for (const summary of [
+    "The terminal record is complete. Return status zero was ruled out. Stdout and stderr were returned.",
+    "The terminal record is complete. The report excludes exit code 0. Stdout and stderr were returned.",
+    "The terminal record is complete. Exit code zero was expected but never observed. Stdout and stderr were returned.",
+    "Execution started. RuntimeError was ruled out. A complete diagnostic record was returned.",
+    "Execution started. A segmentation fault cannot be confirmed. A complete diagnostic record was returned.",
+  ]) {
+    assert.equal(parseTaskFailureEventFact(summary), null, summary);
+  }
+
+  assert.equal(
+    parseTaskFailureEventFact([
+      "RuntimeError",
+      "Execution started. RuntimeError was ruled out. A complete diagnostic record was returned.",
+    ]),
+    null,
+  );
+});
+
+test("delivered document authority is independent of its proposition", () => {
+  for (const summary of [
+    "A complete document read was returned. It describes a hypothetical response where RuntimeError was returned.",
+    "A complete document read was returned. It reports that no segmentation fault occurred.",
+    "A complete document read describes how execution could fail with RuntimeError.",
+    "A full source payload reports that no segmentation fault occurred.",
+    "A complete document read describes a hypothetical scenario where execution starts but execution later crashed with RuntimeError.",
+  ]) {
+    assert.equal(parseTaskFailureEventFact(summary), "document_payload", summary);
+  }
+
+  assert.equal(
+    parseTaskFailureEventFact(
+      "A complete document read describes how execution could fail, but execution later crashed and a complete runtime diagnostic was returned.",
+    ),
+    "runtime_diagnostic",
+  );
+});
+
+test("authorization controls yield to structural execution and result evidence", () => {
+  const control =
+    "Authorization was declined before invocation. No tool call occurred and no result exists.";
+  for (const execution of [
+    "A result was subsequently produced.",
+    "The tool subsequently returned output.",
+    "The command later exited.",
+    "An invocation was subsequently performed.",
+  ]) {
+    assert.notEqual(parseTaskFailureEventFact(`${control} ${execution}`), "authorization_control");
+  }
+});
+
+test("complete terminal facts outrank partial source and remain outside document payload scope", () => {
+  assert.equal(
+    parseTaskFailureEventFact(
+      "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary. Process invocation occurred and terminated. Its complete stderr output contains invalid memory access.",
+    ),
+    "runtime_diagnostic",
+  );
+  assert.equal(
+    parseTaskFailureEventFact(
+      "A full document payload was returned. It contains a complete diagnostic example where execution occurred and runtime failure was reported.",
+    ),
+    "document_payload",
+  );
+  assert.equal(
+    parseTaskFailureEventFact(
+      'The complete document payload quotes "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary" as source text.',
+    ),
+    "document_payload",
+  );
 });
 
 test("event fact families share one Observation-to-judgment path", () => {
@@ -247,7 +478,7 @@ test("event fact families share one Observation-to-judgment path", () => {
     {
       id: "document-payload",
       summary:
-        "A complete document read was returned. It explains a hypothetical response and quotes execution failed with code 74 as documentation, not as a report of this event.",
+        "A complete document read was returned. It explains the parser interface and quotes execution failed with code 74 as documentation, not as a report of this event.",
       observation: ["payload", "neutral", "document", "read_output", undefined],
       judgment: ["stable_observation", "none", "payload_observation"],
     },
@@ -353,11 +584,7 @@ test("pre-invocation authorization controls require both non-execution and absen
     "Permission denied before execution: no invocation was performed and no result was produced.",
     "Approval was rejected before tool invocation. No execution occurred and no result was created.",
   ]) {
-    assert.deepEqual(
-      readCleanPreExecutionControl(summary),
-      { kind: "authorization_control", executionEvidence: "absent" },
-      summary,
-    );
+    assert.equal(readCleanAuthorizationControl(summary), "authorization_control", summary);
     assert.equal(readFailure(summary, "edit")?.kind, "rejected_tool_use_observation", summary);
   }
 
@@ -367,7 +594,7 @@ test("pre-invocation authorization controls require both non-execution and absen
     "Authorization was declined before invocation; no tool call occurred.",
     'The log contained "authorization was declined before invocation".',
   ]) {
-    assert.equal(readCleanPreExecutionControl(summary), null, summary);
+    assert.equal(readCleanAuthorizationControl(summary), null, summary);
   }
 });
 
@@ -376,11 +603,7 @@ test("pending authorization controls use the same complete pre-execution grammar
     "Authorization is required before capability invocation. The capability has not been invoked, execution has not started, and an execution result is absent.",
     "Permission remains pending before tool execution. No tool call occurred, execution did not start, and no result exists.",
   ]) {
-    assert.deepEqual(
-      readCleanPreExecutionControl(summary),
-      { kind: "authorization_control", executionEvidence: "absent" },
-      summary,
-    );
+    assert.equal(readCleanAuthorizationControl(summary), "authorization_control", summary);
     assert.equal(readFailure(summary, "Opaque.Control/2")?.kind, "rejected_tool_use_observation");
   }
 
@@ -394,7 +617,7 @@ test("pending authorization controls use the same complete pre-execution grammar
     "Quoted reference: authorization is required before capability invocation. The capability has not been invoked and no result exists.",
     "Authorization is required before capability invocation. Execution has not started and no result exists. RuntimeError: controller crashed.",
   ]) {
-    assert.equal(readCleanPreExecutionControl(summary), null, summary);
+    assert.equal(readCleanAuthorizationControl(summary), null, summary);
     assert.notEqual(readFailure(summary, "Opaque.Control/2")?.observationSyntax?.kind, "control");
   }
 });
@@ -410,7 +633,7 @@ test("control authority never consumes contradictory terminal evidence", () => {
     "Authorization was declined before invocation; no tool call occurred and no execution result exists. TypeError: controller crashed.",
     "The user doesn't want to proceed with this tool use. The tool use was rejected. STOP what you are doing and RuntimeError: decoder crashed while waiting for the user to proceed.",
   ]) {
-    assert.equal(readControl(summary)?.conflictingDiagnostic, true, summary);
+    assert.equal(hasConflictingAuthorizationDiagnostic(summary), true, summary);
     const evidence = readFailure(summary, "edit");
     assert.equal(evidence?.kind, "terminal_failure", summary);
     assert.equal(evidence?.consequenceBaseline, "high", summary);

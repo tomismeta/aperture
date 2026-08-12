@@ -19,8 +19,8 @@ import {
 } from "../packages/lab/src/index.js";
 import { isDirectExecution } from "./direct-execution.js";
 
-const DEFAULT_REPORT_PATH = "packages/lab/conformance/kernel-corpus-v2.json";
-const DEFAULT_SCORECARD_PATH = "packages/lab/conformance/kernel-corpus-scorecard-v6.json";
+const DEFAULT_REPORT_PATH = "packages/lab/conformance/kernel-corpus-v3.json";
+const DEFAULT_SCORECARD_PATH = "packages/lab/conformance/kernel-corpus-scorecard-v7.json";
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(scriptPath), "..");
 const execFileAsync = promisify(execFile);

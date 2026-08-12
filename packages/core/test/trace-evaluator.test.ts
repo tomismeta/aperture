@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { ApertureCore } from "../src/aperture-core.js";
 import { subscribeInternalTrace, type ApertureTrace } from "../src/internal-contract.js";
+import { semanticHintsForTruncatedSourceEvidence } from "../src/semantic.js";
 import { evaluateTraceSession } from "../src/trace-evaluator.js";
 
 test("trace evaluator counts merged episode updates across tasks", () => {
@@ -200,11 +201,9 @@ test("trace evaluator reports ambiguous next-lane work that later surfaces in no
     timestamp: "2026-03-21T18:00:10.000Z",
     source: { id: "custom-agent" },
     title: "Build failed",
-    summary: "The latest build failed and may need a retry.",
+    summary: "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
     status: "failed",
-    semanticHints: {
-      confidence: "low",
-    },
+    semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
   });
 
   core.publish({
@@ -223,9 +222,6 @@ test("trace evaluator reports ambiguous next-lane work that later surfaces in no
     title: "Build failed again",
     summary: "The latest build failed again and should be reviewed.",
     status: "failed",
-    semanticHints: {
-      confidence: "high",
-    },
   });
 
   const report = evaluateTraceSession(traces);

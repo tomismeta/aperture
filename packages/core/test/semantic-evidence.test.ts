@@ -33,8 +33,8 @@ import {
   looksLikePythonExceptionGroupDiagnostic,
   looksLikePythonLocationError,
 } from "../src/semantic-python-diagnostic-shapes.js";
-import { readPreExecutionControl } from "../src/semantic-task-failure-event-facts.js";
-import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-terminal-evidence.js";
+import { parseTaskFailureEventFact } from "../src/semantic-task-failure-event-facts.js";
+import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-failure-detail.js";
 import type { ObservationSemantics } from "../src/observation-semantics.js";
 import { projectTaskFailureObservationCore } from "../src/task-failure-observation-core.js";
 import {
@@ -42,14 +42,13 @@ import {
   type TaskFailureObservationSyntax,
 } from "../src/task-failure-observation-grammar.js";
 import { readSemanticStructuredOutputOwnership } from "../src/semantic-structured-output-ownership.js";
-import { readTaskFailureEvidenceEnvelope } from "../src/semantic-task-failure-structured-output.js";
+import { resolveSemanticStructuredOutputEnvelope } from "../src/semantic-structured-output-ownership.js";
 import type { ApertureEvent } from "../src/events.js";
 
 const timestamp = "2026-04-05T18:45:00.000Z";
-const readPreExecutionControlShape = (value: string) =>
-  readPreExecutionControl(value, hasToolOutputFailureDiagnosticEvidence(value, true));
 const looksLikePreExecutionControlOutcome = (value: string) =>
-  readPreExecutionControlShape(value)?.conflictingDiagnostic === false;
+  parseTaskFailureEventFact(value) === "authorization_control" &&
+  !hasToolOutputFailureDiagnosticEvidence(value, true);
 type ObservationalStatusConflictEvent = Extract<ApertureEvent, { type: "task.updated" }>;
 type ObservationalStatusConflictSemantic = NonNullable<ApertureEvent["semantic"]>;
 
@@ -175,7 +174,7 @@ function payloadObservationSemantics(input: {
   const syntax = readTaskFailurePayloadObservationSyntax({
     summary: input.summary,
     toolFamily: input.toolFamily,
-    structuredOutputEnvelope: readTaskFailureEvidenceEnvelope(
+    structuredOutputEnvelope: resolveSemanticStructuredOutputEnvelope(
       input.summary,
       readSemanticStructuredOutputOwnership(input.toolFamily),
     ),
@@ -1026,7 +1025,7 @@ test("incomplete control phrases do not suppress explicit observation transcript
     "The user doesn't want to take this action right now. Here is the result of running `cat -n` on /tmp/file.ts: 1 export const x = 1;",
     "STOP what you are doing and wait. Here is the result of running `cat -n` on /tmp/file.ts: 1 export const x = 1;",
   ]) {
-    assert.equal(readPreExecutionControlShape(body), null);
+    assert.equal(parseTaskFailureEventFact(body), null);
     assert.equal(looksLikeExplicitObservationTranscript(`OBSERVATION: ${body}`), true);
   }
 });

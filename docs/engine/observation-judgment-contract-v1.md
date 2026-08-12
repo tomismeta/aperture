@@ -136,6 +136,13 @@ Indeterminate core evidence always normalizes to `uncertain`.
 - `explicit`, `hinted`, or `inferred`: the canonical ontology authority
 - `unknown`: no supported ontology authority
 
+Typed `SourceEvidence` is always explicit. Without typed evidence, a structural
+observation that agrees with the explicit failed status is explicit; this
+includes failed outcomes, diagnostics, source limits, and indeterminate failed
+status. A success, payload, or control that semantically overrides the failed
+transport status is inferred from the bounded fallback grammar. An opaque
+capability identity affects ownership only and never changes this derivation.
+
 ### `consequenceBaseline`
 
 - `low`: passive or bounded status evidence

@@ -1,7 +1,7 @@
 import type { SourceEvent } from "@tomismeta/aperture-core";
 import { assertValidSourceEvent } from "@tomismeta/aperture-core/internal";
 
-import holdoutArtifact from "../conformance/observation-kernel-holdout-v2.json" with { type: "json" };
+import holdoutArtifact from "../conformance/observation-kernel-holdout-v3.json" with { type: "json" };
 
 import type {
   ObservationKernelExpectedFields,
@@ -10,20 +10,32 @@ import type {
 import type { ObservationKernelFixture } from "./observation-kernel-fixtures.js";
 import type { ObservationKernelJudgmentFields } from "./observation-kernel-scorecard-model.js";
 
-export const OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION = 2 as const;
-export const OBSERVATION_KERNEL_HOLDOUT_CONTRACT_ID =
+export const OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION = 3 as const;
+export const OBSERVATION_KERNEL_HOLDOUT_OBSERVATION_CONTRACT_ID =
   "aperture-observation-judgment-contract/v1" as const;
-export const OBSERVATION_KERNEL_HOLDOUT_CONTRACT_DIGEST =
+export const OBSERVATION_KERNEL_HOLDOUT_OBSERVATION_CONTRACT_DIGEST =
   "sha256:9d53456de27a9db5342c98d100971bd3cec6336d2f61b1cef9048e2297ea294e" as const;
+export const OBSERVATION_KERNEL_HOLDOUT_SOURCE_EVIDENCE_CONTRACT_ID =
+  "aperture-source-evidence-contract/v1" as const;
+export const OBSERVATION_KERNEL_HOLDOUT_SOURCE_EVIDENCE_CONTRACT_DIGEST =
+  "sha256:78dff530a44fdc532fbe5790dd496d40e0295ba09b4ef8676b0ed7f70f5af715" as const;
+export const OBSERVATION_KERNEL_HOLDOUT_OUTPUT_CONTRACT_ID =
+  "aperture-source-evidence-observation-projection/v1" as const;
+export const OBSERVATION_KERNEL_HOLDOUT_OUTPUT_CONTRACT_DIGEST =
+  "sha256:a85a0c9811f6be6aed3344dc8ea37230db216e76bdf4f3a36bddbda0e92e747e" as const;
 export const OBSERVATION_KERNEL_HOLDOUT_IMPLEMENTATION_FREEZE =
-  "ca18486a54544a8a154f7c626437f0d803cde933" as const;
-export const OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT = 12 as const;
+  "443ef2db017dce3b91e295bd79fb61de5423d5fa" as const;
+export const OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT = 16 as const;
 
 export type ObservationKernelHoldoutArtifact = {
   methodology: {
     schemaVersion: typeof OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION;
-    contractId: typeof OBSERVATION_KERNEL_HOLDOUT_CONTRACT_ID;
-    contractDigest: typeof OBSERVATION_KERNEL_HOLDOUT_CONTRACT_DIGEST;
+    observationContractId: typeof OBSERVATION_KERNEL_HOLDOUT_OBSERVATION_CONTRACT_ID;
+    observationContractDigest: typeof OBSERVATION_KERNEL_HOLDOUT_OBSERVATION_CONTRACT_DIGEST;
+    sourceEvidenceContractId: typeof OBSERVATION_KERNEL_HOLDOUT_SOURCE_EVIDENCE_CONTRACT_ID;
+    sourceEvidenceContractDigest: typeof OBSERVATION_KERNEL_HOLDOUT_SOURCE_EVIDENCE_CONTRACT_DIGEST;
+    outputContractId: typeof OBSERVATION_KERNEL_HOLDOUT_OUTPUT_CONTRACT_ID;
+    outputContractDigest: typeof OBSERVATION_KERNEL_HOLDOUT_OUTPUT_CONTRACT_DIGEST;
     implementationFreeze: typeof OBSERVATION_KERNEL_HOLDOUT_IMPLEMENTATION_FREEZE;
     author: "gpt-5.6-sol";
     authoredWithoutImplementationInspection: true;
@@ -77,8 +89,12 @@ function isMethodology(value: unknown): boolean {
   return (
     hasExactKeys(value, [
       "schemaVersion",
-      "contractId",
-      "contractDigest",
+      "observationContractId",
+      "observationContractDigest",
+      "sourceEvidenceContractId",
+      "sourceEvidenceContractDigest",
+      "outputContractId",
+      "outputContractDigest",
       "implementationFreeze",
       "author",
       "authoredWithoutImplementationInspection",
@@ -88,8 +104,13 @@ function isMethodology(value: unknown): boolean {
       "notes",
     ]) &&
     value.schemaVersion === OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION &&
-    value.contractId === OBSERVATION_KERNEL_HOLDOUT_CONTRACT_ID &&
-    value.contractDigest === OBSERVATION_KERNEL_HOLDOUT_CONTRACT_DIGEST &&
+    value.observationContractId === OBSERVATION_KERNEL_HOLDOUT_OBSERVATION_CONTRACT_ID &&
+    value.observationContractDigest === OBSERVATION_KERNEL_HOLDOUT_OBSERVATION_CONTRACT_DIGEST &&
+    value.sourceEvidenceContractId === OBSERVATION_KERNEL_HOLDOUT_SOURCE_EVIDENCE_CONTRACT_ID &&
+    value.sourceEvidenceContractDigest ===
+      OBSERVATION_KERNEL_HOLDOUT_SOURCE_EVIDENCE_CONTRACT_DIGEST &&
+    value.outputContractId === OBSERVATION_KERNEL_HOLDOUT_OUTPUT_CONTRACT_ID &&
+    value.outputContractDigest === OBSERVATION_KERNEL_HOLDOUT_OUTPUT_CONTRACT_DIGEST &&
     value.implementationFreeze === OBSERVATION_KERNEL_HOLDOUT_IMPLEMENTATION_FREEZE &&
     value.author === "gpt-5.6-sol" &&
     value.authoredWithoutImplementationInspection === true &&
@@ -104,7 +125,7 @@ function isHoldoutFixture(value: unknown): boolean {
   if (
     !hasExactKeys(value, ["id", "dimension", "split", "events", "expected", "rationale"]) ||
     typeof value.id !== "string" ||
-    !/^holdout-v2-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.id) ||
+    !/^holdout-v3-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.id) ||
     typeof value.dimension !== "string" ||
     !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.dimension) ||
     value.split !== "holdout" ||
@@ -137,12 +158,15 @@ function isHoldoutFixture(value: unknown): boolean {
         "summary",
         "status",
         "toolFamily",
+        "metadata",
+        "evidence",
+        "semanticHints",
       ]) &&
       typeof event.id === "string" &&
-      /^event-v2-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.id) &&
+      /^event-v3-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.id) &&
       typeof event.taskId === "string" &&
-      /^task-v2-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.taskId) &&
-      event.timestamp === "2026-08-12T12:00:00.000Z" &&
+      /^task-v3-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.taskId) &&
+      event.timestamp === "2026-08-12T18:00:00.000Z" &&
       event.type === "task.updated" &&
       event.status === "failed" &&
       typeof event.title === "string" &&
@@ -153,7 +177,7 @@ function isHoldoutFixture(value: unknown): boolean {
       event.summary.length <= 2_000 &&
       (event.toolFamily === undefined ||
         (typeof event.toolFamily === "string" &&
-          /^[a-z][a-z0-9_-]*$/.test(event.toolFamily) &&
+          event.toolFamily.length > 0 &&
           event.toolFamily.length <= 80)),
   );
 }

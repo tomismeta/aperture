@@ -5,18 +5,18 @@ import { buildTaskFailureObservationInput } from "./semantic-evidence.js";
 import type { AttentionOntologyDiagnostic } from "./semantic-ontology-types.js";
 import type { SemanticInterpretation } from "./semantic-types.js";
 import type { SourceEvent } from "./source-event.js";
-import { readTaskFailureObservationCore } from "./task-failure-observation-core.js";
+import { projectTaskFailureObservationCore } from "./task-failure-observation-core.js";
 import { enrichTaskFailureObservation } from "./task-failure-observation-normalizer.js";
 
 type TaskFailureObservationEvent = Extract<SourceEvent, { type: "task.updated" }> & {
   semantic?: SemanticInterpretation;
 };
 
-export function readTaskFailureObservationCoreFromEvent(
+export function projectTaskFailureObservationFromEvent(
   event: TaskFailureObservationEvent,
 ): ObservationSemantics | null {
   const failureEvidence = buildTaskFailureObservationInput(event);
-  return failureEvidence !== null ? readTaskFailureObservationCore(failureEvidence) : null;
+  return failureEvidence !== null ? projectTaskFailureObservationCore(failureEvidence) : null;
 }
 
 export function normalizeTaskFailureObservationFromCore(input: {

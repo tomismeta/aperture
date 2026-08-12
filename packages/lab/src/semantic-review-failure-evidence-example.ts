@@ -37,9 +37,6 @@ export function buildFailureEvidenceExample(input: {
       toolFamily: input.evidence.toolFamily ?? null,
       readsAsObservation: input.evidence.readsAsObservation,
       consequenceBaseline: input.evidence.consequenceBaseline,
-      ...(input.evidence.terminalShape !== undefined
-        ? { terminalShape: input.evidence.terminalShape }
-        : {}),
     },
     event: {
       type: sourceEvent?.type ?? "task.updated",

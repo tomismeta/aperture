@@ -1,8 +1,6 @@
 import type { TaskFailureSemanticSignals } from "./semantic-task-failure-signals.js";
-import {
-  looksLikeBareNonzeroTerminalExitEvidence,
-  looksLikeTerminalFailureEvidence,
-} from "./semantic-terminal-evidence.js";
+import { looksLikeBareNonzeroTerminalExitEvidence } from "./semantic-task-failure-event-facts.js";
+import { looksLikeTerminalFailureEvidence } from "./semantic-terminal-evidence.js";
 import { normalizeSemanticText } from "./semantic-text.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
 
@@ -12,10 +10,8 @@ export type TaskFailureDetail =
   | "indeterminate"
   | "absent_evidence"
   | "source_window_limit";
-export type TaskFailureTerminalShape = "bare_nonzero_exit";
 export type TaskFailureTerminalProfile = {
   failureDetail: TaskFailureDetail;
-  terminalShape?: TaskFailureTerminalShape;
   consequenceBaseline: "medium" | "high";
 };
 type TerminalInput = {
@@ -30,31 +26,26 @@ type TerminalProfileInput = TerminalInput & {
 export function readTaskFailureTerminalProfile(
   input: TerminalProfileInput,
 ): TaskFailureTerminalProfile | null {
-  if (!hasTerminalFailureEvidence(input)) return null;
-  const failureDetail = readTerminalFailureDetail(input);
+  const outcomeOnly = hasCompleteOutcomeOnlyNonzeroExit(input);
+  const diagnostic = hasTerminalDiagnosticEvidence(input, false);
+  if (
+    !input.signals.structuredOutputExitFailure &&
+    !diagnostic &&
+    !outcomeOnly &&
+    !hasGenericTerminalFailureEvidence(input)
+  )
+    return null;
+  const failureDetail = outcomeOnly
+    ? "outcome_only"
+    : hasTerminalDiagnosticEvidence(input, true)
+      ? "diagnostic"
+      : "indeterminate";
   return {
     failureDetail,
-    ...(isBareNonzeroTerminalExit(input) ? { terminalShape: "bare_nonzero_exit" as const } : {}),
-    consequenceBaseline:
-      failureDetail === "outcome_only" || failureDetail === "source_window_limit"
-        ? "medium"
-        : "high",
+    consequenceBaseline: failureDetail === "outcome_only" ? "medium" : "high",
   };
 }
 
-function readTerminalFailureDetail(input: TerminalInput): TaskFailureDetail {
-  if (hasCompleteOutcomeOnlyNonzeroExit(input)) return "outcome_only";
-  if (input.signals.sourceWindowLimitFailure) return "source_window_limit";
-  const signals = input.signals;
-  return hasSharedTerminalDiagnosticSignals(signals) ||
-    signals.rawToolOutputFailureDiagnostic ||
-    (signals.structuredOutputEnvelope.kind === "raw" &&
-      isSemanticCommandExecutionToolFamily(input.toolFamily) &&
-      looksLikeTerminalFailureEvidence(normalizeSemanticText(input.summary ?? "")) &&
-      !looksLikeBareNonzeroTerminalExitEvidence(input.summary ?? ""))
-    ? "diagnostic"
-    : "indeterminate";
-}
 function hasCompleteOutcomeOnlyNonzeroExit(input: TerminalInput): boolean {
   const output = input.signals.diagnosticStructuredToolOutput;
   return (
@@ -67,7 +58,8 @@ function hasCompleteOutcomeOnlyNonzeroExit(input: TerminalInput): boolean {
       looksLikeOutcomeOnlyCommandOutput(output.output))
   );
 }
-function hasSharedTerminalDiagnosticSignals(signals: TaskFailureSemanticSignals): boolean {
+function hasTerminalDiagnosticEvidence(input: TerminalInput, includeReferences: boolean): boolean {
+  const signals = input.signals;
   return (
     signals.strongSourceRuntimeDiagnostic ||
     signals.structuredOutputFailureDiagnostic ||
@@ -79,20 +71,16 @@ function hasSharedTerminalDiagnosticSignals(signals: TaskFailureSemanticSignals)
     Boolean(
       signals.commandDiagnosticObservationTranscript &&
       !signals.commandDiagnosticReferenceObservationTranscript,
-    )
-  );
-}
-function hasTerminalFailureEvidence(input: TerminalProfileInput): boolean {
-  const signals = input.signals;
-  return (
-    signals.structuredOutputExitFailure ||
-    hasSharedTerminalDiagnosticSignals(signals) ||
+    ) ||
     Boolean(
       signals.rawToolOutputFailureDiagnostic &&
-      !signals.commandDiagnosticReferenceObservationTranscript,
+      (includeReferences || !signals.commandDiagnosticReferenceObservationTranscript),
     ) ||
-    hasCompleteOutcomeOnlyNonzeroExit(input) ||
-    hasGenericTerminalFailureEvidence(input)
+    (signals.structuredOutputEnvelope.kind === "raw" &&
+      isSemanticCommandExecutionToolFamily(input.toolFamily) &&
+      looksLikeTerminalFailureEvidence(normalizeSemanticText(input.summary ?? "")) &&
+      !looksLikeBareNonzeroTerminalExitEvidence(input.summary ?? "") &&
+      (includeReferences || !signals.commandDiagnosticReferenceObservationTranscript))
   );
 }
 function hasGenericTerminalFailureEvidence(input: TerminalProfileInput): boolean {

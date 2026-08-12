@@ -45,7 +45,7 @@ export const TASK_FAILURE_PARSING_FILES = [
   "packages/core/src/semantic-evidence.ts",
   "packages/core/src/semantic-failure-detail.ts",
   "packages/core/src/semantic-edit-output-shapes.ts",
-  "packages/core/src/semantic-tool-use-rejection-shapes.ts",
+  "packages/core/src/semantic-task-failure-event-facts.ts",
   "packages/core/src/semantic-task-failure-structured-output.ts",
 ] as const;
 
@@ -197,14 +197,13 @@ export const SEMANTIC_KERNEL_SURFACE_MANIFEST = [
   {
     family: "task_failure_grammar",
     files: [
-      "packages/core/src/semantic-bare-nonzero-terminal-exit.ts",
       "packages/core/src/semantic-edit-output-shapes.ts",
       "packages/core/src/semantic-evidence.ts",
       "packages/core/src/semantic-failure-detail.ts",
+      "packages/core/src/semantic-task-failure-event-facts.ts",
       "packages/core/src/semantic-task-failure-signals.ts",
       "packages/core/src/semantic-task-failure-structured-output.ts",
       "packages/core/src/semantic-terminal-evidence.ts",
-      "packages/core/src/semantic-tool-use-rejection-shapes.ts",
     ],
   },
   {
@@ -268,7 +267,6 @@ export const SEMANTIC_KERNEL_SURFACE_MANIFEST = [
       "packages/core/src/semantic-path-qualified-failure-diagnostic-shapes.ts",
       "packages/core/src/semantic-python-diagnostic-shapes.ts",
       "packages/core/src/semantic-runtime-error-diagnostic-shapes.ts",
-      "packages/core/src/semantic-source-window-limit-shapes.ts",
       "packages/core/src/semantic-tool-output-diagnostic-shapes.ts",
     ],
   },

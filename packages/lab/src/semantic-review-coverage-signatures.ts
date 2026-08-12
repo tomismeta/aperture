@@ -60,7 +60,6 @@ export function failureCoverageSignature(input: CoverageLedgerStepInput): string
     `step:${valueOrNone(input.step.stepKind)}`,
     `failure:${evidence.kind}`,
     `detail:${valueOrNone(evidence.failureDetail)}`,
-    `terminal:${valueOrNone(evidence.terminalShape)}`,
     `tool:${valueOrNone(evidence.toolFamily ?? eventField(event, "toolFamily"))}`,
     `baseline:${evidence.consequenceBaseline}`,
     `shape:${readFailureEvidenceEventShape({

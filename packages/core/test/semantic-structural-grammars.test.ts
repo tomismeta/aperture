@@ -1,17 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-bare-nonzero-terminal-exit.js";
+import { EventEvaluator } from "../src/event-evaluator.js";
+import { projectObservationJudgmentContract } from "../src/judgment-observation-contract.js";
 import { hasToolOutputFailureDiagnosticEvidence } from "../src/semantic-diagnostic-shapes.js";
 import { readTaskFailureSemanticEvidence } from "../src/semantic-evidence.js";
+import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 import { looksLikeSearchResultObservation } from "../src/semantic-search-observation-shapes.js";
 import {
-  looksLikeSourceWindowLimitFailure,
-  looksLikeSourceWindowLimitMixedDiagnostic,
-} from "../src/semantic-source-window-limit-shapes.js";
+  looksLikeBareNonzeroTerminalExitEvidence,
+  readPreExecutionControl,
+} from "../src/semantic-task-failure-event-facts.js";
 import { readTestOutputObservation } from "../src/semantic-test-output-observation-shapes.js";
 import { normalizeSemanticText } from "../src/semantic-text.js";
-import { readPreExecutionControl } from "../src/semantic-tool-use-rejection-shapes.js";
 
 const timestamp = "2026-08-13T00:00:00.000Z";
 
@@ -152,9 +153,9 @@ test("bounded source windows require a measured range, an explicit boundary, and
     "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
     "Displaying lines 100-150 of 700. Remainder truncated because of the display limit.",
   ]) {
-    assert.equal(looksLikeSourceWindowLimitFailure(summary), true, summary);
     const evidence = readFailure(summary, "read");
     assert.equal(evidence?.failureDetail, "source_window_limit", summary);
+    assert.equal(evidence?.observationSyntax?.diagnosticClass, "source_limit", summary);
     assert.equal(evidence?.consequenceBaseline, "medium", summary);
   }
 
@@ -164,13 +165,14 @@ test("bounded source windows require a measured range, an explicit boundary, and
     "Showing lines 20 to 40 of 900; permission denied while reading the remainder at the output boundary.",
     'The document says "showing lines 20 to 40 of 900" but includes no truncation envelope.',
   ]) {
-    assert.equal(looksLikeSourceWindowLimitFailure(summary), false, summary);
+    assert.notEqual(readFailure(summary, "read")?.failureDetail, "source_window_limit", summary);
   }
   assert.equal(
-    looksLikeSourceWindowLimitMixedDiagnostic(
+    readFailure(
       "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary; permission denied while reading more.",
-    ),
-    true,
+      "read",
+    )?.failureDetail,
+    "diagnostic",
   );
 });
 
@@ -197,6 +199,129 @@ test("balanced complete source envelopes protect diagnostic-looking payload text
     "For reference, a read operation returned this complete payload and no content lies outside the declared view.\nBEGIN SOURCE VIEW\nvalue\nEND SOURCE VIEW",
   ]) {
     assert.notEqual(readFailure(summary, "Opaque.Reader/4")?.observationSyntax?.kind, "payload");
+  }
+});
+
+test("complete document facts require content and yield to asserted outcomes", () => {
+  const runtime = readFailure(
+    "A complete document read was returned. It contains a status appendix, but RuntimeError: the transport crashed after execution started.",
+    "Opaque.Reader/4",
+  );
+  assert.equal(runtime?.observationSyntax?.kind, "diagnostic");
+  assert.equal(runtime?.observationSyntax?.diagnosticClass, "runtime");
+  assert.equal(runtime?.consequenceBaseline, "high");
+
+  const outcome = readFailure(
+    "A complete document read was returned. It contains a status appendix. The complete command record reports exit code 9; output and diagnostic channels were excluded from the record.",
+    "Opaque.Reader/4",
+  );
+  assert.equal(outcome?.observationSyntax?.kind, "outcome");
+  assert.equal(outcome?.observationSyntax?.polarity, "failure");
+
+  for (const summary of [
+    "A complete document read was returned.",
+    "A complete document read was requested, but no payload was returned.",
+    "A complete document read was returned. It contains no content.",
+    "A complete document read was returned. It does not contain a payload.",
+  ]) {
+    assert.notEqual(readFailure(summary, "Opaque.Reader/4")?.observationSyntax?.kind, "payload");
+  }
+});
+
+test("event fact families share one Observation-to-judgment path", () => {
+  const cases = [
+    {
+      id: "absent-failure",
+      summary:
+        "The command failed. The standard output field is present and empty. The standard error field is present and empty. No diagnostic payload was returned.",
+      observation: ["outcome", "failure", "command", "command_output", undefined],
+      judgment: ["limited_failure", "evidence_required", null],
+    },
+    {
+      id: "authorization-control",
+      summary:
+        "Authorization was declined before invocation; no tool call occurred and no execution result exists.",
+      observation: ["control", "neutral", "tool", "status_text", undefined],
+      judgment: ["stable_observation", "authorization_required", "rejected_tool_use_observation"],
+    },
+    {
+      id: "document-payload",
+      summary:
+        "A complete document read was returned. It explains a hypothetical response and quotes execution failed with code 74 as documentation, not as a report of this event.",
+      observation: ["payload", "neutral", "document", "read_output", undefined],
+      judgment: ["stable_observation", "none", "payload_observation"],
+    },
+    {
+      id: "outcome-failure",
+      summary:
+        "The complete command record reports exit code 9; output and diagnostic channels were excluded from the record.",
+      observation: ["outcome", "failure", "command", "command_output", undefined],
+      judgment: ["limited_failure", "none", null],
+    },
+    {
+      id: "runtime-diagnostic",
+      summary:
+        "Process invocation occurred and terminated. Its complete stderr output contains allocator invariant breach at address 71. No error content was omitted.",
+      observation: ["diagnostic", "failure", "command", "command_output", "runtime"],
+      judgment: ["visible_diagnostic_failure", "diagnostic_inspection", null],
+    },
+    {
+      id: "source-diagnostic",
+      summary:
+        "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary; permission denied while reading more.",
+      observation: ["diagnostic", "failure", "source", "read_output", "runtime"],
+      judgment: ["visible_diagnostic_failure", "diagnostic_inspection", null],
+    },
+    {
+      id: "source-limit",
+      summary: "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
+      observation: ["diagnostic", "failure", "source", "read_output", "source_limit"],
+      judgment: ["limited_failure", "evidence_scope_required", null],
+    },
+    {
+      id: "terminal-success",
+      summary:
+        "Process invocation occurred and finished successfully with return code zero. The outcome is complete and terminal; no diagnostic or output channel is missing.",
+      observation: ["outcome", "success", "command", "command_output", undefined],
+      judgment: ["stable_observation", "none", "command_success_observation"],
+    },
+  ] as const;
+  const evaluator = new EventEvaluator();
+
+  for (const testCase of cases) {
+    const result = evaluator.evaluate(
+      normalizeSourceEvent({
+        id: `event:${testCase.id}`,
+        taskId: `task:${testCase.id}`,
+        timestamp,
+        type: "task.updated",
+        title: "Opaque transport failure",
+        summary: testCase.summary,
+        status: "failed",
+        toolFamily: "Opaque.Executor/9",
+      }),
+    );
+    assert.equal(result.kind, "candidate", testCase.id);
+    if (result.kind !== "candidate") continue;
+    const observation = result.candidate.judgmentInput.observation;
+    assert.ok(observation, testCase.id);
+    assert.deepEqual(
+      [
+        observation.kind,
+        observation.polarity,
+        observation.subject,
+        observation.provenance.origin,
+        observation.diagnosticClass,
+      ],
+      testCase.observation,
+      testCase.id,
+    );
+    const judgment = projectObservationJudgmentContract(observation);
+    assert.deepEqual(
+      [judgment.statusEvidence, judgment.recoveryPosture, judgment.statusConflictKind],
+      testCase.judgment,
+      testCase.id,
+    );
   }
 });
 

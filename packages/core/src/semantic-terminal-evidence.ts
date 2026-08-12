@@ -1,7 +1,7 @@
 import { ISSUE_SIGNAL_PHRASES, TERMINAL_FAILURE_PHRASES } from "./semantic-patterns.js";
 import { normalizeSemanticText } from "./semantic-text.js";
 
-export { looksLikeBareNonzeroTerminalExitEvidence } from "./semantic-bare-nonzero-terminal-exit.js";
+export { looksLikeBareNonzeroTerminalExitEvidence } from "./semantic-task-failure-event-facts.js";
 
 export function looksLikeTerminalFailureEvidence(text: string): boolean {
   if (

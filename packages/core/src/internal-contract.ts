@@ -49,11 +49,6 @@ export {
   type TaskFailureDetail,
   type TaskFailureEvidenceKind,
   type TaskFailureSemanticEvidence,
-  type TaskFailureTerminalShape,
 } from "./semantic-evidence.js";
-export {
-  extractTaskFailureObservationCore,
-  type TaskFailureObservationExtractorId,
-  type TaskFailureObservationInput,
-} from "./task-failure-observation-core.js";
+export { projectTaskFailureObservationCore } from "./task-failure-observation-core.js";
 export { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";

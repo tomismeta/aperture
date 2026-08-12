@@ -13,9 +13,9 @@ import type {
   AttentionOntologyDiagnostic,
 } from "./semantic-ontology-types.js";
 import type { ObservationSemantics } from "./observation-semantics.js";
-import { readTaskFailureObservationCore } from "./task-failure-observation-core.js";
+import { projectTaskFailureObservationCore } from "./task-failure-observation-core.js";
 
-export { readTaskFailureObservationCore };
+export { projectTaskFailureObservationCore };
 
 export function createStableFailureOutcomeObservation(input: {
   authority?: NormalizedObservationAuthority;
@@ -47,7 +47,7 @@ export function normalizeTaskFailureObservation(input: {
   semanticAgreement: NormalizedObservationSemanticAgreement;
 }): NormalizedObservation {
   return enrichTaskFailureObservation({
-    core: readTaskFailureObservationCore(input.failureEvidence),
+    core: projectTaskFailureObservationCore(input.failureEvidence),
     ontology: input.ontology,
     abstained: input.abstained,
     semanticAgreement: input.semanticAgreement,

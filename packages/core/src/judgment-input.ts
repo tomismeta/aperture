@@ -15,7 +15,7 @@ import type {
 } from "./judgment-input-types.js";
 import {
   normalizeTaskFailureObservationFromCore,
-  readTaskFailureObservationCoreFromEvent,
+  projectTaskFailureObservationFromEvent,
 } from "./task-failure-observation-reader.js";
 import type { NormalizedObservation } from "./normalized-observation.js";
 import type {
@@ -60,7 +60,7 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
   const abstained = event.semantic.abstained === true;
   const failureObservationCore =
     event.type === "task.updated" && event.status === "failed"
-      ? readTaskFailureObservationCoreFromEvent(event)
+      ? projectTaskFailureObservationFromEvent(event)
       : null;
   const observationalStatusConflict = buildObservationStatusConflictEvidenceFromCore({
     event,

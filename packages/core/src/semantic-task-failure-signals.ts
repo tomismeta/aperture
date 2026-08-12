@@ -17,11 +17,10 @@ import { hasOwnedReadTerminalDiagnosticEvidence } from "./semantic-owned-read-ob
 import { readSemanticStructuredOutputOwnership } from "./semantic-structured-output-ownership.js";
 import { readTaskFailureEvidenceEnvelope } from "./semantic-task-failure-structured-output.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
-import { readPreExecutionControl } from "./semantic-tool-use-rejection-shapes.js";
 import {
-  looksLikeSourceWindowLimitFailure,
-  looksLikeSourceWindowLimitMixedDiagnostic,
-} from "./semantic-source-window-limit-shapes.js";
+  parseTaskFailureEventFact,
+  readPreExecutionControl,
+} from "./semantic-task-failure-event-facts.js";
 import {
   readTaskFailureObservationSyntax,
   type TaskFailureObservationSyntax,
@@ -75,6 +74,7 @@ export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
     control?.conflictingDiagnostic === false ? control.outcome : null;
   const observationSyntax = readTaskFailureObservationSyntax({
     editOutputOutcome,
+    eventFact: parseTaskFailureEventFact(summary, controlDiagnostic),
     observationTranscript,
     preExecutionControlOutcome,
     structuredOutputEnvelope,
@@ -85,25 +85,14 @@ export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
   const readPayloadObservation = isPayloadObservationOrigin(observationSyntax, "read_output");
   const readSourcePayloadObservation =
     readPayloadObservation && observationSyntax?.subject === "source";
-  const protectedSourcePayload = observationSyntax?.boundedSource === true;
+  const protectedPayload = observationSyntax?.completeBoundary === true;
   const structuredSourcePayloadObservation =
     isPayloadObservationOrigin(observationSyntax, "structured_output") &&
     observationSyntax?.subject === "source";
-  const sourceWindowLimitFailure =
-    toolFamily === "read" &&
-    !readPayloadObservation &&
-    !strongDiagnostic &&
-    looksLikeSourceWindowLimitFailure(summary);
-  const sourceWindowLimitMixedDiagnostic =
-    toolFamily === "read" &&
-    !readPayloadObservation &&
-    looksLikeSourceWindowLimitMixedDiagnostic(summary);
   const readFailureDiagnostic =
     toolFamily === "read" &&
-    !protectedSourcePayload &&
+    !protectedPayload &&
     (hasOwnedReadTerminalDiagnosticEvidence(summary) ||
-      sourceWindowLimitFailure ||
-      sourceWindowLimitMixedDiagnostic ||
       (strongDiagnostic && !readSourcePayloadObservation));
 
   return {
@@ -115,7 +104,6 @@ export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
     editOutputOutcome,
     searchFailureDiagnostic: toolFamily === "search" && looksLikeSearchFailureDiagnostic(summary),
     readFailureDiagnostic,
-    sourceWindowLimitFailure,
     structuredOutputFailureDiagnostic,
     rawToolOutputFailureDiagnostic:
       toolFamily !== undefined &&
@@ -123,13 +111,13 @@ export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
       diagnosticStructuredToolOutput === null &&
       structuredOutputEnvelope.kind === "raw" &&
       preExecutionControlOutcome?.executionEvidence !== "absent" &&
-      !protectedSourcePayload &&
+      !protectedPayload &&
       hasToolOutputFailureDiagnosticEvidence(summary, control !== null),
     strongSourceRuntimeDiagnostic:
       (structuredOutputEnvelope.kind === "valid" &&
         structuredSourcePayloadObservation &&
         hasStrongRuntimeDiagnosticEvidence(structuredOutputEnvelope.output.output)) ||
-      (readPayloadObservation && strongDiagnostic && !protectedSourcePayload),
+      (readPayloadObservation && strongDiagnostic && !protectedPayload),
     diagnosticObservationTranscript:
       toolFamily === undefined && looksLikeExplicitDiagnosticObservationTranscript(summary),
     commandDiagnosticObservationTranscript:

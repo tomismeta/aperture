@@ -35,7 +35,6 @@ import {
 import {
   readTaskFailureTerminalProfile,
   type TaskFailureDetail,
-  type TaskFailureTerminalShape,
 } from "./semantic-failure-detail.js";
 import { readExplicitOperationSuccessObservationTranscript } from "./semantic-operation-success-observation-shapes.js";
 import { looksLikeEmptyJsonObject } from "./semantic-structured-output.js";
@@ -72,12 +71,11 @@ export type TaskFailureEvidenceKind =
   | "rejected_tool_use_observation"
   | "unclassified_failure";
 
-export type { TaskFailureDetail, TaskFailureTerminalShape };
+export type { TaskFailureDetail };
 
 export type TaskFailureSemanticEvidence = {
   kind: TaskFailureEvidenceKind;
   failureDetail?: TaskFailureDetail;
-  terminalShape?: TaskFailureTerminalShape;
   toolFamily?: string;
   observationSyntax?: TaskFailureObservationSyntax;
   readsAsObservation: boolean;
@@ -86,7 +84,7 @@ export type TaskFailureSemanticEvidence = {
 };
 type TaskFailureEvidenceProfile = Omit<TaskFailureSemanticEvidence, "text">;
 type TaskFailureEvidenceDetails = Partial<
-  Pick<TaskFailureEvidenceProfile, "failureDetail" | "observationSyntax" | "terminalShape">
+  Pick<TaskFailureEvidenceProfile, "failureDetail" | "observationSyntax">
 >;
 
 type SemanticEvidenceTaskUpdateEvent = Record<string, unknown> & {
@@ -196,7 +194,8 @@ function readTaskFailureEvidenceProfile(input: {
   const { signals, summary, text, toolFamily } = input;
   const hasShape = text.shapes.includes.bind(text.shapes);
   const observation = signals.observationSyntax;
-  if (observation?.boundedSource) return readObservationProfile(observation);
+  if (observation?.completeBoundary && observation.kind !== "control")
+    return readObservationProfile(observation);
   const terminalProfile = readTaskFailureTerminalProfile({
     summary,
     signals,
@@ -205,10 +204,8 @@ function readTaskFailureEvidenceProfile(input: {
     terminalFailureText: hasShape("terminal_failure"),
   });
   if (terminalProfile !== null) {
-    const { failureDetail, terminalShape } = terminalProfile;
     return profile("terminal_failure", false, terminalProfile.consequenceBaseline, toolFamily, {
-      failureDetail,
-      ...(terminalShape !== undefined ? { terminalShape } : {}),
+      failureDetail: terminalProfile.failureDetail,
     });
   }
   if (toolFamily !== undefined && looksLikeEmptyJsonObject(summary)) {
@@ -265,13 +262,23 @@ function readTaskFailureEvidenceProfile(input: {
 function readObservationProfile(syntax: TaskFailureObservationSyntax): TaskFailureEvidenceProfile {
   return profile(
     readObservationSyntaxEvidenceKind(syntax),
-    true,
+    syntax.kind === "payload" || syntax.kind === "control" || syntax.polarity === "success",
     syntax.consequenceBaseline,
     syntax.toolFamily,
     {
       observationSyntax: syntax,
+      ...readObservationFailureDetail(syntax),
     },
   );
+}
+
+function readObservationFailureDetail(
+  syntax: TaskFailureObservationSyntax,
+): TaskFailureEvidenceDetails {
+  if (syntax.diagnosticClass === "source_limit") return { failureDetail: "source_window_limit" };
+  if (syntax.kind === "diagnostic") return { failureDetail: "diagnostic" };
+  if (syntax.kind !== "outcome" || syntax.polarity !== "failure") return {};
+  return { failureDetail: syntax.evidenceLoss === "absent" ? "absent_evidence" : "outcome_only" };
 }
 
 function profile(

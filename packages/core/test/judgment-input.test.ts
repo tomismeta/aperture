@@ -382,7 +382,7 @@ test("judgment input treats read source-window limits as strong limited failures
     evidenceLoss: "partial",
     diagnosticClass: "source_limit",
     recoveryHint: "narrow_evidence_scope",
-    provenance: { origin: "semantic_evidence", authority: "explicit" },
+    provenance: { origin: "read_output", authority: "explicit" },
     consequenceBaseline: "medium",
   });
   assert.equal(input.semanticEvidence?.confidence, "high");

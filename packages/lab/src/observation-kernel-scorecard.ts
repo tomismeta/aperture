@@ -1,9 +1,7 @@
 import { ApertureCore } from "@tomismeta/aperture-core";
 import {
-  extractTaskFailureObservationCore,
   isCandidateTrace,
   projectObservationJudgmentContract,
-  readTaskFailureSemanticEvidence,
   subscribeInternalTrace,
   type ApertureTrace,
 } from "@tomismeta/aperture-core/internal";
@@ -173,11 +171,6 @@ function runObservationKernelFixture(
     if (observation === undefined) {
       return [];
     }
-    const failureEvidence = readTaskFailureSemanticEvidence(trace.event);
-    const observationExtractorId =
-      failureEvidence === null
-        ? null
-        : extractTaskFailureObservationCore(failureEvidence).observationExtractorId;
     const fields: ObservationKernelFields = {
       kind: observation.kind,
       polarity: observation.polarity,
@@ -192,7 +185,7 @@ function runObservationKernelFixture(
       provenanceOrigin: observation.provenance.origin,
       provenanceAuthority: observation.provenance.authority,
       consequenceBaseline: observation.consequenceBaseline,
-      observationExtractorId,
+      observationExtractorId: readHistoricalExtractorId(observation),
     };
     const judgment = projectObservationJudgmentContract(observation);
     const decision: ObservationKernelDecisionFields = {
@@ -228,6 +221,37 @@ function runObservationKernelFixture(
       },
     ];
   });
+}
+
+function readHistoricalExtractorId(observation: {
+  kind: string;
+  polarity: string;
+  subject: string;
+  evidenceLoss: string;
+  diagnosticClass?: string;
+  provenance: { origin: string };
+  ownership: { owner: string };
+}): string {
+  if (observation.kind === "control") return "rejected_tool_use";
+  if (observation.kind === "diagnostic")
+    return observation.diagnosticClass === "source_limit"
+      ? "read_truncated_source"
+      : observation.diagnosticClass === "expected"
+        ? "expected_diagnostic"
+        : "terminal_diagnostic";
+  if (observation.kind === "outcome") {
+    if (observation.evidenceLoss === "absent") return "empty_payload";
+    if (observation.polarity === "failure") return "terminal_outcome";
+    if (observation.ownership.owner === "source") return "operation_success";
+    return observation.provenance.origin === "semantic_evidence"
+      ? "command_success"
+      : "structured_execution_success";
+  }
+  if (observation.kind === "payload") {
+    if (observation.provenance.origin === "structured_output") return "structured_output";
+    return observation.subject === "search" ? "search_output" : "payload";
+  }
+  return "unknown_failure";
 }
 
 function buildObservationKernelCoverage(

@@ -1,5 +1,3 @@
-import type { ObservationSemantics } from "./observation-semantics.js";
-import type { SourceEvidence } from "./events.js";
 import type { EditOutputOutcome } from "./semantic-edit-output-shapes.js";
 import type { ExplicitObservationTranscript } from "./semantic-observation-transcript-shapes.js";
 import {
@@ -10,9 +8,29 @@ import {
 } from "./semantic-payload-observation-shapes.js";
 import type { TaskFailureStructuredOutputEnvelope } from "./semantic-task-failure-structured-output.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
+import {
+  createTaskFailureObservationSyntax,
+  type TaskFailureObservationSyntax,
+} from "./task-failure-observation-core.js";
+
+export {
+  compileSourceEvidenceSyntax,
+  type TaskFailureObservationSyntax,
+} from "./task-failure-observation-core.js";
+
+type TaskFailureEventFact =
+  | "absent_failure"
+  | "authorization_control"
+  | "document_payload"
+  | "outcome_failure"
+  | "runtime_diagnostic"
+  | "source_diagnostic"
+  | "source_limit"
+  | "terminal_success";
 
 type TaskFailureObservationGrammarInput = {
   editOutputOutcome: EditOutputOutcome | null;
+  eventFact: TaskFailureEventFact | null;
   observationTranscript: ExplicitObservationTranscript | null;
   preExecutionControlOutcome: { executionEvidence: "absent" | "unspecified" } | null;
   structuredOutputEnvelope: TaskFailureStructuredOutputEnvelope;
@@ -20,63 +38,11 @@ type TaskFailureObservationGrammarInput = {
   summary: string;
   toolFamily: string | undefined;
 };
-type ObservationOrigin = ObservationSemantics["provenance"]["origin"];
-type ObservationSubject = ObservationSemantics["subject"];
-type SourceEvidenceChannel = Exclude<SourceEvidence, { kind: "authorization" }>["channel"];
-export type TaskFailureObservationSyntax = Omit<
-  ObservationSemantics,
-  "evidenceCertainty" | "ownership" | "provenance"
-> & {
-  origin: ObservationOrigin;
-  owner?: ObservationSemantics["ownership"]["owner"];
-  evidenceCertainty?: ObservationSemantics["evidenceCertainty"];
-  boundedSource?: true;
-  toolFamily?: string;
-};
+type ObservationOrigin = TaskFailureObservationSyntax["origin"];
+type ObservationSubject = TaskFailureObservationSyntax["subject"];
 type ObservationSyntaxDetails = Partial<
   Pick<TaskFailureObservationSyntax, "diagnosticClass" | "evidenceLoss" | "recoveryHint">
-> & { boundedSource?: true };
-
-export function compileSourceEvidenceSyntax(evidence: SourceEvidence, toolFamily?: string) {
-  if (evidence.kind === "authorization") return controlSyntax(toolFamily);
-  const origin = sourceEvidenceOrigin(evidence.channel);
-  if (evidence.kind === "payload")
-    return payloadSyntax(
-      origin,
-      evidence.subject,
-      evidence.channel === "structured" || evidence.subject === "tool" ? "high" : "low",
-      toolFamily,
-    );
-  const diagnostic = evidence.kind === "diagnostic";
-  const sourceLimit = diagnostic && evidence.diagnostic === "source_limit";
-  const subject = "subject" in evidence ? evidence.subject : "source";
-  return observationSyntax(
-    evidence.kind,
-    diagnostic ? "failure" : evidence.outcome,
-    origin,
-    subject,
-    diagnostic
-      ? evidence.diagnostic === "runtime"
-        ? "high"
-        : "medium"
-      : evidence.outcome === "success"
-        ? "low"
-        : "medium",
-    toolFamily,
-    diagnostic
-      ? {
-          diagnosticClass: evidence.diagnostic,
-          evidenceLoss: sourceLimit ? "partial" : "none",
-          recoveryHint: sourceLimit ? "narrow_evidence_scope" : "inspect_diagnostic",
-        }
-      : undefined,
-  );
-}
-
-function sourceEvidenceOrigin(channel: SourceEvidenceChannel): ObservationOrigin {
-  if (channel === "search") return "transcript";
-  return channel === "transcript" ? channel : `${channel}_output`;
-}
+> & { completeBoundary?: true };
 
 export function readTaskFailureObservationSyntax(
   input: TaskFailureObservationGrammarInput,
@@ -88,20 +54,11 @@ export function readTaskFailureObservationSyntax(
     "source",
     toolFamily,
   );
-  if (boundedSource !== null) return boundedSource;
-  if (input.preExecutionControlOutcome) return controlSyntax(toolFamily);
-  if (input.structuredOutputEnvelope.completeObservation === "runtime_diagnostic")
-    return observationSyntax(
-      "diagnostic",
-      "failure",
-      "command_output",
-      "command",
-      "high",
-      toolFamily,
-      { diagnosticClass: "runtime", recoveryHint: "inspect_diagnostic" },
-    );
-  if (input.structuredOutputEnvelope.completeObservation === "terminal_success")
-    return observationSyntax("outcome", "success", "command_output", "command", "low", toolFamily);
+  if (boundedSource !== null) return { ...boundedSource, completeBoundary: true };
+  const eventFact = input.eventFact;
+  if (eventFact !== null && eventFact !== "authorization_control")
+    return eventFactSyntax(eventFact, toolFamily);
+  if (input.preExecutionControlOutcome) return eventFactSyntax("authorization_control", toolFamily);
   if (input.observationTranscript)
     return transcriptObservation(input.observationTranscript, toolFamily);
   if (input.editOutputOutcome === "applied")
@@ -109,7 +66,7 @@ export function readTaskFailureObservationSyntax(
   const payloadObservationSyntax = readTaskFailurePayloadObservationSyntax(input);
   if (payloadObservationSyntax !== null) return payloadObservationSyntax;
   if (input.structuredOutputZeroExitSuccess) {
-    return observationSyntax(
+    return createTaskFailureObservationSyntax(
       "outcome",
       "success",
       "structured_output",
@@ -119,6 +76,53 @@ export function readTaskFailureObservationSyntax(
     );
   }
   return null;
+}
+
+function eventFactSyntax(fact: TaskFailureEventFact, toolFamily?: string) {
+  const source = fact === "source_limit" || fact === "source_diagnostic";
+  const diagnostic = source || fact === "runtime_diagnostic";
+  const control = fact === "authorization_control";
+  const payload = fact === "document_payload";
+  return createTaskFailureObservationSyntax(
+    control ? "control" : payload ? "payload" : diagnostic ? "diagnostic" : "outcome",
+    control || payload ? "neutral" : fact === "terminal_success" ? "success" : "failure",
+    control ? "status_text" : payload || source ? "read_output" : "command_output",
+    control ? "tool" : payload ? "document" : source ? "source" : "command",
+    fact === "runtime_diagnostic" || fact === "source_diagnostic"
+      ? "high"
+      : source || fact === "outcome_failure" || fact === "absent_failure"
+        ? "medium"
+        : "low",
+    toolFamily,
+    eventFactDetails(fact),
+  );
+}
+
+function eventFactDetails(fact: TaskFailureEventFact): ObservationSyntaxDetails {
+  if (fact === "authorization_control")
+    return { completeBoundary: true, recoveryHint: "await_authorization" };
+  if (fact === "runtime_diagnostic")
+    return {
+      completeBoundary: true,
+      diagnosticClass: "runtime",
+      recoveryHint: "inspect_diagnostic",
+    };
+  if (fact === "source_diagnostic")
+    return {
+      completeBoundary: true,
+      diagnosticClass: "runtime",
+      recoveryHint: "inspect_diagnostic",
+    };
+  if (fact === "source_limit")
+    return {
+      completeBoundary: true,
+      diagnosticClass: "source_limit",
+      evidenceLoss: "partial",
+      recoveryHint: "narrow_evidence_scope",
+    };
+  if (fact === "absent_failure")
+    return { completeBoundary: true, evidenceLoss: "absent", recoveryHint: "request_evidence" };
+  return { completeBoundary: true };
 }
 
 function transcriptObservation(
@@ -136,41 +140,22 @@ function transcriptObservation(
   );
 }
 
-function controlSyntax(toolFamily?: string) {
-  return observationSyntax("control", "neutral", "status_text", "tool", "low", toolFamily, {
-    recoveryHint: "await_authorization",
-  });
-}
-
 function payloadSyntax(
   origin: ObservationOrigin,
   subject: ObservationSubject,
-  consequence: ObservationSemantics["consequenceBaseline"],
+  consequence: TaskFailureObservationSyntax["consequenceBaseline"],
   toolFamily?: string,
   details?: ObservationSyntaxDetails,
 ) {
-  return observationSyntax("payload", "neutral", origin, subject, consequence, toolFamily, details);
-}
-
-function observationSyntax(
-  kind: ObservationSemantics["kind"],
-  polarity: ObservationSemantics["polarity"],
-  origin: ObservationOrigin,
-  subject: ObservationSubject,
-  consequenceBaseline: ObservationSemantics["consequenceBaseline"],
-  toolFamily?: string,
-  details: ObservationSyntaxDetails = {},
-): TaskFailureObservationSyntax {
-  return {
-    kind,
-    polarity,
+  return createTaskFailureObservationSyntax(
+    "payload",
+    "neutral",
     origin,
     subject,
-    evidenceLoss: "none",
-    consequenceBaseline,
-    ...(toolFamily !== undefined ? { toolFamily } : {}),
-    ...details,
-  };
+    consequence,
+    toolFamily,
+    details,
+  );
 }
 
 export function readTaskFailurePayloadObservationSyntax(input: {
@@ -224,6 +209,6 @@ function syntaxObservation(
         payload.source ? "source" : fallbackSubject,
         payload.consequenceBaseline,
         toolFamily,
-        payload.completeBoundary === true ? { boundedSource: true } : undefined,
+        payload.completeBoundary === true ? { completeBoundary: true } : undefined,
       );
 }

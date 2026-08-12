@@ -16,16 +16,16 @@ test("task-failure judgment agreement stays behind the normalized observation bo
     "utf8",
   );
 
-  assert.match(source, /readTaskFailureObservationCoreFromEvent/);
+  assert.match(source, /projectTaskFailureObservationFromEvent/);
   assert.match(source, /normalizeTaskFailureObservationFromCore/);
-  assert.equal(source.match(/readTaskFailureObservationCoreFromEvent\(/g)?.length, 1);
+  assert.equal(source.match(/projectTaskFailureObservationFromEvent\(/g)?.length, 1);
   assert.equal(source.includes("type TaskFailureSemanticEvidence"), false);
   assert.equal(source.includes("failureEvidenceAgreesWithSemanticRead"), false);
   assert.equal(source.includes("readTaskFailureSemanticEvidence"), false);
   assert.equal(source.includes("draftObservation"), false);
   assert.equal(source.includes("type TaskFailureObservationCore"), false);
   assert.match(reader, /readObservationExpectedSemanticRead/);
-  assert.match(reader, /readTaskFailureObservationCoreFromEvent/);
+  assert.match(reader, /projectTaskFailureObservationFromEvent/);
   assert.match(reader, /ObservationSemantics/);
   assert.match(reader, /enrichTaskFailureObservation/);
   assert.match(reader, /function readTaskFailureObservationSemanticAgreement/);
@@ -44,7 +44,7 @@ test("task-failure judgment agreement stays behind the normalized observation bo
 test("task-failure semantic interpreter stays behind the observation-core boundary", () => {
   const source = readFileSync(new URL("../src/semantic-interpreter.ts", import.meta.url), "utf8");
 
-  assert.match(source, /readTaskFailureObservationCoreFromEvent/);
+  assert.match(source, /projectTaskFailureObservationFromEvent/);
   assert.match(source, /observationReadsAsStatusUpdate/);
   assert.match(source, /observation-semantic-read/);
   assert.equal(source.includes("readTaskFailureSemanticEvidence"), false);
@@ -285,12 +285,13 @@ test("task-failure observation grammar stays document-first and source-internal"
 
   assert.match(grammar, /readTaskFailureObservationSyntax/);
   assert.match(grammar, /readTaskFailurePayloadObservationSyntax/);
-  assert.match(grammar, /ObservationSemantics/);
+  assert.match(grammar, /createTaskFailureObservationSyntax/);
+  assert.match(core, /ObservationSemantics/);
+  assert.match(core, /createTaskFailureObservationSyntax/);
   assert.match(core, /TASK_FAILURE_OBSERVATION_SYNTAX/);
   assert.match(core, /satisfies Record<TaskFailureEvidenceKind, ObservationSyntaxCompiler>/);
-  assert.match(core, /extractTaskFailureObservationCore/);
-  assert.match(core, /observationExtractorId/);
-  assert.match(core, /observationSyntax/);
+  assert.match(core, /projectTaskFailureObservationCore/);
+  assert.equal(core.includes("observationExtractorId"), false);
   assert.equal(evidence.includes("task-failure-observation-core"), false);
   assert.equal(evidence.includes("observationExtractorId"), false);
   assert.equal(evidence.includes("observationSemantics"), false);
@@ -298,13 +299,17 @@ test("task-failure observation grammar stays document-first and source-internal"
   assert.equal(evidence.includes("task-failure-observation-normalizer"), false);
   assert.equal(evidence.includes("observational-status-conflict"), false);
   assert.equal(evidence.includes("observation-semantic-read"), false);
+  const projection = core.slice(
+    core.indexOf("export function projectTaskFailureObservationCore"),
+    core.indexOf("function observationFromSyntax"),
+  );
   for (const rawEvidenceBranch of [
     "evidence.kind",
     "evidence.failureDetail",
     "evidence.readsAsObservation",
     "evidence.consequenceBaseline",
   ]) {
-    assert.equal(core.includes(rawEvidenceBranch), false, rawEvidenceBranch);
+    assert.equal(projection.includes(rawEvidenceBranch), false, rawEvidenceBranch);
   }
   assert.equal(grammar.includes("export type TaskFailureObservation ="), false);
   assert.equal(grammar.includes("export type TaskFailureObservationGrammarInput"), false);
@@ -358,7 +363,7 @@ test("task-failure observation grammar stays document-first and source-internal"
   }
 });
 
-test("task-failure terminal profile owns terminal signal aggregation", () => {
+test("task-failure terminal profile owns outcome signal aggregation", () => {
   const evidence = readFileSync(new URL("../src/semantic-evidence.ts", import.meta.url), "utf8");
   const failureDetail = readFileSync(
     new URL("../src/semantic-failure-detail.ts", import.meta.url),

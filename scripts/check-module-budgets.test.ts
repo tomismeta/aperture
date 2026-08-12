@@ -161,7 +161,7 @@ test("module budget checker counts task-failure parsing as one governed surface"
     );
     await writeRepoFile(
       root,
-      "packages/core/src/semantic-tool-use-rejection-shapes.ts",
+      "packages/core/src/semantic-task-failure-event-facts.ts",
       "const one = 1;\n",
     );
     await writeRepoFile(

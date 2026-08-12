@@ -33,10 +33,10 @@ import {
   looksLikePythonExceptionGroupDiagnostic,
   looksLikePythonLocationError,
 } from "../src/semantic-python-diagnostic-shapes.js";
-import { readPreExecutionControl } from "../src/semantic-tool-use-rejection-shapes.js";
+import { readPreExecutionControl } from "../src/semantic-task-failure-event-facts.js";
 import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-terminal-evidence.js";
 import type { ObservationSemantics } from "../src/observation-semantics.js";
-import { readTaskFailureObservationCore } from "../src/task-failure-observation-core.js";
+import { projectTaskFailureObservationCore } from "../src/task-failure-observation-core.js";
 import {
   readTaskFailurePayloadObservationSyntax,
   type TaskFailureObservationSyntax,
@@ -194,13 +194,13 @@ function signalObservationSemantics(
 function evidenceObservationSemantics(
   evidence: ReturnType<typeof readTaskFailureSemanticEvidence>,
 ): ObservationSemantics | null {
-  return evidence === null ? null : readTaskFailureObservationCore(evidence);
+  return evidence === null ? null : projectTaskFailureObservationCore(evidence);
 }
 
 function syntaxObservationSemantics(
   observationSyntax: TaskFailureObservationSyntax,
 ): ObservationSemantics {
-  return readTaskFailureObservationCore({
+  return projectTaskFailureObservationCore({
     kind: "observational_payload",
     observationSyntax,
     readsAsObservation: true,
@@ -1625,7 +1625,7 @@ test("host-style failed event fixtures route through observation semantics gramm
     const evidence = readTaskFailureSemanticEvidence(event);
     assert.notEqual(evidence, null, testCase.name);
     assert.equal(evidence?.kind, testCase.expectedKind, testCase.name);
-    assert.deepEqual(readTaskFailureObservationCore(evidence), testCase.expected, testCase.name);
+    assert.deepEqual(projectTaskFailureObservationCore(evidence), testCase.expected, testCase.name);
 
     const ontology = buildAttentionJudgmentInput(normalizeSourceEvent(event)).ontology;
     assert.equal(ontology.activity, testCase.expectedActivity, testCase.name);
@@ -1665,7 +1665,7 @@ test("task failure evidence attaches canonical observation semantics to non-payl
       expected: observationSemantics({
         kind: "diagnostic",
         polarity: "failure",
-        origin: "semantic_evidence",
+        origin: "read_output",
         subject: "source",
         consequenceBaseline: "medium",
         toolFamily: "read",
@@ -1775,7 +1775,7 @@ test("task failure evidence attaches canonical observation semantics to non-payl
         origin: "semantic_evidence",
         subject: "unknown",
         consequenceBaseline: "high",
-        owner: "unknown",
+        owner: "engine",
         evidenceLoss: "unknown",
         recoveryHint: "inspect_original_evidence",
         evidenceCertainty: "indeterminate",
@@ -1794,7 +1794,7 @@ test("task failure evidence attaches canonical observation semantics to non-payl
     });
     assert.notEqual(evidence, null, testCase.name);
     assert.equal(evidence?.kind, testCase.expectedKind, testCase.name);
-    assert.deepEqual(readTaskFailureObservationCore(evidence), testCase.expected, testCase.name);
+    assert.deepEqual(projectTaskFailureObservationCore(evidence), testCase.expected, testCase.name);
   }
 });
 
@@ -1965,7 +1965,6 @@ test("task failure evidence treats complete no-output nonzero command exits as m
     assert.equal(looksLikeBareNonzeroTerminalExitEvidence(summary), true);
     assert.equal(evidence?.kind, "terminal_failure");
     assert.equal(evidence?.failureDetail, "outcome_only");
-    assert.equal(evidence?.terminalShape, "bare_nonzero_exit");
     assert.equal(evidence?.readsAsObservation, false);
     assert.equal(evidence?.consequenceBaseline, "medium");
   }
@@ -1974,7 +1973,6 @@ test("task failure evidence treats complete no-output nonzero command exits as m
 test("task failure terminal profile owns terminal-shape consequence classification", () => {
   assert.deepEqual(readTerminalProfile("(no output) Command exited with code 1", "bash"), {
     failureDetail: "outcome_only",
-    terminalShape: "bare_nonzero_exit",
     consequenceBaseline: "medium",
   });
   assert.deepEqual(readTerminalProfile("Error: deployment failed with exit code 1.", "bash"), {
@@ -2006,7 +2004,6 @@ test("task failure evidence treats no-matching command work as outcome-only", ()
 
     assert.equal(evidence?.kind, "terminal_failure", id);
     assert.equal(evidence?.failureDetail, "outcome_only", id);
-    assert.equal(evidence?.terminalShape, undefined, id);
     assert.equal(evidence?.readsAsObservation, false, id);
     assert.equal(evidence?.consequenceBaseline, "medium", id);
   }
@@ -2055,7 +2052,6 @@ test("task failure evidence keeps incomplete raw nonzero exits high consequence"
     assert.equal(looksLikeBareNonzeroTerminalExitEvidence(summary), false);
     assert.equal(evidence?.kind, "terminal_failure");
     assert.notEqual(evidence?.failureDetail, "outcome_only");
-    assert.equal(evidence?.terminalShape, undefined);
     assert.equal(evidence?.readsAsObservation, false);
     assert.equal(evidence?.consequenceBaseline, "high");
   }
@@ -2080,7 +2076,6 @@ test("task failure evidence treats complete structured nonzero no-output envelop
 
     assert.equal(evidence?.kind, "terminal_failure");
     assert.equal(evidence?.failureDetail, "outcome_only");
-    assert.equal(evidence?.terminalShape, undefined);
     assert.equal(evidence?.readsAsObservation, false);
     assert.equal(evidence?.consequenceBaseline, "medium");
   }
@@ -2133,7 +2128,6 @@ test("task failure evidence keeps diagnostic nonzero command exits high conseque
     assert.equal(looksLikeBareNonzeroTerminalExitEvidence(summary), false);
     assert.equal(evidence?.kind, "terminal_failure");
     assert.equal(evidence?.failureDetail, "diagnostic");
-    assert.equal(evidence?.terminalShape, undefined);
     assert.equal(evidence?.consequenceBaseline, "high");
   }
 });
@@ -2169,7 +2163,7 @@ test("task failure evidence treats read source-window limits as bounded terminal
       toolFamily: "read",
     });
 
-    assert.equal(signals.sourceWindowLimitFailure, true);
+    assert.equal(signals.observationSyntax?.diagnosticClass, "source_limit");
     assert.equal(evidence?.kind, "terminal_failure");
     assert.equal(evidence?.failureDetail, "source_window_limit");
     assert.equal(evidence?.toolFamily, "read");
@@ -2178,12 +2172,24 @@ test("task failure evidence treats read source-window limits as bounded terminal
   }
 });
 
-test("task failure evidence rejects non-read and quoted source-window limit wording", () => {
+test("task failure evidence derives source-window limits from shape, not capability identity", () => {
   const summary =
     "File content (347.9KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.";
-  const cases = [
-    { title: "bash failure", toolFamily: "bash", summary },
-    { title: "search failure", toolFamily: "search", summary },
+  for (const toolFamily of ["bash", "search", "Opaque.Reader/8"]) {
+    const evidence = readTaskFailureSemanticEvidence({
+      id: `evt:evidence:source-window-limit:${toolFamily}`,
+      taskId: `task:evidence:source-window-limit:${toolFamily}`,
+      timestamp,
+      type: "task.updated",
+      title: "source transport failure",
+      summary,
+      status: "failed",
+      toolFamily,
+    });
+    assert.equal(evidence?.failureDetail, "source_window_limit", toolFamily);
+  }
+
+  const rejected = [
     {
       title: "read failure",
       toolFamily: "read",
@@ -2207,7 +2213,7 @@ test("task failure evidence rejects non-read and quoted source-window limit word
     },
   ] as const;
 
-  for (const testCase of cases) {
+  for (const testCase of rejected) {
     const signals = readTaskFailureSemanticSignals({
       summary: testCase.summary,
       toolFamily: testCase.toolFamily,
@@ -2223,7 +2229,7 @@ test("task failure evidence rejects non-read and quoted source-window limit word
       toolFamily: testCase.toolFamily,
     });
 
-    assert.equal(signals.sourceWindowLimitFailure, false, testCase.summary);
+    assert.notEqual(signals.observationSyntax?.diagnosticClass, "source_limit", testCase.summary);
     assert.notEqual(evidence?.failureDetail, "source_window_limit", testCase.summary);
   }
 });
@@ -2243,8 +2249,8 @@ test("task failure evidence keeps mixed read source-window diagnostics high cons
     toolFamily: "read",
   });
 
-  assert.equal(signals.sourceWindowLimitFailure, false);
-  assert.equal(signals.readFailureDiagnostic, true);
+  assert.notEqual(signals.observationSyntax?.diagnosticClass, "source_limit");
+  assert.equal(signals.observationSyntax?.diagnosticClass, "runtime");
   assert.equal(evidence?.kind, "terminal_failure");
   assert.equal(evidence?.failureDetail, "diagnostic");
   assert.equal(evidence?.consequenceBaseline, "high");
@@ -2574,7 +2580,7 @@ test("task failure evidence routes edit output outcomes by result semantics", ()
   ]) {
     assert.notEqual(failure, null);
     assert.deepEqual(
-      readTaskFailureObservationCore(failure),
+      projectTaskFailureObservationCore(failure),
       {
         ...observationSemantics({
           kind: "diagnostic",

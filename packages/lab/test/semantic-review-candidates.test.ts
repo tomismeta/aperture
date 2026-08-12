@@ -7,11 +7,7 @@ import test from "node:test";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
-import {
-  extractTaskFailureObservationCore,
-  type TaskFailureObservationInput,
-  type TaskFailureSemanticEvidence,
-} from "@tomismeta/aperture-core/internal";
+import { type TaskFailureSemanticEvidence } from "@tomismeta/aperture-core/internal";
 import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "@tomismeta/aperture-core/semantic";
 
 import {
@@ -662,13 +658,14 @@ function createMetadataTruncatedUnclassifiedFailedBundle() {
 
 function createUnclassifiedEvidence(toolFamily?: string): TaskFailureSemanticEvidence {
   const text = { shapes: [] };
-  const evidence: TaskFailureObservationInput = {
+  return {
     kind: "unclassified_failure",
     ...(toolFamily ? { toolFamily } : {}),
     readsAsObservation: false,
     consequenceBaseline: "high",
+    failureDetail: "indeterminate",
+    text,
   };
-  return { ...evidence, text, ...extractTaskFailureObservationCore(evidence) };
 }
 
 function sumRecordValues(record: Record<string, number>): number {

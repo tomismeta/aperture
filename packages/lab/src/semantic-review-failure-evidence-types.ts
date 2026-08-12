@@ -1,8 +1,4 @@
-import type {
-  TaskFailureDetail,
-  TaskFailureEvidenceKind,
-  TaskFailureTerminalShape,
-} from "@tomismeta/aperture-core/internal";
+import type { TaskFailureDetail, TaskFailureEvidenceKind } from "@tomismeta/aperture-core/internal";
 
 const SEMANTIC_REVIEW_TASK_FAILURE_EVIDENCE_KIND_RECORD = {
   routine_bash_success_observation: true,
@@ -43,7 +39,6 @@ export type SemanticReviewTaskFailureEvidenceExample = {
     toolFamily: string | null;
     readsAsObservation: boolean;
     consequenceBaseline: SemanticReviewTaskFailureConsequenceBaseline;
-    terminalShape?: TaskFailureTerminalShape;
   };
   event: {
     type: string;

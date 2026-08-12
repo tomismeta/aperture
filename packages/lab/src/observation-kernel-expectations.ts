@@ -179,7 +179,7 @@ const OBSERVATION_KERNEL_CALIBRATION_EXPECTATIONS: Readonly<
   "read-source-window-limit": [
     expected(
       fields("diagnostic", "failure", "tool", "read", "source", "partial", "strong", {
-        origin: "semantic_evidence",
+        origin: "read_output",
         authority: "explicit",
         diagnosticClass: "source_limit",
         recoveryHint: "narrow_evidence_scope",
@@ -247,7 +247,7 @@ const OBSERVATION_KERNEL_CALIBRATION_EXPECTATIONS: Readonly<
   "source-limit-recovery-flow": [
     expected(
       fields("diagnostic", "failure", "tool", "read", "source", "partial", "qualified", {
-        origin: "semantic_evidence",
+        origin: "read_output",
         authority: "hinted",
         diagnosticClass: "source_limit",
         recoveryHint: "narrow_evidence_scope",

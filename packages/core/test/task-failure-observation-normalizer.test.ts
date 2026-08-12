@@ -228,7 +228,7 @@ test("task-failure observation enrichment owns evidence-certainty constraints", 
     }),
   );
 
-  assert.equal(unclassified.evidenceCertainty, "determinate");
+  assert.equal(unclassified.evidenceCertainty, "indeterminate");
   assert.equal(
     enrichTaskFailureObservation({
       core: unclassified,
@@ -236,7 +236,7 @@ test("task-failure observation enrichment owns evidence-certainty constraints", 
       abstained: false,
       semanticAgreement: "stable",
     }).semanticAgreement,
-    "stable",
+    "uncertain",
   );
 });
 
@@ -564,6 +564,7 @@ test("task-failure observation normalizer maps every evidence kind into the norm
         evidenceLoss: "unknown",
         recoveryHint: "inspect_original_evidence",
         evidenceStrength: "weak",
+        semanticAgreement: "uncertain",
       },
     },
   ];
@@ -589,7 +590,11 @@ test("task-failure observation normalizer maps every evidence kind into the norm
       }
       assert.deepEqual(observation[key as keyof NormalizedObservation], value, testCase.name);
     }
-    assert.equal(observation.semanticAgreement, "stable", testCase.name);
+    assert.equal(
+      observation.semanticAgreement,
+      testCase.expected.semanticAgreement ?? "stable",
+      testCase.name,
+    );
     assert.equal(
       observation.consequenceBaseline,
       testCase.evidence.consequenceBaseline,
@@ -798,10 +803,10 @@ test("task-failure observation normalizer lowers certainty for uncertainty and e
   });
 
   assert.equal(compile(absent).evidenceStrength, "weak");
-  assert.equal(compile(unclassified).semanticAgreement, "stable");
+  assert.equal(compile(unclassified).semanticAgreement, "uncertain");
   assert.equal(compile(unclassified).evidenceStrength, "weak");
   assert.equal(
-    compile(unclassified, { semanticAgreement: "uncertain" }).semanticAgreement,
+    compile(unclassified, { semanticAgreement: "overridden" }).semanticAgreement,
     "uncertain",
   );
   assert.equal(compile(terminalIndeterminate).semanticAgreement, "uncertain");

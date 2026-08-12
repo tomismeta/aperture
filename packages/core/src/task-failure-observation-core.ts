@@ -161,10 +161,7 @@ function observation(
     evidenceLoss,
     provenance: { origin: "semantic_evidence" },
     consequenceBaseline: input.consequenceBaseline,
-    evidenceCertainty:
-      input.kind === "terminal_failure" && failureDetail === "indeterminate"
-        ? "indeterminate"
-        : "determinate",
+    evidenceCertainty: failureDetail === "indeterminate" ? "indeterminate" : "determinate",
   };
   if (input.toolFamily !== undefined) observationSemantics.ownership.toolFamily = input.toolFamily;
   if (diagnosticClass !== null) observationSemantics.diagnosticClass = diagnosticClass;

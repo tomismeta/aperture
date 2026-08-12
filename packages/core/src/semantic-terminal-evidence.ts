@@ -129,8 +129,12 @@ function isOccurrenceCoveredByAnyPattern(
 
 function defaultBenignPhrasePatterns(phrase: string): RegExp[] {
   const normalizedPhrase = escapeRegExp(normalizeSemanticText(phrase));
+  const absence =
+    phrase === "permission denied"
+      ? String.raw`(?:no ${normalizedPhrase}|${normalizedPhrase} before (?:tool )?(?:invocation|execution))`
+      : String.raw`no ${normalizedPhrase}`;
   return [
-    new RegExp(String.raw`\bno ${normalizedPhrase}\b`),
+    new RegExp(String.raw`\b${absence}\b`),
     new RegExp(String.raw`\bwithout ${normalizedPhrase}\b`),
   ];
 }

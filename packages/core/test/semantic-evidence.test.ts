@@ -34,7 +34,7 @@ import {
 } from "../src/semantic-python-diagnostic-shapes.js";
 import {
   hasToolUseRejectionSignal,
-  looksLikeToolUseRejectionOutcome,
+  readToolUseRejectionOutcome,
 } from "../src/semantic-tool-use-rejection-shapes.js";
 import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-terminal-evidence.js";
 import type { ObservationSemantics } from "../src/observation-semantics.js";
@@ -48,6 +48,8 @@ import { readTaskFailureStructuredOutputEnvelope } from "../src/semantic-task-fa
 import type { ApertureEvent } from "../src/events.js";
 
 const timestamp = "2026-04-05T18:45:00.000Z";
+const looksLikeToolUseRejectionOutcome = (value: string) =>
+  readToolUseRejectionOutcome(value) !== null;
 type ObservationalStatusConflictEvent = Extract<ApertureEvent, { type: "task.updated" }>;
 type ObservationalStatusConflictSemantic = NonNullable<ApertureEvent["semantic"]>;
 
@@ -78,8 +80,8 @@ function readTerminalProfile(summary: string, toolFamily?: string) {
     summary,
     signals: readTaskFailureSemanticSignals({ summary, toolFamily }),
     toolFamily,
-    textSearchResultOutput: hasSemanticTextShape(text, "search_result"),
-    textTerminalFailureEvidence: hasSemanticTextShape(text, "terminal_failure"),
+    searchResultText: hasSemanticTextShape(text, "search_result"),
+    terminalFailureText: hasSemanticTextShape(text, "terminal_failure"),
   });
 }
 

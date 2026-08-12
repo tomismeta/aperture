@@ -112,6 +112,7 @@ These docs explain the source-specific integration seams:
 - [Canonical Judgment Model](./engine/canonical-judgment-model.md)
 - [Reference Judgment Flow](./engine/reference-judgment-flow.md)
 - [Semantic Normalization](./engine/semantic-normalization.md)
+- [Observation And Judgment Contract v1](./engine/observation-judgment-contract-v1.md)
 - [Kernel Scale Characterization](./engine/kernel-scale-characterization.md)
 - [Attention Frame](./engine/frame.md)
 - [SDK Path](./product/sdk-path.md)

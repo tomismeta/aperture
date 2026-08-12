@@ -7,6 +7,8 @@ This is the portability posture for Aperture: compact, boring, portable,
 replayable, inspectable, and trusted.
 
 For term boundaries, see [Attention Kernel Lexicon](./attention-kernel-lexicon.md).
+For the normative semantic-to-judgment boundary, see
+[Observation And Judgment Contract v1](./observation-judgment-contract-v1.md).
 
 ## Category
 

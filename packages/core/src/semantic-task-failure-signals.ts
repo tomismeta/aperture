@@ -3,7 +3,7 @@ import {
   hasToolOutputFailureDiagnosticEvidence,
   looksLikeSearchFailureDiagnostic,
 } from "./semantic-diagnostic-shapes.js";
-import { readEditOutputOutcome, type EditOutputOutcome } from "./semantic-edit-output-shapes.js";
+import { readEditOutputOutcome } from "./semantic-edit-output-shapes.js";
 import {
   readExplicitObservationTranscript,
   looksLikeExplicitDiagnosticObservationTranscript,
@@ -14,14 +14,13 @@ import {
   looksLikeExplicitDiagnosticReferenceObservationTranscript,
 } from "./semantic-observation-transcript-reference-shapes.js";
 import { hasOwnedReadTerminalDiagnosticEvidence } from "./semantic-owned-read-observation-shapes.js";
-import type { StructuredToolOutputObservation } from "./semantic-structured-output.js";
 import { readSemanticStructuredOutputOwnership } from "./semantic-structured-output-ownership.js";
-import {
-  readTaskFailureStructuredOutputEnvelope,
-  type TaskFailureStructuredOutputEnvelope,
-} from "./semantic-task-failure-structured-output.js";
+import { readTaskFailureStructuredOutputEnvelope } from "./semantic-task-failure-structured-output.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
-import { looksLikeToolUseRejectionOutcome } from "./semantic-tool-use-rejection-shapes.js";
+import {
+  hasToolUseRejectionSignal,
+  readToolUseRejectionOutcome,
+} from "./semantic-tool-use-rejection-shapes.js";
 import {
   looksLikeSourceWindowLimitFailure,
   looksLikeSourceWindowLimitMixedDiagnostic,
@@ -31,30 +30,12 @@ import {
   type TaskFailureObservationSyntax,
 } from "./task-failure-observation-grammar.js";
 
-export type TaskFailureSemanticSignals = {
-  structuredOutputEnvelope: TaskFailureStructuredOutputEnvelope;
-  unsafeStructuredToolOutputEnvelope: boolean;
-  diagnosticStructuredToolOutput: StructuredToolOutputObservation | null;
-  structuredOutputExitFailure: boolean;
-  structuredOutputZeroExitSuccess: boolean;
-  editOutputOutcome: EditOutputOutcome | null;
-  searchFailureDiagnostic: boolean;
-  readFailureDiagnostic: boolean;
-  sourceWindowLimitFailure: boolean;
-  structuredOutputFailureDiagnostic: boolean;
-  rawToolOutputFailureDiagnostic: boolean;
-  strongSourceRuntimeDiagnostic: boolean;
-  diagnosticObservationTranscript: boolean;
-  commandDiagnosticObservationTranscript: boolean;
-  commandActualDiagnosticObservationTranscript: boolean;
-  commandDiagnosticReferenceObservationTranscript: boolean;
-  observationSyntax: TaskFailureObservationSyntax | null;
-};
+export type TaskFailureSemanticSignals = ReturnType<typeof readTaskFailureSemanticSignals>;
 
 export function readTaskFailureSemanticSignals(input: {
   summary?: string | undefined;
   toolFamily?: string | undefined;
-}): TaskFailureSemanticSignals {
+}) {
   const summary = input.summary ?? "";
   const commandExecutionToolFamily = isSemanticCommandExecutionToolFamily(input.toolFamily);
   const structuredOutputOwnership = readSemanticStructuredOutputOwnership(input.toolFamily);
@@ -92,19 +73,21 @@ export function readTaskFailureSemanticSignals(input: {
     readObservationTranscript?.shape === "abbreviated_file_view" ? readObservationTranscript : null;
   const missingToolObservationTranscript =
     input.toolFamily === undefined ? readExplicitObservationTranscript(summary) : null;
-  const rejectedToolUseOutcome = looksLikeToolUseRejectionOutcome(summary);
+  const toolUseRejectionOutcome = readToolUseRejectionOutcome(summary);
   const observationSyntax = readTaskFailureObservationSyntax({
     commandObservationTranscript,
     editOutputOutcome,
     missingToolObservationTranscript,
     readAbbreviatedFileViewObservation,
-    rejectedToolUseOutcome,
+    toolUseRejectionOutcome,
     commandExecutionToolFamily,
     structuredOutputEnvelope,
     structuredOutputZeroExitSuccess,
     summary,
     toolFamily: input.toolFamily,
   });
+  const preExecutionControl =
+    observationSyntax?.kind === "control" && observationSyntax.executionEvidence === "absent";
   const strongDiagnostic = hasStrongRuntimeDiagnosticEvidence(summary);
   const readPayloadObservation = isPayloadObservationOrigin(observationSyntax, "read_output");
   const readSourcePayloadObservation =
@@ -134,7 +117,6 @@ export function readTaskFailureSemanticSignals(input: {
       structuredOutputEnvelope.kind === "recovered" || structuredOutputEnvelope.kind === "invalid",
     diagnosticStructuredToolOutput,
     structuredOutputExitFailure,
-    structuredOutputZeroExitSuccess,
     editOutputOutcome,
     searchFailureDiagnostic:
       input.toolFamily === "search" && looksLikeSearchFailureDiagnostic(summary),
@@ -142,10 +124,12 @@ export function readTaskFailureSemanticSignals(input: {
     sourceWindowLimitFailure,
     structuredOutputFailureDiagnostic,
     rawToolOutputFailureDiagnostic:
-      structuredOutputOwnership === "native" &&
+      input.toolFamily !== undefined &&
+      structuredOutputOwnership !== "unsupported" &&
       diagnosticStructuredToolOutput === null &&
       structuredOutputEnvelope.kind === "raw" &&
-      hasToolOutputFailureDiagnosticEvidence(summary),
+      !preExecutionControl &&
+      hasToolOutputFailureDiagnosticEvidence(summary, hasToolUseRejectionSignal(summary)),
     strongSourceRuntimeDiagnostic:
       (structuredOutputEnvelope.kind === "valid" &&
         structuredSourcePayloadObservation &&

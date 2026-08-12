@@ -15,7 +15,7 @@ type TaskFailureObservationGrammarInput = {
   editOutputOutcome: EditOutputOutcome | null;
   missingToolObservationTranscript: ExplicitObservationTranscript | null;
   readAbbreviatedFileViewObservation: ExplicitObservationTranscript | null;
-  rejectedToolUseOutcome: boolean;
+  toolUseRejectionOutcome: { executionEvidence: "absent" | "unspecified" } | null;
   commandExecutionToolFamily: boolean;
   structuredOutputEnvelope: TaskFailureStructuredOutputEnvelope;
   structuredOutputZeroExitSuccess: boolean;
@@ -39,6 +39,7 @@ export type TaskFailureObservationSyntax =
       kind: "control";
       origin: ObservationOrigin;
       recoveryHint: NonNullable<ObservationSemantics["recoveryHint"]>;
+      executionEvidence: "absent" | "unspecified";
       toolFamily?: string;
     };
 
@@ -58,8 +59,14 @@ export function readTaskFailureObservationSyntax(
   if (input.commandObservationTranscript) {
     return transcriptObservation(input.commandObservationTranscript, input.toolFamily);
   }
-  if (input.rejectedToolUseOutcome) {
-    return controlObservation("status_text", "await_authorization", input.toolFamily);
+  if (input.toolUseRejectionOutcome) {
+    return {
+      kind: "control",
+      origin: "status_text",
+      recoveryHint: "await_authorization",
+      executionEvidence: input.toolUseRejectionOutcome.executionEvidence,
+      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
+    };
   }
   if (input.editOutputOutcome === "applied") {
     return payloadObservation("semantic_evidence", "tool", "high", input.toolFamily);
@@ -133,19 +140,6 @@ function outcomeObservation(
     origin,
     subject,
     consequenceBaseline,
-    ...(toolFamily !== undefined ? { toolFamily } : {}),
-  };
-}
-
-function controlObservation(
-  origin: ObservationOrigin,
-  recoveryHint: NonNullable<ObservationSemantics["recoveryHint"]>,
-  toolFamily?: string,
-): TaskFailureObservationSyntax {
-  return {
-    kind: "control",
-    origin,
-    recoveryHint,
     ...(toolFamily !== undefined ? { toolFamily } : {}),
   };
 }

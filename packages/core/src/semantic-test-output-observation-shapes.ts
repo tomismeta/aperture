@@ -64,7 +64,7 @@ function looksLikePytestSuccess(text: string): boolean {
 }
 
 function looksLikeCommandTestSuccess(text: string): boolean {
-  return /^\s*running\s+(?:command|[a-z0-9_.-]+)[^\r\n]{0,160}\s+output:\s+[\s\S]{1,1200}\b(?:test passed(?::\s+[^\r\n.]+)?|tests passed|all checks passed|all [a-z0-9_. -]{1,160} tests passed|no problems found)[.!]?\s*$/i.test(
+  return /^\s*(?:running\s+(?:command|[a-z0-9_.-]+)[^\r\n]{0,160}\s+output:\s+[\s\S]{1,1200}\b(?:test passed(?::\s+[^\r\n.]+)?|tests passed|all checks passed|all [a-z0-9_. -]{1,160} tests passed|no problems found)|(?:the\s+)?tests?\s+passed\s+with\s+(?:zero|0)\s+failures?[\s\S]{1,600}\b(?:intentionally|expectedly)\s+(?:emitted|produced|raised)\b[\s\S]{1,300}\b(?:verified|matched|asserted|confirmed)\b[\s\S]{0,160})[.!]?\s*$/i.test(
     text,
   );
 }

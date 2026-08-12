@@ -65,7 +65,7 @@ const GREP_CONTEXT_ENTRY_PATTERN =
   /(?:^|\s)(?:(?<path>\S+\.[a-z0-9]+)-)?(?<line>\d{1,6})(?<separator>--|[-:]\||-)\s+(?<body>\S[\s\S]*?)(?=(?:\s(?:\S+\.[a-z0-9]+-)?\d{1,6}(?:--|[-:]\||-)\s+\S)|$)/gi;
 
 function looksLikeWebSearchResultOutput(rawText: string): boolean {
-  return /^\s*web search results for\s+(?:"[^"]+"|'[^']+'|`[^`]+`|[^:\r\n]{1,200})\s*:\s+\S/i.test(
+  return /^\s*(?:web search results for\s+(?:"[^"]+"|'[^']+'|`[^`]+`|[^:\r\n]{1,200})\s*:\s+\S|search\s+(?:returned|found)\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|several|multiple)\s+(?:matches?|results?)\b[\s\S]{1,500}\b(?:at\s+lines?\s+\d{1,7}|(?:at|in)\s+(?:paths?|files?)\s+\S|(?:at|in)\s+\S+\.[a-z0-9]+(?::\d+)?))/i.test(
     rawText,
   );
 }

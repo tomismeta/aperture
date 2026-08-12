@@ -2,13 +2,23 @@ import { looksLikeToolOutputDiagnosticPayload } from "./semantic-tool-output-dia
 import { looksLikeRuntimePanicDiagnostic } from "./semantic-panic-diagnostic-shapes.js";
 import { looksLikePathQualifiedFailureDiagnostic } from "./semantic-path-qualified-failure-diagnostic-shapes.js";
 import { looksLikePythonRuntimeDiagnostic } from "./semantic-python-diagnostic-shapes.js";
-import { looksLikeRuntimeError } from "./semantic-runtime-error-diagnostic-shapes.js";
+import {
+  hasUnquotedEmbeddedRuntimeDiagnosticEvidence,
+  looksLikeRuntimeError,
+} from "./semantic-runtime-error-diagnostic-shapes.js";
 import { looksLikeTestRunnerFailureDiagnostic } from "./semantic-test-runner-output-shapes.js";
 
 export { hasUnquotedEmbeddedRuntimeDiagnosticEvidence } from "./semantic-runtime-error-diagnostic-shapes.js";
 
-export function hasToolOutputFailureDiagnosticEvidence(text: string): boolean {
-  return hasStrongRuntimeDiagnosticEvidence(text) || looksLikeToolOutputDiagnosticPayload(text);
+export function hasToolOutputFailureDiagnosticEvidence(
+  text: string,
+  embeddedRuntime = false,
+): boolean {
+  return [
+    hasStrongRuntimeDiagnosticEvidence(text),
+    looksLikeToolOutputDiagnosticPayload(text),
+    embeddedRuntime && hasUnquotedEmbeddedRuntimeDiagnosticEvidence(text),
+  ].some(Boolean);
 }
 
 export function looksLikeSearchFailureDiagnostic(rawText: string): boolean {
@@ -17,9 +27,11 @@ export function looksLikeSearchFailureDiagnostic(rawText: string): boolean {
   }
 
   const payload = readWebSearchResultPayload(rawText);
-  return payload === null
-    ? looksLikeSearchFailureEnvelope(rawText)
-    : looksLikeSearchFailurePayload(payload);
+  const failure =
+    /\b(?:backend\s+(?:is\s+)?unavailable|could\s+not\s+be\s+retrieved|couldn['’]?t\s+be\s+retrieved|failed\s+because|request\s+failed|search\s+failed|timed?\s+out|timeout)\b/i.exec(
+      payload ?? rawText,
+    );
+  return failure !== null && (payload === null || payload.slice(0, failure.index).trim() === "");
 }
 
 export function hasStrongRuntimeDiagnosticEvidence(text: string): boolean {
@@ -70,18 +82,6 @@ function readWebSearchResultPayload(rawText: string): string | null {
       rawText,
     );
   return match?.[1] ?? null;
-}
-
-function looksLikeSearchFailureEnvelope(text: string): boolean {
-  return /\b(?:backend\s+(?:is\s+)?unavailable|could\s+not\s+be\s+retrieved|couldn['’]?t\s+be\s+retrieved|failed\s+because|request\s+failed|search\s+failed|timed?\s+out|timeout)\b/i.test(
-    text,
-  );
-}
-
-function looksLikeSearchFailurePayload(text: string): boolean {
-  return /^\s*(?:backend\s+(?:is\s+)?unavailable\b|could\s+not\s+be\s+retrieved\b|couldn['’]?t\s+be\s+retrieved\b|failed\s+because\b|request\s+failed\b|search\s+failed\b|timed?\s+out\b|timeout\b)/i.test(
-    text,
-  );
 }
 
 function looksLikeCompilerError(text: string): boolean {

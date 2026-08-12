@@ -1,5 +1,7 @@
 import type { SourceEvent } from "@tomismeta/aperture-core";
 
+import { OBSERVATION_KERNEL_HOLDOUT_FIXTURES } from "./observation-kernel-holdout.js";
+
 export type ObservationKernelFixture = {
   id: string;
   dimension: string;
@@ -180,4 +182,5 @@ function failedTaskEvent(input: FailedTaskEventInput): SourceEvent {
 
 export const OBSERVATION_KERNEL_FIXTURES: ObservationKernelFixture[] = [
   ...OBSERVATION_KERNEL_CALIBRATION_FIXTURES,
+  ...OBSERVATION_KERNEL_HOLDOUT_FIXTURES,
 ];

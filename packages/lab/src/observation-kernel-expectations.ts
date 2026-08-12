@@ -2,6 +2,7 @@ import type {
   ObservationKernelFields,
   ObservationKernelJudgmentFields,
 } from "./observation-kernel-scorecard.js";
+import { OBSERVATION_KERNEL_HOLDOUT_EXPECTATIONS } from "./observation-kernel-holdout.js";
 
 export type ObservationKernelExpectedFields = Omit<
   ObservationKernelFields,
@@ -354,4 +355,5 @@ export const OBSERVATION_KERNEL_EXPECTATIONS: Readonly<
   Record<string, readonly ObservationKernelExpectedOutcome[]>
 > = {
   ...OBSERVATION_KERNEL_CALIBRATION_EXPECTATIONS,
+  ...OBSERVATION_KERNEL_HOLDOUT_EXPECTATIONS,
 };

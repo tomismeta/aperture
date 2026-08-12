@@ -1,7 +1,7 @@
 import type { SourceEvent } from "@tomismeta/aperture-core";
 import { assertValidSourceEvent } from "@tomismeta/aperture-core/internal";
 
-import holdoutArtifact from "../conformance/observation-kernel-holdout-v1.json" with { type: "json" };
+import holdoutArtifact from "../conformance/observation-kernel-holdout-v2.json" with { type: "json" };
 
 import type {
   ObservationKernelExpectedFields,
@@ -10,17 +10,26 @@ import type {
 import type { ObservationKernelFixture } from "./observation-kernel-fixtures.js";
 import type { ObservationKernelJudgmentFields } from "./observation-kernel-scorecard-model.js";
 
-export const OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION = 1 as const;
-export const OBSERVATION_KERNEL_HOLDOUT_IMPLEMENTATION_FREEZE = "73f85e8" as const;
+export const OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION = 2 as const;
+export const OBSERVATION_KERNEL_HOLDOUT_CONTRACT_ID =
+  "aperture-observation-judgment-contract/v1" as const;
+export const OBSERVATION_KERNEL_HOLDOUT_CONTRACT_DIGEST =
+  "sha256:9d53456de27a9db5342c98d100971bd3cec6336d2f61b1cef9048e2297ea294e" as const;
+export const OBSERVATION_KERNEL_HOLDOUT_IMPLEMENTATION_FREEZE =
+  "ca18486a54544a8a154f7c626437f0d803cde933" as const;
+export const OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT = 12 as const;
 
 export type ObservationKernelHoldoutArtifact = {
   methodology: {
     schemaVersion: typeof OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION;
-    authoredAfterCommit: typeof OBSERVATION_KERNEL_HOLDOUT_IMPLEMENTATION_FREEZE;
+    contractId: typeof OBSERVATION_KERNEL_HOLDOUT_CONTRACT_ID;
+    contractDigest: typeof OBSERVATION_KERNEL_HOLDOUT_CONTRACT_DIGEST;
+    implementationFreeze: typeof OBSERVATION_KERNEL_HOLDOUT_IMPLEMENTATION_FREEZE;
     author: "gpt-5.6-sol";
     authoredWithoutImplementationInspection: true;
     authoredWithoutExecution: true;
     firstExecutionPermittedAfterCommit: true;
+    fixtureCount: typeof OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT;
     notes: string[];
   };
   fixtures: Array<
@@ -38,6 +47,8 @@ export function parseObservationKernelHoldout(value: unknown): ObservationKernel
   }
   const ids = new Set<string>();
   const dimensions = new Set<string>();
+  const eventIds = new Set<string>();
+  const taskIds = new Set<string>();
   for (const fixture of value.fixtures) {
     if (!isHoldoutFixture(fixture)) {
       throw new Error("Invalid Observation Kernel holdout fixture.");
@@ -47,9 +58,17 @@ export function parseObservationKernelHoldout(value: unknown): ObservationKernel
     }
     ids.add(fixture.id);
     dimensions.add(fixture.dimension);
+    const event = fixture.events[0];
+    if (event === undefined || eventIds.has(event.id) || taskIds.has(event.taskId)) {
+      throw new Error("Observation Kernel holdout event and task ids must be unique.");
+    }
+    eventIds.add(event.id);
+    taskIds.add(event.taskId);
   }
-  if (value.fixtures.length !== 10) {
-    throw new Error("Observation Kernel holdout must contain exactly 10 fixtures.");
+  if (value.fixtures.length !== OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT) {
+    throw new Error(
+      `Observation Kernel holdout must contain exactly ${OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT} fixtures.`,
+    );
   }
   return value as ObservationKernelHoldoutArtifact;
 }
@@ -58,20 +77,26 @@ function isMethodology(value: unknown): boolean {
   return (
     hasExactKeys(value, [
       "schemaVersion",
-      "authoredAfterCommit",
+      "contractId",
+      "contractDigest",
+      "implementationFreeze",
       "author",
       "authoredWithoutImplementationInspection",
       "authoredWithoutExecution",
       "firstExecutionPermittedAfterCommit",
+      "fixtureCount",
       "notes",
     ]) &&
     value.schemaVersion === OBSERVATION_KERNEL_HOLDOUT_SCHEMA_VERSION &&
-    value.authoredAfterCommit === OBSERVATION_KERNEL_HOLDOUT_IMPLEMENTATION_FREEZE &&
+    value.contractId === OBSERVATION_KERNEL_HOLDOUT_CONTRACT_ID &&
+    value.contractDigest === OBSERVATION_KERNEL_HOLDOUT_CONTRACT_DIGEST &&
+    value.implementationFreeze === OBSERVATION_KERNEL_HOLDOUT_IMPLEMENTATION_FREEZE &&
     value.author === "gpt-5.6-sol" &&
     value.authoredWithoutImplementationInspection === true &&
     value.authoredWithoutExecution === true &&
     value.firstExecutionPermittedAfterCommit === true &&
-    isStringArray(value.notes)
+    value.fixtureCount === OBSERVATION_KERNEL_HOLDOUT_FIXTURE_COUNT &&
+    isNonemptyStringArray(value.notes)
   );
 }
 
@@ -79,7 +104,7 @@ function isHoldoutFixture(value: unknown): boolean {
   if (
     !hasExactKeys(value, ["id", "dimension", "split", "events", "expected", "rationale"]) ||
     typeof value.id !== "string" ||
-    !/^holdout-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.id) ||
+    !/^holdout-v2-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.id) ||
     typeof value.dimension !== "string" ||
     !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.dimension) ||
     value.split !== "holdout" ||
@@ -103,8 +128,33 @@ function isHoldoutFixture(value: unknown): boolean {
   return value.events.every(
     (event) =>
       isRecord(event) &&
-      event.timestamp === "2026-08-13T00:00:00.000Z" &&
-      event.type === "task.updated",
+      hasOnlyKeys(event, [
+        "id",
+        "taskId",
+        "timestamp",
+        "type",
+        "title",
+        "summary",
+        "status",
+        "toolFamily",
+      ]) &&
+      typeof event.id === "string" &&
+      /^event-v2-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.id) &&
+      typeof event.taskId === "string" &&
+      /^task-v2-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(event.taskId) &&
+      event.timestamp === "2026-08-12T12:00:00.000Z" &&
+      event.type === "task.updated" &&
+      event.status === "failed" &&
+      typeof event.title === "string" &&
+      event.title.length > 0 &&
+      event.title.length <= 240 &&
+      typeof event.summary === "string" &&
+      event.summary.length > 0 &&
+      event.summary.length <= 2_000 &&
+      (event.toolFamily === undefined ||
+        (typeof event.toolFamily === "string" &&
+          /^[a-z][a-z0-9_-]*$/.test(event.toolFamily) &&
+          event.toolFamily.length <= 80)),
   );
 }
 
@@ -179,12 +229,20 @@ function hasExactKeys(value: unknown, keys: readonly string[]): value is Record<
   return isRecord(value) && Object.keys(value).sort().join("\0") === [...keys].sort().join("\0");
 }
 
+function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  return Object.keys(value).every((key) => keys.includes(key));
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+function isNonemptyStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((entry) => typeof entry === "string" && entry.length > 0)
+  );
 }
 
 function isNullableString(value: unknown): value is string | null {

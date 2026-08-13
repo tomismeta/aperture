@@ -76,7 +76,7 @@ const usageArbitrary = fc
 
 const workUpdatedArbitrary: fc.Arbitrary<WorkEvent> = fc
   .record({
-    specVersion: fc.constantFrom("1.0", "1.1"),
+    specVersion: fc.constant("1.0"),
     kind: fc.constant<"work.updated">("work.updated"),
     work: fc.record({
       id: idArbitrary.map((value) => `task:${value}`),
@@ -130,7 +130,7 @@ const choiceRequestArbitrary = fc
 
 const inputRequestedArbitrary: fc.Arbitrary<WorkEvent> = fc
   .record({
-    specVersion: fc.constantFrom("1.0", "1.1"),
+    specVersion: fc.constant("1.0"),
     kind: fc.constant<"input.requested">("input.requested"),
     work: fc.record({
       id: idArbitrary.map((value) => `task:${value}`),

@@ -241,11 +241,10 @@ export const WorkEventMetadataSchema = (
 ) =>
   ({
     specVersion: Type.Optional(
-      Type.String({
-        pattern: "^1\\.\\d+$",
+      Type.Literal(workApiVersion, {
         default: workApiVersion,
         description:
-          "Optional on ingress. Aperture defaults this to 1.0 when omitted and accepts 1.x compatible clients.",
+          "Optional on ingress. Aperture defaults this to the current Work contract version when omitted. Only the current version is accepted.",
       }),
     ),
     id: Type.Optional(NonEmptyString(WORK_MAX_ID_LENGTH)),

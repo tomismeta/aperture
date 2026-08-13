@@ -18,12 +18,12 @@ type WorkResponseStoreOptions = {
   timeSource?: () => number;
 };
 
+const WORK_RESPONSE_STORE_SCHEMA_VERSION = 1 as const;
+
 type PersistedWorkResponseStore = {
-  schemaVersion: 1;
+  schemaVersion: typeof WORK_RESPONSE_STORE_SCHEMA_VERSION;
   records: RuntimeWorkResponseRecord[];
 };
-
-const WORK_RESPONSE_STORE_SCHEMA_VERSION = 1 as const;
 
 export class WorkResponseStore {
   private readonly filePath: string;

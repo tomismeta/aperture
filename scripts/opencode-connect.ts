@@ -5,7 +5,7 @@ import {
   normalizeBaseUrl,
   promptHiddenPassword,
   saveGlobalOpencodeProfile,
-} from "./opencode-config.ts";
+} from "../packages/aperture/src/opencode-config.ts";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);

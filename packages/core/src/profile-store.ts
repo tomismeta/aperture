@@ -10,7 +10,7 @@ import {
   writeMarkdownFile,
 } from "./markdown-state.js";
 import { readAttentionLane } from "./attention-lane.js";
-import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
+import { APERTURE_STATE_SCHEMA_VERSION } from "./judgment-defaults.js";
 
 export type ApertureControlMode = "hands-on" | "standard" | "focus";
 
@@ -379,7 +379,7 @@ function numberValue(value: string | null): number | null {
 
 function readCurrentMarkdownSchemaVersion(value: string | null): number | null {
   const version = numberValue(value);
-  return version === MARKDOWN_SCHEMA_VERSION ? version : null;
+  return version === APERTURE_STATE_SCHEMA_VERSION ? version : null;
 }
 
 function readControlMode(value: string | null): ApertureControlMode | null {

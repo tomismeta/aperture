@@ -9,7 +9,7 @@ import {
 } from "./markdown-state.js";
 import { readAttentionLane } from "./attention-lane.js";
 import type { ContinuityRuleName } from "./continuity/continuity-rule.js";
-import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
+import { APERTURE_STATE_SCHEMA_VERSION } from "./judgment-defaults.js";
 
 export type PolicyConfig = {
   version: number;
@@ -243,7 +243,7 @@ function readNumber(value: string | undefined): number | null {
 
 function readCurrentMarkdownSchemaVersion(value: string | undefined): number | null {
   const version = readNumber(value);
-  return version === MARKDOWN_SCHEMA_VERSION ? version : null;
+  return version === APERTURE_STATE_SCHEMA_VERSION ? version : null;
 }
 
 function camelKey(value: string): string {

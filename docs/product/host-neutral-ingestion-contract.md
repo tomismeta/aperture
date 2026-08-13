@@ -268,6 +268,9 @@ Product ingestion should still prefer `WorkEvent.facts` with
 ## Structured Event: `WorkEvent`
 
 This is the host-neutral event Aperture should be able to consume.
+The live contract currently accepts only `specVersion = "1.0"`; producers using
+another version must migrate before sending events. Aperture does not accept a
+generic `1.x` range.
 At minimum, producers only need:
 
 ```json

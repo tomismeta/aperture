@@ -732,7 +732,7 @@ test("work endpoint rejects oversized payloads with the shared body limit error"
   }
 });
 
-test("work endpoint accepts compatible 1.x spec versions and rejects 2.x", async () => {
+test("work endpoint accepts only the current Work contract version", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { baseUrl, authToken } = await runtime.listen();
 
@@ -742,20 +742,30 @@ test("work endpoint accepts compatible 1.x spec versions and rejects 2.x", async
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...workApprovalEvent("task:version:accepted"),
-        specVersion: "1.1",
+        specVersion: "1.0",
       }),
     });
     assert.equal(accepted.status, 200);
 
-    const rejected = await authorizedFetch(baseUrl, authToken, "/v1/work", {
+    const rejectedMinor = await authorizedFetch(baseUrl, authToken, "/v1/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...workApprovalEvent("task:version:rejected"),
+        ...workApprovalEvent("task:version:rejected-minor"),
+        specVersion: "1.1",
+      }),
+    });
+    assert.equal(rejectedMinor.status, 400);
+
+    const rejectedMajor = await authorizedFetch(baseUrl, authToken, "/v1/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...workApprovalEvent("task:version:rejected-major"),
         specVersion: "2.0",
       }),
     });
-    assert.equal(rejected.status, 400);
+    assert.equal(rejectedMajor.status, 400);
   } finally {
     await runtime.close();
   }

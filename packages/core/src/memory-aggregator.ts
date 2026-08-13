@@ -1,7 +1,7 @@
 import type { AttentionFrame } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import type { AttentionSignal } from "./interaction-signal.js";
-import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
+import { APERTURE_STATE_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { readBoundedToolFamily, sourceKey } from "./interaction-taxonomy.js";
 import type { MemoryProfile } from "./profile-store.js";
 
@@ -16,7 +16,7 @@ export function distillMemoryProfile(
 
   return {
     ...baseMemoryProfile,
-    version: MARKDOWN_SCHEMA_VERSION,
+    version: APERTURE_STATE_SCHEMA_VERSION,
     updatedAt: now,
     sessionCount: baseMemoryProfile.sessionCount + 1,
     ...(Object.keys(toolFamilies).length > 0 ? { toolFamilies } : {}),

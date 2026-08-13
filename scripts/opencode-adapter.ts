@@ -5,7 +5,7 @@ import { discoverLocalRuntimes } from "@aperture/runtime";
 import {
   listEnabledGlobalOpencodeProfiles,
   resolveProfilePassword,
-} from "./opencode-config.ts";
+} from "../packages/aperture/src/opencode-config.ts";
 
 async function main(): Promise<void> {
   const profiles = await listEnabledGlobalOpencodeProfiles();

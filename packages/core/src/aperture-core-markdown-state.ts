@@ -1,6 +1,6 @@
 import type { AttentionSignal } from "./interaction-signal.js";
 import { loadPolicyConfig, type PolicyConfig } from "./policy-config.js";
-import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
+import { APERTURE_STATE_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { distillMemoryProfile } from "./memory-aggregator.js";
 import { ProfileStore, type MemoryProfile, type ApertureProfile } from "./profile-store.js";
 import { formatTimestamp } from "./time.js";
@@ -79,7 +79,7 @@ export async function checkpointMarkdownMemoryProfile(options: {
 
 function defaultApertureProfile(): ApertureProfile {
   return {
-    version: MARKDOWN_SCHEMA_VERSION,
+    version: APERTURE_STATE_SCHEMA_VERSION,
     operatorId: "default",
     updatedAt: formatTimestamp(0),
   };
@@ -87,7 +87,7 @@ function defaultApertureProfile(): ApertureProfile {
 
 function defaultMemoryProfile(): MemoryProfile {
   return {
-    version: MARKDOWN_SCHEMA_VERSION,
+    version: APERTURE_STATE_SCHEMA_VERSION,
     operatorId: "default",
     updatedAt: formatTimestamp(0),
     sessionCount: 0,
@@ -96,7 +96,7 @@ function defaultMemoryProfile(): MemoryProfile {
 
 function defaultPolicyConfig(): PolicyConfig {
   return {
-    version: MARKDOWN_SCHEMA_VERSION,
+    version: APERTURE_STATE_SCHEMA_VERSION,
     updatedAt: formatTimestamp(0),
   };
 }

@@ -17,9 +17,9 @@
         "required": ["kind", "work"],
         "properties": {
           "specVersion": {
-            "pattern": "^1\\.\\d+$",
             "default": "1.0",
-            "description": "Optional on ingress. Aperture defaults this to 1.0 when omitted and accepts 1.x compatible clients.",
+            "description": "Optional on ingress. Aperture defaults this to the current Work contract version when omitted. Only the current version is accepted.",
+            "const": "1.0",
             "type": "string"
           },
           "id": { "minLength": 1, "maxLength": 256, "type": "string" },
@@ -275,9 +275,9 @@
         "required": ["kind", "work"],
         "properties": {
           "specVersion": {
-            "pattern": "^1\\.\\d+$",
             "default": "1.0",
-            "description": "Optional on ingress. Aperture defaults this to 1.0 when omitted and accepts 1.x compatible clients.",
+            "description": "Optional on ingress. Aperture defaults this to the current Work contract version when omitted. Only the current version is accepted.",
+            "const": "1.0",
             "type": "string"
           },
           "id": { "minLength": 1, "maxLength": 256, "type": "string" },
@@ -532,9 +532,9 @@
         "required": ["kind", "work"],
         "properties": {
           "specVersion": {
-            "pattern": "^1\\.\\d+$",
             "default": "1.0",
-            "description": "Optional on ingress. Aperture defaults this to 1.0 when omitted and accepts 1.x compatible clients.",
+            "description": "Optional on ingress. Aperture defaults this to the current Work contract version when omitted. Only the current version is accepted.",
+            "const": "1.0",
             "type": "string"
           },
           "id": { "minLength": 1, "maxLength": 256, "type": "string" },
@@ -790,9 +790,9 @@
         "required": ["kind", "work"],
         "properties": {
           "specVersion": {
-            "pattern": "^1\\.\\d+$",
             "default": "1.0",
-            "description": "Optional on ingress. Aperture defaults this to 1.0 when omitted and accepts 1.x compatible clients.",
+            "description": "Optional on ingress. Aperture defaults this to the current Work contract version when omitted. Only the current version is accepted.",
+            "const": "1.0",
             "type": "string"
           },
           "id": { "minLength": 1, "maxLength": 256, "type": "string" },
@@ -1048,9 +1048,9 @@
         "required": ["kind", "work", "interaction", "request"],
         "properties": {
           "specVersion": {
-            "pattern": "^1\\.\\d+$",
             "default": "1.0",
-            "description": "Optional on ingress. Aperture defaults this to 1.0 when omitted and accepts 1.x compatible clients.",
+            "description": "Optional on ingress. Aperture defaults this to the current Work contract version when omitted. Only the current version is accepted.",
+            "const": "1.0",
             "type": "string"
           },
           "id": { "minLength": 1, "maxLength": 256, "type": "string" },

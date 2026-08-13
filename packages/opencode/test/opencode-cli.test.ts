@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
@@ -113,4 +113,36 @@ test("opencode connect ignores missing flag values instead of treating the next 
     profiles: Array<Record<string, unknown>>;
   };
   assert.equal(saved.profiles[0]?.id, "default");
+});
+
+test("opencode config rejects unsupported versions instead of silently rewriting them", async () => {
+  const home = await mkdtemp(join(tmpdir(), "aperture-opencode-version-"));
+  const configPath = join(home, ".aperture", "opencode.json");
+  await mkdir(join(home, ".aperture"), { recursive: true });
+  await writeFile(
+    configPath,
+    JSON.stringify({ version: 2, updatedAt: new Date(0).toISOString(), profiles: [] }),
+  );
+
+  await assert.rejects(
+    execFileAsync(process.execPath, [
+      tsxCli,
+      "scripts/opencode-disconnect.ts",
+      "--global",
+      "--name",
+      "default",
+    ], {
+      cwd,
+      env: {
+        ...process.env,
+        HOME: home,
+      },
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      const stderr = "stderr" in error && typeof error.stderr === "string" ? error.stderr : "";
+      assert.match(stderr, /Unsupported OpenCode connection config version: 2/);
+      return true;
+    },
+  );
 });

@@ -9,6 +9,7 @@ replayable, inspectable, and trusted.
 For term boundaries, see [Attention Kernel Lexicon](./attention-kernel-lexicon.md).
 For the normative semantic-to-judgment boundary, see
 [Observation And Judgment Contract v1](./observation-judgment-contract-v1.md).
+For versioning rules, see [Contract Version Policy](./contract-version-policy.md).
 
 ## Category
 
@@ -91,7 +92,11 @@ removal, renaming, or semantic reinterpretation requires a new projection
 version. The determinism audit normalizes these projection fields so kernel
 drift is visible even when the final attention view does not change.
 Projection version `1` snapshots remain readable inside session bundle schema
-`1` artifacts, but current conformance writers emit version `2`.
+`1` artifacts through an explicitly archival Lab reader; normal conformance
+writers and the live runtime emit version `2`. Core and Runtime do not accept
+multiple live versions of their state or Work contracts. A future projection
+change must migrate or retire the archival reader before broadening the live
+path.
 Replay decision snapshots still carry the legacy `resultLane` source field; the
 version `2` projection exposes that placement as `realizedLane`.
 

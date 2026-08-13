@@ -1,5 +1,4 @@
 export const APERTURE_STATE_SCHEMA_VERSION = 1;
-export const MARKDOWN_SCHEMA_VERSION = APERTURE_STATE_SCHEMA_VERSION;
 
 export const JUDGMENT_DEFAULTS = {
   ambiguity: {

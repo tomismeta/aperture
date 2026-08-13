@@ -9,6 +9,7 @@ import type {
 import {
   buildWorkEventType,
   DEFAULT_WORK_EVENT_SOURCE,
+  WORK_API_VERSION,
   validateWorkEventBatchShape,
   validateWorkEventShape,
   type NormalizedWorkEvent,
@@ -242,7 +243,7 @@ function normalizeWorkEvent(value: unknown): NormalizedWorkEvent {
   const event = value as WorkEvent;
   const normalizedEvent: NormalizedWorkEvent = {
     ...event,
-    specVersion: event.specVersion ?? "1.0",
+    specVersion: event.specVersion ?? WORK_API_VERSION,
     id: event.id ?? `evt:${randomUUID()}`,
     source: event.source ?? DEFAULT_WORK_EVENT_SOURCE,
     type: event.type ?? buildWorkEventType(event.kind),

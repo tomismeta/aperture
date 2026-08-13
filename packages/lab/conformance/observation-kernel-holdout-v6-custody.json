@@ -72,6 +72,12 @@
       }
     ],
     "firstExecutionPermittedAfterCommit": true,
-    "executionStatus": "not_yet_executed"
+    "executionStatus": "ready_for_post_commit_execution",
+    "preCommitExecution": {
+      "status": "invalidated",
+      "firstRunSha256": "90698b9babb9e710f05e2647b02a1e8ddae7282a5f1a2828897814696986dc93",
+      "reportSha256": "41ee3751a5e95e8d21e6475bf10bb4fe0dcaaac523f772ddcdcbb7062e065b04",
+      "reason": "The run occurred before the final transcript provenance adjudication was committed; it is retained only as local process evidence and does not count toward release eligibility."
+    }
   }
 }

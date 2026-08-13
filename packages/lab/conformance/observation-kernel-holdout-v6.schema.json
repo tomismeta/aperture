@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tomismeta.dev/aperture/observation-kernel-holdout-v6.schema.json",
+  "title": "Aperture Observation Kernel Holdout v6",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["methodology", "fixtures"],
+  "properties": {
+    "methodology": { "$ref": "#/$defs/methodology" },
+    "fixtures": {
+      "type": "array",
+      "minItems": 24,
+      "maxItems": 24,
+      "items": { "$ref": "#/$defs/fixture" }
+    }
+  },
+  "$defs": {
+    "methodology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "observationContractId",
+        "observationContractDigest",
+        "sourceEvidenceContractId",
+        "sourceEvidenceContractDigest",
+        "outputContractId",
+        "outputContractDigest",
+        "implementationFreeze",
+        "author",
+        "authoredWithoutImplementationInspection",
+        "authoredWithoutExecution",
+        "firstExecutionPermittedAfterCommit",
+        "fixtureCount",
+        "typedEvidenceFixtureCount",
+        "structuralFallbackFixtureCount",
+        "authoredWithoutPriorOracleInspection",
+        "authoredWithoutCalibrationInspection",
+        "notes"
+      ],
+      "properties": {
+        "schemaVersion": { "const": 6 },
+        "observationContractId": { "const": "aperture-observation-judgment-contract/v1" },
+        "observationContractDigest": { "const": "sha256:12fcb300d3539d147a15621ce8b3f063271b5a08812605ce418704ead19b1f66" },
+        "sourceEvidenceContractId": { "const": "aperture-source-evidence-contract/v1" },
+        "sourceEvidenceContractDigest": { "const": "sha256:78dff530a44fdc532fbe5790dd496d40e0295ba09b4ef8676b0ed7f70f5af715" },
+        "outputContractId": { "const": "aperture-source-evidence-observation-projection/v2" },
+        "outputContractDigest": { "const": "sha256:b57e9efe4863d1a3060d365f426c4471b38ac80964777a8f2013c3f886abb455" },
+        "implementationFreeze": { "const": "a3d36b5571494e43ffee98ceb38fddea43155553" },
+        "author": { "const": "gpt-5.6-sol" },
+        "authoredWithoutImplementationInspection": { "const": true },
+        "authoredWithoutExecution": { "const": true },
+        "firstExecutionPermittedAfterCommit": { "const": true },
+        "fixtureCount": { "const": 24 },
+        "typedEvidenceFixtureCount": { "const": 12 },
+        "structuralFallbackFixtureCount": { "const": 12 },
+        "authoredWithoutPriorOracleInspection": { "const": true },
+        "authoredWithoutCalibrationInspection": { "const": true },
+        "notes": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "dimension", "split", "events", "expected", "rationale"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^holdout-v6-[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "dimension": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "split": { "const": "holdout" },
+        "events": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "$ref": "#/$defs/event" } },
+        "expected": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "$ref": "#/$defs/expected" } },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "taskId", "timestamp", "type", "title", "summary", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^event-v6-[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "taskId": { "type": "string", "pattern": "^task-v6-[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "timestamp": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+        "type": { "const": "task.updated" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "status": { "const": "failed" },
+        "toolFamily": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "metadata": { "type": "object" },
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "semanticHints": { "type": "object" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["outcome", "diagnostic", "payload", "authorization"] },
+        "outcome": { "enum": ["success", "failure"] },
+        "diagnostic": { "enum": ["runtime", "expected", "source_limit"] },
+        "subject": { "enum": ["command", "document", "search", "source", "tool"] },
+        "channel": { "enum": ["command", "read", "structured", "transcript"] },
+        "complete": { "const": true },
+        "state": { "const": "required" },
+        "execution": { "const": "not_started" },
+        "result": { "const": "absent" },
+        "window": { "$ref": "#/$defs/window" }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "offset", "length", "total"],
+      "properties": {
+        "unit": { "const": "lines" },
+        "offset": { "type": "integer", "minimum": 0 },
+        "length": { "type": "integer", "exclusiveMinimum": 0 },
+        "total": { "type": "integer", "exclusiveMinimum": 0 }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fields", "judgment", "decision"],
+      "properties": {
+        "fields": { "$ref": "#/$defs/fields" },
+        "judgment": { "$ref": "#/$defs/judgment" },
+        "decision": { "$ref": "#/$defs/decision" }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "polarity", "owner", "toolFamily", "subject", "evidenceLoss", "evidenceStrength", "semanticAgreement", "diagnosticClass", "recoveryHint", "provenanceOrigin", "provenanceAuthority", "consequenceBaseline"],
+      "properties": {
+        "kind": { "enum": ["control", "diagnostic", "outcome", "payload", "unknown"] },
+        "polarity": { "enum": ["failure", "neutral", "success", "unknown"] },
+        "owner": { "enum": ["engine", "source", "tool", "unknown"] },
+        "toolFamily": { "type": ["string", "null"] },
+        "subject": { "enum": ["command", "document", "search", "source", "tool", "unknown"] },
+        "evidenceLoss": { "enum": ["absent", "none", "partial", "unknown"] },
+        "evidenceStrength": { "enum": ["weak", "qualified", "strong"] },
+        "semanticAgreement": { "enum": ["stable", "overridden", "uncertain"] },
+        "diagnosticClass": { "enum": ["expected", "runtime", "source_limit", null] },
+        "recoveryHint": { "enum": ["await_authorization", "inspect_diagnostic", "inspect_original_evidence", "narrow_evidence_scope", "request_evidence", null] },
+        "provenanceOrigin": { "enum": ["command_output", "read_output", "semantic_evidence", "status_text", "structured_output", "transcript"] },
+        "provenanceAuthority": { "enum": ["explicit", "hinted", "inferred", "unknown"] },
+        "consequenceBaseline": { "enum": ["low", "medium", "high"] }
+      }
+    },
+    "judgment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statusEvidence", "statusConflictKind", "recoveryPosture", "baselineConsequence", "outcomeOnlyFailureStatus", "limitedFailureStatus", "stableStatusEvidence", "visibleDiagnosticFailure"],
+      "properties": {
+        "statusEvidence": { "enum": ["limited_failure", "stable_observation", "visible_diagnostic_failure", "weak_or_uncertain"] },
+        "statusConflictKind": { "type": ["string", "null"] },
+        "recoveryPosture": { "enum": ["authorization_required", "diagnostic_inspection", "evidence_required", "evidence_scope_required", "original_evidence_required", "none"] },
+        "baselineConsequence": { "enum": ["low", "medium", "high"] },
+        "outcomeOnlyFailureStatus": { "type": "boolean" },
+        "limitedFailureStatus": { "type": "boolean" },
+        "stableStatusEvidence": { "type": "boolean" },
+        "visibleDiagnosticFailure": { "type": "boolean" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plannerKind", "resultLane"],
+      "properties": {
+        "plannerKind": { "enum": ["activate", "ambient", "auto_approve", "clear", "queue", "suppressed"] },
+        "resultLane": { "enum": ["ambient", "next", "none", "now"] }
+      }
+    }
+  }
+}

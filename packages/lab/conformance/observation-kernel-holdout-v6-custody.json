@@ -1,0 +1,77 @@
+{
+  "artifact": {
+    "path": "packages/lab/conformance/observation-kernel-holdout-v6.json",
+    "sha256": "28b0078af87bf5cdc0697b605b26cba1c1108065cb4f57585137993c54fb6b1e",
+    "schemaPath": "packages/lab/conformance/observation-kernel-holdout-v6.schema.json",
+    "schemaSha256": "8759799a402bded369359e4bdbdb9e2b9b7cb1c09ee190adc13fde9fb0f8cfeb"
+  },
+  "originalArtifact": {
+    "sha256": "0489d03b3a21bba86a533678eaabd709d554ca85d96b69e2006df6ac873f9e06",
+    "note": "Original assembled artifact before full-freeze correction and contract adjudication."
+  },
+  "frozenCore": {
+    "commit": "a3d36b5571494e43ffee98ceb38fddea43155553",
+    "coreDiffCommand": "git diff --exit-code a3d36b5571494e43ffee98ceb38fddea43155553 -- packages/core"
+  },
+  "contracts": [
+    {
+      "id": "aperture-observation-judgment-contract/v1",
+      "path": "docs/engine/observation-judgment-contract-v1.md",
+      "sha256": "12fcb300d3539d147a15621ce8b3f063271b5a08812605ce418704ead19b1f66"
+    },
+    {
+      "id": "aperture-source-evidence-contract/v1",
+      "path": "docs/engine/source-evidence-contract-v1.md",
+      "sha256": "78dff530a44fdc532fbe5790dd496d40e029ba09b4ef8676b0ed7f70f5af715"
+    },
+    {
+      "id": "aperture-source-evidence-observation-projection/v2",
+      "path": "packages/lab/conformance/observation-kernel-holdout-v5-output-contract.json",
+      "sha256": "b57e9efe4863d1a3060d365f426c4471b38ac80964777a8f2013c3f886abb455"
+    }
+  ],
+  "provenance": {
+    "sliceAuthors": ["gpt-5.6-sol"],
+    "authorAttestations": {
+      "authoredWithoutImplementationInspection": true,
+      "authoredWithoutExecution": true,
+      "authoredWithoutPriorOracleInspection": true,
+      "authoredWithoutCalibrationInspection": true
+    },
+    "assembler": "gpt-5.6-luna",
+    "adjudicator": "gpt-5.6-sol",
+    "adjudicatedAt": "2026-08-13T20:59:34Z",
+    "preExecutionCorrections": [
+      {
+        "fixtures": ["holdout-v6-b-typed-runtime-diagnostic"],
+        "field": "fields.provenanceOrigin",
+        "from": "semantic_evidence",
+        "to": "command_output",
+        "reason": "Typed command-channel evidence maps to command_output."
+      },
+      {
+        "fixtures": ["holdout-v6-b-typed-source-limit"],
+        "field": "fields.provenanceOrigin",
+        "from": "semantic_evidence",
+        "to": "read_output",
+        "reason": "Typed read-channel evidence maps to read_output."
+      },
+      {
+        "fixtures": ["holdout-v6-b-typed-authorization"],
+        "field": "fields.provenanceOrigin",
+        "from": "semantic_evidence",
+        "to": "status_text",
+        "reason": "Authorization is a bounded status/control grammar."
+      },
+      {
+        "fixtures": ["holdout-v6-b-typed-expected-diagnostic"],
+        "field": "fields.provenanceOrigin",
+        "from": "semantic_evidence",
+        "to": "transcript",
+        "reason": "Typed transcript-channel evidence maps to transcript."
+      }
+    ],
+    "firstExecutionPermittedAfterCommit": true,
+    "executionStatus": "not_yet_executed"
+  }
+}

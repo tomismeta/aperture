@@ -4,6 +4,13 @@
     "rootDir": ".",
     "outDir": "./dist"
   },
-  "include": ["src/**/*.ts", "test/**/*.test.ts", "conformance/observation-kernel-holdout-v5.json"],
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.test.ts",
+    "conformance/observation-kernel-holdout-v5.json",
+    "conformance/observation-kernel-holdout-v6.json",
+    "conformance/observation-kernel-holdout-v6.schema.json",
+    "conformance/observation-kernel-holdout-v6-custody.json"
+  ],
   "references": [{ "path": "../core" }, { "path": "../runtime" }]
 }

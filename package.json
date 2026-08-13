@@ -36,6 +36,7 @@
     "kernel:corpus:write": "tsx scripts/kernel-corpus.ts --write",
     "kernel:observation": "tsx scripts/observation-kernel-scorecard.ts --check",
     "kernel:observation:write": "tsx scripts/observation-kernel-scorecard.ts --write",
+    "kernel:observation:v6": "tsx scripts/observation-kernel-v6-holdout.ts",
     "kernel:scale": "tsx scripts/kernel-scale.ts --check",
     "kernel:surface": "tsx scripts/semantic-kernel-surface.ts --check",
     "kernel:surface:write": "tsx scripts/semantic-kernel-surface.ts --write",

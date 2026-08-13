@@ -48,12 +48,7 @@ function readTaskFailureObservationSemanticAgreement(input: {
   interpretation: SemanticInterpretation | undefined;
 }): NormalizedObservation["semanticAgreement"] {
   const semantic = input.interpretation;
-  if (
-    semantic === undefined ||
-    input.abstained ||
-    semantic.confidence === "low" ||
-    input.ontology.confidence === "low"
-  ) {
+  if (semantic === undefined || input.abstained) {
     return "uncertain";
   }
 

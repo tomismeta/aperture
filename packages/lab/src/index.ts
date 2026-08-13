@@ -57,6 +57,7 @@ export {
 export {
   assertKernelCorpusScorecardComparisonPassed,
   assertKernelCorpusScorecardPassed,
+  KERNEL_CORPUS_HISTORICAL_SCORECARD_PROOF,
   KERNEL_CORPUS_SCORECARD_PROOF,
   buildKernelCorpusScorecardComparison,
   buildKernelCorpusScorecard,

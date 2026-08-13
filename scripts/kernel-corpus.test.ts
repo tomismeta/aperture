@@ -119,7 +119,7 @@ test("kernel corpus check compares branch-history scorecard when protected base 
     const scorecard = buildKernelCorpusScorecard(report, scenarios);
     const stricterHistoricalBase = {
       ...scorecard,
-      proof: { ...scorecard.proof, releaseEligible: true },
+      proof: { ...scorecard.proof, protectedRegressionBaseline: true },
       thresholds: {
         ...scorecard.thresholds,
         minimumTotalAssertions: scorecard.thresholds.minimumTotalAssertions + 1,

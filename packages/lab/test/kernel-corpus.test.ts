@@ -275,6 +275,7 @@ test("kernel corpus scorecard v5 migration preserves v4 coverage and adds normal
 
   assert.deepEqual(projected, comparableHistorical);
   assert.equal(migratedHistorical.schemaVersion, KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION);
+  assert.equal(migratedHistorical.proof.protectedRegressionBaseline, true);
   assert.equal(migratedHistorical.summary.normalizedObservationCheckpoints.total, 0);
 });
 
@@ -287,6 +288,7 @@ test("kernel corpus scorecard v6 migration renames active attention ontology che
   ) as Record<string, unknown>;
   const currentAsV5 = structuredClone(current);
   current.proof = KERNEL_CORPUS_SCORECARD_PROOF;
+  currentAsV5.proof = KERNEL_CORPUS_SCORECARD_PROOF;
 
   currentAsV5.schemaVersion = 5;
   moveRecordField(

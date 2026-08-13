@@ -14,7 +14,20 @@ export const KERNEL_CORPUS_SCORECARD_PROOF = {
   retiredRegressionOracle: true,
   releaseEligible: false,
   independentPostFreezeHoldoutRequired: true,
+  protectedRegressionBaseline: false,
 } as const;
+export const KERNEL_CORPUS_HISTORICAL_SCORECARD_PROOF = {
+  retiredRegressionOracle: true,
+  releaseEligible: false,
+  independentPostFreezeHoldoutRequired: true,
+  protectedRegressionBaseline: true,
+} as const;
+type KernelCorpusScorecardProof = {
+  retiredRegressionOracle: true;
+  releaseEligible: false;
+  independentPostFreezeHoldoutRequired: true;
+  protectedRegressionBaseline?: boolean;
+};
 
 export const KERNEL_CORPUS_SCORECARD_THRESHOLDS = {
   minimumScenarios: 49,
@@ -38,7 +51,7 @@ export type KernelCorpusScorecard = {
   passed: boolean;
   failures: string[];
   thresholds: typeof KERNEL_CORPUS_SCORECARD_THRESHOLDS;
-  proof: typeof KERNEL_CORPUS_SCORECARD_PROOF;
+  proof: KernelCorpusScorecardProof;
   summary: {
     scenarios: {
       total: number;
@@ -1513,14 +1526,14 @@ function isHistoricalV6Scorecard(value: unknown): value is Record<string, unknow
 
 function migrateHistoricalV6Scorecard(value: Record<string, unknown>): Record<string, unknown> {
   const migrated = structuredClone(value) as Record<string, unknown>;
-  migrated.proof = KERNEL_CORPUS_SCORECARD_PROOF;
+  ensureHistoricalProof(migrated);
   return migrated;
 }
 
 function migrateHistoricalV5Scorecard(value: Record<string, unknown>): Record<string, unknown> {
   const migrated = structuredClone(value) as Record<string, unknown>;
   migrated.schemaVersion = KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION;
-  migrated.proof = KERNEL_CORPUS_SCORECARD_PROOF;
+  ensureHistoricalProof(migrated);
 
   const thresholds = ensureRecord(migrated.thresholds);
   moveRecordField(
@@ -1539,6 +1552,12 @@ function migrateHistoricalV5Scorecard(value: Record<string, unknown>): Record<st
   }
 
   return migrated;
+}
+
+function ensureHistoricalProof(migrated: Record<string, unknown>): void {
+  if (!Object.prototype.hasOwnProperty.call(migrated, "proof")) {
+    migrated.proof = KERNEL_CORPUS_HISTORICAL_SCORECARD_PROOF;
+  }
 }
 
 function ensureRecord(value: unknown): Record<string, unknown> {

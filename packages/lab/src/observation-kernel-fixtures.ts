@@ -12,7 +12,7 @@ export type ObservationKernelFixture = {
 export type ObservationKernelFixtureSplit = "calibration" | "holdout";
 
 const rejectedToolUseMessage =
-  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+  "Authorization was declined before invocation. No tool call occurred and no result exists.";
 
 const OBSERVATION_KERNEL_CALIBRATION_FIXTURES: ObservationKernelFixture[] = [
   fixture("bare-nonzero-command-exit", "outcome_failure", {

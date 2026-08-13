@@ -10,7 +10,7 @@ import { readAttentionOntologyDiagnostic } from "../src/semantic-ontology.js";
 
 const timestamp = "2026-03-10T12:00:00.000Z";
 const rejectedToolUseMessage =
-  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+  "Authorization was declined before invocation. No tool call occurred and no result exists.";
 const successfulTestObservationTranscript =
   "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
 const abbreviatedFileViewObservationTranscript =

@@ -27,6 +27,13 @@ workload.
   diagnostics, payloads, measured partial reads, and authorization requirements
 - proves typed evidence and text fallback lower through the same Observation and
   judgment path, with typed facts authoritative over contradictory prose
+- keeps reliable truncation hints in the Observation contract: they lower
+  evidence strength and record partial evidence loss without promoting a
+  bounded source-limit failure into a generic critical failure
+- restricts authorization-control parsing to structural pre-execution facts;
+  provider-specific authorization scripts remain ordinary text
+- preserves historical scorecard proof metadata and marks proofless historical
+  baselines as protected regression comparisons rather than release proof
 - proves two unrelated host event shapes can produce the same public-kernel
   observation, judgment, and reason-code projection
 - adds a deterministic mixed-event scale gate with repeated result digests and
@@ -165,18 +172,20 @@ See [Kernel Scale Characterization](../engine/kernel-scale-characterization.md).
 
 ## Release Validation
 
-Focused validation completed on August 12, 2026:
+Correction-wave focused validation completed on August 12, 2026:
 
 ```bash
 pnpm release:check
 pnpm judgment:bench
 ```
 
-The focused semantic and kernel contract suites pass, including 105 core
-regressions and 74 adversarial grammar cases. Typecheck, public-kernel
-conformance, Observation scorecard, and semantic-surface gates pass. Full
-release validation, independent V6 proof, package smoke, and publication are
-still outstanding.
+The focused semantic, judgment, evaluator, and structural-grammar suite passes
+148 cases, including truncation, authorization, assertion-boundary, and
+historical-proof regression coverage. The full repository release gate also
+passed typecheck, lint, dependency audit, boundary and architecture checks,
+deterministic kernel scale, 1,322 tests, judgment battle, public SDK proof, and
+product smoke. Independent post-freeze V6 proof and publication remain
+outstanding.
 
 This pre-release hardening tranche does not change or publish the Aperture
 product package.

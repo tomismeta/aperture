@@ -97,10 +97,8 @@
         "episodeKey": "custom-agent:status:issue:corpus:uncertain-failure",
         "episodeState": "emerging",
         "episodeSize": 1,
-        "episodeEvidenceScore": 2,
-        "episodeEvidenceReasonsInclude": [
-          "at least one related interaction carried high consequence or critical tone"
-        ],
+        "episodeEvidenceScore": 0,
+        "episodeEvidenceReasonsInclude": [],
         "episodeObsolete": false,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": [
@@ -128,12 +126,11 @@
         "ambiguityResolution": "queue",
         "episodeId": "episode:custom-agent:status:issue:corpus:uncertain-failure:1",
         "episodeKey": "custom-agent:status:issue:corpus:uncertain-failure",
-        "episodeState": "actionable",
+        "episodeState": "batched",
         "episodeSize": 2,
-        "episodeEvidenceScore": 5,
+        "episodeEvidenceScore": 2,
         "episodeEvidenceReasonsInclude": [
           "multiple related interactions have accumulated in this episode",
-          "high-signal evidence is stacking up across the episode",
           "semantic relation hints indicate this issue is recurring"
         ],
         "episodeObsolete": false,
@@ -159,7 +156,7 @@
       "ambiguousLowConfidence": 2,
       "ambiguousNextThenActivated": 0,
       "ambiguousAmbientThenActivated": 0,
-      "actionableEpisodes": 1,
+      "actionableEpisodes": 0,
       "actionableActivated": 0,
       "deferredThenActivated": 0,
       "mergedEpisodeUpdates": 1
@@ -196,9 +193,7 @@
         "semanticHints": {
           "confidence": "low",
           "factors": ["source evidence truncated"],
-          "reasons": [
-            "source failure evidence was truncated before Aperture saw the full output"
-          ],
+          "reasons": ["source failure evidence was truncated before Aperture saw the full output"],
           "relationHints": [{ "kind": "same_issue", "target": "issue:corpus:uncertain-failure" }]
         }
       }
@@ -237,9 +232,7 @@
         "semanticHints": {
           "confidence": "low",
           "factors": ["source evidence truncated"],
-          "reasons": [
-            "source failure evidence was truncated before Aperture saw the full output"
-          ],
+          "reasons": ["source failure evidence was truncated before Aperture saw the full output"],
           "relationHints": [
             { "kind": "same_issue", "target": "issue:corpus:uncertain-failure" },
             { "kind": "repeats", "target": "issue:corpus:uncertain-failure" }

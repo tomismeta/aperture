@@ -15,8 +15,8 @@ import {
 import { projectObservationJudgmentContract } from "../src/judgment-observation-contract.js";
 
 const timestamp = "2026-04-05T18:30:00.000Z";
-const rejectedToolUseMessage =
-  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+const structuralAuthorizationMessage =
+  "Authorization was declined before invocation. No tool call occurred and no result exists.";
 const successfulTestObservationTranscript =
   "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
 const abbreviatedFileViewObservationTranscript =
@@ -460,7 +460,7 @@ test("judgment input keeps diagnostic and low-confidence failures out of outcome
   assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(diagnosticInput), false);
   assert.equal(Object.hasOwn(truncatedInput, "failureEvidence"), false);
   assert.equal(truncatedInput.observation?.kind, "outcome");
-  assert.equal(truncatedInput.observation?.semanticAgreement, "uncertain");
+  assert.equal(truncatedInput.observation?.semanticAgreement, "overridden");
   assert.equal(truncatedInput.observation?.evidenceStrength, "weak");
   assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(truncatedInput), false);
 });
@@ -778,7 +778,7 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     timestamp,
     type: "task.updated",
     title: "bash failure",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
     toolFamily: "bash",
     semantic: {
@@ -798,7 +798,7 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     timestamp,
     type: "task.updated",
     title: "tool failure",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
     semantic: {
       intentFrame: "status_update",
@@ -816,7 +816,7 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     timestamp,
     type: "task.updated",
     title: "tool failure",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
     semantic: {
       intentFrame: "status_update",
@@ -835,7 +835,7 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     timestamp,
     type: "task.updated",
     title: "bash failure",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
     toolFamily: "bash",
     semantic: {

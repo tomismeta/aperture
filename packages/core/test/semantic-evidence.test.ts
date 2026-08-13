@@ -106,9 +106,11 @@ function readEvidenceProfile(summary: string, toolFamily?: string) {
 }
 
 const rejectedToolUseMessage =
-  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+  "Authorization was declined before invocation. No tool call occurred and no result exists.";
+const productAuthorizationScript =
+  "The user doesn't want to proceed with this tool use. The tool use was rejected. STOP what you are doing and wait for the user to tell you how to proceed.";
 const declinedActionMessage =
-  "The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed.";
+  "A decision is required before the operation. Execution has not started, and no result exists.";
 const successfulTestObservationTranscript =
   "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
 const repeatedSuccessfulTestObservationTranscript =
@@ -944,50 +946,15 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
 });
 
 test("tool-use rejection outcome shape requires coherent full-message clauses", () => {
-  assert.equal(looksLikePreExecutionControlOutcome(rejectedToolUseMessage), true);
-  assert.equal(looksLikePreExecutionControlOutcome(declinedActionMessage), true);
-  assert.equal(
-    looksLikePreExecutionControlOutcome(
-      "The user doesn’t want to take this action right now! STOP what you are doing and wait for the user to tell you how to proceed.",
-    ),
-    true,
-  );
-  assert.equal(
-    looksLikePreExecutionControlOutcome(
-      "OBSERVATION:\nThe user doesn’t want to proceed with this tool use.\nThe tool use was rejected.\nSTOP what you are doing and wait for the user to tell you how to proceed.",
-    ),
-    true,
-  );
-  assert.equal(
-    looksLikePreExecutionControlOutcome(
-      "The user does not want to proceed with this tool use. Tool use rejected. Stop and wait for the user to proceed.",
-    ),
-    true,
-  );
-  assert.equal(
-    looksLikePreExecutionControlOutcome(
-      "The user does not want to take this action. Stop and wait for the user to proceed.",
-    ),
-    true,
-  );
-  assert.equal(
-    looksLikePreExecutionControlOutcome(
-      "The user doesn't want to proceed with this tool use! The tool use was rejected (for example, no file contents were changed). STOP what you are doing and wait for the user to tell you how to proceed.",
-    ),
-    true,
-  );
-  assert.equal(
-    looksLikePreExecutionControlOutcome(
-      "The user doesn't want to proceed with this tool use! The tool use was rejected (e.g. no file contents were changed). STOP what you are doing and wait for the user to tell you how to proceed.",
-    ),
-    true,
-  );
-  assert.equal(
-    looksLikePreExecutionControlOutcome(
-      "The user doesn't want to proceed with this tool use. The tool use was rejected (if this was a write operation, no mutation happened). STOP what you are doing and wait for the user to tell you how to proceed.",
-    ),
-    true,
-  );
+  for (const summary of [
+    rejectedToolUseMessage,
+    declinedActionMessage,
+    "Permission was denied before command execution. The command was not started and no result exists.",
+    "Approval is pending before invocation. No invocation occurred and no execution result exists.",
+    "Decision required before operation. Execution did not start and the result does not exist.",
+  ]) {
+    assert.equal(looksLikePreExecutionControlOutcome(summary), true, summary);
+  }
 
   assert.equal(looksLikePreExecutionControlOutcome(`log: ${rejectedToolUseMessage}`), false);
   assert.equal(looksLikePreExecutionControlOutcome(`"${rejectedToolUseMessage}"`), false);
@@ -1028,6 +995,10 @@ test("incomplete control phrases do not suppress explicit observation transcript
     assert.equal(parseTaskFailureEventFact(body), null);
     assert.equal(looksLikeExplicitObservationTranscript(`OBSERVATION: ${body}`), true);
   }
+});
+
+test("product authorization scripts remain ordinary text", () => {
+  assert.equal(parseTaskFailureEventFact(productAuthorizationScript), null);
 });
 
 test("semantic text evidence separates routine success from terminal failure evidence", () => {
@@ -1536,7 +1507,8 @@ test("host-style failed event fixtures route through observation semantics gramm
       name: "codex rejected command",
       sourceLabel: "Codex",
       title: "bash failure",
-      summary: declinedActionMessage,
+      summary:
+        "Authorization was declined before invocation. No tool call occurred and no result exists.",
       toolFamily: "bash",
       expectedKind: "rejected_tool_use_observation",
       expectedActivity: "task_progress",
@@ -2350,13 +2322,15 @@ test("task failure evidence separates zero exit and expected diagnostics from te
 });
 
 test("task failure evidence classifies explicit tool-use rejection outcomes as low observations", () => {
+  const structuralAuthorizationMessage =
+    "Authorization was declined before invocation. No tool call occurred and no result exists.";
   const bash = readTaskFailureSemanticEvidence({
     id: "evt:evidence:bash-tool-use-rejection",
     taskId: "task:evidence:bash-tool-use-rejection",
     timestamp,
     type: "task.updated",
     title: "bash failure",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
     toolFamily: "bash",
   });
@@ -2366,7 +2340,7 @@ test("task failure evidence classifies explicit tool-use rejection outcomes as l
     timestamp,
     type: "task.updated",
     title: "edit failure",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
     toolFamily: "edit",
   });
@@ -2376,7 +2350,7 @@ test("task failure evidence classifies explicit tool-use rejection outcomes as l
     timestamp,
     type: "task.updated",
     title: "tool failure",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
   });
   const web = readTaskFailureSemanticEvidence({
@@ -2385,7 +2359,7 @@ test("task failure evidence classifies explicit tool-use rejection outcomes as l
     timestamp,
     type: "task.updated",
     title: "web failure",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
     toolFamily: "web",
   });
@@ -2631,21 +2605,23 @@ test("task failure evidence routes edit output outcomes by result semantics", ()
 });
 
 test("task failure evidence keeps terminal diagnostics ahead of rejection language", () => {
+  const structuralAuthorizationMessage =
+    "Authorization was declined before invocation. No tool call occurred and no result exists.";
   const evidence = readTaskFailureSemanticEvidence({
     id: "evt:evidence:terminal-before-tool-use-rejection",
     taskId: "task:evidence:terminal-before-tool-use-rejection",
     timestamp,
     type: "task.updated",
     title: "bash failure Traceback (most recent call last): RuntimeError",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
     toolFamily: "bash",
   });
 
-  assert.equal(looksLikePreExecutionControlOutcome(rejectedToolUseMessage), true);
+  assert.equal(looksLikePreExecutionControlOutcome(structuralAuthorizationMessage), true);
   assert.equal(
     hasSemanticTextShape(
-      readSemanticTextEvidence(`bash failure ${rejectedToolUseMessage}`, "bash"),
+      readSemanticTextEvidence(`bash failure ${structuralAuthorizationMessage}`, "bash"),
       "terminal_failure",
     ),
     false,
@@ -2653,7 +2629,7 @@ test("task failure evidence keeps terminal diagnostics ahead of rejection langua
   assert.equal(
     hasSemanticTextShape(
       readSemanticTextEvidence(
-        `bash failure Traceback (most recent call last): RuntimeError ${rejectedToolUseMessage}`,
+        `bash failure Traceback (most recent call last): RuntimeError ${structuralAuthorizationMessage}`,
         "bash",
       ),
       "terminal_failure",

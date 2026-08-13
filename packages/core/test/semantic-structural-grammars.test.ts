@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { EventEvaluator } from "../src/event-evaluator.js";
+import { buildAttentionJudgmentInput } from "../src/judgment-input.js";
 import { projectObservationJudgmentContract } from "../src/judgment-observation-contract.js";
 import { hasToolOutputFailureDiagnosticEvidence } from "../src/semantic-diagnostic-shapes.js";
 import { readTaskFailureSemanticEvidence } from "../src/semantic-evidence.js";
@@ -387,6 +388,78 @@ test("assertion boundaries keep temporal and quantitative yet/but clauses intact
   );
 });
 
+test("adversative boundaries preserve later authoritative runtime diagnostics", () => {
+  for (const conjunction of ["but", "however", "yet"] as const) {
+    for (const separator of [", ", " "] as const) {
+      const summary = `The operation could fail${separator}${conjunction} execution later crashed and a complete runtime diagnostic was returned.`;
+      assert.equal(parseTaskFailureEventFact(summary), "runtime_diagnostic", summary);
+    }
+  }
+});
+
+test("command-success routes converge on one canonical observation shape", () => {
+  const cases = [
+    {
+      summary: "Your command ran successfully and did not produce any output.",
+      toolFamily: "exec_command",
+      origin: "semantic_evidence" as const,
+    },
+    {
+      summary:
+        "Process invocation occurred and finished successfully with return code zero. The outcome is complete and terminal; no diagnostic or output channel is missing.",
+      toolFamily: "Opaque.Executor/9",
+      origin: "command_output" as const,
+    },
+  ];
+  const observations = cases.map((input) => {
+    const normalized = normalizeSourceEvent({
+      id: `event:${input.toolFamily}`,
+      taskId: `task:${input.toolFamily}`,
+      timestamp,
+      type: "task.updated",
+      title: "command failure",
+      summary: input.summary,
+      status: "failed",
+      toolFamily: input.toolFamily,
+    });
+    const observation = buildAttentionJudgmentInput(normalized).observation;
+    assert.ok(observation);
+    return { ...observation, expectedOrigin: input.origin };
+  });
+
+  assert.deepEqual(
+    observations.map(
+      ({ provenance: _provenance, expectedOrigin: _expectedOrigin, ...observation }) => observation,
+    ),
+    [
+      {
+        kind: "outcome",
+        polarity: "success",
+        semanticAgreement: "stable",
+        ownership: { owner: "tool", toolFamily: "exec_command" },
+        evidenceStrength: "qualified",
+        subject: "command",
+        evidenceLoss: "none",
+        consequenceBaseline: "low",
+      },
+      {
+        kind: "outcome",
+        polarity: "success",
+        semanticAgreement: "stable",
+        ownership: { owner: "tool", toolFamily: "opaque.executor/9" },
+        evidenceStrength: "qualified",
+        subject: "command",
+        evidenceLoss: "none",
+        consequenceBaseline: "low",
+      },
+    ],
+  );
+  assert.deepEqual(
+    observations.map((observation) => observation.provenance.origin),
+    cases.map((input) => input.origin),
+  );
+});
+
 test("event facts reject negated, modal, and contradictory evidence", () => {
   for (const summary of [
     "Execution occurred and the complete diagnostic was returned. No runtime failure occurred.",
@@ -649,7 +722,7 @@ test("control authority never consumes contradictory terminal evidence", () => {
     "Authorization was declined before invocation; no tool call occurred. RuntimeError: decoder crashed. No execution result exists.",
     "Authorization was declined before invocation; no tool call occurred and no execution result exists. RuntimeError: decoder crashed.",
     "Authorization was declined before invocation; no tool call occurred and no execution result exists. TypeError: controller crashed.",
-    "The user doesn't want to proceed with this tool use. The tool use was rejected. STOP what you are doing and RuntimeError: decoder crashed while waiting for the user to proceed.",
+    "Authorization was declined before invocation; no tool call occurred. RuntimeError: decoder crashed. No execution result exists.",
   ]) {
     assert.equal(hasConflictingAuthorizationDiagnostic(summary), true, summary);
     const evidence = readFailure(summary, "edit");

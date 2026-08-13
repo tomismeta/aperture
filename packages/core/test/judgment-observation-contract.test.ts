@@ -56,6 +56,20 @@ test("observation judgment projection covers the status-evidence truth table", (
     ).statusEvidence,
     "weak_or_uncertain",
   );
+  assert.equal(
+    projectObservationJudgmentContract(
+      observation({
+        kind: "diagnostic",
+        polarity: "failure",
+        semanticAgreement: "stable",
+        evidenceStrength: "weak",
+        evidenceLoss: "partial",
+        diagnosticClass: "source_limit",
+        recoveryHint: "narrow_evidence_scope",
+      }),
+    ).statusEvidence,
+    "limited_failure",
+  );
 });
 
 test("observation judgment projection classifies recovery posture", () => {

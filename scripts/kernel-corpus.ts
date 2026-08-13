@@ -82,7 +82,7 @@ export async function runKernelCorpusCommand(
     stale = true;
   }
   if (baseScorecard) {
-    if (baseScorecard.proof.releaseEligible) {
+    if (baseScorecard.proof.releaseEligible || baseScorecard.proof.protectedRegressionBaseline) {
       try {
         assertKernelCorpusScorecardComparisonPassed(
           buildKernelCorpusScorecardComparison(baseScorecard, scorecard),

@@ -11,10 +11,8 @@ import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const evaluation = new EventEvaluator();
 const coordinator = new JudgmentCoordinator();
-const rejectedToolUseMessage =
-  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
-const declinedActionMessage =
-  "The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed.";
+const structuralAuthorizationMessage =
+  "Authorization was declined before invocation. No tool call occurred and no result exists.";
 const successfulTestObservationTranscript =
   "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
 const abbreviatedFileViewObservationTranscript =
@@ -320,6 +318,34 @@ test("read source-window limits stay visible without critical routing", () => {
   assert.equal(explanation.decision.kind, "queue");
   assert.equal(explanation.policy.minimumLane, "next");
   assert.equal(explanation.ambiguity, null);
+});
+
+test("truncation hints lower evidence strength without changing source-limit disposition", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-read-source-window-truncated",
+      taskId: "task:failed-read-source-window-truncated",
+      timestamp: "2026-03-08T12:02:06.637Z",
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "The read produced a measured partial view: 80 lines beginning at offset 40 from a source totaling 640 lines.",
+      status: "failed",
+      toolFamily: "read",
+      semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") return;
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "medium");
+  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "stable");
+  assert.equal(result.candidate.judgmentInput.observation?.evidenceStrength, "weak");
+  assert.equal(result.candidate.judgmentInput.observation?.diagnosticClass, "source_limit");
+  assert.equal(result.candidate.judgmentInput.observation?.recoveryHint, "narrow_evidence_scope");
+  assert.equal(result.candidate.judgmentInput.observation?.evidenceLoss, "partial");
 });
 
 test("mixed read source-window diagnostics keep critical routing", () => {
@@ -1214,11 +1240,16 @@ test("command execution aliases preserve family while using command observation 
 
 test("tool-use rejection outcomes route as background status updates", () => {
   for (const [id, title, summary, toolFamily] of [
-    ["bash", "bash failure", rejectedToolUseMessage, "bash"],
-    ["edit", "edit failure", rejectedToolUseMessage, "edit"],
-    ["web", "web failure", rejectedToolUseMessage, "web"],
-    ["absent", "tool failure", rejectedToolUseMessage, undefined],
-    ["declined-action", "bash failure", declinedActionMessage, "bash"],
+    ["bash", "bash failure", structuralAuthorizationMessage, "bash"],
+    ["edit", "edit failure", structuralAuthorizationMessage, "edit"],
+    ["web", "web failure", structuralAuthorizationMessage, "web"],
+    ["absent", "tool failure", structuralAuthorizationMessage, undefined],
+    [
+      "declined-action",
+      "bash failure",
+      "A decision is required before the operation. Execution has not started, and no result exists.",
+      "bash",
+    ],
   ] as const) {
     const result = evaluation.evaluate(
       normalizeSourceEvent({
@@ -1259,7 +1290,7 @@ test("generic tool hints cannot suppress tool-use rejection observations", () =>
       timestamp: "2026-03-08T12:02:29.950Z",
       type: "task.updated",
       title: "tool failure",
-      summary: rejectedToolUseMessage,
+      summary: structuralAuthorizationMessage,
       status: "failed",
       semanticHints: {
         toolFamily: "edit",

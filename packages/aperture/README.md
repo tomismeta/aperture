@@ -120,6 +120,10 @@ await work.publish({
 });
 ```
 
+`readResponse` returns a state-discriminated `WorkResponse`. Narrow on
+`state === "answered"` before reading `response`; pending, expired, and
+cancelled responses expose only the fields valid for those states.
+
 If you are troubleshooting a real session from the repo, the quickest bridge
 from a captured bundle into offline review is documented in
 [docs/lab/capture-review-quickstart.md](https://github.com/tomismeta/aperture/blob/main/docs/lab/capture-review-quickstart.md).

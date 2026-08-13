@@ -6,6 +6,7 @@ import {
   ApertureWorkClientError,
   WORK_API_VERSION,
   WORK_SCHEMA_ID,
+  WORK_SCHEMA_URL,
   isSupportedWorkSpecVersion,
   workEventSchemaDocument,
 } from "../src/work.js";
@@ -13,6 +14,10 @@ import {
 test("public Work surface exposes the current contract and schema", () => {
   assert.equal(WORK_API_VERSION, "1.0");
   assert.equal(WORK_SCHEMA_ID, "urn:aperture:work-event:1.0");
+  assert.equal(
+    WORK_SCHEMA_URL,
+    "https://raw.githubusercontent.com/tomismeta/aperture/aperture-v0.5.0/schemas/work-event.schema.json",
+  );
   assert.equal(isSupportedWorkSpecVersion("1.0"), true);
   assert.equal(isSupportedWorkSpecVersion("1.1"), false);
   assert.equal(workEventSchemaDocument().$id, WORK_SCHEMA_ID);

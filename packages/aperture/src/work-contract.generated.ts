@@ -4,7 +4,8 @@
 export const WORK_API_VERSION = "1.0" as const;
 export const WORK_SCHEMA_ID = "urn:aperture:work-event:1.0" as const;
 export const WORK_BATCH_SCHEMA_ID = "urn:aperture:work-event-batch:1.0" as const;
-export const WORK_SCHEMA_URL = `https://schema.aperture.dev/work-event.v${WORK_API_VERSION.split(".")[0] ?? "1"}.json`;
+export const WORK_SCHEMA_URL =
+  "https://raw.githubusercontent.com/tomismeta/aperture/aperture-v0.5.0/schemas/work-event.schema.json";
 
 export type WorkEvent =
   | {
@@ -340,7 +341,7 @@ export type WorkEventRequest =
 
 export type WorkReceipt = {
   ok: true;
-  apiVersion: string;
+  apiVersion: "1.0";
   accepted: number;
   receivedAs: "text" | "event" | "batch";
   message: string;
@@ -360,22 +361,65 @@ export type WorkReceipt = {
 export type WorkReceiptItem = WorkReceipt["published"][number];
 export type WorkReceiptMode = "text" | "event" | "batch";
 export type WorkReceiptNextStep = NonNullable<WorkReceipt["next"]>[number];
-export type WorkResponse = {
-  ok: true;
-  apiVersion: string;
-  taskId: string;
-  interactionId: string;
-  state: "pending" | "answered" | "expired" | "cancelled";
-  message: string;
-  response?: unknown;
-  answeredAt?: string;
-  expiresAt?: string;
-  cancelledAt?: string;
-  retentionExpiresAt?: string;
-};
+export type WorkResponseAnswer =
+  | { kind: "acknowledged" }
+  | { kind: "approved"; reason?: string }
+  | { kind: "rejected"; reason?: string }
+  | { kind: "option_selected"; optionIds: Array<string> }
+  | { kind: "text_submitted"; text: string }
+  | { kind: "form_submitted"; values: Record<string, unknown> }
+  | { kind: "dismissed" };
+export type WorkResponse =
+  | {
+      ok: true;
+      apiVersion: "1.0";
+      taskId: string;
+      interactionId: string;
+      message: string;
+      state: "pending";
+      expiresAt: string;
+    }
+  | {
+      ok: true;
+      apiVersion: "1.0";
+      taskId: string;
+      interactionId: string;
+      message: string;
+      state: "answered";
+      response:
+        | { kind: "acknowledged" }
+        | { kind: "approved"; reason?: string }
+        | { kind: "rejected"; reason?: string }
+        | { kind: "option_selected"; optionIds: Array<string> }
+        | { kind: "text_submitted"; text: string }
+        | { kind: "form_submitted"; values: Record<string, unknown> }
+        | { kind: "dismissed" };
+      answeredAt: string;
+      retentionExpiresAt: string;
+    }
+  | {
+      ok: true;
+      apiVersion: "1.0";
+      taskId: string;
+      interactionId: string;
+      message: string;
+      state: "expired";
+      expiresAt: string;
+      retentionExpiresAt: string;
+    }
+  | {
+      ok: true;
+      apiVersion: "1.0";
+      taskId: string;
+      interactionId: string;
+      message: string;
+      state: "cancelled";
+      cancelledAt: string;
+      retentionExpiresAt: string;
+    };
 export type WorkResponseState = "pending" | "answered" | "expired" | "cancelled";
 export type WorkEndpointDescription = {
-  apiVersion: string;
+  apiVersion: "1.0";
   path: "/work";
   method: "POST";
   summary: string;

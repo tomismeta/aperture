@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-function run(command: string, args: string[], cwd: string): void {
+function run(
+  command: string,
+  args: string[],
+  cwd: string,
+  extraEnv: Record<string, string> = {},
+): void {
   execFileSync(command, args, {
     cwd,
     stdio: "inherit",
-    env: { ...process.env, npm_config_ignore_scripts: "false" },
+    env: { ...process.env, ...extraEnv, npm_config_ignore_scripts: "false" },
   });
 }
 
@@ -53,6 +58,23 @@ async function main(): Promise<void> {
       "utf8",
     );
     await mkdir(consumerDir, { recursive: true });
+    const registryDir = join(tempRoot, "registry");
+    const tokenPath = join(tempRoot, "token");
+    await mkdir(registryDir, { recursive: true });
+    await writeFile(tokenPath, "proof\n", { encoding: "utf8", mode: 0o600 });
+    await chmod(tokenPath, 0o600);
+    await writeFile(
+      join(registryDir, "runtime-proof.json"),
+      `${JSON.stringify({
+        id: "runtime:proof",
+        kind: "aperture",
+        controlUrl: "http://127.0.0.1:4546/runtime",
+        baseUrl: "http://127.0.0.1:4546",
+        tokenPath,
+        updatedAt: new Date().toISOString(),
+      })}\n`,
+      "utf8",
+    );
     await writeFile(
       join(consumerDir, "package.json"),
       `${JSON.stringify({ name: "consumer", private: true, type: "module", dependencies: { "@tomismeta/aperture": `file:${tarballPath}` }, devDependencies: { typescript: "5.9.3" } })}\n`,
@@ -65,17 +87,17 @@ async function main(): Promise<void> {
     );
     await writeFile(
       join(consumerDir, "types.ts"),
-      `import type { WorkEvent, WorkResponse, WorkReceipt } from "@tomismeta/aperture/work";\nconst valid: WorkEvent = { kind: "work.updated", work: { id: "task:proof", status: "running" }, trace: { traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" }, run: { sessionId: "session:proof", runId: "run:proof" } };\nconst receipt: WorkReceipt = { ok: true, apiVersion: "1.0", accepted: 1, receivedAs: "event", message: "accepted", published: [] };\nconst response: WorkResponse = { ok: true, apiVersion: "1.0", taskId: "task:proof", interactionId: "interaction:proof", state: "pending", message: "pending" };\nconst invalid: WorkEvent = {\n  // @ts-expect-error Work has one supported contract version.\n  specVersion: "1.1",\n  kind: "work.updated",\n  work: { id: "task:proof", status: "running" },\n};\nvoid valid; void receipt; void response; void invalid;\n`,
+      `import type { WorkEvent, WorkResponse, WorkReceipt, WorkResponseAnswer } from "@tomismeta/aperture/work";\nconst valid: WorkEvent = { kind: "work.updated", work: { id: "task:proof", status: "running" }, trace: { traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" }, run: { sessionId: "session:proof", runId: "run:proof" } };\nconst receipt: WorkReceipt = { ok: true, apiVersion: "1.0", accepted: 1, receivedAs: "event", message: "accepted", published: [] };\nconst response: WorkResponse = { ok: true, apiVersion: "1.0", taskId: "task:proof", interactionId: "interaction:proof", state: "pending", message: "pending", expiresAt: "2026-08-13T00:01:00.000Z" };\nconst answered: WorkResponse = { ok: true, apiVersion: "1.0", taskId: "task:proof", interactionId: "interaction:proof", state: "answered", message: "answered", response: { kind: "approved" }, answeredAt: "2026-08-13T00:01:00.000Z", retentionExpiresAt: "2026-08-13T00:02:00.000Z" };\nconst answer: WorkResponseAnswer = answered.state === "answered" ? answered.response : { kind: "dismissed" };\nconst invalid: WorkEvent = {\n  // @ts-expect-error Work has one supported contract version.\n  specVersion: "1.1",\n  kind: "work.updated",\n  work: { id: "task:proof", status: "running" },\n};\nvoid valid; void receipt; void response; void answered; void answer; void invalid;\n`,
       "utf8",
     );
     await writeFile(
       join(consumerDir, "index.mjs"),
-      `import assert from "node:assert/strict";\nimport { ApertureWorkClient, WORK_API_VERSION, workEventSchemaDocument } from "@tomismeta/aperture/work";\nassert.equal(WORK_API_VERSION, "1.0");\nassert.equal(workEventSchemaDocument().$id, "urn:aperture:work-event:1.0");\nconst client = await ApertureWorkClient.connect({ baseUrl: "http://127.0.0.1:4546", authToken: "proof", fetch: async (input, init) => { const request = new Request(input, init); return new Response(request.method === "GET" ? JSON.stringify({ apiVersion: "1.0" }) : JSON.stringify({ ok: true, accepted: 1 }), { status: 200, headers: { "content-type": "application/json" } }); } });\nassert.equal((await client.publish("hello")).accepted, 1);\nassert.equal(client.url, "http://127.0.0.1:4546");\n`,
+      `import assert from "node:assert/strict";\nimport { ApertureWorkClient, WORK_API_VERSION, WORK_SCHEMA_URL, workEventSchemaDocument } from "@tomismeta/aperture/work";\nassert.equal(WORK_API_VERSION, "1.0");\nassert.equal(WORK_SCHEMA_URL, "https://raw.githubusercontent.com/tomismeta/aperture/aperture-v0.5.0/schemas/work-event.schema.json");\nassert.equal(workEventSchemaDocument().$id, "urn:aperture:work-event:1.0");\nconst interactionId = "interaction:proof";\nlet responseReads = 0;\nconst json = (value) => new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });\nconst fetchProof = async (input, init) => {\n  const request = new Request(input, init);\n  assert.equal(request.headers.get("authorization"), "Bearer proof");\n  const url = new URL(request.url);\n  if (request.method === "GET" && url.pathname === "/work") return json({ apiVersion: "1.0" });\n  if (request.method === "POST" && url.pathname === "/work") return json({ ok: true, apiVersion: "1.0", accepted: 1, receivedAs: "text", message: "accepted", published: [] });\n  if (request.method === "GET" && url.pathname.endsWith("/work/response/" + encodeURIComponent(interactionId))) {\n    responseReads += 1;\n    return responseReads === 1 ? json({ ok: true, apiVersion: "1.0", taskId: "task:proof", interactionId, state: "pending", message: "pending", expiresAt: "2026-08-13T00:01:00.000Z" }) : json({ ok: true, apiVersion: "1.0", taskId: "task:proof", interactionId, state: "answered", message: "answered", response: { kind: "approved" }, answeredAt: "2026-08-13T00:01:00.000Z", retentionExpiresAt: "2026-08-13T00:02:00.000Z" });\n  }\n  if (request.method === "DELETE" && url.pathname.endsWith("/work/response/" + encodeURIComponent(interactionId))) return json({ ok: true, apiVersion: "1.0", taskId: "task:proof", interactionId, state: "cancelled", message: "cancelled", cancelledAt: "2026-08-13T00:01:00.000Z", retentionExpiresAt: "2026-08-13T00:02:00.000Z" });\n  throw new Error("Unexpected Work proof request: " + request.method + " " + url.pathname);\n};\nconst client = await ApertureWorkClient.connect({ baseUrl: "http://127.0.0.1:4546", authToken: "proof", fetch: fetchProof });\nassert.equal((await client.describe()).apiVersion, "1.0");\nassert.equal((await client.publish("hello")).accepted, 1);\nassert.equal((await client.readResponse(interactionId)).state, "pending");\nassert.equal((await client.readResponse(interactionId)).state, "answered");\nassert.equal((await client.cancelResponse(interactionId)).state, "cancelled");\nassert.equal(client.url, "http://127.0.0.1:4546");\nconst discovered = await ApertureWorkClient.connect({ registryDir: process.env.APERTURE_PROOF_REGISTRY, fetch: fetchProof });\nassert.equal(discovered.url, client.url);\n`,
       "utf8",
     );
     run("pnpm", ["install", "--offline"], tempRoot);
     run("pnpm", ["exec", "tsc", "--noEmit"], consumerDir);
-    run("node", ["index.mjs"], consumerDir);
+    run("node", ["index.mjs"], consumerDir, { APERTURE_PROOF_REGISTRY: registryDir });
     process.stdout.write("aperture work consumer proof passed\n");
   } finally {
     await rm(tempRoot, { recursive: true, force: true });

@@ -8,7 +8,13 @@ import {
   WORK_API_VERSION,
   workEventSchemaDocument,
 } from "../src/work-contract.js";
+import {
+  WorkEndpointDescriptionSchema,
+  WorkReceiptSchema,
+  WorkResponseSchema,
+} from "../src/work-public-contract.js";
 import { normalizeWorkPayload } from "../src/work-event-ingest.js";
+import { TypeCompiler } from "@sinclair/typebox/compiler";
 
 test("live contract policy has one current version per boundary", () => {
   assert.equal(APERTURE_STATE_SCHEMA_VERSION, 1);
@@ -43,4 +49,57 @@ test("live Work normalization owns the current version and rejects future versio
 
   assert.throws(() => normalizeWorkPayload({ ...base, specVersion: "1.1" }));
   assert.throws(() => normalizeWorkPayload({ ...base, specVersion: "2.0" }));
+});
+
+test("public Work output contracts accept only the current literal version", () => {
+  const contracts = [
+    [
+      WorkReceiptSchema,
+      {
+        ok: true,
+        apiVersion: "1.0",
+        accepted: 0,
+        receivedAs: "text",
+        message: "ok",
+        published: [],
+      },
+    ],
+    [
+      WorkResponseSchema,
+      {
+        ok: true,
+        apiVersion: "1.0",
+        taskId: "task:test",
+        interactionId: "interaction:test",
+        state: "pending",
+        message: "waiting",
+        expiresAt: "2026-08-13T00:01:00.000Z",
+      },
+    ],
+    [
+      WorkEndpointDescriptionSchema,
+      {
+        apiVersion: "1.0",
+        path: "/work",
+        method: "POST",
+        summary: "",
+        auth: "",
+        send: [],
+        response: {
+          path: "/work/response/{interactionId}",
+          deletePath: "/work/response/{interactionId}",
+          bestFor: "",
+          states: [],
+        },
+        retention: { pendingTtlMs: 1, terminalRetentionMs: 1, capacity: 1 },
+        next: [],
+      },
+    ],
+  ] as const;
+
+  for (const [schema, value] of contracts) {
+    const compiler = TypeCompiler.Compile(schema);
+    assert.equal(compiler.Check(value), true);
+    assert.equal(compiler.Check({ ...value, apiVersion: "1.1" }), false);
+  }
 });

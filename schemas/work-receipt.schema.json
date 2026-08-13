@@ -4,7 +4,7 @@
   "required": ["ok", "apiVersion", "accepted", "receivedAs", "message", "published"],
   "properties": {
     "ok": { "const": true, "type": "boolean" },
-    "apiVersion": { "type": "string" },
+    "apiVersion": { "const": "1.0", "type": "string" },
     "accepted": { "minimum": 0, "type": "integer" },
     "receivedAs": {
       "anyOf": [

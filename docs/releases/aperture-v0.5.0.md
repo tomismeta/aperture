@@ -8,6 +8,9 @@ installable product bundle:
 
 - `@tomismeta/aperture/work` exposes Work `1.0` types, schema documents, version
   constants, and a bounded client for publishing work and polling responses.
+- `WorkResponse` is state-discriminated: answered responses require one of the
+  seven validated response kinds, while pending, expired, and cancelled
+  responses cannot carry answer-only fields.
 - The client can use explicit `baseUrl` and `authToken` values or discover one
   local Aperture runtime from its registration directory.
 - Unsupported Work versions return `unsupported_work_spec_version` with the

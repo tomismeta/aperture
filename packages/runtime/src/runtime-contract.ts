@@ -247,15 +247,31 @@ export type ApertureRuntime = {
   publishSourceEventBatch(events: SourceEvent[]): void;
 };
 
-export type RuntimeWorkResponseRecord = {
+type RuntimeWorkResponseRecordBase = {
   taskId: string;
   interactionId: string;
-  state: WorkResponseState;
   createdAt: string;
   updatedAt: string;
-  response?: AttentionResponse["response"];
-  answeredAt?: string;
-  expiresAt?: string;
-  cancelledAt?: string;
-  retentionExpiresAt?: string;
 };
+
+export type RuntimeWorkResponseRecord =
+  | (RuntimeWorkResponseRecordBase & {
+      state: "pending";
+      expiresAt: string;
+    })
+  | (RuntimeWorkResponseRecordBase & {
+      state: "answered";
+      response: AttentionResponse["response"];
+      answeredAt: string;
+      retentionExpiresAt: string;
+    })
+  | (RuntimeWorkResponseRecordBase & {
+      state: "expired";
+      expiresAt: string;
+      retentionExpiresAt: string;
+    })
+  | (RuntimeWorkResponseRecordBase & {
+      state: "cancelled";
+      cancelledAt: string;
+      retentionExpiresAt: string;
+    });

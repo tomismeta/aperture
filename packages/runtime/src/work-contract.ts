@@ -23,7 +23,8 @@ export const WORK_API_VERSION = "1.0";
 const WORK_API_MAJOR_VERSION = WORK_API_VERSION.split(".")[0] ?? WORK_API_VERSION;
 export const WORK_SCHEMA_ID = `urn:aperture:work-event:${WORK_API_VERSION}`;
 export const WORK_BATCH_SCHEMA_ID = `urn:aperture:work-event-batch:${WORK_API_VERSION}`;
-export const WORK_SCHEMA_URL = `https://schema.aperture.dev/work-event.v${WORK_API_MAJOR_VERSION}.json`;
+export const WORK_SCHEMA_URL =
+  "https://raw.githubusercontent.com/tomismeta/aperture/aperture-v0.5.0/schemas/work-event.schema.json";
 export const DEFAULT_WORK_EVENT_SOURCE = "urn:aperture:work";
 
 const WorkEventApprovalRequestSchema = Type.Object(

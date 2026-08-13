@@ -1,25 +1,152 @@
 {
-  "additionalProperties": false,
-  "type": "object",
-  "required": ["ok", "apiVersion", "taskId", "interactionId", "state", "message"],
-  "properties": {
-    "ok": { "const": true, "type": "boolean" },
-    "apiVersion": { "type": "string" },
-    "taskId": { "type": "string" },
-    "interactionId": { "type": "string" },
-    "state": {
-      "anyOf": [
-        { "const": "pending", "type": "string" },
-        { "const": "answered", "type": "string" },
-        { "const": "expired", "type": "string" },
-        { "const": "cancelled", "type": "string" }
-      ]
+  "anyOf": [
+    {
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["ok", "apiVersion", "taskId", "interactionId", "message", "state", "expiresAt"],
+      "properties": {
+        "ok": { "const": true, "type": "boolean" },
+        "apiVersion": { "const": "1.0", "type": "string" },
+        "taskId": { "type": "string" },
+        "interactionId": { "type": "string" },
+        "message": { "type": "string" },
+        "state": { "const": "pending", "type": "string" },
+        "expiresAt": { "type": "string" }
+      }
     },
-    "message": { "type": "string" },
-    "response": {},
-    "answeredAt": { "type": "string" },
-    "expiresAt": { "type": "string" },
-    "cancelledAt": { "type": "string" },
-    "retentionExpiresAt": { "type": "string" }
-  }
+    {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "ok",
+        "apiVersion",
+        "taskId",
+        "interactionId",
+        "message",
+        "state",
+        "response",
+        "answeredAt",
+        "retentionExpiresAt"
+      ],
+      "properties": {
+        "ok": { "const": true, "type": "boolean" },
+        "apiVersion": { "const": "1.0", "type": "string" },
+        "taskId": { "type": "string" },
+        "interactionId": { "type": "string" },
+        "message": { "type": "string" },
+        "state": { "const": "answered", "type": "string" },
+        "response": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["kind"],
+              "properties": { "kind": { "const": "acknowledged", "type": "string" } }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["kind"],
+              "properties": {
+                "kind": { "const": "approved", "type": "string" },
+                "reason": { "type": "string" }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["kind"],
+              "properties": {
+                "kind": { "const": "rejected", "type": "string" },
+                "reason": { "type": "string" }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["kind", "optionIds"],
+              "properties": {
+                "kind": { "const": "option_selected", "type": "string" },
+                "optionIds": { "minItems": 1, "type": "array", "items": { "type": "string" } }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["kind", "text"],
+              "properties": {
+                "kind": { "const": "text_submitted", "type": "string" },
+                "text": { "minLength": 1, "type": "string" }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["kind", "values"],
+              "properties": {
+                "kind": { "const": "form_submitted", "type": "string" },
+                "values": { "type": "object", "patternProperties": { "^(.*)$": {} } }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "type": "object",
+              "required": ["kind"],
+              "properties": { "kind": { "const": "dismissed", "type": "string" } }
+            }
+          ]
+        },
+        "answeredAt": { "type": "string" },
+        "retentionExpiresAt": { "type": "string" }
+      }
+    },
+    {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "ok",
+        "apiVersion",
+        "taskId",
+        "interactionId",
+        "message",
+        "state",
+        "expiresAt",
+        "retentionExpiresAt"
+      ],
+      "properties": {
+        "ok": { "const": true, "type": "boolean" },
+        "apiVersion": { "const": "1.0", "type": "string" },
+        "taskId": { "type": "string" },
+        "interactionId": { "type": "string" },
+        "message": { "type": "string" },
+        "state": { "const": "expired", "type": "string" },
+        "expiresAt": { "type": "string" },
+        "retentionExpiresAt": { "type": "string" }
+      }
+    },
+    {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "ok",
+        "apiVersion",
+        "taskId",
+        "interactionId",
+        "message",
+        "state",
+        "cancelledAt",
+        "retentionExpiresAt"
+      ],
+      "properties": {
+        "ok": { "const": true, "type": "boolean" },
+        "apiVersion": { "const": "1.0", "type": "string" },
+        "taskId": { "type": "string" },
+        "interactionId": { "type": "string" },
+        "message": { "type": "string" },
+        "state": { "const": "cancelled", "type": "string" },
+        "cancelledAt": { "type": "string" },
+        "retentionExpiresAt": { "type": "string" }
+      }
+    }
+  ]
 }

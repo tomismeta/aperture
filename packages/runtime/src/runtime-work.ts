@@ -140,21 +140,39 @@ export function readWorkResponseInteractionId(path: string): string | null {
 }
 
 export function describeWorkResponse(response: RuntimeWorkResponseRecord): WorkResponse {
-  return {
+  const base = {
     ok: true,
     apiVersion: WORK_API_VERSION,
     taskId: response.taskId,
     interactionId: response.interactionId,
-    state: response.state,
     message: workResponseMessage(response),
-    ...(response.response !== undefined ? { response: response.response } : {}),
-    ...(response.answeredAt !== undefined ? { answeredAt: response.answeredAt } : {}),
-    ...(response.expiresAt !== undefined ? { expiresAt: response.expiresAt } : {}),
-    ...(response.cancelledAt !== undefined ? { cancelledAt: response.cancelledAt } : {}),
-    ...(response.retentionExpiresAt !== undefined
-      ? { retentionExpiresAt: response.retentionExpiresAt }
-      : {}),
-  };
+  } as const;
+  switch (response.state) {
+    case "pending":
+      return { ...base, state: response.state, expiresAt: response.expiresAt };
+    case "answered":
+      return {
+        ...base,
+        state: response.state,
+        response: response.response,
+        answeredAt: response.answeredAt,
+        retentionExpiresAt: response.retentionExpiresAt,
+      };
+    case "expired":
+      return {
+        ...base,
+        state: response.state,
+        expiresAt: response.expiresAt,
+        retentionExpiresAt: response.retentionExpiresAt,
+      };
+    case "cancelled":
+      return {
+        ...base,
+        state: response.state,
+        cancelledAt: response.cancelledAt,
+        retentionExpiresAt: response.retentionExpiresAt,
+      };
+  }
 }
 
 function describeWorkReceiptMode(payload: WorkInput): WorkReceiptMode {

@@ -131,6 +131,88 @@ test("work response store rejects duplicate interaction ids without rewriting th
   }
 });
 
+test("work response store rejects answered records without a valid answer", async () => {
+  const stateDir = await mkdtemp(join(tmpdir(), "aperture-work-response-store-"));
+  const storePath = join(stateDir, "work-responses.json");
+  const persisted = JSON.stringify({
+    schemaVersion: 1,
+    records: [
+      {
+        taskId: "task:invalid-answer",
+        interactionId: "interaction:invalid-answer",
+        state: "answered",
+        createdAt: "2026-08-13T00:00:00.000Z",
+        updatedAt: "2026-08-13T00:01:00.000Z",
+        response: { kind: "text_submitted", text: "   " },
+        answeredAt: "2026-08-13T00:01:00.000Z",
+        retentionExpiresAt: "2026-08-13T00:02:00.000Z",
+      },
+    ],
+  });
+
+  try {
+    await writeFile(storePath, persisted, "utf8");
+    await assert.rejects(
+      () =>
+        WorkResponseStore.open({
+          stateDir,
+          maxEntries: 8,
+          pendingTtlMs: 1_000,
+          retentionMs: 1_000,
+        }),
+      /Invalid persisted work-response record/,
+    );
+    assert.equal(await readFile(storePath, "utf8"), persisted);
+  } finally {
+    await rm(stateDir, { recursive: true, force: true });
+  }
+});
+
+test("work response store round-trips every valid answer kind", async () => {
+  const answers: AttentionResponse["response"][] = [
+    { kind: "acknowledged" },
+    { kind: "approved", reason: "Looks good." },
+    { kind: "rejected", reason: "Needs changes." },
+    { kind: "option_selected", optionIds: ["yes"] },
+    { kind: "text_submitted", text: "Proceed." },
+    { kind: "form_submitted", values: { environment: "production" } },
+    { kind: "dismissed" },
+  ];
+
+  for (const [index, answer] of answers.entries()) {
+    const stateDir = await mkdtemp(join(tmpdir(), "aperture-work-response-store-"));
+    try {
+      const store = await WorkResponseStore.open({
+        stateDir,
+        maxEntries: 8,
+        pendingTtlMs: 1_000,
+        retentionMs: 1_000,
+      });
+      const interactionId = `interaction:answer:${index}`;
+      store.registerPending(`task:answer:${index}`, interactionId);
+      store.recordAnswered({
+        taskId: `task:answer:${index}`,
+        interactionId,
+        response: answer,
+      });
+      await store.flush();
+
+      const reloaded = await WorkResponseStore.open({
+        stateDir,
+        maxEntries: 8,
+        pendingTtlMs: 1_000,
+        retentionMs: 1_000,
+      });
+      const record = reloaded.get(interactionId);
+      assert.equal(record?.state, "answered");
+      if (record?.state !== "answered") throw new Error("Expected an answered response.");
+      assert.deepEqual(record.response, answer);
+    } finally {
+      await rm(stateDir, { recursive: true, force: true });
+    }
+  }
+});
+
 test("work response store surfaces persistence failures and recovers on the next successful write", async () => {
   const stateDir = await mkdtemp(join(tmpdir(), "aperture-work-response-store-"));
   const storePath = join(stateDir, "work-responses.json");

@@ -117,6 +117,32 @@ test("assertValidFrameResponse rejects empty option selections", () => {
   }, /response\.optionIds must contain at least one option id/);
 });
 
+test("assertValidFrameResponse rejects malformed answer fields", () => {
+  assert.throws(() => {
+    assertValidFrameResponse({
+      taskId: "task:choice",
+      interactionId: "interaction:choice",
+      response: { kind: "option_selected", optionIds: ["   "] },
+    });
+  }, /response\.optionIds\[\] must be a non-empty string/);
+
+  assert.throws(() => {
+    assertValidFrameResponse({
+      taskId: "task:text",
+      interactionId: "interaction:text",
+      response: { kind: "text_submitted", text: "   " },
+    });
+  }, /response\.text must be a non-empty string/);
+
+  assert.throws(() => {
+    assertValidFrameResponse({
+      taskId: "task:approval",
+      interactionId: "interaction:approval",
+      response: { kind: "approved", reason: 42 } as never,
+    });
+  }, /response\.reason must be a string/);
+});
+
 test("assertValidSignal rejects invalid timestamps", () => {
   assert.throws(() => {
     assertValidSignal({

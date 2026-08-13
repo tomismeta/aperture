@@ -22,6 +22,7 @@ export type {
   WorkReceiptMode,
   WorkReceiptNextStep,
   WorkRequestKind,
+  WorkResponseAnswer,
   WorkResponse,
   WorkResponseState,
   WorkStatus,

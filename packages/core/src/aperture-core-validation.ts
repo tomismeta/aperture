@@ -90,17 +90,26 @@ export function assertValidFrameResponse(response: AttentionResponse): void {
   assertNonEmpty("response.interactionId", response.interactionId);
 
   switch (response.response.kind) {
+    case "dismissed":
     case "acknowledged":
+      return;
     case "approved":
     case "rejected":
-    case "dismissed":
+      if (response.response.reason !== undefined && typeof response.response.reason !== "string") {
+        throw new ApertureCoreValidationError("response.reason must be a string", {
+          field: "response.reason",
+        });
+      }
       return;
     case "option_selected":
-      if (response.response.optionIds.length === 0) {
+      if (!Array.isArray(response.response.optionIds) || response.response.optionIds.length === 0) {
         throw new ApertureCoreValidationError(
           "response.optionIds must contain at least one option id",
           { field: "response.optionIds" },
         );
+      }
+      for (const optionId of response.response.optionIds) {
+        assertNonEmpty("response.optionIds[]", optionId);
       }
       return;
     case "text_submitted":

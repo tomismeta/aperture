@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./packages/aperture/src",
+    "outDir": "./packages/aperture/dist",
+    "composite": false,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": [
+    "packages/aperture/src/work.ts",
+    "packages/aperture/src/work-event.schema.json",
+    "packages/aperture/src/work-event-batch.schema.json"
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "path",
+    "method",
+    "summary",
+    "auth",
+    "send",
+    "response",
+    "retention",
+    "next"
+  ],
+  "properties": {
+    "apiVersion": { "type": "string" },
+    "path": { "const": "/work", "type": "string" },
+    "method": { "const": "POST", "type": "string" },
+    "summary": { "type": "string" },
+    "auth": { "type": "string" },
+    "send": {
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["receivedAs", "contentType", "body", "bestFor", "example"],
+        "properties": {
+          "receivedAs": {
+            "anyOf": [
+              { "const": "text", "type": "string" },
+              { "const": "event", "type": "string" },
+              { "const": "batch", "type": "string" }
+            ]
+          },
+          "contentType": { "type": "string" },
+          "body": { "type": "string" },
+          "bestFor": { "type": "string" },
+          "example": { "type": "string" }
+        }
+      }
+    },
+    "response": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["path", "deletePath", "bestFor", "states"],
+      "properties": {
+        "path": { "const": "/work/response/{interactionId}", "type": "string" },
+        "deletePath": { "const": "/work/response/{interactionId}", "type": "string" },
+        "bestFor": { "type": "string" },
+        "states": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              { "const": "pending", "type": "string" },
+              { "const": "answered", "type": "string" },
+              { "const": "expired", "type": "string" },
+              { "const": "cancelled", "type": "string" }
+            ]
+          }
+        }
+      }
+    },
+    "retention": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["pendingTtlMs", "terminalRetentionMs", "capacity"],
+      "properties": {
+        "pendingTtlMs": { "minimum": 0, "type": "integer" },
+        "terminalRetentionMs": { "minimum": 0, "type": "integer" },
+        "capacity": { "minimum": 0, "type": "integer" }
+      }
+    },
+    "next": {
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["when", "send", "why"],
+        "properties": {
+          "when": { "type": "string" },
+          "send": {
+            "anyOf": [
+              { "const": "text", "type": "string" },
+              { "const": "WorkEvent", "type": "string" },
+              { "const": "WorkEvent[]", "type": "string" }
+            ]
+          },
+          "why": { "type": "string" }
+        }
+      }
+    }
+  }
+}

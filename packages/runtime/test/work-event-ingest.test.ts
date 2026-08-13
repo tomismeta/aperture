@@ -737,7 +737,7 @@ test("work endpoint accepts only the current Work contract version", async () =>
   const { baseUrl, authToken } = await runtime.listen();
 
   try {
-    const accepted = await authorizedFetch(baseUrl, authToken, "/v1/work", {
+    const accepted = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -747,7 +747,7 @@ test("work endpoint accepts only the current Work contract version", async () =>
     });
     assert.equal(accepted.status, 200);
 
-    const rejectedMinor = await authorizedFetch(baseUrl, authToken, "/v1/work", {
+    const rejectedMinor = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -756,8 +756,21 @@ test("work endpoint accepts only the current Work contract version", async () =>
       }),
     });
     assert.equal(rejectedMinor.status, 400);
+    const minorPayload = (await rejectedMinor.json()) as {
+      error: {
+        code: string;
+        message: string;
+        hint?: string;
+        receivedVersion?: unknown;
+        supportedVersion?: string;
+      };
+    };
+    assert.equal(minorPayload.error.code, "unsupported_work_spec_version");
+    assert.equal(minorPayload.error.receivedVersion, "1.1");
+    assert.equal(minorPayload.error.supportedVersion, "1.0");
+    assert.match(minorPayload.error.hint ?? "", /omit specVersion/i);
 
-    const rejectedMajor = await authorizedFetch(baseUrl, authToken, "/v1/work", {
+    const rejectedMajor = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -766,6 +779,14 @@ test("work endpoint accepts only the current Work contract version", async () =>
       }),
     });
     assert.equal(rejectedMajor.status, 400);
+    assert.equal(runtime.exportSessionCapture().publishedSourceEvents.length, 1);
+
+    const removedAlias = await authorizedFetch(baseUrl, authToken, "/v1/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(workApprovalEvent("task:version:removed-alias")),
+    });
+    assert.equal(removedAlias.status, 404);
   } finally {
     await runtime.close();
   }

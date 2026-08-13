@@ -204,8 +204,6 @@ The shared runtime accepts this contract at:
 
 - `POST /work`
 - `GET /work`
-- `POST /v1/work`
-- `GET /v1/work`
 - `GET /work/response/{interactionId}`
 - `DELETE /work/response/{interactionId}`
 

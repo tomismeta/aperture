@@ -36,6 +36,26 @@ export type WorkInput = string | WorkEvent | WorkEvent[];
 export type NormalizedWorkInput = string | NormalizedWorkEvent | NormalizedWorkEvent[];
 type InputRequestedWorkEvent = Extract<NormalizedWorkEvent, { kind: "input.requested" }>;
 
+export class WorkInputError extends Error {
+  readonly code: "unsupported_work_spec_version";
+  readonly receivedVersion: unknown;
+  readonly supportedVersion: string;
+  readonly batchIndex: number | undefined;
+
+  constructor(receivedVersion: unknown, batchIndex?: number) {
+    super(
+      batchIndex === undefined
+        ? `Unsupported Work specVersion ${String(receivedVersion)}. Expected ${WORK_API_VERSION}.`
+        : `Unsupported Work specVersion ${String(receivedVersion)} at batch index ${batchIndex}. Expected ${WORK_API_VERSION}.`,
+    );
+    this.name = "WorkInputError";
+    this.code = "unsupported_work_spec_version";
+    this.receivedVersion = receivedVersion;
+    this.supportedVersion = WORK_API_VERSION;
+    this.batchIndex = batchIndex;
+  }
+}
+
 const ACTIVITY_CATEGORY_ALIASES: Record<string, AttentionActivityClass> = {
   permission_request: "permission_request",
   approval_request: "permission_request",
@@ -64,6 +84,7 @@ export function normalizeWorkPayload(payload: unknown): NormalizedWorkInput {
     if (payload.length === 0) {
       throw new Error(workInputGuidance("WorkEvent[] must contain at least one item."));
     }
+    payload.forEach((entry, index) => assertSupportedWorkSpecVersion(entry, index));
     const errors = validateWorkEventBatchShape(payload);
     if (errors.length > 0) {
       throw new Error(
@@ -74,6 +95,9 @@ export function normalizeWorkPayload(payload: unknown): NormalizedWorkInput {
       try {
         return normalizeWorkEvent(entry);
       } catch (error) {
+        if (error instanceof WorkInputError) {
+          throw error;
+        }
         throw new Error(
           workInputGuidance(`Invalid WorkEvent at index ${index}: ${formatWorkEventError(error)}.`),
         );
@@ -92,6 +116,9 @@ export function normalizeWorkPayload(payload: unknown): NormalizedWorkInput {
   try {
     return normalizeWorkEvent(payload);
   } catch (error) {
+    if (error instanceof WorkInputError) {
+      throw error;
+    }
     throw new Error(workInputGuidance(`Invalid WorkEvent: ${formatWorkEventError(error)}.`));
   }
 }
@@ -235,6 +262,8 @@ function normalizeWorkEvent(value: unknown): NormalizedWorkEvent {
     throw new Error(commonError);
   }
 
+  assertSupportedWorkSpecVersion(value);
+
   const shapeErrors = validateWorkEventShape(value);
   if (shapeErrors.length > 0) {
     throw new Error(shapeErrors[0] ?? "invalid WorkEvent shape");
@@ -252,6 +281,15 @@ function normalizeWorkEvent(value: unknown): NormalizedWorkEvent {
   assertUniqueStructuredIds(normalizedEvent);
   assertNoNegativeZero(normalizedEvent.work.progress, "work.progress");
   return normalizedEvent;
+}
+
+function assertSupportedWorkSpecVersion(value: unknown, batchIndex?: number): void {
+  if (!isPlainRecord(value) || !("specVersion" in value)) {
+    return;
+  }
+  if (value.specVersion !== undefined && value.specVersion !== WORK_API_VERSION) {
+    throw new WorkInputError(value.specVersion, batchIndex);
+  }
 }
 
 function assertUniqueStructuredIds(event: NormalizedWorkEvent): void {

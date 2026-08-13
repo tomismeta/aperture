@@ -2,12 +2,12 @@ import type { SourceEvent } from "@tomismeta/aperture-core";
 
 import type {
   RuntimeWorkResponseRecord,
+  WorkEndpointDescription,
   WorkReceipt,
   WorkReceiptItem,
   WorkReceiptMode,
   WorkReceiptNextStep,
   WorkResponse,
-  WorkResponseState,
 } from "./runtime-contract.js";
 import type { WorkInput } from "./work-event-ingest.js";
 import { WORK_API_VERSION } from "./work-contract.js";
@@ -16,32 +16,7 @@ export function describeWorkEndpoint(retention: {
   pendingTtlMs: number;
   terminalRetentionMs: number;
   capacity: number;
-}): {
-  apiVersion: string;
-  path: "/work";
-  method: "POST";
-  summary: string;
-  auth: string;
-  send: Array<{
-    receivedAs: WorkReceiptMode;
-    contentType: string;
-    body: string;
-    bestFor: string;
-    example: string;
-  }>;
-  response: {
-    path: "/work/response/{interactionId}";
-    deletePath: "/work/response/{interactionId}";
-    bestFor: string;
-    states: WorkResponseState[];
-  };
-  retention: {
-    pendingTtlMs: number;
-    terminalRetentionMs: number;
-    capacity: number;
-  };
-  next: WorkReceiptNextStep[];
-} {
+}): WorkEndpointDescription {
   return {
     apiVersion: WORK_API_VERSION,
     path: "/work",

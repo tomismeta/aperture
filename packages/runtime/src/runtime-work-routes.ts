@@ -12,22 +12,26 @@ import {
   describeWorkEndpoint,
   describeWorkResponse,
 } from "./runtime-work.js";
-import { mapWorkPayloadToSourceEvents, normalizeWorkPayload } from "./work-event-ingest.js";
+import {
+  mapWorkPayloadToSourceEvents,
+  normalizeWorkPayload,
+  WorkInputError,
+} from "./work-event-ingest.js";
 
-const WORK_ROUTE_PATHS = ["/work", "/v1/work"] as const;
-const WORK_RESPONSE_ROUTE = /^\/(?:v1\/)?work\/response\/([^/]+)$/;
+const WORK_ROUTE_PATH = "/work" as const;
+const WORK_RESPONSE_ROUTE = /^\/work\/response\/([^/]+)$/;
 
 export function createWorkRoutes(options: BuildRuntimeRoutesOptions): RuntimeRoute[] {
   return [
-    ...WORK_ROUTE_PATHS.map((path) => ({
+    {
       name: "work.describe",
       method: "GET" as const,
-      match: matchLiteral(path),
+      match: matchLiteral(WORK_ROUTE_PATH),
       handler: async ({ res }: RuntimeRouteContext) => {
         requireListeningPort(options.getListeningPort());
         writeJson(res, 200, describeWorkEndpoint(options.state.retention));
       },
-    })),
+    },
     {
       name: "work.response.read",
       method: "GET",
@@ -72,10 +76,10 @@ export function createWorkRoutes(options: BuildRuntimeRoutesOptions): RuntimeRou
         writeJson(res, 200, describeWorkResponse(workResponse));
       },
     },
-    ...WORK_ROUTE_PATHS.map((path) => ({
+    {
       name: "work.publish",
       method: "POST" as const,
-      match: matchLiteral(path),
+      match: matchLiteral(WORK_ROUTE_PATH),
       mutating: true,
       rateLimitKey: "work",
       handler: async ({ req, res }: RuntimeRouteContext) => {
@@ -84,6 +88,19 @@ export function createWorkRoutes(options: BuildRuntimeRoutesOptions): RuntimeRou
         try {
           normalizedWork = normalizeWorkPayload(payload);
         } catch (error) {
+          if (error instanceof WorkInputError) {
+            throw new RuntimeHttpError(
+              400,
+              error.code,
+              error.message,
+              `Send Work specVersion ${error.supportedVersion} or omit specVersion.`,
+              {
+                receivedVersion: error.receivedVersion,
+                supportedVersion: error.supportedVersion,
+                ...(error.batchIndex !== undefined ? { batchIndex: error.batchIndex } : {}),
+              },
+            );
+          }
           const detail = error instanceof Error ? error.message : String(error);
           throw new RuntimeHttpError(400, "invalid_work_payload", detail);
         }
@@ -103,6 +120,6 @@ export function createWorkRoutes(options: BuildRuntimeRoutesOptions): RuntimeRou
           }),
         );
       },
-    })),
+    },
   ];
 }

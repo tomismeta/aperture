@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "type": "object",
+  "required": ["ok", "apiVersion", "taskId", "interactionId", "state", "message"],
+  "properties": {
+    "ok": { "const": true, "type": "boolean" },
+    "apiVersion": { "type": "string" },
+    "taskId": { "type": "string" },
+    "interactionId": { "type": "string" },
+    "state": {
+      "anyOf": [
+        { "const": "pending", "type": "string" },
+        { "const": "answered", "type": "string" },
+        { "const": "expired", "type": "string" },
+        { "const": "cancelled", "type": "string" }
+      ]
+    },
+    "message": { "type": "string" },
+    "response": {},
+    "answeredAt": { "type": "string" },
+    "expiresAt": { "type": "string" },
+    "cancelledAt": { "type": "string" },
+    "retentionExpiresAt": { "type": "string" }
+  }
+}

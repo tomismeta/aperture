@@ -236,27 +236,30 @@ export class WorkResponseStore {
     try {
       parsed = JSON.parse(raw) as PersistedWorkResponseStore;
     } catch (error) {
-      warnStorePersistenceIssue(
-        this.filePath,
-        "Failed to parse persisted work-response state. Starting from an empty store.",
-        error,
+      throw new Error(
+        `Unable to read persisted work-response state in ${this.filePath}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       );
-      return;
     }
     if (
       parsed.schemaVersion !== WORK_RESPONSE_STORE_SCHEMA_VERSION ||
       !Array.isArray(parsed.records)
     ) {
-      return;
+      throw new Error(
+        `Unsupported persisted work-response state in ${this.filePath}. Expected schemaVersion ${WORK_RESPONSE_STORE_SCHEMA_VERSION}.`,
+      );
     }
+    const loadedRecords = new Map<string, RuntimeWorkResponseRecord>();
     for (const record of parsed.records) {
-      if (
-        isWorkResponseState(record.state) &&
-        typeof record.interactionId === "string" &&
-        typeof record.taskId === "string"
-      ) {
-        this.records.set(record.interactionId, record);
+      if (!isPersistedWorkResponseRecord(record) || loadedRecords.has(record.interactionId)) {
+        throw new Error(`Invalid persisted work-response record in ${this.filePath}.`);
       }
+      loadedRecords.set(record.interactionId, record);
+    }
+    this.records.clear();
+    for (const record of loadedRecords.values()) {
+      this.records.set(record.interactionId, record);
     }
   }
 
@@ -296,6 +299,45 @@ function isWorkResponseState(value: unknown): value is WorkResponseState {
   return (
     value === "pending" || value === "answered" || value === "expired" || value === "cancelled"
   );
+}
+
+function isPersistedWorkResponseRecord(value: unknown): value is RuntimeWorkResponseRecord {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  if (
+    !isWorkResponseState(record.state) ||
+    !isNonEmptyString(record.interactionId) ||
+    !isNonEmptyString(record.taskId) ||
+    !isIsoDate(record.createdAt) ||
+    !isIsoDate(record.updatedAt)
+  ) {
+    return false;
+  }
+
+  for (const key of ["answeredAt", "expiresAt", "cancelledAt", "retentionExpiresAt"] as const) {
+    if (record[key] !== undefined && !isIsoDate(record[key])) return false;
+  }
+
+  if (record.state === "pending" && !isIsoDate(record.expiresAt)) return false;
+  if (
+    (record.state === "answered" || record.state === "expired" || record.state === "cancelled") &&
+    !isIsoDate(record.retentionExpiresAt)
+  ) {
+    return false;
+  }
+  if (record.state === "answered" && !isIsoDate(record.answeredAt)) return false;
+  if (record.state === "cancelled" && !isIsoDate(record.cancelledAt)) return false;
+  return true;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function isIsoDate(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.toISOString() === value;
 }
 
 async function writeJsonFileAtomically(

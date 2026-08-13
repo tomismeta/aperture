@@ -685,8 +685,6 @@ The current shared runtime can ingest this contract directly over HTTP at:
 
 - `POST /work`
 - `GET /work`
-- `POST /v1/work`
-- `GET /v1/work`
 
 This is intentionally the producer-facing ingress path.
 The deeper `/runtime/*` control routes still exist for the Aperture product and
@@ -702,7 +700,6 @@ Accepted request shapes:
 Current scope:
 
 - `/work` is the public ingress contract
-- `/v1/work` is the explicit compatibility alias for the current major version
 - every non-health route requires `Authorization: Bearer <runtime-token>`
 - plain text stays one-way, lowest-friction, and always maps to a running status update
 - structured `input.requested` events create a public response loop

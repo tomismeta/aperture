@@ -1,0 +1,65 @@
+{
+  "additionalProperties": false,
+  "type": "object",
+  "required": ["ok", "apiVersion", "accepted", "receivedAs", "message", "published"],
+  "properties": {
+    "ok": { "const": true, "type": "boolean" },
+    "apiVersion": { "type": "string" },
+    "accepted": { "minimum": 0, "type": "integer" },
+    "receivedAs": {
+      "anyOf": [
+        { "const": "text", "type": "string" },
+        { "const": "event", "type": "string" },
+        { "const": "batch", "type": "string" }
+      ]
+    },
+    "message": { "type": "string" },
+    "published": {
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["taskId", "type"],
+        "properties": {
+          "taskId": { "type": "string" },
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "summary": { "type": "string" },
+          "status": { "type": "string" },
+          "interactionId": { "type": "string" },
+          "responsePath": { "type": "string" },
+          "responseUrl": { "type": "string" }
+        }
+      }
+    },
+    "retention": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["pendingTtlMs", "terminalRetentionMs", "capacity"],
+      "properties": {
+        "pendingTtlMs": { "minimum": 0, "type": "integer" },
+        "terminalRetentionMs": { "minimum": 0, "type": "integer" },
+        "capacity": { "minimum": 0, "type": "integer" }
+      }
+    },
+    "next": {
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["when", "send", "why"],
+        "properties": {
+          "when": { "type": "string" },
+          "send": {
+            "anyOf": [
+              { "const": "text", "type": "string" },
+              { "const": "WorkEvent", "type": "string" },
+              { "const": "WorkEvent[]", "type": "string" }
+            ]
+          },
+          "why": { "type": "string" }
+        }
+      }
+    }
+  }
+}

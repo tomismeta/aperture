@@ -7,3 +7,8 @@ export {
   workEventBatchSchemaDocument,
   workEventSchemaDocument,
 } from "./work-contract.js";
+export {
+  workEndpointDescriptionSchemaDocument,
+  workReceiptSchemaDocument,
+  workResponseSchemaDocument,
+} from "./work-public-contract.js";

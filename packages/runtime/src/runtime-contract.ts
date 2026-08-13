@@ -14,6 +14,17 @@ import type {
 } from "@tomismeta/aperture-core/internal";
 
 import type { LearningPersistenceState } from "./learning-persistence.js";
+import type { WorkResponseState } from "./work-public-contract.js";
+
+export type {
+  WorkEndpointDescription,
+  WorkReceipt,
+  WorkReceiptItem,
+  WorkReceiptMode,
+  WorkReceiptNextStep,
+  WorkResponse,
+  WorkResponseState,
+} from "./work-public-contract.js";
 
 export type ApertureRuntimeOptions = {
   kind?: string;
@@ -234,56 +245,6 @@ export type ApertureRuntime = {
   exportSessionCapture(): ApertureRuntimeSessionCapture;
   publishSourceEvent(event: SourceEvent): void;
   publishSourceEventBatch(events: SourceEvent[]): void;
-};
-
-export type WorkReceiptMode = "text" | "event" | "batch";
-
-export type WorkReceiptItem = {
-  taskId: string;
-  type: SourceEvent["type"];
-  title?: string;
-  summary?: string;
-  status?: string;
-  interactionId?: string;
-  responsePath?: string;
-  responseUrl?: string;
-};
-
-export type WorkReceiptNextStep = {
-  when: string;
-  send: "text" | "WorkEvent" | "WorkEvent[]";
-  why: string;
-};
-
-export type WorkReceipt = {
-  ok: true;
-  apiVersion: string;
-  accepted: number;
-  receivedAs: WorkReceiptMode;
-  message: string;
-  published: WorkReceiptItem[];
-  retention?: {
-    pendingTtlMs: number;
-    terminalRetentionMs: number;
-    capacity: number;
-  };
-  next?: WorkReceiptNextStep[];
-};
-
-export type WorkResponseState = "pending" | "answered" | "expired" | "cancelled";
-
-export type WorkResponse = {
-  ok: true;
-  apiVersion: string;
-  taskId: string;
-  interactionId: string;
-  state: WorkResponseState;
-  message: string;
-  response?: AttentionResponse["response"];
-  answeredAt?: string;
-  expiresAt?: string;
-  cancelledAt?: string;
-  retentionExpiresAt?: string;
 };
 
 export type RuntimeWorkResponseRecord = {

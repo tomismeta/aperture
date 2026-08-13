@@ -106,9 +106,12 @@ bounded publish/response client without exposing the private Runtime package.
 ```ts
 import { connectWork } from "@tomismeta/aperture/work";
 
+const authToken = process.env.APERTURE_RUNTIME_TOKEN;
+if (!authToken) throw new Error("Set APERTURE_RUNTIME_TOKEN before connecting.");
+
 const work = await connectWork({
   baseUrl: "http://127.0.0.1:4546",
-  authToken: process.env.APERTURE_RUNTIME_TOKEN ?? "local-token",
+  authToken,
 });
 
 await work.publish({

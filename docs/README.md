@@ -19,7 +19,7 @@ Choose the path that matches what you are trying to do.
 ### Use The Product
 
 1. [README](../README.md)
-2. [Aperture v0.4.3](./releases/aperture-v0.4.3.md)
+2. [Aperture v0.5.0](./releases/aperture-v0.5.0.md)
 3. [Architecture Overview](./product/architecture-overview.md)
 4. [Components](./product/components.md)
 5. [TUI Surface](./product/tui.md)
@@ -50,6 +50,7 @@ loop.
 
 ## Release Notes
 
+- [Aperture v0.5.0](./releases/aperture-v0.5.0.md)
 - [Aperture v0.4.3](./releases/aperture-v0.4.3.md)
 - [Aperture v0.4.2](./releases/aperture-v0.4.2.md)
 - [Aperture v0.4.1](./releases/aperture-v0.4.1.md)

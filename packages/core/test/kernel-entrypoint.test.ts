@@ -59,6 +59,27 @@ test("kernel evaluation exposes event to observation to observation-judgment con
   });
 });
 
+test("kernel preserves document-scoped adversative runtime diagnostics", () => {
+  for (const conjunction of ["but", "however", "yet"] as const) {
+    for (const separator of [", ", " "] as const) {
+      const summary = `A complete document read describes how execution could fail${separator}${conjunction} execution later crashed and a complete runtime diagnostic was returned.`;
+      const result = evaluateApertureKernelEvent(
+        failedTaskEvent(`document-adversative:${conjunction}:${separator.length}`, summary, {
+          capabilityFamily: "exec_command",
+        }),
+      );
+
+      assert.equal(result.evaluation.kind, "candidate", summary);
+      assert.equal(result.observation?.diagnosticClass, "runtime", summary);
+      assert.equal(
+        result.observationJudgment?.statusEvidence,
+        "visible_diagnostic_failure",
+        summary,
+      );
+    }
+  }
+});
+
 test("kernel command observations do not depend on host title vocabulary", () => {
   const event = failedTaskEvent(
     "kernel:host-title",

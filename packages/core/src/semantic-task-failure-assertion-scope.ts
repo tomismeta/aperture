@@ -38,7 +38,7 @@ export function stripScopedClauses(value: string, owns: (clause: string) => bool
 }
 export const splitAssertions = (value: string): string[] => value.split(ASSERTION_BOUNDARY);
 const ASSERTION_BOUNDARY =
-  /(?:(?<=[.!?])(?<!\beg\.)(?<!\be\.g\.)|;|(?<!\ball\s)(?<!\bnothing\s)(?<!\banything\s)\b(?:but|however)\b[,:]?|\byet\b[,:]?(?=\s+(?:the\s+)?(?:execution|command|process|operation|tool|result|no|not|never|without|neither)\b)|\b(?:and|while)\s+(?=(?:no|not|never|without|neither)\b))\s+/iu;
+  /(?:(?<=[.!?])(?<!\beg\.)(?<!\be\.g\.)|;)\s+|(?<!\ball\s)(?<!\bnothing\s)(?<!\banything\s)(?=\b(?:but|however)\b[,:]?\s)|(?=\byet\b[,:]?\s+(?:the\s+)?(?:execution|command|process|operation|tool|result|no|not|never|without|neither)\b)|\b(?:and|while)\s+(?=(?:no|not|never|without|neither)\b)\s+/iu;
 const NON_ACTUAL_TITLE = /^\s*(?:hypothetical|counterfactual|conditional|simulated)\b/i;
 const NON_ASSERTED_FRAME =
   /^(?:["'`]|observation:\s*|for reference\b|reference (?:text|material)\b|(?:the )?(?:documentation|document|source|log|example|fixture|template)\s+(?:says|states|contains|quotes|explains)\b|expected\s+(?:result|text|output|diagnostic)\s*:|(?:hypothetical|quoted)\b|if\b|unless\b|when\b|suppose\b|one sentence says\b)/i;

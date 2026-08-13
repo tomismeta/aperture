@@ -8,6 +8,7 @@ import { hasToolOutputFailureDiagnosticEvidence } from "../src/semantic-diagnost
 import { readTaskFailureSemanticEvidence } from "../src/semantic-evidence.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 import { looksLikeSearchResultObservation } from "../src/semantic-search-observation-shapes.js";
+import { splitAssertions } from "../src/semantic-task-failure-assertion-scope.js";
 import { parseTaskFailureEventFact } from "../src/semantic-task-failure-event-facts.js";
 import { looksLikeBareNonzeroTerminalExitEvidence } from "../src/semantic-failure-detail.js";
 import { readTestOutputObservation } from "../src/semantic-test-output-observation-shapes.js";
@@ -371,12 +372,16 @@ test("event facts preserve assertion scope across negation, modality, and fields
 });
 
 test("assertion boundaries keep temporal and quantitative yet/but clauses intact", () => {
+  assert.deepEqual(
+    splitAssertions("The file is not ready yet. Read the source window before editing."),
+    ["The file is not ready yet.", "Read the source window before editing."],
+  );
   for (const summary of [
-    "The file is not ready yet. Read the source window before editing.",
     "The result includes all but the final line of the document.",
     "The transcript contains nothing but the command output.",
     "The operation failed yet the returned diagnostic is incomplete.",
   ]) {
+    assert.deepEqual(splitAssertions(summary), [summary], summary);
     assert.doesNotThrow(() => parseTaskFailureEventFact(summary), summary);
   }
 
@@ -388,11 +393,53 @@ test("assertion boundaries keep temporal and quantitative yet/but clauses intact
   );
 });
 
+test("and/while negation boundaries retain their prior single-clause behavior", () => {
+  for (const summary of [
+    "Execution started and no failure occurred.",
+    "The deploy build is fixed and no longer blocked.",
+    "The operation continued while no result existed.",
+  ]) {
+    assert.deepEqual(splitAssertions(summary), [summary], summary);
+  }
+});
+
 test("adversative boundaries preserve later authoritative runtime diagnostics", () => {
   for (const conjunction of ["but", "however", "yet"] as const) {
     for (const separator of [", ", " "] as const) {
       const summary = `The operation could fail${separator}${conjunction} execution later crashed and a complete runtime diagnostic was returned.`;
       assert.equal(parseTaskFailureEventFact(summary), "runtime_diagnostic", summary);
+    }
+  }
+});
+
+test("document-scoped adversatives preserve later authoritative runtime diagnostics", () => {
+  const evaluator = new EventEvaluator();
+  for (const conjunction of ["but", "however", "yet"] as const) {
+    for (const separator of [", ", " "] as const) {
+      const summary = `A complete document read describes how execution could fail${separator}${conjunction} execution later crashed and a complete runtime diagnostic was returned.`;
+      assert.equal(parseTaskFailureEventFact(summary), "runtime_diagnostic", summary);
+
+      const result = evaluator.evaluate(
+        normalizeSourceEvent({
+          id: `event:document-adversative:${conjunction}:${separator.length}`,
+          taskId: `task:document-adversative:${conjunction}:${separator.length}`,
+          timestamp,
+          type: "task.updated",
+          title: "document-scoped runtime diagnostic",
+          summary,
+          status: "failed",
+          toolFamily: "Opaque.Executor/9",
+        }),
+      );
+      assert.equal(result.kind, "candidate", summary);
+      if (result.kind !== "candidate") continue;
+      const observation = result.candidate.judgmentInput.observation;
+      assert.ok(observation, summary);
+      assert.equal(
+        projectObservationJudgmentContract(observation).statusEvidence,
+        "visible_diagnostic_failure",
+        summary,
+      );
     }
   }
 });
@@ -719,7 +766,7 @@ test("control authority never consumes contradictory terminal evidence", () => {
   assert.equal(readFailure(clean, "edit")?.kind, "rejected_tool_use_observation");
 
   for (const summary of [
-    "Authorization was declined before invocation; no tool call occurred. RuntimeError: decoder crashed. No execution result exists.",
+    "Permission was denied before command invocation; the command was not started and no execution result was produced. RuntimeError: decoder crashed.",
     "Authorization was declined before invocation; no tool call occurred and no execution result exists. RuntimeError: decoder crashed.",
     "Authorization was declined before invocation; no tool call occurred and no execution result exists. TypeError: controller crashed.",
     "Authorization was declined before invocation; no tool call occurred. RuntimeError: decoder crashed. No execution result exists.",

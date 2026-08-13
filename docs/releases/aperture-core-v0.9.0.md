@@ -31,7 +31,9 @@ workload.
   evidence strength and record partial evidence loss without promoting a
   bounded source-limit failure into a generic critical failure
 - restricts authorization-control parsing to structural pre-execution facts;
-  provider-specific authorization scripts remain ordinary text
+  legacy provider-specific rejection scripts are no longer control evidence and
+  may surface as indeterminate critical failures; hosts should map
+  authorization to typed `SourceEvidence` or emit structural pre-execution facts
 - preserves historical scorecard proof metadata and marks proofless historical
   baselines as protected regression comparisons rather than release proof
 - proves two unrelated host event shapes can produce the same public-kernel
@@ -172,18 +174,18 @@ See [Kernel Scale Characterization](../engine/kernel-scale-characterization.md).
 
 ## Release Validation
 
-Correction-wave focused validation completed on August 12, 2026:
+Correction-wave focused validation completed on August 13, 2026:
 
 ```bash
 pnpm release:check
 pnpm judgment:bench
 ```
 
-The focused semantic, judgment, evaluator, and structural-grammar suite passes
-148 cases, including truncation, authorization, assertion-boundary, and
-historical-proof regression coverage. The full repository release gate also
-passed typecheck, lint, dependency audit, boundary and architecture checks,
-deterministic kernel scale, 1,322 tests, judgment battle, public SDK proof, and
+The focused semantic, judgment, evaluator, and structural-grammar suites pass,
+including truncation, authorization, assertion-boundary, and historical-proof
+regression coverage. The full repository release gate also passed typecheck,
+lint, dependency audit, boundary and architecture checks,
+deterministic kernel scale, 1,325 tests, judgment battle, public SDK proof, and
 product smoke. Independent post-freeze V6 proof and publication remain
 outstanding.
 

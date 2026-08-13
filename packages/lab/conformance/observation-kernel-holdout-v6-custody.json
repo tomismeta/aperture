@@ -75,10 +75,33 @@
     "executionStatus": "executed_post_freeze",
     "firstExecution": {
       "status": "valid",
+      "timestamp": "2026-08-13T21:06:00Z",
+      "firstRunPath": "packages/lab/conformance/observation-kernel-holdout-v6-first-run.json",
+      "reportPath": "packages/lab/conformance/observation-kernel-holdout-v6-report.json",
       "firstRunSha256": "90698b9babb9e710f05e2647b02a1e8ddae7282a5f1a2828897814696986dc93",
       "reportSha256": "41ee3751a5e95e8d21e6475bf10bb4fe0dcaaac523f772ddcdcbb7062e065b04",
+      "runner": "scripts/observation-kernel-v6-holdout.ts",
+      "runnerCommit": "3ca9fe3",
       "coreDiffFromFreeze": "empty",
       "result": "deterministic_typed_pass_fallback_fail",
+      "summary": {
+        "typed": {
+          "fixtures": 12,
+          "exactOutcomes": "12/12",
+          "semanticFields": "156/156",
+          "judgmentFields": "96/96",
+          "decisionFields": "24/24"
+        },
+        "fallback": {
+          "fixtures": 12,
+          "exactOutcomes": "0/12",
+          "semanticFields": "103/156",
+          "judgmentFields": "72/96",
+          "decisionFields": "18/24"
+        },
+        "determinism": "stable",
+        "releaseEligible": false
+      },
       "reason": "The artifact used by the first run was fully adjudicated and committed in 3ca9fe3; 25a0772 added custody metadata only."
     }
   }

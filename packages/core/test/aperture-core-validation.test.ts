@@ -143,6 +143,33 @@ test("assertValidFrameResponse rejects malformed answer fields", () => {
   }, /response\.reason must be a string/);
 });
 
+test("assertValidFrameResponse rejects unknown variants and undeclared fields", () => {
+  assert.throws(() => {
+    assertValidFrameResponse({
+      taskId: "task:unknown",
+      interactionId: "interaction:unknown",
+      response: { kind: "bogus" },
+    } as never);
+  }, /response\.response must have a supported kind/);
+
+  assert.throws(() => {
+    assertValidFrameResponse({
+      taskId: "task:extra",
+      interactionId: "interaction:extra",
+      response: { kind: "approved", extra: true },
+    } as never);
+  }, /response\.response contains undeclared fields/);
+
+  assert.throws(() => {
+    assertValidFrameResponse({
+      taskId: "task:extra-top-level",
+      interactionId: "interaction:extra-top-level",
+      response: { kind: "dismissed" },
+      extra: true,
+    } as never);
+  }, /response contains undeclared fields/);
+});
+
 test("assertValidSignal rejects invalid timestamps", () => {
   assert.throws(() => {
     assertValidSignal({

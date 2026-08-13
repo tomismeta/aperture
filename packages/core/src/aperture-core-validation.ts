@@ -86,15 +86,28 @@ export function assertValidSourceEvent(event: SourceEvent): void {
 }
 
 export function assertValidFrameResponse(response: AttentionResponse): void {
+  if (!isRecord(response)) {
+    throw invalidFrameResponse("response must be an object");
+  }
+  assertExactResponseKeys("response", response, ["taskId", "interactionId", "response"]);
   assertNonEmpty("response.taskId", response.taskId);
   assertNonEmpty("response.interactionId", response.interactionId);
+
+  if (!isRecord(response.response) || typeof response.response.kind !== "string") {
+    throw invalidFrameResponse("response.response must have a supported kind");
+  }
 
   switch (response.response.kind) {
     case "dismissed":
     case "acknowledged":
+      assertExactResponseKeys("response.response", response.response, ["kind"]);
       return;
     case "approved":
     case "rejected":
+      assertOneOfExactResponseKeys("response.response", response.response, [
+        ["kind"],
+        ["kind", "reason"],
+      ]);
       if (response.response.reason !== undefined && typeof response.response.reason !== "string") {
         throw new ApertureCoreValidationError("response.reason must be a string", {
           field: "response.reason",
@@ -102,6 +115,7 @@ export function assertValidFrameResponse(response: AttentionResponse): void {
       }
       return;
     case "option_selected":
+      assertExactResponseKeys("response.response", response.response, ["kind", "optionIds"]);
       if (!Array.isArray(response.response.optionIds) || response.response.optionIds.length === 0) {
         throw new ApertureCoreValidationError(
           "response.optionIds must contain at least one option id",
@@ -113,9 +127,11 @@ export function assertValidFrameResponse(response: AttentionResponse): void {
       }
       return;
     case "text_submitted":
+      assertExactResponseKeys("response.response", response.response, ["kind", "text"]);
       assertNonEmpty("response.text", response.response.text);
       return;
     case "form_submitted":
+      assertExactResponseKeys("response.response", response.response, ["kind", "values"]);
       if (
         response.response.values === null ||
         typeof response.response.values !== "object" ||
@@ -126,6 +142,8 @@ export function assertValidFrameResponse(response: AttentionResponse): void {
         });
       }
       return;
+    default:
+      throw invalidFrameResponse("response.response must have a supported kind");
   }
 }
 
@@ -139,12 +157,40 @@ export function assertValidSignal(signal: AttentionSignal): void {
   }
 }
 
-function assertNonEmpty(label: string, value: string): void {
+function assertNonEmpty(label: string, value: unknown): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new ApertureCoreValidationError(`${label} must be a non-empty string`, {
       field: label,
     });
   }
+}
+
+function assertExactResponseKeys(
+  label: string,
+  value: Record<string, unknown>,
+  keys: string[],
+): void {
+  if (Object.keys(value).sort().join("\0") !== [...keys].sort().join("\0")) {
+    throw invalidFrameResponse(`${label} contains undeclared fields`);
+  }
+}
+
+function assertOneOfExactResponseKeys(
+  label: string,
+  value: Record<string, unknown>,
+  keySets: string[][],
+): void {
+  const actual = Object.keys(value).sort().join("\0");
+  if (!keySets.some((keys) => keys.slice().sort().join("\0") === actual)) {
+    throw invalidFrameResponse(`${label} contains undeclared fields`);
+  }
+}
+
+function invalidFrameResponse(message: string): ApertureCoreValidationError {
+  return new ApertureCoreValidationError(message, {
+    field: "response",
+    code: "invalid_response_variant",
+  });
 }
 
 function assertObject(label: string, value: unknown): void {

@@ -2,7 +2,7 @@
   "methodology": {
     "schemaVersion": 5,
     "observationContractId": "aperture-observation-judgment-contract/v1",
-    "observationContractDigest": "sha256:12fcb300d3539d147a15621ce8b3f063271b5a08812605ce418704ead19b1f66",
+    "observationContractDigest": "sha256:57b79ade46e476378695a0652f7fe145bc6ee3dc9fa351f7994370419158086f",
     "sourceEvidenceContractId": "aperture-source-evidence-contract/v1",
     "sourceEvidenceContractDigest": "sha256:78dff530a44fdc532fbe5790dd496d40e0295ba09b4ef8676b0ed7f70f5af715",
     "outputContractId": "aperture-source-evidence-observation-projection/v2",

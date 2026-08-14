@@ -1,4 +1,3 @@
-import type { NormalizedObservation } from "./normalized-observation.js";
 import { readObservationExpectedSemanticRead } from "./observation-semantic-read.js";
 import type { ObservationSemantics } from "./observation-semantics.js";
 import { buildTaskFailureObservationInput } from "./semantic-evidence.js";
@@ -7,6 +6,8 @@ import type { SemanticInterpretation } from "./semantic-types.js";
 import type { SourceEvent } from "./source-event.js";
 import { projectTaskFailureObservationCore } from "./task-failure-observation-core.js";
 import { enrichTaskFailureObservation } from "./task-failure-observation-normalizer.js";
+
+type Observation = ReturnType<typeof enrichTaskFailureObservation>;
 
 type TaskFailureObservationEvent = Extract<SourceEvent, { type: "task.updated" }> & {
   semantic?: SemanticInterpretation;
@@ -25,7 +26,7 @@ export function normalizeTaskFailureObservationFromCore(input: {
   ontology: AttentionOntologyDiagnostic;
   abstained: boolean;
   interpretation: SemanticInterpretation | undefined;
-}): NormalizedObservation {
+}): Observation {
   return enrichTaskFailureObservation({
     core: input.core,
     ontology: input.ontology,
@@ -46,7 +47,7 @@ function readTaskFailureObservationSemanticAgreement(input: {
   ontology: AttentionOntologyDiagnostic;
   abstained: boolean;
   interpretation: SemanticInterpretation | undefined;
-}): NormalizedObservation["semanticAgreement"] {
+}): Observation["semanticAgreement"] {
   const semantic = input.interpretation;
   if (semantic === undefined || input.abstained) {
     return "uncertain";

@@ -138,7 +138,7 @@ test("visible diagnostic observations bypass the semantic uncertainty rule", () 
           kind: "diagnostic",
           polarity: "failure",
           semanticAgreement: "stable",
-          ownership: { owner: "tool", toolFamily: "fixture" },
+          ownership: { owner: "tool", capabilityFamily: "fixture" },
           evidenceStrength: "strong",
           subject: "tool",
           evidenceLoss: "none",

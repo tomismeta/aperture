@@ -1,7 +1,7 @@
 import { ApertureCore } from "@tomismeta/aperture-core";
 import {
   isCandidateTrace,
-  projectObservationJudgmentContract,
+  judgeObservation,
   subscribeInternalTrace,
   type ApertureTrace,
 } from "@tomismeta/aperture-core/internal";
@@ -42,7 +42,7 @@ export function evaluateObservationKernelFixture(
       kind: observation.kind,
       polarity: observation.polarity,
       owner: observation.ownership.owner,
-      toolFamily: observation.ownership.toolFamily ?? null,
+      toolFamily: observation.ownership.capabilityFamily ?? null,
       subject: observation.subject,
       evidenceLoss: observation.evidenceLoss,
       evidenceStrength: observation.evidenceStrength,
@@ -53,7 +53,7 @@ export function evaluateObservationKernelFixture(
       provenanceAuthority: observation.provenance.authority,
       consequenceBaseline: observation.consequenceBaseline,
     };
-    const judgment = projectObservationJudgmentContract(observation);
+    const judgment = judgeObservation(observation);
     const decision: ObservationKernelDecisionFields = {
       plannerKind: trace.coordination.kind,
       resultLane: trace.coordination.resultLane,

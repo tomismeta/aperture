@@ -63,10 +63,14 @@ import type {
 import type {
   ApertureKernelEvent,
   ApertureKernelEvaluation,
+  ApertureKernelConformanceCase,
+  ApertureKernelConformanceCaseResult,
+  ApertureKernelConformanceReport,
   ApertureKernelExplanation,
   ApertureKernelFinalEvent,
-  ApertureKernelObservation,
-  ApertureKernelObservationJudgment,
+  ApertureKernelHostAdapter,
+  Observation,
+  ObservationJudgment,
   ApertureKernelResult,
 } from "../src/kernel.js";
 
@@ -126,10 +130,14 @@ void (0 as unknown as AttentionEvaluationInput);
 void (0 as unknown as AttentionOperatorPresence);
 void (0 as unknown as ApertureKernelEvent);
 void (0 as unknown as ApertureKernelEvaluation);
+void (0 as unknown as ApertureKernelConformanceCase<unknown>);
+void (0 as unknown as ApertureKernelConformanceCaseResult);
+void (0 as unknown as ApertureKernelConformanceReport);
 void (0 as unknown as ApertureKernelExplanation);
 void (0 as unknown as ApertureKernelFinalEvent);
-void (0 as unknown as ApertureKernelObservation);
-void (0 as unknown as ApertureKernelObservationJudgment);
+void (0 as unknown as ApertureKernelHostAdapter<unknown>);
+void (0 as unknown as Observation);
+void (0 as unknown as ObservationJudgment);
 void (0 as unknown as ApertureKernelResult);
 
 const truncatedSourceOptions: TruncatedSourceEvidenceHintOptions = {

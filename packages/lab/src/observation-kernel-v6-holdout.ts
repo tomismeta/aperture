@@ -3,7 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { ApertureCore } from "@tomismeta/aperture-core";
 import {
   isCandidateTrace,
-  projectObservationJudgmentContract,
+  judgeObservation,
   subscribeInternalTrace,
   type ApertureTrace,
 } from "@tomismeta/aperture-core/internal";
@@ -313,7 +313,7 @@ function runFixture(fixture: V6Fixture): ObservationKernelObservation[] {
       kind: observation.kind,
       polarity: observation.polarity,
       owner: observation.ownership.owner,
-      toolFamily: observation.ownership.toolFamily ?? null,
+      toolFamily: observation.ownership.capabilityFamily ?? null,
       subject: observation.subject,
       evidenceLoss: observation.evidenceLoss,
       evidenceStrength: observation.evidenceStrength,
@@ -324,7 +324,7 @@ function runFixture(fixture: V6Fixture): ObservationKernelObservation[] {
       provenanceAuthority: observation.provenance.authority,
       consequenceBaseline: observation.consequenceBaseline,
     };
-    const judgment = projectObservationJudgmentContract(observation);
+    const judgment = judgeObservation(observation);
     const decision: ObservationKernelDecisionFields = {
       plannerKind: trace.coordination.kind,
       resultLane: trace.coordination.resultLane,

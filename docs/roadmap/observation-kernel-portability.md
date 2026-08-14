@@ -14,9 +14,9 @@ Observation-to-Judgment contract, not a host adapter.
 The minimal portable contract is:
 
 1. Convert a host event into a kernel-owned neutral event DTO.
-2. Normalize that DTO into a finalized event and, when available, a normalized
-   observation document.
-3. Project the observation into a deterministic judgment contract.
+2. Normalize that DTO into a finalized event and, when available, a canonical
+   Observation document.
+3. Judge the Observation with the one deterministic judgment function.
 4. Explain the result with stable reason codes.
 5. Let attention, routing, recovery, and trace surfaces consume that projection.
 
@@ -50,7 +50,10 @@ The TypeScript package exposes that boundary as:
 
 - `ApertureKernelEvent`: the minimal neutral event DTO.
 - `evaluateApertureKernelEvent(event)`: normalize, observe, judge, and return
-  versioned explanation reason codes.
+  stable explanation reason codes.
+- `runApertureKernelConformance(adapter, cases)`: exercise the public evaluator
+  from a host adapter, compare canonical outputs, and verify repeated-run
+  determinism without importing Lab or a test framework.
 
 Hosts map arbitrary native event shapes into the neutral DTO outside core. Core
 does not export an adapter abstraction for that mapping.
@@ -59,12 +62,12 @@ does not export an adapter abstraction for that mapping.
 
 For an event-log host, the native port would be small:
 
-- `Observation`: a struct equivalent to Aperture's normalized observation
-  document.
-- `ObservationJudgmentContract`: a struct equivalent to the derived projection.
+- `Observation`: the one canonical semantic document returned by the kernel.
+- `ObservationJudgment`: the pure deterministic judgment result consumed by
+  attention policy.
 - `observe(event) -> Option<Observation>`: host-specific parsing from signed
-  events into the normalized document.
-- `judge_observation(observation) -> ObservationJudgmentContract`: pure,
+  events into the canonical document.
+- `judgeObservation(observation) -> ObservationJudgment`: pure,
   deterministic, no I/O.
 - `explain(result) -> Vec<ReasonCode>`: stable machine-readable explanation,
   leaving prose to the host surface.
@@ -90,7 +93,7 @@ projection, not the surrounding product shell.
 
 ## Current Evidence
 
-The version 2 Observation Kernel scorecard measures 13 normalized Observation
+The Observation Kernel scorecard measures 13 canonical Observation
 fields, eight derived judgment fields, two decision fields, and exact outcomes.
 The implementation-freeze baseline covers structured output, search output,
 source-limit recovery, title-independent command success, and other messy
@@ -99,12 +102,13 @@ post-freeze holdout is still required before release. Drift is attributed to
 semantics, judgment, or end-to-end decision behavior instead of being hidden in
 an aggregate snapshot.
 
-The public kernel entrypoint also has a host-neutral portability fixture at
-`packages/core/test/fixtures/kernel-portability-v1.json`. It feeds two unrelated
+The public kernel entrypoint has a host-neutral portability fixture at
+`packages/core/test/fixtures/kernel-portability.json`. It feeds two unrelated
 synthetic host event shapes through adapter-owned mappings and asserts the same
-normalized observation, deterministic judgment, and explanation reason codes.
-The fixture vocabulary is kept out of `packages/core/src/kernel.ts` by contract
-test.
+canonical Observation, deterministic ObservationJudgment, and explanation
+reason codes. The consumer-facing runner executes both mappings through the
+same public evaluator twice. The fixture vocabulary is kept out of
+`packages/core/src/kernel.ts` by contract test.
 
 The packed SDK proof additionally executes
 `examples/core-kernel-host-embedder/index.ts` against the installed npm tarball.

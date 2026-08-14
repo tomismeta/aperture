@@ -12,7 +12,7 @@ import {
   readSemanticEvidenceStrength,
   resolvePeripheralResolutionFloor,
 } from "../src/judgment-input.js";
-import { projectObservationJudgmentContract } from "../src/judgment-observation-contract.js";
+import { judgeObservation } from "../src/judgment-observation-contract.js";
 
 const timestamp = "2026-04-05T18:30:00.000Z";
 const structuralAuthorizationMessage =
@@ -143,14 +143,14 @@ test("judgment input exposes outcome-only failed status as named semantic eviden
     kind: "outcome",
     polarity: "failure",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "exec_command" },
+    ownership: { owner: "tool", capabilityFamily: "exec_command" },
     evidenceStrength: "strong",
     subject: "tool",
     evidenceLoss: "none",
     provenance: { origin: "semantic_evidence", authority: "explicit" },
     consequenceBaseline: "medium",
   });
-  assert.deepEqual(input.observation && projectObservationJudgmentContract(input.observation), {
+  assert.deepEqual(input.observation && judgeObservation(input.observation), {
     statusEvidence: "limited_failure",
     statusConflictKind: null,
     recoveryPosture: "none",
@@ -213,7 +213,7 @@ test("judgment input treats empty failed payloads as weak limited failure eviden
     kind: "outcome",
     polarity: "failure",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "edit" },
+    ownership: { owner: "tool", capabilityFamily: "edit" },
     evidenceStrength: "weak",
     subject: "tool",
     evidenceLoss: "absent",
@@ -376,7 +376,7 @@ test("judgment input treats read source-window limits as strong limited failures
     kind: "diagnostic",
     polarity: "failure",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "read" },
+    ownership: { owner: "tool", capabilityFamily: "read" },
     evidenceStrength: "strong",
     subject: "source",
     evidenceLoss: "partial",
@@ -517,7 +517,7 @@ test("judgment input marks routine observational failed-status conflicts", () =>
     kind: "outcome",
     polarity: "success",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "bash" },
+    ownership: { owner: "tool", capabilityFamily: "bash" },
     evidenceStrength: "qualified",
     subject: "command",
     evidenceLoss: "none",
@@ -607,7 +607,7 @@ test("judgment input marks engine-owned non-bash observations as status conflict
   assert.equal(input.observation?.kind, "payload");
   assert.equal(input.observation?.polarity, "neutral");
   assert.equal(input.observation?.semanticAgreement, "stable");
-  assert.equal(input.observation?.ownership.toolFamily, "read");
+  assert.equal(input.observation?.ownership.capabilityFamily, "read");
   assert.equal(input.observation?.consequenceBaseline, "low");
   assert.equal(input.semanticEvidence?.strength, "qualified");
 });
@@ -861,7 +861,7 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     kind: "control",
     polarity: "neutral",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "bash" },
+    ownership: { owner: "tool", capabilityFamily: "bash" },
     evidenceStrength: "qualified",
     subject: "tool",
     evidenceLoss: "none",

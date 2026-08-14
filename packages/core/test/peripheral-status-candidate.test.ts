@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { AttentionCandidate } from "../src/interaction-candidate.js";
-import type { NormalizedObservation } from "../src/normalized-observation.js";
+import type { Observation } from "../src/normalized-observation.js";
 import type {
   CandidateSemanticEvidence,
   ObservationalStatusConflictEvidence,
@@ -17,11 +17,11 @@ const stableSemanticEvidence: CandidateSemanticEvidence = {
 };
 
 function observation(
-  overrides: Partial<Omit<NormalizedObservation, "ownership" | "provenance">> & {
-    ownership?: Partial<NormalizedObservation["ownership"]>;
-    provenance?: Partial<NormalizedObservation["provenance"]>;
+  overrides: Partial<Omit<Observation, "ownership" | "provenance">> & {
+    ownership?: Partial<Observation["ownership"]>;
+    provenance?: Partial<Observation["provenance"]>;
   } = {},
-): NormalizedObservation {
+): Observation {
   const { ownership, provenance, ...flatOverrides } = overrides;
   return {
     kind: "outcome",
@@ -29,7 +29,7 @@ function observation(
     semanticAgreement: "stable",
     ownership: {
       owner: "tool",
-      toolFamily: "bash",
+      capabilityFamily: "bash",
       ...ownership,
     },
     evidenceStrength: "strong",
@@ -46,7 +46,7 @@ function observation(
 }
 
 function candidate(input: {
-  observation?: NormalizedObservation;
+  observation?: Observation;
   semanticEvidence?: CandidateSemanticEvidence;
   observationalStatusConflict?: ObservationalStatusConflictEvidence;
 }): AttentionCandidate {

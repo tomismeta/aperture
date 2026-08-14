@@ -21,7 +21,7 @@ export function buildObservationStatusConflictEvidenceFromCore(input: {
     core === null ||
     input.interpretation.intentFrame !== "status_update" ||
     input.interpretation.activityClass !== "status_update" ||
-    core.ownership.toolFamily !== input.interpretation.toolFamily ||
+    core.ownership.capabilityFamily !== input.interpretation.toolFamily ||
     input.interpretation.consequence !== core.consequenceBaseline ||
     !hasStableObservationStatusConflictConfidence(input.interpretation) ||
     input.abstained
@@ -34,8 +34,8 @@ export function buildObservationStatusConflictEvidenceFromCore(input: {
     ? null
     : {
         kind,
-        ...(core.ownership.toolFamily !== undefined
-          ? { toolFamily: core.ownership.toolFamily }
+        ...(core.ownership.capabilityFamily !== undefined
+          ? { toolFamily: core.ownership.capabilityFamily }
           : {}),
         baselineConsequence: core.consequenceBaseline,
       };

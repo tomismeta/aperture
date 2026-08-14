@@ -10,13 +10,14 @@ This contract defines the typed boundary between Aperture's bounded semantic rea
 and deterministic judgment:
 
 ```text
-source event -> semantic read -> NormalizedObservation -> ObservationJudgmentContract
+source event -> semantic read -> Observation -> ObservationJudgment
 ```
 
 There is one implementation path. `ApertureCore`, the internal evaluator, and
 `evaluateApertureKernelEvent(...)` consume the same normalized Observation and
-the same pure judgment projection. Public kernel types are bounded DTO copies of
-that path, not an alternative parser or judgment engine.
+the same pure judgment function. The public kernel returns those canonical
+artifacts directly, not bounded DTO copies or an alternative parser or judgment
+engine.
 
 The contract does not define source adapters, host protocols, persistence,
 networking, presentation, or model behavior. Hosts own translation into the
@@ -53,10 +54,10 @@ does not rewrite an explicit successful outcome or neutral payload.
 - `engine`: the engine owns the derived status observation
 - `unknown`: ownership cannot be established
 
-`toolFamily` is present only when the normalized event supplies a bounded
-capability family. The public kernel projects the same value as
-`ownership.capabilityFamily`. Fixture prose, context labels, metadata, and host
-names do not create capability ownership.
+`ownership.capabilityFamily` is present only when the normalized event supplies a
+bounded capability family. `SourceEvent.toolFamily` is ingress vocabulary and
+is mapped once at the source boundary. Fixture prose, context labels, metadata,
+and host names do not create capability ownership.
 
 ### `subject`
 
@@ -191,7 +192,7 @@ The semantic read applies these rules before judgment:
 
 ## Judgment Projection
 
-`projectObservationJudgmentContract(...)` is pure. The same normalized
+`judgeObservation(...)` is pure. The same canonical
 Observation always produces the same eight judgment fields.
 
 ### Recovery posture

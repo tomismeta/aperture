@@ -55,8 +55,8 @@ public subpaths:
 1. `SourceEvent`
 2. `SemanticInterpretation`
 3. `AttentionOntologyDiagnostic`
-4. `NormalizedObservation`
-5. `ObservationJudgmentContract`
+4. `Observation`
+5. `ObservationJudgment`
 6. `AttentionJudgmentInput`
 7. `AttentionCandidate`
 8. `AttentionDecisionRecord`
@@ -65,12 +65,13 @@ public subpaths:
 `AttentionOntologyDiagnostic` is the compact, canonical ontology vocabulary.
 Core exports no parallel semantic-era ontology contract.
 
-`NormalizedObservation` is the typed semantic document between messy source
-evidence and deterministic judgment. `ObservationJudgmentContract` is its pure
-judgment projection. The public kernel exposes bounded copies of these artifacts
-as `ApertureKernelObservation` and `ApertureKernelObservationJudgment`; those are
-public DTO projections of the same path, not a second semantic or judgment
-implementation.
+`Observation` is the one typed semantic document between messy source evidence
+and deterministic judgment. `ObservationJudgment` is its pure judgment result.
+The public kernel returns the exact canonical Observation object consumed by
+judgment; it does not copy, rename, or maintain a second DTO contract. The
+adapter-facing `facts.capabilityFamily` becomes `ownership.capabilityFamily`
+once at the source boundary. Historical `SourceEvent.toolFamily` vocabulary
+does not enter the canonical Observation.
 
 `AttentionDecisionRecord` is the first-class judgment artifact. It binds the
 decision, claim, evaluation clock, evidence snapshot, policy evaluations, value calculation,
@@ -148,6 +149,13 @@ when a case lacks final-lane assertions, a step-labeled semantic ontology
 checkpoint, a decision projection checkpoint, dimension assignment, or
 repeated-run determinism.
 
+The public `/kernel` entrypoint also exposes
+`runApertureKernelConformance(adapter, cases)`. It invokes only the public
+evaluator, compares canonical Observation, ObservationJudgment, and reason
+codes, repeats each evaluation for determinism, and reports failures without
+requiring a test framework. Hosts can use the same runner in their own adapter
+tests without importing Lab or reimplementing judgment.
+
 Each conformance case should assert:
 
 - input event and context
@@ -162,7 +170,7 @@ Each conformance case should assert:
 - stable decision reason codes from the record projection
 - the canonical decision fingerprint generated from the projection
 
-The version 2 Observation Kernel scorecard adds field-level quality evidence
+The Observation Kernel scorecard adds field-level quality evidence
 over that path. Human-authored expected values can be scored separately for
 calibration and holdout fixture splits across normalized Observation fields,
 the derived observation judgment, planner behavior, realized lane, and exact

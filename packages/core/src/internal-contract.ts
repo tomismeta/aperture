@@ -39,9 +39,9 @@ export { loadPolicyConfig } from "./policy-config.js";
 export type { ApertureProfile, MemoryProfile } from "./profile-store.js";
 export type { PolicyConfig } from "./policy-config.js";
 export {
-  projectObservationJudgmentContract,
+  judgeObservation,
   resolveObservationStatusConflictKind,
-  type ObservationJudgmentContract,
+  type ObservationJudgment,
 } from "./judgment-observation-contract.js";
 export { buildAttentionJudgmentInput } from "./judgment-input.js";
 export {

@@ -2,7 +2,6 @@
   "baseRef": "origin/main",
   "baselineSurfaceDigest": "sha256:96944af3e5bb88d9e7afd56e291e689305364168df0849e4c105760a6c098aa6",
   "acceptedFailures": [
-    "surface_comparison:total_lines:9185>9171",
     "surface_comparison:matcher_sites:592>586",
     "surface_comparison:semantic_lines:8223>8177",
     "surface_comparison:task_failure_parsing_lines:1075>1067",

@@ -115,15 +115,14 @@ export function projectTaskFailureObservationCore(input: TaskFailureObservationI
 }
 
 function observationFromSyntax(syntax: TaskFailureObservationSyntax) {
-  const toolFamily = syntax.toolFamily;
   return {
     kind: syntax.kind,
     polarity: syntax.polarity,
     ownership: {
       owner:
         syntax.owner ??
-        (syntax.kind === "control" ? "tool" : toolFamily === undefined ? "source" : "tool"),
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
+        (syntax.kind === "control" || syntax.toolFamily !== undefined ? "tool" : "source"),
+      ...(syntax.toolFamily !== undefined ? { capabilityFamily: syntax.toolFamily } : {}),
     },
     subject: syntax.subject,
     evidenceLoss: syntax.evidenceLoss,

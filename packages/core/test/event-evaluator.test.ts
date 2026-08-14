@@ -211,7 +211,7 @@ test("no-matching command work routes as focused medium outcome-only status", ()
     semanticAgreement: "stable",
     ownership: {
       owner: "tool",
-      toolFamily: "bash",
+      capabilityFamily: "bash",
     },
     evidenceStrength: "strong",
     subject: "tool",
@@ -634,7 +634,7 @@ test("failed edit applied readbacks route through typed observation status confl
     kind: "payload",
     polarity: "neutral",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "edit" },
+    ownership: { owner: "tool", capabilityFamily: "edit" },
     evidenceStrength: "qualified",
     subject: "tool",
     evidenceLoss: "none",

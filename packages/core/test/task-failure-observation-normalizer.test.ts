@@ -6,7 +6,7 @@ import {
   normalizeTaskFailureObservation,
   projectTaskFailureObservationCore,
 } from "../src/task-failure-observation-normalizer.js";
-import type { NormalizedObservation } from "../src/normalized-observation.js";
+import type { Observation } from "../src/normalized-observation.js";
 import { resolveObservationStatusConflictKind } from "../src/judgment-observation-contract.js";
 import type {
   SemanticTextEvidence,
@@ -51,7 +51,7 @@ function evidence(
 function compile(
   failureEvidence: TaskFailureSemanticEvidence,
   input: Partial<Parameters<typeof normalizeTaskFailureObservation>[0]> = {},
-): NormalizedObservation {
+): Observation {
   return normalizeTaskFailureObservation({
     failureEvidence,
     ontology: { ...ontology, consequence: failureEvidence.consequenceBaseline },
@@ -82,7 +82,7 @@ test("task-failure observation core preserves ontology-independent semantic fact
   assert.deepEqual(core, {
     kind: "diagnostic",
     polarity: "failure",
-    ownership: { owner: "tool", toolFamily: "bash" },
+    ownership: { owner: "tool", capabilityFamily: "bash" },
     subject: "tool",
     evidenceLoss: "none",
     diagnosticClass: "runtime",
@@ -168,8 +168,8 @@ test("task-failure observation enrichment derives strength from ontology and evi
     ontology: AttentionOntologyDiagnostic;
     abstained: boolean;
     semanticAgreement: Parameters<typeof enrichTaskFailureObservation>[0]["semanticAgreement"];
-    expectedStrength: NormalizedObservation["evidenceStrength"];
-    expectedAuthority: NormalizedObservation["provenance"]["authority"];
+    expectedStrength: Observation["evidenceStrength"];
+    expectedAuthority: Observation["provenance"]["authority"];
   }> = [
     {
       name: "high explicit stable",
@@ -262,9 +262,9 @@ test("task-failure observation normalizer maps every evidence kind into the norm
   const cases: Array<{
     name: string;
     evidence: TaskFailureSemanticEvidence;
-    expected: Partial<NormalizedObservation> & {
-      ownership?: Partial<NormalizedObservation["ownership"]>;
-      provenance?: Partial<NormalizedObservation["provenance"]>;
+    expected: Partial<Observation> & {
+      ownership?: Partial<Observation["ownership"]>;
+      provenance?: Partial<Observation["provenance"]>;
     };
   }> = [
     {
@@ -494,7 +494,7 @@ test("task-failure observation normalizer maps every evidence kind into the norm
       if (key === "ownership" || key === "provenance") {
         continue;
       }
-      assert.deepEqual(observation[key as keyof NormalizedObservation], value, testCase.name);
+      assert.deepEqual(observation[key as keyof Observation], value, testCase.name);
     }
     assert.equal(
       observation.semanticAgreement,
@@ -673,7 +673,7 @@ test("status-conflict kinds are derived from normalized observation fields", () 
       kind: "outcome",
       polarity: "success",
       semanticAgreement: "stable",
-      ownership: { owner: "tool", toolFamily: "edit" },
+      ownership: { owner: "tool", capabilityFamily: "edit" },
       evidenceStrength: "qualified",
       subject: "tool",
       evidenceLoss: "none",

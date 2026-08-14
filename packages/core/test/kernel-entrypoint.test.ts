@@ -5,9 +5,10 @@ import test from "node:test";
 import {
   APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION,
   evaluateApertureKernelEvent,
+  runApertureKernelConformance,
   type ApertureKernelEvent,
-  type ApertureKernelObservation,
-  type ApertureKernelObservationJudgment,
+  type Observation,
+  type ObservationJudgment,
   type SourceEvidence,
 } from "../src/kernel.js";
 import type { ApertureEvent } from "../src/events.js";
@@ -234,34 +235,52 @@ test("kernel evaluation exposes the stable normalize to observe to judge explana
   ]);
 });
 
-test("host-owned adapters can feed unrelated event shapes through the kernel event contract", () => {
+test("host-owned adapters can prove canonical observation invariance through the kernel", () => {
   const fixture = readKernelPortabilityFixture();
+  const report = runApertureKernelConformance(
+    (input: KernelPortabilityHostInput) => adaptHostEvent(input),
+    fixture.cases.map((caseSpec) => ({
+      id: caseSpec.id,
+      input: { host: caseSpec.host, event: caseSpec.event },
+      expected: {
+        observation: caseSpec.expected.observation,
+        observationJudgment: caseSpec.expected.observationJudgment,
+        reasonCodes: caseSpec.expected.explanationReasonCodes,
+      },
+    })),
+  );
 
-  for (const caseSpec of fixture.cases) {
-    const kernelEvent = adaptHostEvent(caseSpec.host, caseSpec.event);
-
-    assert.ok(kernelEvent, caseSpec.id);
-    const result = evaluateApertureKernelEvent(kernelEvent);
-
-    assert.equal(result.evaluation.kind, "candidate", caseSpec.id);
-    assert.deepEqual(result.observation, caseSpec.expected.observation, caseSpec.id);
-    assert.deepEqual(
-      result.observationJudgment,
-      caseSpec.expected.observationJudgment,
-      caseSpec.id,
-    );
-    assert.equal(
-      result.explanation.schemaVersion,
-      APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION,
-      caseSpec.id,
-    );
-    assert.deepEqual(result.explanation.flow, ["normalize", "observe", "judge"], caseSpec.id);
-    assert.deepEqual(
-      result.explanation.reasonCodes,
-      caseSpec.expected.explanationReasonCodes,
-      caseSpec.id,
-    );
+  assert.equal(report.passed, true, JSON.stringify(report));
+  assert.equal(report.deterministic, true);
+  for (const result of report.cases) {
+    assert.equal(result.passed, true, `${result.id}: ${result.failures.join(", ")}`);
   }
+});
+
+test("kernel conformance reports adapter and validation failures without throwing", () => {
+  const report = runApertureKernelConformance(
+    () => ({
+      id: "evt:malformed",
+      workId: "work:malformed",
+      occurredAt: "not-a-timestamp",
+      kind: "work.updated",
+      title: "Malformed",
+      status: "failed",
+      evidence: { kind: "not-an-evidence-kind" } as never,
+    }),
+    [
+      {
+        id: "malformed",
+        input: { ignored: true },
+        expected: { observation: null, observationJudgment: null, reasonCodes: [] },
+      },
+    ],
+  );
+
+  assert.equal(report.passed, false);
+  assert.equal(report.deterministic, true);
+  assert.equal(report.cases[0]?.passed, false);
+  assert.match(report.cases[0]?.failures[0] ?? "", /evaluation threw/);
 });
 
 test("host-owned adapters can decline events before kernel invocation", () => {
@@ -356,17 +375,17 @@ test("typed source evidence deterministically covers every observation family", 
     id: string;
     evidence: SourceEvidence;
     expected: {
-      kind: ApertureKernelObservation["kind"];
-      polarity: ApertureKernelObservation["polarity"];
-      subject: ApertureKernelObservation["subject"];
-      evidenceLoss: ApertureKernelObservation["evidenceLoss"];
-      diagnosticClass: ApertureKernelObservation["diagnosticClass"] | null;
-      recoveryHint: ApertureKernelObservation["recoveryHint"] | null;
-      origin: ApertureKernelObservation["provenance"]["origin"];
-      baseline: ApertureKernelObservation["consequenceBaseline"];
-      statusEvidence: ApertureKernelObservationJudgment["statusEvidence"];
-      conflict: ApertureKernelObservationJudgment["statusConflictKind"];
-      recovery: ApertureKernelObservationJudgment["recoveryPosture"];
+      kind: Observation["kind"];
+      polarity: Observation["polarity"];
+      subject: Observation["subject"];
+      evidenceLoss: Observation["evidenceLoss"];
+      diagnosticClass: Observation["diagnosticClass"] | null;
+      recoveryHint: Observation["recoveryHint"] | null;
+      origin: Observation["provenance"]["origin"];
+      baseline: Observation["consequenceBaseline"];
+      statusEvidence: ObservationJudgment["statusEvidence"];
+      conflict: ObservationJudgment["statusConflictKind"];
+      recovery: ObservationJudgment["recoveryPosture"];
     };
   }> = [
     {
@@ -700,10 +719,7 @@ test("source, direct, and kernel events share one typed-evidence observation pat
     optedOutDirectResult.candidate.judgmentInput.observation,
     directResult.candidate.judgmentInput.observation,
   );
-  assert.deepEqual(
-    projectInternalObservation(sourceResult.candidate.judgmentInput.observation),
-    kernelResult.observation,
-  );
+  assert.deepEqual(sourceResult.candidate.judgmentInput.observation, kernelResult.observation);
 });
 
 test("kernel rejects malformed typed evidence at runtime", () => {
@@ -797,17 +813,17 @@ function failedTaskEvent(
 }
 
 function expectedEvidence(
-  kind: ApertureKernelObservation["kind"],
-  polarity: ApertureKernelObservation["polarity"],
-  subject: ApertureKernelObservation["subject"],
-  evidenceLoss: ApertureKernelObservation["evidenceLoss"],
-  diagnosticClass: ApertureKernelObservation["diagnosticClass"] | null,
-  recoveryHint: ApertureKernelObservation["recoveryHint"] | null,
-  origin: ApertureKernelObservation["provenance"]["origin"],
-  baseline: ApertureKernelObservation["consequenceBaseline"],
-  statusEvidence: ApertureKernelObservationJudgment["statusEvidence"],
-  conflict: ApertureKernelObservationJudgment["statusConflictKind"],
-  recovery: ApertureKernelObservationJudgment["recoveryPosture"],
+  kind: Observation["kind"],
+  polarity: Observation["polarity"],
+  subject: Observation["subject"],
+  evidenceLoss: Observation["evidenceLoss"],
+  diagnosticClass: Observation["diagnosticClass"] | null,
+  recoveryHint: Observation["recoveryHint"] | null,
+  origin: Observation["provenance"]["origin"],
+  baseline: Observation["consequenceBaseline"],
+  statusEvidence: ObservationJudgment["statusEvidence"],
+  conflict: ObservationJudgment["statusConflictKind"],
+  recovery: ObservationJudgment["recoveryPosture"],
 ) {
   return {
     kind,
@@ -832,35 +848,6 @@ function withoutCapabilityIdentity(result: ReturnType<typeof evaluateApertureKer
         : { ...result.observation, ownership: { owner: result.observation.ownership.owner } },
     judgment: result.observationJudgment,
     reasonCodes: result.explanation.reasonCodes,
-  };
-}
-
-function projectInternalObservation(
-  observation: Extract<
-    ReturnType<EventEvaluator["evaluate"]>,
-    { kind: "candidate" }
-  >["candidate"]["judgmentInput"]["observation"],
-): ApertureKernelObservation | null {
-  if (observation === undefined) return null;
-  return {
-    kind: observation.kind,
-    polarity: observation.polarity,
-    ownership: {
-      owner: observation.ownership.owner,
-      ...(observation.ownership.toolFamily === undefined
-        ? {}
-        : { capabilityFamily: observation.ownership.toolFamily }),
-    },
-    subject: observation.subject,
-    evidenceLoss: observation.evidenceLoss,
-    semanticAgreement: observation.semanticAgreement,
-    evidenceStrength: observation.evidenceStrength,
-    ...(observation.diagnosticClass === undefined
-      ? {}
-      : { diagnosticClass: observation.diagnosticClass }),
-    ...(observation.recoveryHint === undefined ? {} : { recoveryHint: observation.recoveryHint }),
-    provenance: observation.provenance,
-    consequenceBaseline: observation.consequenceBaseline,
   };
 }
 
@@ -889,8 +876,13 @@ function contextAndMetadataOptions(options: {
 }
 
 type KernelPortabilityFixture = {
-  id: "aperture.kernel.portability.v1";
+  id: "aperture.kernel.portability";
   cases: KernelPortabilityFixtureCase[];
+};
+
+type KernelPortabilityHostInput = {
+  host: KernelPortabilityFixtureCase["host"];
+  event: Record<string, unknown>;
 };
 
 type KernelPortabilityFixtureCase = {
@@ -898,27 +890,24 @@ type KernelPortabilityFixtureCase = {
   host: "record-log" | "snapshot-state";
   event: Record<string, unknown>;
   expected: {
-    observation: ApertureKernelObservation;
-    observationJudgment: ApertureKernelObservationJudgment;
+    observation: Observation;
+    observationJudgment: ObservationJudgment;
     explanationReasonCodes: string[];
   };
 };
 
 function readKernelPortabilityFixture(): KernelPortabilityFixture {
   return JSON.parse(
-    readFileSync(new URL("./fixtures/kernel-portability-v1.json", import.meta.url), "utf8"),
+    readFileSync(new URL("./fixtures/kernel-portability.json", import.meta.url), "utf8"),
   ) as KernelPortabilityFixture;
 }
 
-function adaptHostEvent(
-  host: KernelPortabilityFixtureCase["host"],
-  event: Record<string, unknown>,
-): ApertureKernelEvent | null {
-  switch (host) {
+function adaptHostEvent(input: KernelPortabilityHostInput): ApertureKernelEvent | null {
+  switch (input.host) {
     case "record-log":
-      return adaptRecordLogEvent(event);
+      return adaptRecordLogEvent(input.event);
     case "snapshot-state":
-      return adaptSnapshotStateEvent(event);
+      return adaptSnapshotStateEvent(input.event);
   }
 }
 

@@ -1,12 +1,4 @@
-import type {
-  NormalizedObservationAuthority,
-  NormalizedObservationEvidenceLoss,
-  NormalizedObservation,
-  NormalizedObservationOwner,
-  NormalizedObservationEvidenceStrength,
-  NormalizedObservationSubject,
-  NormalizedObservationSemanticAgreement,
-} from "./normalized-observation.js";
+import type { Observation } from "./normalized-observation.js";
 import type { TaskFailureSemanticEvidence } from "./semantic-evidence.js";
 import type {
   AttentionOntologyAuthority,
@@ -15,22 +7,29 @@ import type {
 import type { ObservationSemantics } from "./observation-semantics.js";
 import { projectTaskFailureObservationCore } from "./task-failure-observation-core.js";
 
+type ObservationAuthority = Observation["provenance"]["authority"];
+type ObservationEvidenceLoss = Observation["evidenceLoss"];
+type ObservationOwner = Observation["ownership"]["owner"];
+type ObservationEvidenceStrength = Observation["evidenceStrength"];
+type ObservationSubject = Observation["subject"];
+type ObservationSemanticAgreement = Observation["semanticAgreement"];
+
 export { projectTaskFailureObservationCore };
 
 export function createStableFailureOutcomeObservation(input: {
-  authority?: NormalizedObservationAuthority;
-  owner?: NormalizedObservationOwner;
-  evidenceStrength?: NormalizedObservationEvidenceStrength;
-  subject?: NormalizedObservationSubject;
-  toolFamily?: string;
-}): NormalizedObservation {
+  authority?: ObservationAuthority;
+  owner?: ObservationOwner;
+  evidenceStrength?: ObservationEvidenceStrength;
+  subject?: ObservationSubject;
+  capabilityFamily?: string;
+}): Observation {
   return {
     kind: "outcome",
     polarity: "failure",
     semanticAgreement: "stable",
     ownership: {
       owner: input.owner ?? "engine",
-      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
+      ...(input.capabilityFamily !== undefined ? { capabilityFamily: input.capabilityFamily } : {}),
     },
     evidenceStrength: input.evidenceStrength ?? "strong",
     subject: input.subject ?? "unknown",
@@ -44,8 +43,8 @@ export function normalizeTaskFailureObservation(input: {
   failureEvidence: TaskFailureSemanticEvidence;
   ontology: AttentionOntologyDiagnostic;
   abstained: boolean;
-  semanticAgreement: NormalizedObservationSemanticAgreement;
-}): NormalizedObservation {
+  semanticAgreement: ObservationSemanticAgreement;
+}): Observation {
   return enrichTaskFailureObservation({
     core: projectTaskFailureObservationCore(input.failureEvidence),
     ontology: input.ontology,
@@ -58,8 +57,8 @@ export function enrichTaskFailureObservation(input: {
   core: ObservationSemantics;
   ontology: AttentionOntologyDiagnostic;
   abstained: boolean;
-  semanticAgreement: NormalizedObservationSemanticAgreement;
-}): NormalizedObservation {
+  semanticAgreement: ObservationSemanticAgreement;
+}): Observation {
   const semanticAgreement =
     input.core.evidenceCertainty === "indeterminate" ? "uncertain" : input.semanticAgreement;
   return {
@@ -89,7 +88,7 @@ export function enrichTaskFailureObservation(input: {
 
 function readObservationAuthority(
   source: AttentionOntologyAuthority | undefined,
-): NormalizedObservationAuthority {
+): ObservationAuthority {
   switch (source) {
     case "explicit":
     case "hinted":
@@ -103,9 +102,9 @@ function readObservationAuthority(
 function deriveObservationEvidenceStrength(input: {
   ontology: AttentionOntologyDiagnostic;
   abstained: boolean;
-  semanticAgreement: NormalizedObservationSemanticAgreement;
-  evidenceLoss: NormalizedObservationEvidenceLoss;
-}): NormalizedObservationEvidenceStrength {
+  semanticAgreement: ObservationSemanticAgreement;
+  evidenceLoss: ObservationEvidenceLoss;
+}): ObservationEvidenceStrength {
   if (
     input.abstained ||
     input.semanticAgreement !== "stable" ||

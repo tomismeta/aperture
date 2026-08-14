@@ -214,7 +214,10 @@ stateful surface loop, use the kernel subpath:
 ```ts
 import {
   evaluateApertureKernelEvent,
+  runApertureKernelConformance,
   type ApertureKernelEvent,
+  type Observation,
+  type ObservationJudgment,
   type SourceEvidence,
 } from "@tomismeta/aperture-core/kernel";
 
@@ -251,9 +254,9 @@ console.log(result.explanation.reasonCodes);
 `neutral host event -> normalize -> observe -> judge`
 
 It accepts the kernel-owned neutral event DTO, finalizes it through Aperture's
-internal source seam, returns a bounded finalized-event projection, and returns
-the observation document, deterministic judgment contract, and stable
-explanation reason codes when the event shape has one.
+internal source seam, and returns the canonical `Observation` object consumed by
+the pure `ObservationJudgment` function. There is no second kernel DTO or
+projection layer.
 
 If your host has its own event shape, keep that mapping outside core. The host
 adapter should return an `ApertureKernelEvent | null`; pass accepted kernel
@@ -282,6 +285,21 @@ payloads, search output, structured execution output, source-limit diagnostics,
 or rejected tool-use observations. Other candidate events can legitimately
 return `observation: null` and `observationJudgment: null`; use the returned
 `evaluation` and finalized `event` for those cases.
+
+For host adapters, use the framework-neutral conformance runner in the same
+subpath. It compares canonical observation, judgment, and reason codes through
+the public evaluator, repeats each case to verify deterministic output, and
+reports adapter or validation failures without importing the Lab:
+
+```ts
+const report = runApertureKernelConformance(adapter, cases);
+if (!report.passed) throw new Error("kernel conformance failed");
+```
+
+The host adapter owns translation from its native event shape to
+`ApertureKernelEvent | null`. `SourceEvent.toolFamily` is not part of the
+canonical Observation; explicit capability ownership is represented only as
+`observation.ownership.capabilityFamily`.
 
 This subpath does not install adapters, open sockets, persist state, render UI,
 or make the package live inside another product. It runs only when the host

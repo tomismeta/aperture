@@ -168,7 +168,7 @@ export async function checkPackageBoundaries(root = defaultRepoRoot): Promise<Bo
           file,
           matches: rawFailureEvidenceReads,
           guidance:
-            "Judgment and policy code should consume observation. Keep raw task-failure evidence local to semantic evidence readers and the NormalizedObservation normalizer.",
+            "Judgment and policy code should consume observation. Keep raw task-failure evidence local to semantic evidence readers and the Observation normalizer.",
         });
       }
       const rawTaskFailureEvidenceReads = allowsRawTaskFailureEvidenceReads(root, file)

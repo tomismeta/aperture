@@ -157,7 +157,7 @@ function observationSemantics(input: {
     polarity: input.polarity,
     ownership: {
       owner: input.owner ?? (input.toolFamily === undefined ? "source" : "tool"),
-      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
+      ...(input.toolFamily !== undefined ? { capabilityFamily: input.toolFamily } : {}),
     },
     subject: input.subject,
     evidenceLoss: input.evidenceLoss ?? "none",
@@ -519,7 +519,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
   assert.deepEqual(signalObservationSemantics(readOwnedAbbreviatedFileView), {
     kind: "payload",
     polarity: "neutral",
-    ownership: { owner: "tool", toolFamily: "read" },
+    ownership: { owner: "tool", capabilityFamily: "read" },
     subject: "source",
     evidenceLoss: "none",
     provenance: { origin: "read_output" },

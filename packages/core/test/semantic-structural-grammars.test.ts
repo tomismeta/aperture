@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { EventEvaluator } from "../src/event-evaluator.js";
 import { buildAttentionJudgmentInput } from "../src/judgment-input.js";
-import { projectObservationJudgmentContract } from "../src/judgment-observation-contract.js";
+import { judgeObservation } from "../src/judgment-observation-contract.js";
 import { hasToolOutputFailureDiagnosticEvidence } from "../src/semantic-diagnostic-shapes.js";
 import { readTaskFailureSemanticEvidence } from "../src/semantic-evidence.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
@@ -581,7 +581,7 @@ test("document-scoped adversatives preserve later authoritative runtime diagnost
       const observation = result.candidate.judgmentInput.observation;
       assert.ok(observation, summary);
       assert.equal(
-        projectObservationJudgmentContract(observation).statusEvidence,
+        judgeObservation(observation).statusEvidence,
         "visible_diagnostic_failure",
         summary,
       );
@@ -628,7 +628,7 @@ test("command-success routes converge on one canonical observation shape", () =>
         kind: "outcome",
         polarity: "success",
         semanticAgreement: "stable",
-        ownership: { owner: "tool", toolFamily: "exec_command" },
+        ownership: { owner: "tool", capabilityFamily: "exec_command" },
         evidenceStrength: "qualified",
         subject: "command",
         evidenceLoss: "none",
@@ -638,7 +638,7 @@ test("command-success routes converge on one canonical observation shape", () =>
         kind: "outcome",
         polarity: "success",
         semanticAgreement: "stable",
-        ownership: { owner: "tool", toolFamily: "opaque.executor/9" },
+        ownership: { owner: "tool", capabilityFamily: "opaque.executor/9" },
         evidenceStrength: "qualified",
         subject: "command",
         evidenceLoss: "none",
@@ -864,7 +864,7 @@ test("event fact families share one Observation-to-judgment path", () => {
       testCase.observation,
       testCase.id,
     );
-    const judgment = projectObservationJudgmentContract(observation);
+    const judgment = judgeObservation(observation);
     assert.deepEqual(
       [judgment.statusEvidence, judgment.recoveryPosture, judgment.statusConflictKind],
       testCase.judgment,

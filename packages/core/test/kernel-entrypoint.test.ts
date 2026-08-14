@@ -148,13 +148,12 @@ test("kernel raw success prose without command vocabulary stays capability-opaqu
 
 test("kernel raw capability-shaped prefixes do not fabricate terminal success", () => {
   for (const summary of ["catalog failure exit_code: 0.", "opaque-42 failure exit_code: 0."]) {
-    const results = [undefined, "exec_command", "catalog", "read"].map(
-      (capabilityFamily, index) =>
-        evaluateApertureKernelEvent(
-          failedTaskEvent(`kernel:capability-opacity:prefix:${index}`, summary, {
-            ...(capabilityFamily === undefined ? {} : { capabilityFamily }),
-          }),
-        ),
+    const results = [undefined, "exec_command", "catalog", "read"].map((capabilityFamily, index) =>
+      evaluateApertureKernelEvent(
+        failedTaskEvent(`kernel:capability-opacity:prefix:${index}`, summary, {
+          ...(capabilityFamily === undefined ? {} : { capabilityFamily }),
+        }),
+      ),
     );
     const baseline = results[0];
     for (const result of results) {

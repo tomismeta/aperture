@@ -1095,10 +1095,7 @@ test("semantic text evidence handles terminal polarity conservatively", () => {
 });
 
 test("raw terminal success does not derive from an opaque capability prefix", () => {
-  const summaries = [
-    "catalog failure exit_code: 0.",
-    "opaque-42 failure exit_code: 0.",
-  ];
+  const summaries = ["catalog failure exit_code: 0.", "opaque-42 failure exit_code: 0."];
   for (const summary of summaries) {
     const observations = [undefined, "exec_command", "catalog", "read"].map((toolFamily) =>
       readSemanticTextEvidence(summary, toolFamily),

@@ -13,13 +13,14 @@ workload.
 
 - scores 13 normalized Observation fields, eight observation-judgment fields,
   two decision fields, and exact end-to-end outcomes
-- records a 16-fixture calibration freeze plus a 24-fixture V5 regression
-  oracle that is explicitly retired from release proof
-- requires 100% field and exact-outcome agreement across 18 expected outcomes
+- records a 16-fixture calibration freeze, a retired V6 historical experiment,
+  and a fresh 32-fixture active release holdout
+- requires 100% field and exact-outcome agreement across the active holdout's
+  32 expected outcomes
 - consolidates task-failure payload parsing into the canonical observation
   grammar instead of maintaining a parallel grammar module
-- reduces the protected semantic surface to 104 modules, 163 exported detector
-  functions, 252 import edges, and 9,040 total lines
+- records the current semantic surface honestly: 105 modules, 165 exported
+  detector functions, 255 import edges, and 9,198 total lines
 - fixes command-success observations so their semantic result does not depend on
   host title vocabulary when explicit command ownership and summary evidence are
   present
@@ -56,21 +57,19 @@ the report diagnoses drift at three boundaries:
 3. end-to-end planner and realized-lane outcome
 
 The scorecard covers 16 calibration fixtures and 18 expected outcomes. The
-24-fixture V5 holdout remains useful as a retired regression oracle, but it is
-not independent post-freeze evidence and is marked `releaseEligible: false`:
+numbered V6 experiment remains useful as historical evidence, but it is not an
+active release gate. The active unnumbered holdout is maintainer-authored and
+explicitly makes no independent-oracle claim:
 
 - calibration: 234/234 semantic fields, 144/144 judgment fields, 36/36 decision
   fields, and 18/18 exact outcomes
-- repeated-run determinism: stable
+- release holdout: 32/32 exact outcomes, with 12 typed-evidence and 20
+  structural-fallback fixtures
+- repeated-run determinism: stable for both scorecard and holdout
 
-The next release-proof step is a fresh V6 holdout authored after the final
-implementation freeze by an independent reviewer who has not inspected the
-implementation, calibration expectations, or prior oracle.
-
-The release remains a candidate until an independent reviewer authors a fresh
-post-freeze holdout and the frozen implementation executes it without semantic
-tuning. The eventual holdout is evidence over bounded structural families, not
-statistical accuracy over all possible agent output.
+The release remains a candidate until an independent adversarial review passes
+without semantic tuning. The holdout is evidence over bounded structural
+families, not statistical accuracy over all possible agent output.
 
 ## Semantic Compression
 
@@ -82,14 +81,14 @@ detector counts do not grow.
 
 The current generated surface proof records:
 
-- semantic modules: 94
-- semantic lines: 8,073
-- all semantic-surface modules: 104
-- all semantic-surface lines: 9,040
-- exported detector functions: 163
-- dependency fan-out: 252
-- Observation primitive lines: 736
-- task-failure parsing lines: 1,065
+- semantic modules: 95
+- semantic lines: 8,236
+- all semantic-surface modules: 105
+- all semantic-surface lines: 9,198
+- exported detector functions: 165
+- dependency fan-out: 255
+- Observation primitive lines: 731
+- task-failure parsing lines: 1,083
 
 The budgets fail on renewed module, matcher, phrase-table, or direct-consumer
 growth. Corpus findings must continue to enter production as structural grammar,
@@ -183,11 +182,13 @@ pnpm judgment:bench
 
 The focused semantic, judgment, evaluator, and structural-grammar suites pass,
 including truncation, authorization, assertion-boundary, and historical-proof
-regression coverage. The full repository release gate also passed typecheck,
-lint, dependency audit, boundary and architecture checks,
-deterministic kernel scale, 1,325 tests, judgment battle, public SDK proof, and
-product smoke. Independent post-freeze V6 proof and publication remain
-outstanding.
+regression coverage. Current verification also passes typecheck, lint, scoped
+formatting, dependency audit, contract and schema checks, package boundaries,
+architecture budgets, kernel conformance, the honest surface baseline, kernel
+corpus, the active holdout, deterministic scale, and judgment battle. Public
+SDK and product smoke checks remain environment-sensitive because their package
+consumer flows invoke nested package builds. The independent adversarial review
+and final publication decision remain outstanding.
 
 This pre-release hardening tranche does not change or publish the Aperture
 product package.

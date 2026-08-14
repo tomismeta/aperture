@@ -176,7 +176,8 @@ const evidence = {
 } as const satisfies SourceEvidence;
 ```
 
-For the stateful Aperture product loop, start with:
+For the stateful Aperture product loop, use the product facade when you need
+frames, continuity, and responses:
 
 - `ApertureCore`
 - `ApertureEvent`
@@ -191,7 +192,7 @@ The root package intentionally stays small. It does **not** expose the lower-lev
 judgment primitives or semantic helper internals that Aperture uses inside the
 repo itself.
 
-The recommended loop is:
+The stateful product loop is:
 
 1. create `ApertureCore`
 2. publish an `ApertureEvent` with `core.publish(...)`

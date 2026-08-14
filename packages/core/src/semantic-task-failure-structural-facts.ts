@@ -27,12 +27,15 @@ export function readStructuralTaskFailureFact(input: {
     authority = authoritativeText.toLowerCase(),
     exits = readAssertedExitCodes(text),
     contextClauses = splitAssertions(context),
-    completeDiagnostic = COMPLETE_DIAGNOSTIC.test(lower) && !INCOMPLETE_DIAGNOSTIC.test(lower);
+    assertedText = splitAssertions(lower)
+      .filter((clause) => !frameIsNonAsserted(clause))
+      .join(". ");
   if (new Set(exits).size > 1) return null;
   const diagnostic =
-    isDiagnosticClause(lower) &&
+    splitAssertions(lower).some(isDiagnosticClause) &&
+    hasAny(assertedText, TERMINAL) &&
     !negatedAssertion(contextClauses, NEGATED_DIAGNOSTIC, DIRECT_DIAGNOSTIC);
-  const ownedDiagnostic = completeDiagnostic && OWNED_DIAGNOSTIC.test(lower);
+  const ownedDiagnostic = COMPLETE_DIAGNOSTIC.test(lower) && OWNED_DIAGNOSTIC.test(lower);
   const acceptedDiagnostic =
     diagnostic && (!documentPayload || ownedDiagnostic || !MODAL.test(scopeText));
   const actualExecution =
@@ -55,10 +58,10 @@ export function readStructuralTaskFailureFact(input: {
   const success =
     !contradiction &&
     (exits.includes(0) || hasAny(lower, ["return code zero", "exit status zero"])) &&
-    hasAny(lower, EXECUTION) &&
+    hasAny(assertedText, EXECUTION) &&
     hasAny(lower, ["complete", "completed", "finished", "succeeded", "successful"]) &&
     hasAny(lower, ["complete", "terminal", "result:"]) &&
-    !successConflict(lower) &&
+    !successConflict(assertedText) &&
     !lower.includes("diagnostic channel is missing");
   if (
     actualExecution &&
@@ -75,20 +78,18 @@ export function readStructuralTaskFailureFact(input: {
 const hasAny = (value: string, terms: readonly string[] | RegExp): boolean =>
   terms instanceof RegExp ? terms.test(value) : terms.some((term) => value.includes(term));
 const isDiagnosticClause = (value: string) =>
-  !splitAssertions(value).some(
-    (clause) => INCOMPLETE_DIAGNOSTIC.test(clause) && DIRECT_DIAGNOSTIC.test(clause),
-  ) &&
-  (DIRECT_DIAGNOSTIC.test(value) ||
-    (COMPLETE_DIAGNOSTIC.test(value) && !INCOMPLETE_DIAGNOSTIC.test(value))) &&
-  hasAny(value, [" at ", "diagnostic", "fatal:", "stderr", "crashed", "failed"]) &&
-  hasAny(value, TERMINAL) &&
+  !INCOMPLETE_DIAGNOSTIC.test(value) &&
+  (DIRECT_DIAGNOSTIC.test(value) || COMPLETE_DIAGNOSTIC.test(value)) &&
+  hasAny(value, [" at ", "diagnostic", "fatal:", "error:", "stderr", "crashed", "failed"]) &&
   !MODAL.test(value) &&
   !NEGATED_DIAGNOSTIC.test(value) &&
   !frameIsNonAsserted(value);
 const isActualExecutionClause = (clause: string) =>
   ACTUAL_EXECUTION.test(clause) && !MODAL.test(clause) && !BLOCKED_EXEC.test(clause);
 const isExecutionContextClause = (value: string) =>
-  (ACTUAL_EXECUTION.test(value) || EXPECTED_EXECUTION.test(value)) && !BLOCKED_EXEC.test(value);
+  !frameIsNonAsserted(value) &&
+  (ACTUAL_EXECUTION.test(value) || EXPECTED_EXECUTION.test(value)) &&
+  !BLOCKED_EXEC.test(value);
 function readAssertedExitCodes(text: string): number[] {
   return [...text.matchAll(EXIT)].flatMap((match) => {
     const clause =

@@ -410,6 +410,8 @@ test("asserted terminal diagnostics survive omitted subject continuation", () =>
   for (const summary of [
     "Execution would have failed with TypeError if the guard had not caught it, but it actually crashed with RuntimeError at line 5 and the complete diagnostic was returned.",
     "The command was expected to fail, but it crashed with RuntimeError at line 5 and returned the complete diagnostic.",
+    "The command was expected to fail, but it crashed with RuntimeError at line 5.",
+    "The command might fail, but it crashed with fatal: checksum mismatch. Exit code 1.",
     "Execution could have failed earlier. However, it actually terminated with TypeError at line 5.",
     "The process was expected to fail. The prior diagnostic was incomplete. However, it crashed with RuntimeError at line 5 and returned a complete runtime diagnostic.",
   ]) {
@@ -429,6 +431,9 @@ test("asserted terminal diagnostics survive omitted subject continuation", () =>
     "The command was expected to fail, but the documentation says that it crashed with RuntimeError at line 5.",
     "The command was expected to fail, but the example says that it crashed with RuntimeError at line 5.",
     "The command was expected to fail, but the fixture says that it crashed with RuntimeError at line 5.",
+    "The command was expected to fail, but the example fixture says it crashed with RuntimeError at line 5 and returned the complete diagnostic.",
+    "The command was expected to fail, but an example says it crashed with RuntimeError at line 5 and returned the complete diagnostic.",
+    "The command was expected to fail, but the example template says it crashed with RuntimeError at line 5 and returned the complete diagnostic.",
     "It crashed with RuntimeError at line 5. Separately, the command was expected to fail.",
   ]) {
     assert.notEqual(parseTaskFailureEventFact(summary), "runtime_diagnostic", summary);
@@ -463,6 +468,36 @@ test("structural terminal success is invariant under ordinary log flattening", (
     const evidence = readFailure(summary, "Opaque.Executor/9");
     assert.equal(evidence?.observationSyntax?.polarity, "success", summary);
     assert.notEqual(evidence?.failureDetail, "diagnostic", summary);
+  }
+});
+
+test("reference-frame diagnostics cannot override asserted terminal success", () => {
+  for (const summary of [
+    "Example fixture: TypeError: decoder failed at x. Process exited with code 0. Result: completed successfully.",
+    "Process exited with code 0. Result: completed successfully. Example fixture: TypeError: decoder failed at x.",
+    "fatal: checksum mismatch was a previous example. The current command completed successfully with exit code 0.",
+  ]) {
+    assert.equal(parseTaskFailureEventFact(summary), "terminal_success", summary);
+  }
+});
+
+test("reference-frame context cannot license a pronoun diagnostic continuation", () => {
+  for (const [title, summary] of [
+    [
+      "The documentation says execution failed.",
+      "It crashed with RuntimeError at line 5 and returned the complete diagnostic.",
+    ],
+    [
+      "For reference, the command was expected to fail.",
+      "It crashed with RuntimeError at line 5 and returned the complete diagnostic.",
+    ],
+    [
+      "Reference material: the command was expected to fail.",
+      "It crashed with RuntimeError at line 5 and returned the complete diagnostic.",
+    ],
+  ] as const) {
+    assert.notEqual(parseTaskFailureEventFact([title, summary]), "runtime_diagnostic");
+    assert.notEqual(readFailure(summary, "bash", title)?.failureDetail, "diagnostic");
   }
 });
 

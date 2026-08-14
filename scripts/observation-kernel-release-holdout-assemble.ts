@@ -102,6 +102,38 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       "A reference frame after expected setup remains indeterminate rather than becoming terminal execution evidence.",
     ),
     freshFixture(
+      "continued-diagnostic-without-envelope",
+      "fallback-continued-diagnostic-without-envelope",
+      byId.get("holdout-v5-fallback-runtime-diagnostic"),
+      "Execution returned a terminal diagnostic",
+      "The command was expected to fail, but it crashed with RuntimeError at line 5.",
+      "An asserted continuation remains diagnostic even without a complete-diagnostic envelope.",
+    ),
+    freshFixture(
+      "continued-title-reference-abstention",
+      "fallback-continued-title-reference-abstention",
+      byId.get("holdout-v5-fallback-indeterminate-failure"),
+      "The documentation says execution failed.",
+      "It crashed with RuntimeError at line 5 and returned the complete diagnostic.",
+      "A reference-frame title cannot license a pronoun diagnostic continuation.",
+    ),
+    freshFixture(
+      "continued-compound-reference-abstention",
+      "fallback-continued-compound-reference-abstention",
+      byId.get("holdout-v5-fallback-indeterminate-failure"),
+      "Execution reference remains unasserted",
+      "The command was expected to fail, but the example fixture says it crashed with RuntimeError at line 5 and returned the complete diagnostic.",
+      "Compound reference roles remain unasserted rather than relying on exact `example says` adjacency.",
+    ),
+    freshFixture(
+      "continued-native-stderr",
+      "fallback-continued-native-stderr",
+      byId.get("holdout-v5-fallback-runtime-diagnostic"),
+      "Execution returned native terminal stderr",
+      "The command might fail, but it crashed with fatal: checksum mismatch. Exit code 1.",
+      "Explicit native fatal stderr and a nonzero exit remain a runtime diagnostic after modal setup.",
+    ),
+    freshFixture(
       "hypothetical-diagnostic",
       "fallback-hypothetical-diagnostic",
       byId.get("holdout-v5-fallback-indeterminate-failure"),
@@ -128,7 +160,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
   ];
 
   const fixtures = [...seedFixtures, ...freshFixtures];
-  if (fixtures.length !== 34) throw new Error(`Expected 34 fixtures, received ${fixtures.length}.`);
+  if (fixtures.length !== 38) throw new Error(`Expected 38 fixtures, received ${fixtures.length}.`);
   const methodology = {
     schemaVersion: 1,
     artifactKind: "release_holdout",
@@ -144,9 +176,9 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
     ),
     implementationFreeze:
       process.env.APERTURE_IMPLEMENTATION_FREEZE ?? "0000000000000000000000000000000000000000",
-    fixtureCount: 34,
+    fixtureCount: 38,
     typedEvidenceFixtureCount: 12,
-    structuralFallbackFixtureCount: 22,
+    structuralFallbackFixtureCount: 26,
     oracleProvenance: {
       author: "aperture-maintainer",
       authoredWithoutExecution: true,
@@ -155,7 +187,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       authoredWithoutCalibrationInspection: false,
       notes: [
         "This active holdout is an honest release regression and hardening set, not an independent oracle claim.",
-        "Twelve historical regression shapes are retained and ten new fallback shapes target the repaired grammar.",
+        "Twelve historical regression shapes are retained and fourteen new fallback shapes target the repaired grammar.",
         "An independent adversarial re-audit remains required before publication.",
       ],
     },

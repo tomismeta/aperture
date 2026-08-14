@@ -15,12 +15,12 @@ test("release holdout covers typed and structural evidence with exact determinis
     runObservationKernelReleaseHoldout(),
   );
 
-  assert.equal(artifact.fixtures.length, 34);
+  assert.equal(artifact.fixtures.length, 38);
   assert.equal(report.passed, true, report.failures.join(", "));
-  assert.deepEqual(report.summary.exactOutcomes, { passed: 34, total: 34 });
+  assert.deepEqual(report.summary.exactOutcomes, { passed: 38, total: 38 });
   assert.deepEqual(report.summary.byEvidence, {
     typed: { passed: 12, total: 12 },
-    fallback: { passed: 22, total: 22 },
+    fallback: { passed: 26, total: 26 },
   });
   assert.equal(report.summary.determinism.stable, true);
 });

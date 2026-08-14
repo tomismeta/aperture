@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFile as execFileCallback } from "node:child_process";
-import { mkdir, open, readFile } from "node:fs/promises";
+import { mkdir, open, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -10,6 +10,7 @@ import {
   OBSERVATION_KERNEL_RELEASE_HOLDOUT_FIRST_RUN_PATH,
   OBSERVATION_KERNEL_RELEASE_HOLDOUT_PATH,
   OBSERVATION_KERNEL_RELEASE_HOLDOUT_REPORT_PATH,
+  OBSERVATION_KERNEL_RELEASE_HOLDOUT_EVIDENCE_CUSTODY_PATH,
   parseObservationKernelReleaseHoldout,
   runObservationKernelReleaseHoldout,
   serializeObservationKernelReleaseHoldout,
@@ -20,6 +21,19 @@ import { isDirectExecution } from "./direct-execution.js";
 
 const execFile = promisify(execFileCallback);
 const REPO_ROOT = process.cwd();
+const IMPLEMENTATION_FILES = [
+  "scripts/observation-kernel-release-holdout.ts",
+  "packages/lab/src/observation-kernel-release-holdout.ts",
+  "packages/lab/src/observation-kernel-holdout.ts",
+  "packages/lab/src/observation-kernel-evaluator.ts",
+  "packages/lab/src/kernel-canonical-json.ts",
+  "packages/lab/src/observation-kernel-scorecard-model.ts",
+  "packages/core/package.json",
+] as const;
+const CONTRACT_FILES = {
+  observation: "docs/engine/observation-judgment-contract-v1.md",
+  sourceEvidence: "docs/engine/source-evidence-contract-v1.md",
+} as const;
 
 export async function runObservationKernelReleaseHoldoutCommand(
   args: readonly string[] = process.argv.slice(2),
@@ -37,7 +51,27 @@ export async function runObservationKernelReleaseHoldoutCommand(
     await checkHoldout();
     return;
   }
-  throw new Error("Usage: --seal, --first-run, or --check");
+  if (mode === "--refresh") {
+    await refreshEvidence();
+    return;
+  }
+  throw new Error("Usage: --seal, --first-run, --check, or --refresh");
+}
+
+async function refreshEvidence(): Promise<void> {
+  if (process.env.APERTURE_RELEASE_HOLDOUT_REFRESH !== "1") {
+    throw new Error(
+      "Refusing to refresh release holdout evidence without APERTURE_RELEASE_HOLDOUT_REFRESH=1.",
+    );
+  }
+  await Promise.all(
+    [
+      OBSERVATION_KERNEL_RELEASE_HOLDOUT_CUSTODY_PATH,
+      OBSERVATION_KERNEL_RELEASE_HOLDOUT_FIRST_RUN_PATH,
+      OBSERVATION_KERNEL_RELEASE_HOLDOUT_REPORT_PATH,
+      OBSERVATION_KERNEL_RELEASE_HOLDOUT_EVIDENCE_CUSTODY_PATH,
+    ].map((filePath) => rm(filePath, { force: true })),
+  );
 }
 
 async function sealHoldout(): Promise<void> {
@@ -60,10 +94,16 @@ async function sealHoldout(): Promise<void> {
       path: "scripts/observation-kernel-release-holdout.ts",
       sha256: await sha256File("scripts/observation-kernel-release-holdout.ts"),
     },
+    implementation: { files: await buildDigestMap(IMPLEMENTATION_FILES) },
     contracts: {
-      observation: artifact.methodology.observationContractDigest,
-      sourceEvidence: artifact.methodology.sourceEvidenceContractDigest,
-      output: artifact.methodology.outputContractDigest,
+      observation: {
+        path: CONTRACT_FILES.observation,
+        sha256: `sha256:${await sha256File(CONTRACT_FILES.observation)}`,
+      },
+      sourceEvidence: {
+        path: CONTRACT_FILES.sourceEvidence,
+        sha256: `sha256:${await sha256File(CONTRACT_FILES.sourceEvidence)}`,
+      },
     },
     holdoutId: artifact.methodology.holdoutId,
     lifecycle: "sealed",
@@ -90,6 +130,21 @@ async function writeFirstRun(): Promise<void> {
     OBSERVATION_KERNEL_RELEASE_HOLDOUT_REPORT_PATH,
     serializeObservationKernelReleaseHoldout(report),
   );
+  await writeExclusive(
+    OBSERVATION_KERNEL_RELEASE_HOLDOUT_EVIDENCE_CUSTODY_PATH,
+    serializeObservationKernelReleaseHoldout({
+      holdoutId: artifact.methodology.holdoutId,
+      lifecycle: "first_run_sealed",
+      firstRun: {
+        path: OBSERVATION_KERNEL_RELEASE_HOLDOUT_FIRST_RUN_PATH,
+        sha256: await sha256File(OBSERVATION_KERNEL_RELEASE_HOLDOUT_FIRST_RUN_PATH),
+      },
+      report: {
+        path: OBSERVATION_KERNEL_RELEASE_HOLDOUT_REPORT_PATH,
+        sha256: await sha256File(OBSERVATION_KERNEL_RELEASE_HOLDOUT_REPORT_PATH),
+      },
+    }),
+  );
   if (!report.passed) {
     throw new Error(
       `Observation Kernel release holdout failed: ${report.failures.join(", ") || "unknown failure"}`,
@@ -108,6 +163,8 @@ async function checkHoldout(): Promise<void> {
   const storedReport = (await readJson(
     OBSERVATION_KERNEL_RELEASE_HOLDOUT_REPORT_PATH,
   )) as ObservationKernelReleaseHoldoutReport;
+  const evidenceCustody = await readJson(OBSERVATION_KERNEL_RELEASE_HOLDOUT_EVIDENCE_CUSTODY_PATH);
+  await assertEvidenceCustody(artifact, evidenceCustody);
   const currentFirst = runObservationKernelReleaseHoldout();
   const currentRepeat = runObservationKernelReleaseHoldout();
   const currentReport = buildObservationKernelReleaseHoldoutReport(currentFirst, currentRepeat);
@@ -137,7 +194,15 @@ async function assertCustody(
   const artifactRecord = custody.artifact;
   const frozenCore = custody.frozenCore;
   const runner = custody.runner;
-  if (!isRecord(artifactRecord) || !isRecord(frozenCore) || !isRecord(runner)) {
+  const implementation = custody.implementation;
+  const contracts = custody.contracts;
+  if (
+    !isRecord(artifactRecord) ||
+    !isRecord(frozenCore) ||
+    !isRecord(runner) ||
+    !isRecord(implementation) ||
+    !isRecord(contracts)
+  ) {
     throw new Error("Observation Kernel release holdout custody is invalid.");
   }
   const artifactDigest = await sha256File(OBSERVATION_KERNEL_RELEASE_HOLDOUT_PATH);
@@ -157,8 +222,73 @@ async function assertCustody(
   if (runner.sha256 !== (await sha256File("scripts/observation-kernel-release-holdout.ts"))) {
     throw new Error("Observation Kernel release holdout runner changed.");
   }
+  await assertDigestMap(implementation.files, IMPLEMENTATION_FILES);
+  await assertContractDigest(
+    contracts.observation,
+    CONTRACT_FILES.observation,
+    artifact.methodology.observationContractDigest,
+  );
+  await assertContractDigest(
+    contracts.sourceEvidence,
+    CONTRACT_FILES.sourceEvidence,
+    artifact.methodology.sourceEvidenceContractDigest,
+  );
   if (custody.holdoutId !== artifact.methodology.holdoutId || custody.lifecycle !== "sealed") {
     throw new Error("Observation Kernel release holdout custody identity is invalid.");
+  }
+}
+
+async function assertEvidenceCustody(
+  artifact: ReturnType<typeof parseObservationKernelReleaseHoldout>,
+  custody: Record<string, unknown>,
+): Promise<void> {
+  const firstRun = custody.firstRun;
+  const report = custody.report;
+  if (
+    custody.holdoutId !== artifact.methodology.holdoutId ||
+    custody.lifecycle !== "first_run_sealed" ||
+    !isRecord(firstRun) ||
+    !isRecord(report)
+  ) {
+    throw new Error("Observation Kernel release holdout evidence custody is invalid.");
+  }
+  await assertSingleDigest(firstRun, OBSERVATION_KERNEL_RELEASE_HOLDOUT_FIRST_RUN_PATH);
+  await assertSingleDigest(report, OBSERVATION_KERNEL_RELEASE_HOLDOUT_REPORT_PATH);
+}
+
+async function buildDigestMap(paths: readonly string[]): Promise<Record<string, string>> {
+  const entries = await Promise.all(
+    paths.map(async (filePath) => [filePath, await sha256File(filePath)] as const),
+  );
+  return Object.fromEntries(entries);
+}
+
+async function assertDigestMap(value: unknown, paths: readonly string[]): Promise<void> {
+  if (!isRecord(value)) throw new Error("Observation Kernel implementation custody is invalid.");
+  for (const filePath of paths) {
+    if (value[filePath] !== (await sha256File(filePath))) {
+      throw new Error(`Observation Kernel release holdout implementation changed: ${filePath}`);
+    }
+  }
+}
+
+async function assertContractDigest(
+  value: unknown,
+  filePath: string,
+  expectedDigest: string,
+): Promise<void> {
+  if (!isRecord(value) || value.path !== filePath) {
+    throw new Error(`Observation Kernel contract custody is invalid: ${filePath}`);
+  }
+  const digest = `sha256:${await sha256File(filePath)}`;
+  if (value.sha256 !== digest || expectedDigest !== digest) {
+    throw new Error(`Observation Kernel contract changed: ${filePath}`);
+  }
+}
+
+async function assertSingleDigest(value: Record<string, unknown>, filePath: string): Promise<void> {
+  if (value.path !== filePath || value.sha256 !== (await sha256File(filePath))) {
+    throw new Error(`Observation Kernel release holdout evidence changed: ${filePath}`);
   }
 }
 

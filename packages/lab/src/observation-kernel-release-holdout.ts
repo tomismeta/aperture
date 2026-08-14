@@ -26,13 +26,15 @@ export const OBSERVATION_KERNEL_RELEASE_HOLDOUT_REPORT_PATH =
   "packages/lab/conformance/observation-kernel-release-holdout-report.json" as const;
 export const OBSERVATION_KERNEL_RELEASE_HOLDOUT_CUSTODY_PATH =
   "packages/lab/conformance/observation-kernel-release-holdout-custody.json" as const;
+export const OBSERVATION_KERNEL_RELEASE_HOLDOUT_EVIDENCE_CUSTODY_PATH =
+  "packages/lab/conformance/observation-kernel-release-holdout-evidence-custody.json" as const;
 
 const RELEASE_HOLDOUT_SCHEMA_VERSION = 1 as const;
 const FIXTURE_COUNT = 32 as const;
 const TYPED_FIXTURE_COUNT = 12 as const;
 const FALLBACK_FIXTURE_COUNT = 20 as const;
 
-type ReleaseHoldoutEvent = Extract<SourceEvent, { type: "task.updated"; status: "failed" }>;
+type ReleaseHoldoutEvent = Extract<SourceEvent, { type: "task.updated" }> & { status: "failed" };
 
 type ReleaseHoldoutFixture = Omit<ObservationKernelFixture, "events"> & {
   events: [ReleaseHoldoutEvent];

@@ -88,6 +88,13 @@ export type SemanticKernelSurfaceReport = {
   families: SemanticKernelSurfaceFamilySummary[];
 };
 
+export type SemanticKernelSurfaceProtectedBaseApproval = {
+  baseRef: string;
+  baselineSurfaceDigest: string;
+  acceptedFailures: string[];
+  rationale: string;
+};
+
 export type SemanticKernelSurfaceMetrics = {
   modules: number;
   totalLines: number;
@@ -704,6 +711,24 @@ export function buildSemanticKernelSurfaceComparison(
   }
 
   return { passed: failures.length === 0, failures };
+}
+
+export function isSemanticKernelSurfaceProtectedBaseGrowthApproved(input: {
+  approval: SemanticKernelSurfaceProtectedBaseApproval | undefined;
+  baseRef: string;
+  protectedBaseline: SemanticKernelSurfaceReport | null;
+  comparison: { passed: boolean; failures: string[] };
+}): boolean {
+  const approval = input.approval;
+  return (
+    !input.comparison.passed &&
+    approval !== undefined &&
+    approval.baseRef === input.baseRef &&
+    input.protectedBaseline !== null &&
+    approval.baselineSurfaceDigest === input.protectedBaseline.profile.surfaceDigest &&
+    approval.rationale.length > 0 &&
+    sameStringList([...approval.acceptedFailures].sort(), [...input.comparison.failures].sort())
+  );
 }
 
 function readConsolidatedConcreteImportTransfer(input: {

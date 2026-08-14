@@ -30,7 +30,7 @@ const FIXTURE_COUNT = 24 as const;
 const TYPED_FIXTURE_COUNT = 12 as const;
 const FALLBACK_FIXTURE_COUNT = 12 as const;
 
-type V6Event = Extract<SourceEvent, { type: "task.updated"; status: "failed" }>;
+type V6Event = Extract<SourceEvent, { type: "task.updated" }> & { status: "failed" };
 
 type V6Fixture = {
   id: string;

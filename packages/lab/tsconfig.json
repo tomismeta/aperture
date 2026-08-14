@@ -12,7 +12,10 @@
     "conformance/observation-kernel-holdout-v6.schema.json",
     "conformance/observation-kernel-holdout-v6-custody.json",
     "conformance/observation-kernel-release-holdout.json",
-    "conformance/observation-kernel-release-holdout.schema.json"
+    "conformance/observation-kernel-release-holdout.schema.json",
+    "conformance/observation-kernel-release-holdout-custody.json",
+    "conformance/observation-kernel-release-holdout-evidence-custody.json",
+    "conformance/semantic-kernel-surface-approval.json"
   ],
   "references": [{ "path": "../core" }, { "path": "../runtime" }]
 }

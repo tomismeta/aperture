@@ -20,7 +20,7 @@ workload.
 - consolidates task-failure payload parsing into the canonical observation
   grammar instead of maintaining a parallel grammar module
 - records the current semantic surface honestly: 105 modules, 165 exported
-  detector functions, 255 import edges, and 9,198 total lines
+  detector functions, 255 import edges, and 9,199 total lines
 - fixes command-success observations so their semantic result does not depend on
   host title vocabulary when explicit command ownership and summary evidence are
   present
@@ -82,16 +82,18 @@ detector counts do not grow.
 The current generated surface proof records:
 
 - semantic modules: 95
-- semantic lines: 8,236
+- semantic lines: 8,237
 - all semantic-surface modules: 105
-- all semantic-surface lines: 9,198
+- all semantic-surface lines: 9,199
 - exported detector functions: 165
 - dependency fan-out: 255
 - Observation primitive lines: 731
-- task-failure parsing lines: 1,083
+- task-failure parsing lines: 1,084
 
 The budgets fail on renewed module, matcher, phrase-table, or direct-consumer
-growth. Corpus findings must continue to enter production as structural grammar,
+growth. The protected-base comparison has six exact, digest-bound approvals for
+this consolidation tranche; the committed baseline and absolute budgets still
+pass. Corpus findings must continue to enter production as structural grammar,
 not provider templates or host names.
 
 ## Public Kernel Proof
@@ -119,10 +121,11 @@ The kernel remains:
 ## API Impact And Migration
 
 `SourceEvidence` is exported from `./kernel` and is optional on failed
-`work.updated` events. This is additive, but runtime validation rejects it on
-other statuses. Existing consumers can omit the field and retain the bounded
-text grammar. Consumers with reliable native result facts should map those facts
-in their adapter instead of manufacturing phrases for Aperture to recognize.
+`work.updated` events. The event type keeps `status` broad for source
+compatibility, while runtime validation rejects evidence on other statuses.
+Existing consumers can omit the field and retain the bounded text grammar.
+Consumers with reliable native result facts should map those facts in their
+adapter instead of manufacturing phrases for Aperture to recognize.
 The direct-event semantic-default opt-out does not suppress typed evidence;
 evidence is an authoritative source contract, not an inferred default.
 

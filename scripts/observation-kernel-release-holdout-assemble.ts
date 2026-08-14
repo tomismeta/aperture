@@ -49,7 +49,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       "fallback-ordinary-word-boundary",
       byId.get("holdout-v5-fallback-complete-command-success"),
       "Verification notification",
-      "Command notify completed successfully. Exit code 0. Result: completed successfully.",
+      "Command notify completed successfully.\nExit code: 0.\nResult: completed successfully. The workflow includes if conditions in its ordinary log.",
       "A complete success remains stable when ordinary words contain the modal token `if`.",
     ),
     freshFixture(
@@ -57,7 +57,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       "fallback-complete-runtime-boundary",
       byId.get("holdout-v5-fallback-runtime-diagnostic"),
       "Execution stopped with a complete runtime diagnostic",
-      "The process terminated after memory allocation failed. Exit code 71 and the full runtime diagnostic were returned.",
+      "The process crashed after allocator exhaustion. Exit status 71; the complete runtime diagnostic was captured in stderr.",
       "A complete runtime diagnostic remains visible without matching an incomplete diagnostic prefix.",
     ),
     freshFixture(
@@ -73,8 +73,8 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       "fallback-title-summary-abstention",
       byId.get("holdout-v5-fallback-quoted-incomplete"),
       "Transport failure",
-      'The source text contains the quoted phrase "incomplete diagnostic: RuntimeError"; no asserted execution result exists.',
-      "A generic title cannot override independent quotation and assertion scope in the summary.",
+      'The source text contains the quoted phrase "no output command exit code 7"; no asserted execution result exists.',
+      "A generic title cannot override quotation and assertion scope in the summary, including outcome-only fallback text.",
     ),
     freshFixture(
       "negation-then-runtime",
@@ -105,7 +105,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       "fallback-flattened-ordinary-words",
       byId.get("holdout-v5-fallback-complete-command-success"),
       "Verification notification",
-      "Command notify completed successfully. Exit code 0. Result: completed successfully.",
+      "Command notify completed successfully. Exit code: 0. Result: completed successfully. The workflow includes if conditions in its ordinary log.",
       "Whitespace and ordinary-word presentation changes preserve the same terminal success shape.",
     ),
   ];

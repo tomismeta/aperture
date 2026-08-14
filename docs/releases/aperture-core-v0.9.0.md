@@ -20,10 +20,10 @@ workload.
 - consolidates task-failure payload parsing into the canonical observation
   grammar instead of maintaining a parallel grammar module
 - records the current semantic surface honestly: 105 modules, 165 exported
-  detector functions, 255 import edges, and 9,199 total lines
-- fixes command-success observations so their semantic result does not depend on
-  host title vocabulary when explicit command ownership and summary evidence are
-  present
+  detector functions, 255 import edges, and 9,186 total lines
+- fixes raw command-success observations so their semantic result does not depend
+  on host title vocabulary or opaque capability identity; structured output
+  ownership remains explicit and bounded
 - adds one typed `SourceEvidence` boundary for reliable host-native outcomes,
   diagnostics, payloads, measured partial reads, and authorization requirements
 - proves typed evidence and text fallback lower through the same Observation and

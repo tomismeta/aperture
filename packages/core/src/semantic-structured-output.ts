@@ -55,9 +55,7 @@ export function looksLikeStructuredToolOutputEnvelope(summary: string | undefine
   }
 
   const parsed = parseJsonObject(summary);
-  if (parsed?.truncated === true) {
-    return true;
-  }
+  if (parsed?.truncated === true) return true;
 
   return (
     parsed !== null &&

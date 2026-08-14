@@ -118,7 +118,12 @@ test("kernel raw command observations do not depend on capability identity", () 
 });
 
 test("kernel raw success prose without command vocabulary stays capability-opaque", () => {
-  for (const summary of ["Ran successfully and did not produce any output.", "Exit code: 0."]) {
+  for (const summary of [
+    "Ran successfully and did not produce any output.",
+    "Exit code: 0.",
+    "Process exited with code 0.",
+    "exit_code: 0.",
+  ]) {
     const results = [undefined, "exec_command", "catalog", "read"].map((capabilityFamily, index) =>
       evaluateApertureKernelEvent(
         failedTaskEvent(`kernel:capability-opacity:plain:${index}`, summary, {
@@ -138,6 +143,25 @@ test("kernel raw success prose without command vocabulary stays capability-opaqu
       assert.equal(result.observation?.kind, "outcome", summary);
       assert.equal(result.observation?.polarity, "success", summary);
     }
+  }
+});
+
+test("kernel conservative success prose remains capability-opaque", () => {
+  const summary = "Completed successfully without output.";
+  const results = [undefined, "exec_command", "catalog", "read"].map((capabilityFamily, index) =>
+    evaluateApertureKernelEvent(
+      failedTaskEvent(`kernel:capability-opacity:conservative:${index}`, summary, {
+        ...(capabilityFamily === undefined ? {} : { capabilityFamily }),
+      }),
+    ),
+  );
+  const baseline = results[0];
+  for (const result of results) {
+    assert.deepEqual(result.observationJudgment, baseline.observationJudgment, summary);
+    assert.equal(result.observation?.kind, "unknown", summary);
+    assert.equal(result.observation?.polarity, "failure", summary);
+    assert.equal(result.observation?.evidenceLoss, "unknown", summary);
+    assert.equal(result.observation?.consequenceBaseline, "high", summary);
   }
 });
 

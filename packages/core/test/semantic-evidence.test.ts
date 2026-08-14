@@ -226,6 +226,7 @@ test("raw command success observations do not depend on capability identity", ()
     "Ran successfully and did not produce any output.",
     "Process exited with code 0.",
     "Exit code: 0.",
+    "exit_code: 0.",
   ]) {
     const baseline = readSemanticTextEvidence(summary);
     for (const toolFamily of [undefined, "exec_command", "catalog", "read"]) {
@@ -509,7 +510,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     summary: editNotReadError,
     toolFamily: "read",
   });
-  assert.equal(readOwnedEditNotReadText.structuredOutputEnvelope.kind, "unsupported");
+  assert.equal(readOwnedEditNotReadText.structuredOutputEnvelope.kind, "raw");
   assert.equal(readOwnedEditNotReadText.editOutputOutcome, null);
   const readOwnedAbbreviatedFileView = readTaskFailureSemanticSignals({
     summary: abbreviatedFileViewObservationTranscript,
@@ -572,7 +573,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     summary: rawUsageDiagnostic,
     toolFamily: "read",
   });
-  assert.equal(rawReadUsageText.structuredOutputEnvelope.kind, "unsupported");
+  assert.equal(rawReadUsageText.structuredOutputEnvelope.kind, "raw");
   assert.equal(rawReadUsageText.rawToolOutputFailureDiagnostic, false);
   assert.equal(rawReadUsageText.readFailureDiagnostic, false);
 
@@ -580,7 +581,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     summary: rawUsageDiagnostic,
     toolFamily: "search",
   });
-  assert.equal(rawSearchUsageText.structuredOutputEnvelope.kind, "unsupported");
+  assert.equal(rawSearchUsageText.structuredOutputEnvelope.kind, "raw");
   assert.equal(rawSearchUsageText.rawToolOutputFailureDiagnostic, false);
   assert.equal(rawSearchUsageText.searchFailureDiagnostic, false);
 
@@ -867,7 +868,7 @@ test("task failure semantic signals are auditable and boundary scoped", () => {
     summary: runtimePanic,
     toolFamily: "read",
   });
-  assert.equal(rawReadPanic.structuredOutputEnvelope.kind, "unsupported");
+  assert.equal(rawReadPanic.structuredOutputEnvelope.kind, "raw");
   assert.equal(rawReadPanic.rawToolOutputFailureDiagnostic, false);
   assert.equal(rawReadPanic.readFailureDiagnostic, true);
 

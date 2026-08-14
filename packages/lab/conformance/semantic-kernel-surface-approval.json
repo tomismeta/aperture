@@ -2,12 +2,12 @@
   "baseRef": "origin/main",
   "baselineSurfaceDigest": "sha256:96944af3e5bb88d9e7afd56e291e689305364168df0849e4c105760a6c098aa6",
   "acceptedFailures": [
-    "surface_comparison:total_lines:9192>9171",
+    "surface_comparison:total_lines:9186>9171",
     "surface_comparison:matcher_sites:592>586",
-    "surface_comparison:semantic_lines:8230>8177",
-    "surface_comparison:task_failure_parsing_lines:1081>1067",
-    "surface_comparison:family_lines:task_failure_grammar:1170>1019",
+    "surface_comparison:semantic_lines:8224>8177",
+    "surface_comparison:task_failure_parsing_lines:1076>1067",
+    "surface_comparison:family_lines:task_failure_grammar:1165>1019",
     "surface_comparison:family_matcher_sites:task_failure_grammar:72>55"
   ],
-  "rationale": "This tranche replaces overlapping task-failure fallbacks with a bounded structural grammar and removes legacy paths. The committed report remains below hard absolute budgets, decreases modules, detectors, dependency fan-out, and observation primitive lines, and keeps raw success prose capability-opaque while preserving native structured command ownership. The exact remaining growth is reviewed as the cost of the repaired semantic boundary. Reassess this approval after the branch merges into its protected base."
+  "rationale": "This tranche replaces overlapping task-failure fallbacks with a bounded structural grammar and removes legacy paths. The committed report remains below hard absolute budgets, decreases modules, detectors, dependency fan-out, and observation primitive lines, and keeps raw success prose capability-opaque while applying structured ownership only after an envelope is detected. The exact remaining growth is reviewed as the cost of the repaired semantic boundary. The resolver distinguishes raw text from unsupported structured envelopes, and this approval should be reassessed after the branch merges into its protected base."
 }

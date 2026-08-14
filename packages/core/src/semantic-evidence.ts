@@ -28,10 +28,7 @@ import {
   looksLikeTerminalFailureEvidence,
   looksLikeZeroTerminalExit,
 } from "./semantic-terminal-evidence.js";
-import {
-  isSemanticCommandExecutionToolFamily,
-  readExplicitSemanticToolFamily,
-} from "./semantic-tool-family.js";
+import { readExplicitSemanticToolFamily } from "./semantic-tool-family.js";
 import {
   readTaskFailureTerminalProfile,
   type TaskFailureDetail,
@@ -99,10 +96,7 @@ type SemanticEvidenceTaskUpdateEvent = Record<string, unknown> & {
 export function readSemanticTextEvidence(value: string, toolFamily?: string): SemanticTextEvidence {
   const text = normalizeSemanticText(value);
   const hasTerminalFailureShape = looksLikeTerminalFailureEvidence(text);
-  const routineCommandText = stripCommandExecutionRoutinePrefix(text, toolFamily).replace(
-    "exit_code",
-    isSemanticCommandExecutionToolFamily(toolFamily) ? "exit code" : "exitcode",
-  );
+  const routineCommandText = stripCommandExecutionRoutinePrefix(text, toolFamily);
   const shapes: SemanticTextShape[] = [];
   if (
     (isStandaloneRoutineSuccessObservation(text) ||
@@ -223,6 +217,7 @@ function readTaskFailureEvidenceProfile(input: {
   if (observation !== null) return readObservationProfile(observation);
   if (
     hasShape("routine_success") &&
+    signals.structuredOutputEnvelope.kind !== "unsupported" &&
     (!signals.unsafeStructuredToolOutputEnvelope ||
       signals.diagnosticStructuredToolOutput?.exitCode === 0)
   ) {

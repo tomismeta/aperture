@@ -18,12 +18,13 @@ export function resolveSemanticStructuredOutputEnvelope(
   summary: string | undefined,
   ownership: SemanticStructuredOutputOwnership,
 ) {
-  if (ownership === "unsupported") return { kind: "unsupported" as const };
+  const structured = looksLikeStructuredToolOutputEnvelope(summary);
+  if (ownership === "unsupported") return { kind: structured ? "unsupported" : "raw" } as const;
   const valid = readStructuredToolOutputObservation(summary, {
     coerceStringExitCode: ownership === "native",
   });
   if (valid !== null) return { kind: "valid" as const, output: valid };
-  if (!looksLikeStructuredToolOutputEnvelope(summary)) return { kind: "raw" as const };
+  if (!structured) return { kind: "raw" as const };
   if (ownership === "exact") return { kind: "invalid" as const };
   const recovered = readTruncatedStructuredToolOutputEnvelope(summary);
   return recovered === null

@@ -20,10 +20,10 @@ const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = resolve(dirname(scriptPath), "..");
 const SEMANTIC_MODULE_COUNT_BUDGET = 96;
 const SEMANTIC_LINE_COUNT_BUDGET = 8250;
-const SEMANTIC_MATCHER_SITE_BUDGET = 586;
+const SEMANTIC_MATCHER_SITE_BUDGET = 594;
 const SEMANTIC_PHRASE_LITERAL_BUDGET = 175;
 const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 750;
-const TASK_FAILURE_PARSING_LINE_COUNT_BUDGET = 1075;
+const TASK_FAILURE_PARSING_LINE_COUNT_BUDGET = 1090;
 
 const OBSERVATION_SEMANTICS_FILE = "packages/core/src/observation-semantics.ts";
 const OBSERVATION_SEMANTIC_READ_FILE = "packages/core/src/observation-semantic-read.ts";
@@ -127,6 +127,7 @@ const budgets = [
   { file: "packages/core/src/semantic-tagged-file-observation-transcript-shapes.ts", maxLines: 15 },
   { file: "packages/core/src/semantic-task-failure-assertion-scope.ts", maxLines: 75 },
   { file: "packages/core/src/semantic-task-failure-event-facts.ts", maxLines: 100 },
+  { file: "packages/core/src/semantic-task-failure-structural-facts.ts", maxLines: 145 },
   { file: "packages/core/src/semantic-arrow-numbered-document-span-parser.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-arrow-numbered-source-span-shapes.ts", maxLines: 50 },
   { file: "packages/core/src/semantic-assembly-source-observation-shapes.ts", maxLines: 175 },

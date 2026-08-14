@@ -10,7 +10,9 @@
     "conformance/observation-kernel-holdout-v5.json",
     "conformance/observation-kernel-holdout-v6.json",
     "conformance/observation-kernel-holdout-v6.schema.json",
-    "conformance/observation-kernel-holdout-v6-custody.json"
+    "conformance/observation-kernel-holdout-v6-custody.json",
+    "conformance/observation-kernel-release-holdout.json",
+    "conformance/observation-kernel-release-holdout.schema.json"
   ],
   "references": [{ "path": "../core" }, { "path": "../runtime" }]
 }

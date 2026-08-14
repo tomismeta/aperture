@@ -20,14 +20,14 @@ import {
 } from "./semantic-structured-output-ownership.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
 import { parseTaskFailureEventFact } from "./semantic-task-failure-event-facts.js";
+import { isTaskFailureTextFallbackSuppressed } from "./semantic-task-failure-assertion-scope.js";
+import { removeTerminalExitCodeObservations } from "./semantic-terminal-evidence.js";
 import {
   readTaskFailureObservationSyntax,
   type TaskFailureObservationSyntax,
 } from "./task-failure-observation-grammar.js";
-
 export type TaskFailureSemanticSignals = ReturnType<typeof readTaskFailureSemanticSignals>;
 type SemanticSignalInput = Partial<Record<"title" | "summary" | "toolFamily", string | undefined>>;
-
 export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
   const { toolFamily } = input;
   const summary = input.summary ?? "";
@@ -67,10 +67,14 @@ export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
       : null) ??
     (commandExecutionToolFamily ? readExplicitNonDiagnosticObservationTranscript(summary) : null) ??
     (toolFamily === undefined ? readExplicitObservationTranscript(summary) : null);
-  const strongDiagnostic = hasStrongRuntimeDiagnosticEvidence(summary);
+  const strongDiagnostic = hasStrongRuntimeDiagnosticEvidence(
+    removeTerminalExitCodeObservations(summary),
+  );
   const controlDiagnostic = hasToolOutputFailureDiagnosticEvidence(summary, true);
   const eventFact = parseTaskFailureEventFact(eventFields, controlDiagnostic);
   const controlContext = parseTaskFailureEventFact(eventFields) === "authorization_control";
+  const textFallbackSuppressed =
+    eventFact === null && eventFields.some(isTaskFailureTextFallbackSuppressed);
   const observationSyntax = readTaskFailureObservationSyntax({
     editOutputOutcome,
     eventFact,
@@ -89,10 +93,10 @@ export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
     observationSyntax?.subject === "source";
   const readFailureDiagnostic =
     toolFamily === "read" &&
+    !textFallbackSuppressed &&
     !protectedPayload &&
     (hasOwnedReadTerminalDiagnosticEvidence(summary) ||
       (strongDiagnostic && !readSourcePayloadObservation));
-
   return {
     structuredOutputEnvelope,
     unsafeStructuredToolOutputEnvelope:
@@ -109,13 +113,14 @@ export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
       diagnosticStructuredToolOutput === null &&
       structuredOutputEnvelope.kind === "raw" &&
       observationSyntax?.kind !== "control" &&
+      !textFallbackSuppressed &&
       !protectedPayload &&
       hasToolOutputFailureDiagnosticEvidence(summary, controlContext),
     strongSourceRuntimeDiagnostic:
       (structuredOutputEnvelope.kind === "valid" &&
         structuredSourcePayloadObservation &&
         hasStrongRuntimeDiagnosticEvidence(structuredOutputEnvelope.output.output)) ||
-      (readPayloadObservation && strongDiagnostic && !protectedPayload),
+      (readPayloadObservation && strongDiagnostic && !protectedPayload && !textFallbackSuppressed),
     diagnosticObservationTranscript:
       toolFamily === undefined && looksLikeExplicitDiagnosticObservationTranscript(summary),
     commandDiagnosticObservationTranscript:
@@ -126,9 +131,12 @@ export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
       commandExecutionToolFamily &&
       looksLikeExplicitDiagnosticReferenceObservationTranscript(summary),
     observationSyntax,
+    textFallbackSuppressed:
+      structuredOutputEnvelope.kind === "valid" || structuredOutputEnvelope.kind === "recovered"
+        ? false
+        : textFallbackSuppressed,
   };
 }
-
 function isPayloadObservationOrigin(
   observation: TaskFailureObservationSyntax | null,
   origin: TaskFailureObservationSyntax["origin"],

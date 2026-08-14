@@ -22,7 +22,7 @@ export const SEMANTIC_KERNEL_SURFACE_PROFILE_VERSION = 1 as const;
 export const SEMANTIC_KERNEL_SURFACE_THRESHOLDS = {
   maximumModules: 106,
   maximumTotalLines: 9200,
-  maximumMatcherSites: 586,
+  maximumMatcherSites: 594,
   maximumPhraseLiterals: 175,
   maximumExportedDetectors: 171,
   maximumFamilyModules: 29,
@@ -204,6 +204,7 @@ export const SEMANTIC_KERNEL_SURFACE_MANIFEST = [
       "packages/core/src/semantic-task-failure-event-facts.ts",
       "packages/core/src/semantic-task-failure-signals.ts",
       "packages/core/src/semantic-terminal-evidence.ts",
+      "packages/core/src/semantic-task-failure-structural-facts.ts",
     ],
   },
   {

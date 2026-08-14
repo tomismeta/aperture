@@ -57,7 +57,7 @@ function hasTerminalExitCode(text: string, predicate: (code: number) => boolean)
   return false;
 }
 
-function removeTerminalExitCodeObservations(text: string): string {
+export function removeTerminalExitCodeObservations(text: string): string {
   return text.replace(new RegExp(TERMINAL_EXIT_CODE_PATTERN_SOURCE, "g"), " ");
 }
 

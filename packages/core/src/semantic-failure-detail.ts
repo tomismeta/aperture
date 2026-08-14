@@ -2,7 +2,6 @@ import type { TaskFailureSemanticSignals } from "./semantic-task-failure-signals
 import { looksLikeTerminalFailureEvidence } from "./semantic-terminal-evidence.js";
 import { normalizeSemanticText } from "./semantic-text.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
-
 export type TaskFailureDetail =
   | "outcome_only"
   | "diagnostic"
@@ -26,7 +25,8 @@ export function readTaskFailureTerminalProfile(
   input: TerminalProfileInput,
 ): TaskFailureTerminalProfile | null {
   const outcomeOnly = hasCompleteOutcomeOnlyNonzeroExit(input);
-  const diagnostic = hasTerminalDiagnosticEvidence(input, false);
+  const diagnostic =
+    !input.signals.textFallbackSuppressed && hasTerminalDiagnosticEvidence(input, false);
   if (
     !input.signals.structuredOutputExitFailure &&
     !diagnostic &&
@@ -36,7 +36,7 @@ export function readTaskFailureTerminalProfile(
     return null;
   const failureDetail = outcomeOnly
     ? "outcome_only"
-    : hasTerminalDiagnosticEvidence(input, true)
+    : !input.signals.textFallbackSuppressed && hasTerminalDiagnosticEvidence(input, true)
       ? "diagnostic"
       : "indeterminate";
   return {
@@ -44,7 +44,6 @@ export function readTaskFailureTerminalProfile(
     consequenceBaseline: failureDetail === "outcome_only" ? "medium" : "high",
   };
 }
-
 function hasCompleteOutcomeOnlyNonzeroExit(input: TerminalInput): boolean {
   const output = input.signals.diagnosticStructuredToolOutput;
   return (
@@ -85,6 +84,7 @@ function hasTerminalDiagnosticEvidence(input: TerminalInput, includeReferences: 
 function hasGenericTerminalFailureEvidence(input: TerminalProfileInput): boolean {
   const observation = input.signals.observationSyntax;
   return (
+    !input.signals.textFallbackSuppressed &&
     input.terminalFailureText &&
     !input.signals.commandDiagnosticReferenceObservationTranscript &&
     !(observation?.origin === "transcript" && observation.toolFamily === undefined) &&

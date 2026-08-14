@@ -73,6 +73,10 @@ test("direct runtime diagnostics generalize across exact tool families without t
       "RuntimeError: decoder accessed a closed stream while processing frame 18; execution terminated before completion.",
     ],
     ["job_executor", "TypeError: handler is not callable. Execution terminated."],
+    [
+      "job_executor",
+      "The process terminated after memory allocation failed. Exit code 71 and the full runtime diagnostic were returned.",
+    ],
   ] as const) {
     const evidence = readFailure(summary, toolFamily);
     assert.equal(evidence?.kind, "terminal_failure", summary);
@@ -302,6 +306,130 @@ test("event facts compose complete boundaries without sentence-template coupling
   }
 });
 
+test("structural fallback facts lower terminal and bounded evidence through one grammar", () => {
+  const cases = [
+    ["terminal_success", "Command: npm run verify\nExit code: 0\nResult: completed successfully."],
+    [
+      "runtime_diagnostic",
+      "Command output:\nTypeError: Cannot read properties of undefined\n    at loadConfiguration (/workspace/app/config.js:47:19)\nProcess exited with code 1.",
+    ],
+    [
+      "absent_failure",
+      "Process exited with code 2.\nstdout: empty\nstderr: empty\nNo diagnostic payload was captured.",
+    ],
+    [
+      "source_limit",
+      "Read failed: source limit reached.\nReturned lines 401-480 of 1500; additional source was omitted.\nRequest a narrower line range to continue.",
+    ],
+    [
+      "document_payload",
+      'A complete source read was returned. It contains the bounded source payload "throw new Error(\\"fixture text only\\");" and a complete source view.',
+    ],
+    [
+      "runtime_diagnostic",
+      "$ verify-index\nfatal: index checksum mismatch\nProcess exited with code 0; stderr capture complete.",
+    ],
+  ] as const;
+
+  for (const [expected, summary] of cases) {
+    assert.equal(parseTaskFailureEventFact(summary), expected, summary);
+  }
+});
+
+test("structural fallback facts remain conservative around incomplete or contradictory evidence", () => {
+  for (const summary of [
+    "Command: npm run verify\nExit code: 0\nResult: completed successfully. RuntimeError: a prior example failed.",
+    "Read returned lines 401-480 of 1500; the remaining source may be omitted.",
+    'BEGIN SOURCE PAYLOAD\nthrow new Error("fixture text only");\nEND SOURCE PAYLOAD',
+    "Authorization may be required before a future invocation; no execution result is available.",
+    "Expected output: Process exited with code 1\n    at verify.js:12:4",
+    "The process did not exit with code 1. The result is unknown.",
+    "Previous process exited with code 1; current process exited with code 0 and completed successfully.",
+    "Returned lines 480-401 of 1500; additional source was omitted.",
+    "Returned lines 1-1500 of 1500; additional source was omitted.",
+    "The command failed. The returned record contains an incomplete diagnostic with a crash note.",
+  ]) {
+    assert.equal(parseTaskFailureEventFact(summary), null, summary);
+  }
+});
+
+test("structural terminal success is invariant under ordinary log flattening", () => {
+  for (const summary of [
+    "Command: npm run verify\nExit code: 0\nResult: completed successfully.",
+    "Command: npm run verify Exit code: 0 Result: completed successfully.",
+    "Command: npm notify Exit code: 0 Result: completed successfully.",
+  ]) {
+    assert.equal(parseTaskFailureEventFact(summary), "terminal_success", summary);
+    const evidence = readFailure(summary, "Opaque.Executor/9");
+    assert.equal(evidence?.observationSyntax?.polarity, "success", summary);
+    assert.notEqual(evidence?.failureDetail, "diagnostic", summary);
+  }
+});
+
+test("quoted and incomplete diagnostics cannot re-enter terminal fallback", () => {
+  for (const summary of [
+    'The template quotes "runtime failure: exit code 71" without an asserted diagnostic.',
+    "The command failed. The returned record contains an incomplete diagnostic with a crash note.",
+  ]) {
+    const evidence = readFailure(summary, "Opaque.Executor/9");
+    assert.notEqual(evidence?.failureDetail, "diagnostic", summary);
+    assert.notEqual(evidence?.observationSyntax?.diagnosticClass, "runtime", summary);
+  }
+});
+
+test("structural facts are invariant under presentation-only changes", () => {
+  const cases = [
+    {
+      expected: "terminal_success",
+      text: "Command: npm run verify\nExit code: 0\nResult: completed successfully.",
+      transforms: [
+        (value: string) => value.replaceAll("\n", " "),
+        (value: string) => value.replace("npm run verify", "npm run notify"),
+      ],
+    },
+    {
+      expected: "runtime_diagnostic",
+      text: "Command output:\nTypeError: Cannot read properties of undefined\n    at loadConfiguration (/workspace/app/config.js:47:19)\nProcess exited with code 1.",
+      transforms: [
+        (value: string) => value.replaceAll("\n", " "),
+        (value: string) =>
+          value.replace("/workspace/app/config.js:47:19", "/tmp/other/config.ts:9:4"),
+      ],
+    },
+    {
+      expected: "source_limit",
+      text: "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
+      transforms: [
+        (value: string) => value.replace("to", "through"),
+        (value: string) => value.replace("the rest", "the remainder"),
+      ],
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    assert.equal(parseTaskFailureEventFact(testCase.text), testCase.expected, testCase.text);
+    for (const transform of testCase.transforms) {
+      const variant = transform(testCase.text);
+      assert.equal(parseTaskFailureEventFact(variant), testCase.expected, variant);
+    }
+  }
+});
+
+test("fallback abstention applies independently to title and summary fields", () => {
+  for (const [title, summary] of [
+    ["The template quotes RuntimeError", 'The source says "runtime failure: exit code 71".'],
+    ["The command contains an incomplete diagnostic", "The transport returned no further details."],
+  ]) {
+    const evidence = readFailure(summary, "Opaque.Executor/9", title);
+    assert.notEqual(evidence?.failureDetail, "diagnostic", `${title}: ${summary}`);
+    assert.notEqual(
+      evidence?.observationSyntax?.diagnosticClass,
+      "runtime",
+      `${title}: ${summary}`,
+    );
+  }
+});
+
 test("event facts preserve uncertainty for incomplete and non-asserted shapes", () => {
   for (const summary of [
     'The template quotes "runtime failure: exit code 71" without an asserted diagnostic.',
@@ -326,6 +454,7 @@ test("event facts preserve assertion scope across negation, modality, and fields
     "A complete document read is not available. It contains a report that execution started and RuntimeError was returned in a complete diagnostic record.",
     "A complete document read was never delivered. It reports that execution started and RuntimeError was returned in a complete diagnostic record.",
     "The command was not a failure. No diagnostic payload was returned.",
+    "The process might fail because it cannot read the configuration. No result is available.",
   ]) {
     assert.equal(parseTaskFailureEventFact(summary), null, summary);
   }
@@ -401,6 +530,13 @@ test("and/while negation boundaries retain their prior single-clause behavior", 
   ]) {
     assert.deepEqual(splitAssertions(summary), [summary], summary);
   }
+
+  assert.equal(
+    parseTaskFailureEventFact(
+      "Process exited with code 2. stdout: empty. stderr: empty. TypeError: Cannot read properties of undefined\n    at loadConfiguration (/workspace/app/config.js:47:19)",
+    ),
+    "runtime_diagnostic",
+  );
 });
 
 test("adversative boundaries preserve later authoritative runtime diagnostics", () => {
@@ -410,6 +546,13 @@ test("adversative boundaries preserve later authoritative runtime diagnostics", 
       assert.equal(parseTaskFailureEventFact(summary), "runtime_diagnostic", summary);
     }
   }
+
+  assert.equal(
+    parseTaskFailureEventFact(
+      "No runtime failure occurred during setup, but the process then crashed with RuntimeError: worker exited. Exit code 2.",
+    ),
+    "runtime_diagnostic",
+  );
 });
 
 test("document-scoped adversatives preserve later authoritative runtime diagnostics", () => {
@@ -653,6 +796,40 @@ test("event fact families share one Observation-to-judgment path", () => {
         "Process invocation occurred and finished successfully with return code zero. The outcome is complete and terminal; no diagnostic or output channel is missing.",
       observation: ["outcome", "success", "command", "command_output", undefined],
       judgment: ["stable_observation", "none", "command_success_observation"],
+    },
+    {
+      id: "structural-terminal-success",
+      summary: "Command: npm run verify\nExit code: 0\nResult: completed successfully.",
+      observation: ["outcome", "success", "command", "command_output", undefined],
+      judgment: ["stable_observation", "none", "command_success_observation"],
+    },
+    {
+      id: "structural-runtime-diagnostic",
+      summary:
+        "Command output:\nTypeError: Cannot read properties of undefined\n    at loadConfiguration (/workspace/app/config.js:47:19)\nProcess exited with code 1.",
+      observation: ["diagnostic", "failure", "command", "command_output", "runtime"],
+      judgment: ["visible_diagnostic_failure", "diagnostic_inspection", null],
+    },
+    {
+      id: "structural-absent-failure",
+      summary:
+        "Process exited with code 2.\nstdout: empty\nstderr: empty\nNo diagnostic payload was captured.",
+      observation: ["outcome", "failure", "command", "command_output", undefined],
+      judgment: ["limited_failure", "evidence_required", null],
+    },
+    {
+      id: "structural-source-limit",
+      summary:
+        "Read failed: source limit reached.\nReturned lines 401-480 of 1500; additional source was omitted.\nRequest a narrower line range to continue.",
+      observation: ["diagnostic", "failure", "source", "read_output", "source_limit"],
+      judgment: ["limited_failure", "evidence_scope_required", null],
+    },
+    {
+      id: "structural-terminal-conflict",
+      summary:
+        "$ verify-index\nfatal: index checksum mismatch\nProcess exited with code 0; stderr capture complete.",
+      observation: ["diagnostic", "failure", "command", "command_output", "runtime"],
+      judgment: ["visible_diagnostic_failure", "diagnostic_inspection", null],
     },
   ] as const;
   const evaluator = new EventEvaluator();

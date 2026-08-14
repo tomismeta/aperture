@@ -32,10 +32,7 @@ const FIXTURE_COUNT = 32 as const;
 const TYPED_FIXTURE_COUNT = 12 as const;
 const FALLBACK_FIXTURE_COUNT = 20 as const;
 
-type ReleaseHoldoutEvent = Extract<
-  SourceEvent,
-  { type: "task.updated"; status: "failed" }
->;
+type ReleaseHoldoutEvent = Extract<SourceEvent, { type: "task.updated"; status: "failed" }>;
 
 type ReleaseHoldoutFixture = Omit<ObservationKernelFixture, "events"> & {
   events: [ReleaseHoldoutEvent];

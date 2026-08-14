@@ -29,7 +29,6 @@ import {
   looksLikeZeroTerminalExit,
 } from "./semantic-terminal-evidence.js";
 import {
-  commandTextBoundary,
   isSemanticCommandExecutionToolFamily,
   readExplicitSemanticToolFamily,
 } from "./semantic-tool-family.js";
@@ -100,12 +99,13 @@ type SemanticEvidenceTaskUpdateEvent = Record<string, unknown> & {
 export function readSemanticTextEvidence(value: string, toolFamily?: string): SemanticTextEvidence {
   const text = normalizeSemanticText(value);
   const hasTerminalFailureShape = looksLikeTerminalFailureEvidence(text);
-  const commandText = isSemanticCommandExecutionToolFamily(toolFamily) || commandTextBoundary(text);
-  const routineCommandText = stripCommandExecutionRoutinePrefix(text, toolFamily);
+  const routineCommandText = stripCommandExecutionRoutinePrefix(text, toolFamily).replace(
+    "exit_code",
+    isSemanticCommandExecutionToolFamily(toolFamily) ? "exit code" : "exitcode",
+  );
   const shapes: SemanticTextShape[] = [];
   if (
-    commandText &&
-    (isStandaloneRoutineSuccessObservation(text, toolFamily) ||
+    (isStandaloneRoutineSuccessObservation(text) ||
       (looksLikeZeroTerminalExit(routineCommandText) &&
         !looksLikeContradictoryFailureObservation(routineCommandText))) &&
     !hasTerminalFailureShape
@@ -114,7 +114,7 @@ export function readSemanticTextEvidence(value: string, toolFamily?: string): Se
   }
   if (hasTerminalFailureShape) {
     shapes.push("terminal_failure");
-  } else if (commandText && containsAnySemanticPhrase(text, EXPECTED_DIAGNOSTIC_FAILURE_PHRASES)) {
+  } else if (containsAnySemanticPhrase(text, EXPECTED_DIAGNOSTIC_FAILURE_PHRASES)) {
     shapes.push("expected_diagnostic");
   }
   if (containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES))

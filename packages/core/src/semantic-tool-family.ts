@@ -59,8 +59,6 @@ export function isSemanticCommandExecutionToolFamily(toolFamily: string | undefi
   );
 }
 
-export const commandTextBoundary = (text: string): boolean => hasWord(text, "command");
-
 function normalizeToolFamily(value: string | null | undefined): string | null {
   const normalized = value?.trim().toLowerCase() ?? "";
   return normalized.length > 0 ? normalized : null;

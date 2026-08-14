@@ -221,10 +221,18 @@ test("semantic text evidence classifies exact routine bash success observations"
 });
 
 test("raw command success observations do not depend on capability identity", () => {
-  const summary = "Your command ran successfully and did not produce any output.";
-  for (const toolFamily of [undefined, "exec_command", "catalog", "read"]) {
-    const evidence = readSemanticTextEvidence(summary, toolFamily);
-    assert.equal(hasSemanticTextShape(evidence, "routine_success"), true, toolFamily);
+  for (const summary of [
+    "Your command ran successfully and did not produce any output.",
+    "Ran successfully and did not produce any output.",
+    "Process exited with code 0.",
+    "Exit code: 0.",
+  ]) {
+    const baseline = readSemanticTextEvidence(summary);
+    for (const toolFamily of [undefined, "exec_command", "catalog", "read"]) {
+      const evidence = readSemanticTextEvidence(summary, toolFamily);
+      assert.deepEqual(evidence, baseline, `${summary} / ${toolFamily ?? "none"}`);
+    }
+    assert.equal(hasSemanticTextShape(baseline, "routine_success"), true, summary);
   }
 });
 

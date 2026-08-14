@@ -117,6 +117,30 @@ test("kernel raw command observations do not depend on capability identity", () 
   }
 });
 
+test("kernel raw success prose without command vocabulary stays capability-opaque", () => {
+  for (const summary of ["Ran successfully and did not produce any output.", "Exit code: 0."]) {
+    const results = [undefined, "exec_command", "catalog", "read"].map((capabilityFamily, index) =>
+      evaluateApertureKernelEvent(
+        failedTaskEvent(`kernel:capability-opacity:plain:${index}`, summary, {
+          ...(capabilityFamily === undefined ? {} : { capabilityFamily }),
+        }),
+      ),
+    );
+    const baseline = results[0];
+    assert.ok(baseline.observation);
+    for (const result of results) {
+      assert.deepEqual(result.observationJudgment, baseline.observationJudgment, summary);
+      assert.deepEqual(
+        result.observation === null ? null : { ...result.observation, ownership: undefined },
+        baseline.observation === null ? null : { ...baseline.observation, ownership: undefined },
+        summary,
+      );
+      assert.equal(result.observation?.kind, "outcome", summary);
+      assert.equal(result.observation?.polarity, "success", summary);
+    }
+  }
+});
+
 test("kernel command titles cannot fabricate or override summary evidence", () => {
   const event = failedTaskEvent("kernel:title-authority", "Result unavailable.", {
     capabilityFamily: "exec_command",

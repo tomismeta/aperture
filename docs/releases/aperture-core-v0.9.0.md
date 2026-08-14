@@ -20,7 +20,7 @@ workload.
 - consolidates task-failure payload parsing into the canonical observation
   grammar instead of maintaining a parallel grammar module
 - records the current semantic surface honestly: 105 modules, 165 exported
-  detector functions, 255 import edges, and 9,186 total lines
+  detector functions, 255 import edges, and 9,185 total lines
 - fixes raw command-success observations so their semantic result does not depend
   on host title vocabulary or opaque capability identity; structured output
   ownership remains explicit and bounded

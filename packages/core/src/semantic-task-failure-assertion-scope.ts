@@ -53,7 +53,7 @@ const ASSERTION_BOUNDARY =
   /(?:(?<=[.!?])(?<!\beg\.)(?<!\be\.g\.)|;)\s+|(?<!\ball\s)(?<!\bnothing\s)(?<!\banything\s)(?=\b(?:but|however)\b[,:]?\s)|(?=\byet\b[,:]?\s+(?:the\s+)?(?:execution|command|process|operation|tool|result|no|not|never|without|neither)\b)|\b(?:and|while)\s+(?=(?:no|not|never|without|neither)\b)\s+/iu;
 const NON_ACTUAL_TITLE = /^\s*(?:hypothetical|counterfactual|conditional|simulated)\b/i;
 const NON_ASSERTED_FRAME =
-  /^(?:["'`]|observation:\s*|for reference\b|(?:(?:the|an?|this|that)\s+)?(?:reference(?:\s+(?:text|material|example|fixture|template))?|documentation|document|source|log|example|fixture|template)\b|expected\s+(?:result|text|output|diagnostic)\s*:|(?:hypothetical|quoted)\b|if\b|unless\b|when\b|suppose\b|one sentence says\b|(?:fatal|error|failure|exception|diagnostic)\b[^.!?;]*\b(?:was|is)\s+(?:an?\s+)?(?:previous|prior)\s+(?:example|fixture|template)\b)/i;
+  /^(?:["'`]|observation:\s*|for reference\b|(?:(?:the|an?|this|that)\s+)?reference\s+(?:text|material|example|fixture|template)\s*:|(?:(?:the|an?|this|that)\s+)?(?:reference\s+(?:text|material|example|fixture|template)|documentation|document|source|log)\s+(?:says|states|contains|quotes|explains)\b|(?:(?:the|an?|this|that)\s+)?(?:example|fixture|template)\b|expected\s+(?:result|text|output|diagnostic)\s*:|(?:hypothetical|quoted)\b|if\b|unless\b|when\b|suppose\b|one sentence says\b|(?:fatal|error|failure|exception|diagnostic)\b[^.!?;]*\b(?:was|is)\s+(?:an?\s+)?(?:previous|prior)\s+(?:example|fixture|template)\b)/i;
 const NON_ASSERTED_SCOPE =
   /\b(?:hypothetical(?:ly)?|counterfactual(?:ly)?|possible|possibly|potential|potentially|would|could(?!\s+not\b)|might|may|cannot\s+be\s+(?:confirmed|ruled\s+out))\b/i;
 const NEGATED_ASSERTION =

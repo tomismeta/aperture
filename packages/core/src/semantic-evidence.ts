@@ -16,7 +16,11 @@ import {
   SOURCE_CODE_PATH_PATTERN,
   TAGGED_FILE_OBSERVATION_PHRASES,
 } from "./semantic-patterns.js";
-import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
+import {
+  containsAnySemanticPhrase,
+  hasSemanticWord,
+  normalizeSemanticText,
+} from "./semantic-text.js";
 import { readTaskFailureSemanticSignals } from "./semantic-task-failure-signals.js";
 import {
   looksLikeBuildOrLogObservation,
@@ -100,7 +104,7 @@ export function readSemanticTextEvidence(value: string, toolFamily?: string): Se
   const text = normalizeSemanticText(value);
   const hasTerminalFailureShape = looksLikeTerminalFailureEvidence(text);
   const commandExecutionText =
-    isSemanticCommandExecutionToolFamily(toolFamily) || looksLikeCommandExecutionText(text);
+    isSemanticCommandExecutionToolFamily(toolFamily) || hasSemanticWord(text, "command");
   const routineCommandText = stripCommandExecutionRoutinePrefix(text, toolFamily);
   const shapes: SemanticTextShape[] = [];
   if (
@@ -348,16 +352,6 @@ function looksLikeLogObservation(text: string, rawText: string): boolean {
     LOG_OUTPUT_PATTERN.test(text) ||
     looksLikeBuildOrLogObservation(rawText) ||
     containsAnySemanticPhrase(text, LOG_LIKE_OBSERVATION_PHRASES)
-  );
-}
-
-function looksLikeCommandExecutionText(text: string): boolean {
-  return (
-    /\b(?:your\s+)?command\b/i.test(text) ||
-    /\b(?:bash|shell)\s+failure\b/i.test(text) ||
-    /\b(?:process|subprocess|execution|invocation)\b[^.!?;]*\b(?:ran|executed|completed|finished|succeeded|exited|returned)\b/i.test(
-      text,
-    )
   );
 }
 

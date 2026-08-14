@@ -33,6 +33,7 @@ const IMPLEMENTATION_FILES = [
 const CONTRACT_FILES = {
   observation: "docs/engine/observation-judgment-contract-v1.md",
   sourceEvidence: "docs/engine/source-evidence-contract-v1.md",
+  output: "packages/lab/conformance/observation-kernel-holdout-v5-output-contract.json",
 } as const;
 
 export async function runObservationKernelReleaseHoldoutCommand(
@@ -103,6 +104,10 @@ async function sealHoldout(): Promise<void> {
       sourceEvidence: {
         path: CONTRACT_FILES.sourceEvidence,
         sha256: `sha256:${await sha256File(CONTRACT_FILES.sourceEvidence)}`,
+      },
+      output: {
+        path: CONTRACT_FILES.output,
+        sha256: `sha256:${await sha256File(CONTRACT_FILES.output)}`,
       },
     },
     holdoutId: artifact.methodology.holdoutId,
@@ -232,6 +237,11 @@ async function assertCustody(
     contracts.sourceEvidence,
     CONTRACT_FILES.sourceEvidence,
     artifact.methodology.sourceEvidenceContractDigest,
+  );
+  await assertContractDigest(
+    contracts.output,
+    CONTRACT_FILES.output,
+    artifact.methodology.outputContractDigest,
   );
   if (custody.holdoutId !== artifact.methodology.holdoutId || custody.lifecycle !== "sealed") {
     throw new Error("Observation Kernel release holdout custody identity is invalid.");

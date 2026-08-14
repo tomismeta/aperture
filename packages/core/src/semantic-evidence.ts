@@ -99,11 +99,12 @@ type SemanticEvidenceTaskUpdateEvent = Record<string, unknown> & {
 export function readSemanticTextEvidence(value: string, toolFamily?: string): SemanticTextEvidence {
   const text = normalizeSemanticText(value);
   const hasTerminalFailureShape = looksLikeTerminalFailureEvidence(text);
-  const commandExecutionTool = isSemanticCommandExecutionToolFamily(toolFamily);
+  const commandExecutionText =
+    isSemanticCommandExecutionToolFamily(toolFamily) || looksLikeCommandExecutionText(text);
   const routineCommandText = stripCommandExecutionRoutinePrefix(text, toolFamily);
   const shapes: SemanticTextShape[] = [];
   if (
-    commandExecutionTool &&
+    commandExecutionText &&
     (isStandaloneRoutineSuccessObservation(text, toolFamily) ||
       (looksLikeZeroTerminalExit(routineCommandText) &&
         !looksLikeContradictoryFailureObservation(routineCommandText))) &&
@@ -114,7 +115,7 @@ export function readSemanticTextEvidence(value: string, toolFamily?: string): Se
   if (hasTerminalFailureShape) {
     shapes.push("terminal_failure");
   } else if (
-    commandExecutionTool &&
+    commandExecutionText &&
     containsAnySemanticPhrase(text, EXPECTED_DIAGNOSTIC_FAILURE_PHRASES)
   ) {
     shapes.push("expected_diagnostic");
@@ -224,14 +225,13 @@ function readTaskFailureEvidenceProfile(input: {
   }
   if (observation !== null) return readObservationProfile(observation);
   if (
-    isSemanticCommandExecutionToolFamily(toolFamily) &&
     hasShape("routine_success") &&
     (!signals.unsafeStructuredToolOutputEnvelope ||
       signals.diagnosticStructuredToolOutput?.exitCode === 0)
   ) {
     return profile("routine_bash_success_observation", true, "low", toolFamily);
   }
-  if (isSemanticCommandExecutionToolFamily(toolFamily) && hasShape("expected_diagnostic")) {
+  if (hasShape("expected_diagnostic")) {
     return profile("expected_diagnostic_failure", false, "medium", toolFamily);
   }
   if (hasShape("search_result")) {
@@ -348,6 +348,16 @@ function looksLikeLogObservation(text: string, rawText: string): boolean {
     LOG_OUTPUT_PATTERN.test(text) ||
     looksLikeBuildOrLogObservation(rawText) ||
     containsAnySemanticPhrase(text, LOG_LIKE_OBSERVATION_PHRASES)
+  );
+}
+
+function looksLikeCommandExecutionText(text: string): boolean {
+  return (
+    /\b(?:your\s+)?command\b/i.test(text) ||
+    /\b(?:bash|shell)\s+failure\b/i.test(text) ||
+    /\b(?:process|subprocess|execution|invocation)\b[^.!?;]*\b(?:ran|executed|completed|finished|succeeded|exited|returned)\b/i.test(
+      text,
+    )
   );
 }
 

@@ -189,9 +189,9 @@ regression coverage. Current verification also passes typecheck, lint, scoped
 formatting, dependency audit, contract and schema checks, package boundaries,
 architecture budgets, kernel conformance, the honest surface baseline, kernel
 corpus, the active holdout, deterministic scale, and judgment battle. Public
-SDK and product smoke checks remain environment-sensitive because their package
-consumer flows invoke nested package builds. The independent adversarial review
-and final publication decision remain outstanding.
+SDK and product smoke checks pass with host-enabled package builds and isolated
+consumers. The final independent adversarial re-audit and publication decision
+remain outstanding.
 
 This pre-release hardening tranche does not change or publish the Aperture
 product package.

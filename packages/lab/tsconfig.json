@@ -11,6 +11,7 @@
     "conformance/observation-kernel-holdout-v6.json",
     "conformance/observation-kernel-holdout-v6.schema.json",
     "conformance/observation-kernel-holdout-v6-custody.json",
+    "conformance/observation-kernel-holdout-v5-output-contract.json",
     "conformance/observation-kernel-release-holdout.json",
     "conformance/observation-kernel-release-holdout.schema.json",
     "conformance/observation-kernel-release-holdout-custody.json",

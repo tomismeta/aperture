@@ -95,6 +95,28 @@ test("kernel command observations do not depend on host title vocabulary", () =>
   assert.equal(hostTitled.observation?.polarity, "success");
 });
 
+test("kernel raw command observations do not depend on capability identity", () => {
+  const summary = "Your command ran successfully and did not produce any output.";
+  const results = [undefined, "exec_command", "catalog", "read"].map((capabilityFamily, index) =>
+    evaluateApertureKernelEvent(
+      failedTaskEvent(`kernel:capability-opacity:${index}`, summary, {
+        ...(capabilityFamily === undefined ? {} : { capabilityFamily }),
+      }),
+    ),
+  );
+  const baseline = results[0];
+  assert.ok(baseline.observation);
+  for (const result of results) {
+    assert.deepEqual(result.observationJudgment, baseline.observationJudgment);
+    assert.deepEqual(
+      result.observation === null ? null : { ...result.observation, ownership: undefined },
+      baseline.observation === null ? null : { ...baseline.observation, ownership: undefined },
+    );
+    assert.equal(result.observation?.kind, "outcome");
+    assert.equal(result.observation?.polarity, "success");
+  }
+});
+
 test("kernel command titles cannot fabricate or override summary evidence", () => {
   const event = failedTaskEvent("kernel:title-authority", "Result unavailable.", {
     capabilityFamily: "exec_command",

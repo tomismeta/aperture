@@ -220,13 +220,12 @@ test("semantic text evidence classifies exact routine bash success observations"
   assert.equal(hasSemanticTextShape(evidence, "terminal_failure"), false);
 });
 
-test("routine success observations stay tool-family bounded", () => {
-  const evidence = readSemanticTextEvidence(
-    "Your command ran successfully and did not produce any output.",
-    "read",
-  );
-
-  assert.equal(hasSemanticTextShape(evidence, "routine_success"), false);
+test("raw command success observations do not depend on capability identity", () => {
+  const summary = "Your command ran successfully and did not produce any output.";
+  for (const toolFamily of [undefined, "exec_command", "catalog", "read"]) {
+    const evidence = readSemanticTextEvidence(summary, toolFamily);
+    assert.equal(hasSemanticTextShape(evidence, "routine_success"), true, toolFamily);
+  }
 });
 
 test("semantic command execution families are exact", () => {
@@ -8204,7 +8203,7 @@ test("task failure evidence uses explicit event tool family without text inferen
       summary: "Your command ran successfully and did not produce any output.",
       status: "failed",
     })?.kind,
-    "unclassified_failure",
+    "routine_bash_success_observation",
   );
 });
 
@@ -8222,7 +8221,7 @@ test("task failure evidence does not use context as tool-family evidence", () =>
     },
   });
 
-  assert.equal(evidence?.kind, "unclassified_failure");
+  assert.equal(evidence?.kind, "routine_bash_success_observation");
   assert.equal(evidence?.toolFamily, undefined);
 });
 
@@ -8238,7 +8237,7 @@ test("task failure evidence does not use audit metadata as tool-family evidence"
     metadata: { toolFamily: "bash" },
   });
 
-  assert.equal(evidence?.kind, "unclassified_failure");
+  assert.equal(evidence?.kind, "routine_bash_success_observation");
   assert.equal(evidence?.toolFamily, undefined);
 });
 

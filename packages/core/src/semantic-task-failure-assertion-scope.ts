@@ -3,7 +3,7 @@ export function compileAssertionScope(value: string | readonly string[]) {
   const scopedFields = fields.map((field) =>
     splitAssertions(field)
       .map((clause) => clause.trim())
-      .filter((clause) => clause && !NON_ASSERTED_FRAME.test(clause)),
+      .filter((clause) => clause && !frameIsNonAsserted(clause)),
   );
   const actual = fields.length < 2 || !NON_ACTUAL_TITLE.test(fields[0] ?? "");
   const authoritativeFields = scopedFields.map((clauses) =>
@@ -47,6 +47,8 @@ export const isTaskFailureTextFallbackSuppressed = (value: string): boolean =>
     [...splitAssertions(value)].reverse().find((clause) => FAILURE_REFERENCE.test(clause)) ?? "",
   );
 export const splitAssertions = (value: string): string[] => value.split(ASSERTION_BOUNDARY);
+export const frameIsNonAsserted = (value: string): boolean =>
+  NON_ASSERTED_FRAME.test(value.replace(/^(?:but|however|yet)\b[,:]?\s*/i, ""));
 const ASSERTION_BOUNDARY =
   /(?:(?<=[.!?])(?<!\beg\.)(?<!\be\.g\.)|;)\s+|(?<!\ball\s)(?<!\bnothing\s)(?<!\banything\s)(?=\b(?:but|however)\b[,:]?\s)|(?=\byet\b[,:]?\s+(?:the\s+)?(?:execution|command|process|operation|tool|result|no|not|never|without|neither)\b)|\b(?:and|while)\s+(?=(?:no|not|never|without|neither)\b)\s+/iu;
 const NON_ACTUAL_TITLE = /^\s*(?:hypothetical|counterfactual|conditional|simulated)\b/i;

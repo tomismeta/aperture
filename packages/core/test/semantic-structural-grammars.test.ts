@@ -426,6 +426,10 @@ test("asserted terminal diagnostics survive omitted subject continuation", () =>
     "The documentation says that it crashed with RuntimeError at line 5.",
     "It crashed with an incomplete diagnostic containing RuntimeError.",
     "It crashed with RuntimeError at line 5.",
+    "The command was expected to fail, but the documentation says that it crashed with RuntimeError at line 5.",
+    "The command was expected to fail, but the example says that it crashed with RuntimeError at line 5.",
+    "The command was expected to fail, but the fixture says that it crashed with RuntimeError at line 5.",
+    "It crashed with RuntimeError at line 5. Separately, the command was expected to fail.",
   ]) {
     assert.notEqual(parseTaskFailureEventFact(summary), "runtime_diagnostic", summary);
     assert.notEqual(readFailure(summary, "bash")?.failureDetail, "diagnostic", summary);

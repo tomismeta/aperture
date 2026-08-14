@@ -1,4 +1,6 @@
-import { splitAssertions } from "./semantic-task-failure-assertion-scope.js";
+import { frameIsNonAsserted, splitAssertions } from "./semantic-task-failure-assertion-scope.js";
+import { successConflict } from "./semantic-failure-detail.js";
+import { assertedContinuation, negatedAssertion } from "./semantic-terminal-evidence.js";
 export type StructuralTaskFailureFact =
   | "absent_failure"
   | "runtime_diagnostic"
@@ -22,26 +24,21 @@ export function readStructuralTaskFailureFact(input: {
     contradiction,
   } = input;
   const lower = text.toLowerCase(),
-    authority = authoritativeText.toLowerCase();
-  const exits = readAssertedExitCodes(text);
-  const completeDiagnostic = COMPLETE_DIAGNOSTIC.test(lower) && !INCOMPLETE_DIAGNOSTIC.test(lower);
+    authority = authoritativeText.toLowerCase(),
+    exits = readAssertedExitCodes(text),
+    contextClauses = splitAssertions(context),
+    completeDiagnostic = COMPLETE_DIAGNOSTIC.test(lower) && !INCOMPLETE_DIAGNOSTIC.test(lower);
   if (new Set(exits).size > 1) return null;
   const diagnostic =
-    !sameAssertionShape(lower, INCOMPLETE_DIAGNOSTIC, DIRECT_DIAGNOSTIC) &&
-    (DIRECT_DIAGNOSTIC.test(lower) || completeDiagnostic) &&
-    hasAny(lower, [" at ", "diagnostic", "fatal:", "stderr", "crashed", "failed"]) &&
-    !hasNegatedDiagnostic(context);
+    isDiagnosticClause(lower) &&
+    !negatedAssertion(contextClauses, NEGATED_DIAGNOSTIC, DIRECT_DIAGNOSTIC);
   const ownedDiagnostic = completeDiagnostic && OWNED_DIAGNOSTIC.test(lower);
   const acceptedDiagnostic =
     diagnostic && (!documentPayload || ownedDiagnostic || !MODAL.test(scopeText));
   const actualExecution =
     !BLOCKED_EXEC.test(lower) &&
-    (ACTUAL_EXECUTION.test(lower) ||
-      (diagnostic &&
-        hasAny(lower, TERMINAL) &&
-        !MODAL.test(lower) &&
-        ACTUAL_EXECUTION.test(context) &&
-        !BLOCKED_EXEC.test(context)));
+    (splitAssertions(lower).some(isActualExecutionClause) ||
+      assertedContinuation(contextClauses, isDiagnosticClause, isExecutionContextClause));
   const absent =
     !hasAny(`${lower} ${authority} ${scopeText.toLowerCase()}`, ["not a failure"]) &&
     !hasAny(lower, OUTCOME_ONLY) &&
@@ -52,18 +49,16 @@ export function readStructuralTaskFailureFact(input: {
   const range = READ_RANGE.exec(text);
   const invalidRange =
     range !== null &&
-    !(
-      Number(range[1]) >= 1 &&
-      Number(range[1]) <= Number(range[2]) &&
-      Number(range[2]) < Number(range[3])
-    );
+    (Number(range[1]) < 1 ||
+      Number(range[1]) > Number(range[2]) ||
+      Number(range[2]) >= Number(range[3]));
   const success =
     !contradiction &&
     (exits.includes(0) || hasAny(lower, ["return code zero", "exit status zero"])) &&
     hasAny(lower, EXECUTION) &&
     hasAny(lower, ["complete", "completed", "finished", "succeeded", "successful"]) &&
     hasAny(lower, ["complete", "terminal", "result:"]) &&
-    !hasSuccessConflict(lower) &&
+    !successConflict(lower) &&
     !lower.includes("diagnostic channel is missing");
   if (
     actualExecution &&
@@ -79,19 +74,21 @@ export function readStructuralTaskFailureFact(input: {
 }
 const hasAny = (value: string, terms: readonly string[] | RegExp): boolean =>
   terms instanceof RegExp ? terms.test(value) : terms.some((term) => value.includes(term));
-const sameAssertionShape = (value: string, first: RegExp, second: RegExp): boolean =>
-  splitAssertions(value).some((clause) => first.test(clause) && second.test(clause));
-const hasSuccessConflict = (value: string): boolean =>
-  SUCCESS_NEGATIVE.test(
-    value
-      .replace(/(?:[a-z]:)?[\\/]?[\w.-]+(?:[\\/][\w.-]+)+/gi, " ")
-      .replaceAll("standard error", ""),
-  );
-const hasNegatedDiagnostic = (value: string) => {
-  const clauses = splitAssertions(value);
-  const index = clauses.findIndex((clause) => NEGATED_DIAGNOSTIC.test(clause));
-  return index >= 0 && !clauses.slice(index + 1).some((clause) => DIRECT_DIAGNOSTIC.test(clause));
-};
+const isDiagnosticClause = (value: string) =>
+  !splitAssertions(value).some(
+    (clause) => INCOMPLETE_DIAGNOSTIC.test(clause) && DIRECT_DIAGNOSTIC.test(clause),
+  ) &&
+  (DIRECT_DIAGNOSTIC.test(value) ||
+    (COMPLETE_DIAGNOSTIC.test(value) && !INCOMPLETE_DIAGNOSTIC.test(value))) &&
+  hasAny(value, [" at ", "diagnostic", "fatal:", "stderr", "crashed", "failed"]) &&
+  hasAny(value, TERMINAL) &&
+  !MODAL.test(value) &&
+  !NEGATED_DIAGNOSTIC.test(value) &&
+  !frameIsNonAsserted(value);
+const isActualExecutionClause = (clause: string) =>
+  ACTUAL_EXECUTION.test(clause) && !MODAL.test(clause) && !BLOCKED_EXEC.test(clause);
+const isExecutionContextClause = (value: string) =>
+  (ACTUAL_EXECUTION.test(value) || EXPECTED_EXECUTION.test(value)) && !BLOCKED_EXEC.test(value);
 function readAssertedExitCodes(text: string): number[] {
   return [...text.matchAll(EXIT)].flatMap((match) => {
     const clause =
@@ -107,7 +104,9 @@ function readAssertedExitCodes(text: string): number[] {
 }
 const EXECUTION = "command|process|subprocess|worker|execution|invocation|operation".split("|");
 const ACTUAL_EXECUTION =
-  /\b(?:execution|operation|invocation|command|process|subprocess|worker|tool)(?:\s+invocation)?\b[^.!?;]*\b(?:start(?:ed)?|run|ran|execute[ds]?|occurred|completed|finished|terminated|crashed|fail(?:ed)?|exited|performed)\b/i;
+  /\b(?:execution|operation|invocation|command|process|subprocess|worker|tool)(?:\s+invocation)?\b[^.!?;]*\b(?:start(?:ed)?|run|ran|execute[ds]?|occurred|completed|finished|terminated|crashed|failed|exited|performed)\b/i;
+const EXPECTED_EXECUTION =
+  /\b(?:execution|operation|invocation|command|process|subprocess|worker|tool)(?:\s+invocation)?\b[^.!?;]*\b(?:expected\s+to|would(?:\s+have)?|could(?:\s+have)?|might|may)\s+(?:have\s+)?fail(?:ed)?\b/i;
 const BLOCKED_EXEC =
   /\b(?:execution|operation|invocation|command|process|subprocess|worker|tool)(?:\s+invocation)?\b[^.!?;]*\b(?:did|was|has)\s+not\s+(?:start(?:ed)?|run|execute[ds]?|occurred|perform|produce|return)|\bnever\s+(?:started|ran|executed|occurred)|\bno\s+(?:tool\s+call|invocation|execution)\s+(?:occurred|started)\b/i;
 const TERMINAL =
@@ -129,9 +128,8 @@ const ABSENT_EVIDENCE =
 const EMPTY_STDOUT = /stdout: empty|stdout empty|standard output field is present and empty/i;
 const EMPTY_STDERR = /stderr: empty|stderr empty|standard error field is present and empty/i;
 const OUTCOME_ONLY = ["outcome-only record", "outcome-only result", "outcome-only evidence"];
-const SUCCESS_NEGATIVE = /failed|failure|fatal|error|exception|crash|runtimeerror|traceback/i;
 const MODAL =
-  /\b(?:did\s+not|never|not|without|if|unless|when|may|might|could|would|hypothetical)\b/i;
+  /\b(?:did\s+not|never|not|without|if|unless|when|may|might|could|would|expected|hypothetical)\b/i;
 const EXIT =
   /\b(?:exit(?:ed)?(?:\s+with)?\s+(?:code|status)|exit[\s_-](?:code|status)|return(?:ed)?(?:\s+with)?[\s_-]?(?:code|status)|returned code)\s*(?::|is|was|reports?|returned)?\s*(-?\d+|zero)\b/gi;
 const READ_RANGE =

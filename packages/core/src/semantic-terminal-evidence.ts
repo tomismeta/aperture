@@ -61,6 +61,21 @@ export function removeTerminalExitCodeObservations(text: string): string {
   return text.replace(new RegExp(TERMINAL_EXIT_CODE_PATTERN_SOURCE, "g"), " ");
 }
 
+export const assertedContinuation = (
+  clauses: readonly string[],
+  isDiagnostic: (clause: string) => boolean,
+  isExecutionContext: (clause: string) => boolean,
+) =>
+  clauses.some(
+    (clause, index) =>
+      index > 0 && isDiagnostic(clause) && clauses.slice(0, index).some(isExecutionContext),
+  );
+export const negatedAssertion = (clauses: readonly string[], negated: RegExp, direct: RegExp) =>
+  clauses.findIndex((clause) => negated.test(clause)) >= 0 &&
+  !clauses
+    .slice(clauses.findIndex((clause) => negated.test(clause)) + 1)
+    .some((clause) => direct.test(clause));
+
 function stripRoutineFailurePrefix(text: string): string {
   return text.replace(
     /^(?:observation|bash failure|bash observation|tool failure|tool observation)\s+/,

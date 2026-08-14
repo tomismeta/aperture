@@ -94,6 +94,14 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       "An asserted diagnostic remains authoritative when a later terminal clause continues an expected execution without repeating its subject.",
     ),
     freshFixture(
+      "continued-reference-abstention",
+      "fallback-continued-reference-abstention",
+      byId.get("holdout-v5-fallback-indeterminate-failure"),
+      "Execution reference remains unasserted",
+      "The command was expected to fail, but the documentation says that it crashed with RuntimeError at line 5.",
+      "A reference frame after expected setup remains indeterminate rather than becoming terminal execution evidence.",
+    ),
+    freshFixture(
       "hypothetical-diagnostic",
       "fallback-hypothetical-diagnostic",
       byId.get("holdout-v5-fallback-indeterminate-failure"),
@@ -120,7 +128,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
   ];
 
   const fixtures = [...seedFixtures, ...freshFixtures];
-  if (fixtures.length !== 33) throw new Error(`Expected 33 fixtures, received ${fixtures.length}.`);
+  if (fixtures.length !== 34) throw new Error(`Expected 34 fixtures, received ${fixtures.length}.`);
   const methodology = {
     schemaVersion: 1,
     artifactKind: "release_holdout",
@@ -136,9 +144,9 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
     ),
     implementationFreeze:
       process.env.APERTURE_IMPLEMENTATION_FREEZE ?? "0000000000000000000000000000000000000000",
-    fixtureCount: 33,
+    fixtureCount: 34,
     typedEvidenceFixtureCount: 12,
-    structuralFallbackFixtureCount: 21,
+    structuralFallbackFixtureCount: 22,
     oracleProvenance: {
       author: "aperture-maintainer",
       authoredWithoutExecution: true,
@@ -147,7 +155,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       authoredWithoutCalibrationInspection: false,
       notes: [
         "This active holdout is an honest release regression and hardening set, not an independent oracle claim.",
-        "Twelve historical regression shapes are retained and nine new fallback shapes target the repaired grammar.",
+        "Twelve historical regression shapes are retained and ten new fallback shapes target the repaired grammar.",
         "An independent adversarial re-audit remains required before publication.",
       ],
     },

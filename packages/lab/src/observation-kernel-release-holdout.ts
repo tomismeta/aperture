@@ -30,9 +30,9 @@ export const OBSERVATION_KERNEL_RELEASE_HOLDOUT_EVIDENCE_CUSTODY_PATH =
   "packages/lab/conformance/observation-kernel-release-holdout-evidence-custody.json" as const;
 
 const RELEASE_HOLDOUT_SCHEMA_VERSION = 1 as const;
-const FIXTURE_COUNT = 33 as const;
+const FIXTURE_COUNT = 34 as const;
 const TYPED_FIXTURE_COUNT = 12 as const;
-const FALLBACK_FIXTURE_COUNT = 21 as const;
+const FALLBACK_FIXTURE_COUNT = 22 as const;
 
 type ReleaseHoldoutEvent = Extract<SourceEvent, { type: "task.updated" }> & { status: "failed" };
 
@@ -55,9 +55,9 @@ type ReleaseHoldoutArtifact = {
     outputContractId: string;
     outputContractDigest: string;
     implementationFreeze: string;
-    fixtureCount: 33;
+    fixtureCount: 34;
     typedEvidenceFixtureCount: 12;
-    structuralFallbackFixtureCount: 21;
+    structuralFallbackFixtureCount: 22;
     oracleProvenance: {
       author: string;
       authoredWithoutExecution: boolean;

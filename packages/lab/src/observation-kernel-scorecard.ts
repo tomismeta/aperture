@@ -12,9 +12,7 @@ import {
   OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
   OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
   type ObservationKernelCoverage,
-  type ObservationKernelDecisionFields,
   type ObservationKernelDistribution,
-  type ObservationKernelFields,
   type ObservationKernelObservation,
   type ObservationKernelScorecard,
 } from "./observation-kernel-scorecard-model.js";

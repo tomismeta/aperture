@@ -59,11 +59,9 @@ export function isSemanticCommandExecutionToolFamily(toolFamily: string | undefi
   );
 }
 
-function normalizeToolFamily(value: string | null | undefined): string | null {
-  if (!value) {
-    return null;
-  }
+export const commandTextBoundary = (text: string): boolean => hasWord(text, "command");
 
-  const normalized = value.trim().toLowerCase();
+function normalizeToolFamily(value: string | null | undefined): string | null {
+  const normalized = value?.trim().toLowerCase() ?? "";
   return normalized.length > 0 ? normalized : null;
 }

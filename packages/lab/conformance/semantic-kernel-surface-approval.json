@@ -2,12 +2,12 @@
   "baseRef": "origin/main",
   "baselineSurfaceDigest": "sha256:96944af3e5bb88d9e7afd56e291e689305364168df0849e4c105760a6c098aa6",
   "acceptedFailures": [
-    "surface_comparison:total_lines:9199>9171",
+    "surface_comparison:total_lines:9194>9171",
     "surface_comparison:matcher_sites:592>586",
-    "surface_comparison:semantic_lines:8237>8177",
-    "surface_comparison:task_failure_parsing_lines:1084>1067",
-    "surface_comparison:family_lines:task_failure_grammar:1173>1019",
+    "surface_comparison:semantic_lines:8232>8177",
+    "surface_comparison:task_failure_parsing_lines:1081>1067",
+    "surface_comparison:family_lines:task_failure_grammar:1170>1019",
     "surface_comparison:family_matcher_sites:task_failure_grammar:72>55"
   ],
-  "rationale": "This tranche replaces overlapping task-failure fallbacks with a bounded structural grammar and removes legacy paths. The committed report remains below hard absolute budgets, decreases modules, detectors, dependency fan-out, and observation primitive lines, and the exact remaining growth is reviewed as the cost of the repaired semantic boundary. Reassess this approval after the branch merges into its protected base."
+  "rationale": "This tranche replaces overlapping task-failure fallbacks with a bounded structural grammar and removes legacy paths. The committed report remains below hard absolute budgets, decreases modules, detectors, dependency fan-out, and observation primitive lines, and keeps capability-opaque command text behind the existing lexical ownership surface. The exact remaining growth is reviewed as the cost of the repaired semantic boundary. Reassess this approval after the branch merges into its protected base."
 }

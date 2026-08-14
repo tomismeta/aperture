@@ -16,11 +16,7 @@ import {
   SOURCE_CODE_PATH_PATTERN,
   TAGGED_FILE_OBSERVATION_PHRASES,
 } from "./semantic-patterns.js";
-import {
-  containsAnySemanticPhrase,
-  hasSemanticWord,
-  normalizeSemanticText,
-} from "./semantic-text.js";
+import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
 import { readTaskFailureSemanticSignals } from "./semantic-task-failure-signals.js";
 import {
   looksLikeBuildOrLogObservation,
@@ -33,6 +29,7 @@ import {
   looksLikeZeroTerminalExit,
 } from "./semantic-terminal-evidence.js";
 import {
+  commandTextBoundary,
   isSemanticCommandExecutionToolFamily,
   readExplicitSemanticToolFamily,
 } from "./semantic-tool-family.js";
@@ -103,12 +100,11 @@ type SemanticEvidenceTaskUpdateEvent = Record<string, unknown> & {
 export function readSemanticTextEvidence(value: string, toolFamily?: string): SemanticTextEvidence {
   const text = normalizeSemanticText(value);
   const hasTerminalFailureShape = looksLikeTerminalFailureEvidence(text);
-  const commandExecutionText =
-    isSemanticCommandExecutionToolFamily(toolFamily) || hasSemanticWord(text, "command");
+  const commandText = isSemanticCommandExecutionToolFamily(toolFamily) || commandTextBoundary(text);
   const routineCommandText = stripCommandExecutionRoutinePrefix(text, toolFamily);
   const shapes: SemanticTextShape[] = [];
   if (
-    commandExecutionText &&
+    commandText &&
     (isStandaloneRoutineSuccessObservation(text, toolFamily) ||
       (looksLikeZeroTerminalExit(routineCommandText) &&
         !looksLikeContradictoryFailureObservation(routineCommandText))) &&
@@ -118,10 +114,7 @@ export function readSemanticTextEvidence(value: string, toolFamily?: string): Se
   }
   if (hasTerminalFailureShape) {
     shapes.push("terminal_failure");
-  } else if (
-    commandExecutionText &&
-    containsAnySemanticPhrase(text, EXPECTED_DIAGNOSTIC_FAILURE_PHRASES)
-  ) {
+  } else if (commandText && containsAnySemanticPhrase(text, EXPECTED_DIAGNOSTIC_FAILURE_PHRASES)) {
     shapes.push("expected_diagnostic");
   }
   if (containsAnySemanticPhrase(text, OBSERVATIONAL_READBACK_PHRASES))

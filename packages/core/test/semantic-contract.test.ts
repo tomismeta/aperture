@@ -188,7 +188,7 @@ test("observation semantics owns vocabulary upstream of normalized observations"
     "utf8",
   );
 
-  assert.match(semantics, /from "\.\/normalized-observation\.js"/);
+  assert.match(semantics, /from "\.\/judgment-input-types\.js"/);
   assert.equal(normalized.includes("observation-semantics"), false);
   assert.match(normalized, /export type Observation/);
 });

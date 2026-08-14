@@ -763,7 +763,7 @@ test("semantic hints cannot forge routine bash status-conflict routing", () => {
   assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
 });
 
-test("metadata tool family cannot forge routine bash status-conflict routing", () => {
+test("metadata tool family does not affect self-describing command routing", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:metadata-forged-observation-conflict",
@@ -790,12 +790,11 @@ test("metadata tool family cannot forge routine bash status-conflict routing", (
     return;
   }
 
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.consequence, "high");
-  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
-  assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.consequence, "low");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
 test("generic confidence hints cannot suppress routine bash observations", () => {

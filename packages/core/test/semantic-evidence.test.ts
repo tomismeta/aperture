@@ -2142,6 +2142,14 @@ test("task failure evidence treats read source-window limits as bounded terminal
       "paraphrased-tokens",
       "Document output (12000 tokens) exceeded the max token limit (8000 tokens). Search for specific content instead.",
     ],
+    [
+      "source-read",
+      "Source read produced a measured partial view: 80 lines beginning at offset 40 from a source totaling 640 lines.",
+    ],
+    [
+      "log-output",
+      "Log output was truncated: showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
+    ],
   ] as const) {
     const signals = readTaskFailureSemanticSignals({ summary, toolFamily: "read" });
     const evidence = readTaskFailureSemanticEvidence({

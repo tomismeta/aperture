@@ -54,7 +54,7 @@ keeps an expected execution clause and a later asserted diagnostic without
 repeating the execution subject. The structural grammar accepts this only when
 the same evidence also establishes an execution context; a bare pronoun
 diagnostic, blocked execution, and incomplete diagnostic remain indeterminate.
-The fixture count is 38, with 12 typed-evidence and 26 structural-fallback
+The active release fixture count is 46, with 12 typed-evidence and 34 structural-fallback
 fixtures. This is a regression guard for the semantic grammar, not an
 independent oracle or a claim of broad language coverage.
 

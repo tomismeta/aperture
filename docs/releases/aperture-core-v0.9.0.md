@@ -14,9 +14,9 @@ workload.
 - scores 13 normalized Observation fields, eight observation-judgment fields,
   two decision fields, and exact end-to-end outcomes
 - records a 16-fixture calibration freeze, a retired V6 historical experiment,
-  and a fresh 38-fixture active release holdout
+  and a fresh 46-fixture active release holdout
 - requires 100% field and exact-outcome agreement across the active holdout's
-  38 expected outcomes
+  46 expected outcomes
 - consolidates task-failure payload parsing into the canonical observation
   grammar instead of maintaining a parallel grammar module
 - records the current semantic surface honestly: 105 modules, 165 exported
@@ -70,7 +70,7 @@ explicitly makes no independent-oracle claim:
 
 - calibration: 234/234 semantic fields, 144/144 judgment fields, 36/36 decision
   fields, and 18/18 exact outcomes
-- release holdout: 38/38 exact outcomes, with 12 typed-evidence and 26
+- release holdout: 46/46 exact outcomes, with 12 typed-evidence and 34
   structural-fallback fixtures
 - repeated-run determinism: stable for both scorecard and holdout
 

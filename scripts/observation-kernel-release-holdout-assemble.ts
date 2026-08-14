@@ -150,6 +150,70 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       "Measured source omission remains a bounded evidence loss independent of capability identity.",
     ),
     freshFixture(
+      "native-not-found-diagnostic",
+      "fallback-native-not-found-diagnostic",
+      byId.get("holdout-v5-fallback-runtime-diagnostic"),
+      "Execution returned native terminal stderr",
+      "The command crashed with fatal: repository not found. Process exited with code 1; stderr capture complete.",
+      "Native missing-target stderr remains an asserted runtime diagnostic rather than assertion negation.",
+    ),
+    freshFixture(
+      "native-command-not-found",
+      "fallback-native-command-not-found",
+      byId.get("holdout-v5-fallback-runtime-diagnostic"),
+      "Execution returned native terminal stderr",
+      "The command failed: bash: foo: command not found. Process exited with code 127; stderr capture complete.",
+      "Native command lookup stderr remains an asserted runtime diagnostic.",
+    ),
+    freshFixture(
+      "native-missing-path",
+      "fallback-native-missing-path",
+      byId.get("holdout-v5-fallback-runtime-diagnostic"),
+      "Execution returned native terminal stderr",
+      "The command failed: cat: /tmp/missing.txt: No such file or directory. Process exited with code 1; stderr capture complete.",
+      "Native missing-path stderr remains an asserted runtime diagnostic.",
+    ),
+    freshFixture(
+      "previous-example-success",
+      "fallback-previous-example-success",
+      byId.get("holdout-v5-fallback-complete-command-success"),
+      "Verification notification",
+      "A previous example failed with fatal: checksum mismatch, but the current command completed successfully with exit code 0.",
+      "A prior example cannot override the current complete success observation.",
+    ),
+    freshFixture(
+      "reference-verb-abstention",
+      "fallback-reference-verb-abstention",
+      byId.get("holdout-v5-fallback-indeterminate-failure"),
+      "Execution reference remains unasserted",
+      "The command was expected to fail, but reference material describes RuntimeError: worker crashed with exit code 1.",
+      "Reference prose with a descriptive verb remains unasserted and does not promote a failure.",
+    ),
+    freshFixture(
+      "example-command-diagnostic",
+      "fallback-example-command-diagnostic",
+      byId.get("holdout-v5-fallback-runtime-diagnostic"),
+      "Execution returned a terminal diagnostic",
+      "The example command crashed with RuntimeError at line 5 and returned the complete diagnostic. Exit code 1.",
+      "An executable example command remains live evidence; only reference frames abstain.",
+    ),
+    freshFixture(
+      "source-read-leading-word",
+      "fallback-source-read-leading-word",
+      byId.get("holdout-v5-fallback-bounded-source-window"),
+      "Only a bounded source window was returned",
+      "Source read produced a measured partial view: 80 lines beginning at offset 40 from a source totaling 640 lines.",
+      "A source-read leading phrase still classifies measured truncation as bounded evidence loss.",
+    ),
+    freshFixture(
+      "log-output-leading-word",
+      "fallback-log-output-leading-word",
+      byId.get("holdout-v5-fallback-bounded-source-window"),
+      "Only a bounded source window was returned",
+      "Log output was truncated: showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
+      "A log-output leading phrase still classifies measured truncation as bounded evidence loss.",
+    ),
+    freshFixture(
       "flattened-ordinary-words",
       "fallback-flattened-ordinary-words",
       byId.get("holdout-v5-fallback-complete-command-success"),
@@ -160,7 +224,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
   ];
 
   const fixtures = [...seedFixtures, ...freshFixtures];
-  if (fixtures.length !== 38) throw new Error(`Expected 38 fixtures, received ${fixtures.length}.`);
+  if (fixtures.length !== 46) throw new Error(`Expected 46 fixtures, received ${fixtures.length}.`);
   const methodology = {
     schemaVersion: 1,
     artifactKind: "release_holdout",
@@ -176,9 +240,9 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
     ),
     implementationFreeze:
       process.env.APERTURE_IMPLEMENTATION_FREEZE ?? "0000000000000000000000000000000000000000",
-    fixtureCount: 38,
+    fixtureCount: 46,
     typedEvidenceFixtureCount: 12,
-    structuralFallbackFixtureCount: 26,
+    structuralFallbackFixtureCount: 34,
     oracleProvenance: {
       author: "aperture-maintainer",
       authoredWithoutExecution: true,
@@ -187,7 +251,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       authoredWithoutCalibrationInspection: false,
       notes: [
         "This active holdout is an honest release regression and hardening set, not an independent oracle claim.",
-        "Twelve historical regression shapes are retained and fourteen new fallback shapes target the repaired grammar.",
+        "Twelve historical regression shapes are retained and twenty-two new fallback shapes target the repaired grammar.",
         "An independent adversarial re-audit remains required before publication.",
       ],
     },

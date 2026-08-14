@@ -3,12 +3,12 @@
   "baselineSurfaceDigest": "sha256:96944af3e5bb88d9e7afd56e291e689305364168df0849e4c105760a6c098aa6",
   "acceptedFailures": [
     "surface_comparison:new_normalized_observation_direct_consumer:packages/core/src/judgment-observation-contract.ts",
-    "surface_comparison:total_lines:9200>9171",
+    "surface_comparison:total_lines:9199>9171",
     "surface_comparison:matcher_sites:593>586",
-    "surface_comparison:semantic_lines:8243>8177",
-    "surface_comparison:task_failure_parsing_lines:1084>1067",
-    "surface_comparison:family_lines:task_failure_grammar:1187>1019",
+    "surface_comparison:semantic_lines:8242>8177",
+    "surface_comparison:task_failure_parsing_lines:1083>1067",
+    "surface_comparison:family_lines:task_failure_grammar:1186>1019",
     "surface_comparison:family_matcher_sites:task_failure_grammar:73>55"
   ],
-  "rationale": "This tranche replaces overlapping task-failure fallbacks with a bounded structural grammar and removes legacy paths. The corrective wave adds clause-order continuation, structural reference-frame abstention, and success precedence without adding modules, phrase literals, detector-shaped exports, or cross-family imports. The current report is exactly at, but does not exceed, the hard 9,200-line budget; the exact remaining growth against origin/main is the reviewed cost of binding asserted diagnostics to execution context. This approval should be reassessed after the branch merges into its protected base."
+  "rationale": "This tranche replaces overlapping task-failure fallbacks with a bounded structural grammar and removes legacy paths. The corrective wave adds clause-order continuation, structural reference-frame abstention, and success precedence without adding modules, phrase literals, detector-shaped exports, or cross-family imports. The current report is below the hard 9,200-line budget; the exact remaining growth against origin/main is the reviewed cost of binding asserted diagnostics to execution context. This approval should be reassessed after the branch merges into its protected base."
 }

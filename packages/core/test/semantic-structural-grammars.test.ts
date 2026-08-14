@@ -414,6 +414,11 @@ test("asserted terminal diagnostics survive omitted subject continuation", () =>
     "The command might fail, but it crashed with fatal: checksum mismatch. Exit code 1.",
     "Execution could have failed earlier. However, it actually terminated with TypeError at line 5.",
     "The process was expected to fail. The prior diagnostic was incomplete. However, it crashed with RuntimeError at line 5 and returned a complete runtime diagnostic.",
+    "The example command crashed with RuntimeError at line 5 and returned the complete diagnostic. Exit code 1.",
+    "The command crashed with fatal: repository not found. Process exited with code 1; stderr capture complete.",
+    "The command failed: bash: foo: command not found. Process exited with code 127; stderr capture complete.",
+    "The command failed: cat: /tmp/missing.txt: No such file or directory. Process exited with code 1; stderr capture complete.",
+    "The process crashed. RuntimeError: file not found at line 5 and a complete runtime diagnostic was returned. Exit code 1.",
   ]) {
     assert.equal(parseTaskFailureEventFact(summary), "runtime_diagnostic", summary);
     const evidence = readFailure(summary, "bash");
@@ -434,6 +439,8 @@ test("asserted terminal diagnostics survive omitted subject continuation", () =>
     "The command was expected to fail, but the example fixture says it crashed with RuntimeError at line 5 and returned the complete diagnostic.",
     "The command was expected to fail, but an example says it crashed with RuntimeError at line 5 and returned the complete diagnostic.",
     "The command was expected to fail, but the example template says it crashed with RuntimeError at line 5 and returned the complete diagnostic.",
+    "The command was expected to fail, but reference material describes RuntimeError: worker crashed with exit code 1.",
+    "The command was expected to fail, but the documentation mentions RuntimeError: worker crashed with exit code 1.",
     "It crashed with RuntimeError at line 5. Separately, the command was expected to fail.",
   ]) {
     assert.notEqual(parseTaskFailureEventFact(summary), "runtime_diagnostic", summary);
@@ -476,6 +483,9 @@ test("reference-frame diagnostics cannot override asserted terminal success", ()
     "Example fixture: TypeError: decoder failed at x. Process exited with code 0. Result: completed successfully.",
     "Process exited with code 0. Result: completed successfully. Example fixture: TypeError: decoder failed at x.",
     "fatal: checksum mismatch was a previous example. The current command completed successfully with exit code 0.",
+    "A previous example failed with fatal: checksum mismatch, but the current command completed successfully with exit code 0.",
+    "A prior example failed with fatal: checksum mismatch, but the current command completed successfully with exit code 0.",
+    "Previous example: fatal: checksum mismatch. The current command completed successfully with exit code 0.",
   ]) {
     assert.equal(parseTaskFailureEventFact(summary), "terminal_success", summary);
   }

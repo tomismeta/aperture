@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 
 import {
@@ -118,11 +119,13 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
     holdoutId: "observation-kernel-release-holdout-20260813",
     releaseTarget: "next-core-release",
     observationContractId: historical.methodology.observationContractId,
-    observationContractDigest: historical.methodology.observationContractDigest,
+    observationContractDigest: await sha256File("docs/engine/observation-judgment-contract-v1.md"),
     sourceEvidenceContractId: historical.methodology.sourceEvidenceContractId,
-    sourceEvidenceContractDigest: historical.methodology.sourceEvidenceContractDigest,
+    sourceEvidenceContractDigest: await sha256File("docs/engine/source-evidence-contract-v1.md"),
     outputContractId: historical.methodology.outputContractId,
-    outputContractDigest: historical.methodology.outputContractDigest,
+    outputContractDigest: await sha256File(
+      "packages/lab/conformance/observation-kernel-holdout-v5-output-contract.json",
+    ),
     implementationFreeze:
       process.env.APERTURE_IMPLEMENTATION_FREEZE ?? "0000000000000000000000000000000000000000",
     fixtureCount: 32,
@@ -148,6 +151,12 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
   const artifact = { methodology, fixtures };
   await writeFile(TARGET_PATH, `${serializeKernelCanonicalJson(artifact)}\n`, "utf8");
   process.stdout.write(`${digestKernelCanonicalJson(artifact)}\n`);
+}
+
+async function sha256File(path: string): Promise<string> {
+  return `sha256:${createHash("sha256")
+    .update(await readFile(path))
+    .digest("hex")}`;
 }
 
 function freshFixture(

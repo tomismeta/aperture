@@ -66,19 +66,19 @@
           "const": "aperture-observation-judgment-contract/v1"
         },
         "observationContractDigest": {
-          "const": "sha256:12fcb300d3539d147a15621ce8b3f063271b5a08812605ce418704ead19b1f66"
+          "const": "sha256:57b79ade46e476378695a0652f7fe145bc6ee3dc9fa351f7994370419158086f"
         },
         "sourceEvidenceContractId": {
           "const": "aperture-source-evidence-contract/v1"
         },
         "sourceEvidenceContractDigest": {
-          "const": "sha256:78dff530a44fdc532fbe5790dd496d40e0295ba09b4ef8676b0ed7f70f5af715"
+          "const": "sha256:ba6d6ba64e3b5cf6bf99edda9248cec30f8958c532f9f56cc77248140bfd125c"
         },
         "outputContractId": {
           "const": "aperture-source-evidence-observation-projection/v2"
         },
         "outputContractDigest": {
-          "const": "sha256:b57e9efe4863d1a3060d365f426c4471b38ac80964777a8f2013c3f886abb455"
+          "const": "sha256:3c9ca79b89cd39571f7d24f866edf0b88d49e76e16a9216fd741fdca3bc35032"
         },
         "implementationFreeze": {
           "const": "2926ea9489526a572e232da51584f224cbcc7252"

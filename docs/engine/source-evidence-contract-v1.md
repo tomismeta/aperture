@@ -3,7 +3,7 @@
 Status: normative for `@tomismeta/aperture-core/kernel`.
 
 `SourceEvidence` is the only typed input boundary between reliable host-native
-result facts and Aperture's normalized Observation. It is optional, closed, and
+result facts and Aperture's canonical Observation. It is optional, closed, and
 valid only on failed task or work updates.
 
 ## Authority
@@ -22,7 +22,7 @@ The host supplies source facts only. Core owns and derives:
 - diagnostic and recovery classification
 - baseline consequence and deterministic judgment
 
-Hosts must not construct `NormalizedObservation`, judgment inputs, or judgment
+Hosts must not construct `Observation`, judgment inputs, or judgment
 outputs. `facts.capabilityFamily` is opaque identity and may establish ownership
 only; its value never implies semantic behavior.
 
@@ -54,7 +54,7 @@ KernelEvent
   -> SourceEvent
   -> private observation syntax
   -> Observation semantics
-  -> NormalizedObservation
+  -> Observation
   -> deterministic judgment
 ```
 

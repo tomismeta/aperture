@@ -179,13 +179,13 @@ Current review evidence:
 - `pnpm kernel:corpus` verifies both the full corpus conformance report and a
   compact scorecard for scenario count, dimension coverage, semantic ontology
   checkpoints, decision projection checkpoints, relation checkpoints,
-  NormalizedObservation checkpoints, decision-fingerprint uniqueness, and
+  Observation checkpoints, decision-fingerprint uniqueness, and
   semantic/judgment outcome coverage as a reported snapshot
 - the scorecard carries per-scenario semantic ontology, relation, and decision
-  projection checkpoint digests, per-scenario NormalizedObservation checkpoint
+  projection checkpoint digests, per-scenario Observation checkpoint
   digests, plus actual outcome distributions for semantic intents, activities,
   consequences, ontology sources, judgment routes, lanes, confidence, failure
-  details, and NormalizedObservation dimensions; `pnpm kernel:corpus` compares
+  details, and Observation dimensions; `pnpm kernel:corpus` compares
   the generated scorecard against the committed baseline so aggregate totals
   cannot hide a lost scenario-specific semantic/judgment assertion, a lost
   normalized semantic document, or a lost covered outcome shape
@@ -285,12 +285,12 @@ Additional branch evidence:
   historical evidence. v6 covers 50 scenarios, 16 dimensions, 2,050 passing
   corpus assertions, 59 ontology checkpoints, 70 decision projection
   checkpoints, 13 relation checkpoints, and 23 unique decision fingerprints,
-  while tracking 37 per-scenario NormalizedObservation checkpoints across 34
+  while tracking 37 per-scenario Observation checkpoints across 34
   scenarios plus private
-  NormalizedObservation outcome coverage for presence, kind, polarity, semantic
+  Observation outcome coverage for presence, kind, polarity, semantic
   agreement, evidence loss, diagnostic class, recovery hint, subject, owner,
   evidence strength, and provenance origin/authority.
-- semantic compression checkpoint after `NormalizedObservation`: edit-output
+- semantic compression checkpoint after `Observation`: edit-output
   failure/applied result parsing moved from exact template variants to
   structural clauses for precondition failures, replacement misses, ambiguous
   targets, no-op replacements, and applied edits. The edit-output matcher-site
@@ -302,7 +302,7 @@ Additional branch evidence:
   `judgmentInput.failureEvidence` access through direct property reads, bracket
   reads, optional chaining, destructuring, and one-step aliases, keeping raw
   task-failure evidence local to semantic evidence readers and the
-  `NormalizedObservation` normalizer.
+  `Observation` normalizer.
 - no-matching command-work payloads are now covered by structural outcome-only
   terminal grammar, a focused evaluator regression, and the kernel corpus
   scenario

@@ -70,7 +70,7 @@ explicitly makes no independent-oracle claim:
 
 - calibration: 234/234 semantic fields, 144/144 judgment fields, 36/36 decision
   fields, and 18/18 exact outcomes
-- release holdout: 46/46 exact outcomes, with 12 typed-evidence and 34
+- release holdout: 47/47 exact outcomes, with 12 typed-evidence and 35
   structural-fallback fixtures
 - repeated-run determinism: stable for both scorecard and holdout
 

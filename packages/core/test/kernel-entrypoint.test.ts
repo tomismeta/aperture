@@ -334,6 +334,27 @@ test("kernel canonicalizes capability family case before semantic matching", () 
   assert.deepEqual(mixedCase.observationJudgment, lowercase.observationJudgment);
 });
 
+test("kernel preserves unprefixed native stderr with an explicit capability fact", () => {
+  for (const [id, summary] of [
+    [
+      "native-command-not-found",
+      "bash: foo: command not found\nProcess exited with code 127; stderr capture complete.",
+    ],
+    [
+      "native-missing-path",
+      "cat: /tmp/missing.txt: No such file or directory\nProcess exited with code 1; stderr capture complete.",
+    ],
+  ] as const) {
+    const result = evaluateApertureKernelEvent(
+      failedTaskEvent(id, summary, { capabilityFamily: "bash" }),
+    );
+
+    assert.equal(result.observation?.kind, "diagnostic", summary);
+    assert.equal(result.observation?.diagnosticClass, "runtime", summary);
+    assert.equal(result.observationJudgment?.statusEvidence, "visible_diagnostic_failure", summary);
+  }
+});
+
 test("kernel projects one normalized activity category", () => {
   const result = evaluateApertureKernelEvent(
     failedTaskEvent(

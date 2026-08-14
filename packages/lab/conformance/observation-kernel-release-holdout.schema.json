@@ -39,9 +39,9 @@
         "outputContractId": { "type": "string", "minLength": 1 },
         "outputContractDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "implementationFreeze": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-        "fixtureCount": { "const": 46 },
+        "fixtureCount": { "const": 47 },
         "typedEvidenceFixtureCount": { "const": 12 },
-        "structuralFallbackFixtureCount": { "const": 34 },
+        "structuralFallbackFixtureCount": { "const": 35 },
         "oracleProvenance": {
           "type": "object",
           "additionalProperties": false,
@@ -67,8 +67,8 @@
     },
     "fixtures": {
       "type": "array",
-      "minItems": 46,
-      "maxItems": 46,
+      "minItems": 47,
+      "maxItems": 47,
       "items": {
         "type": "object",
         "additionalProperties": false,

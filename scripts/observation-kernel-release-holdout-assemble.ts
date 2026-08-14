@@ -214,6 +214,14 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       "A log-output leading phrase still classifies measured truncation as bounded evidence loss.",
     ),
     freshFixture(
+      "short-log-output-leading-word",
+      "fallback-short-log-output-leading-word",
+      byId.get("holdout-v5-fallback-bounded-source-window"),
+      "Only a bounded source window was returned",
+      "Log output was truncated: showing lines 41-80 of 400.",
+      "A measured log range is bounded evidence loss even when no clipped-remainder clause is present.",
+    ),
+    freshFixture(
       "flattened-ordinary-words",
       "fallback-flattened-ordinary-words",
       byId.get("holdout-v5-fallback-complete-command-success"),
@@ -224,7 +232,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
   ];
 
   const fixtures = [...seedFixtures, ...freshFixtures];
-  if (fixtures.length !== 46) throw new Error(`Expected 46 fixtures, received ${fixtures.length}.`);
+  if (fixtures.length !== 47) throw new Error(`Expected 47 fixtures, received ${fixtures.length}.`);
   const methodology = {
     schemaVersion: 1,
     artifactKind: "release_holdout",
@@ -240,9 +248,9 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
     ),
     implementationFreeze:
       process.env.APERTURE_IMPLEMENTATION_FREEZE ?? "0000000000000000000000000000000000000000",
-    fixtureCount: 46,
+    fixtureCount: 47,
     typedEvidenceFixtureCount: 12,
-    structuralFallbackFixtureCount: 34,
+    structuralFallbackFixtureCount: 35,
     oracleProvenance: {
       author: "aperture-maintainer",
       authoredWithoutExecution: true,
@@ -251,7 +259,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       authoredWithoutCalibrationInspection: false,
       notes: [
         "This active holdout is an honest release regression and hardening set, not an independent oracle claim.",
-        "Twelve historical regression shapes are retained and twenty-two new fallback shapes target the repaired grammar.",
+        "Twelve historical regression shapes are retained and twenty-three new fallback shapes target the repaired grammar.",
         "An independent adversarial re-audit remains required before publication.",
       ],
     },

@@ -2150,6 +2150,7 @@ test("task failure evidence treats read source-window limits as bounded terminal
       "log-output",
       "Log output was truncated: showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
     ],
+    ["short-log-output", "Log output was truncated: showing lines 41-80 of 400."],
   ] as const) {
     const signals = readTaskFailureSemanticSignals({ summary, toolFamily: "read" });
     const evidence = readTaskFailureSemanticEvidence({

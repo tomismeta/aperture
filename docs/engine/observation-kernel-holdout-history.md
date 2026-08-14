@@ -47,6 +47,17 @@ The rationale for `holdout-release-title-summary-abstention` was also expanded
 to state that the generic title cannot override quoted or outcome-only fallback
 text. This was a documentation correction, not an expected-output change.
 
+## Subject-continuation corrective wave
+
+The active holdout now includes `holdout-release-continued-diagnostic`, which
+keeps an expected execution clause and a later asserted diagnostic without
+repeating the execution subject. The structural grammar accepts this only when
+the same evidence also establishes an execution context; a bare pronoun
+diagnostic, blocked execution, and incomplete diagnostic remain indeterminate.
+The fixture count is 33, with 12 typed-evidence and 21 structural-fallback
+fixtures. This is a regression guard for the semantic grammar, not an
+independent oracle or a claim of broad language coverage.
+
 The active custody artifact records the resulting digest and implementation
 freeze. Future holdout changes must update custody through the release-holdout
 workflow and must state whether they alter inputs, rationales, or expected

@@ -86,6 +86,14 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       "A later asserted runtime diagnostic remains authoritative after an earlier negated clause.",
     ),
     freshFixture(
+      "continued-diagnostic",
+      "fallback-continued-diagnostic",
+      byId.get("holdout-v5-fallback-runtime-diagnostic"),
+      "Execution returned a terminal diagnostic",
+      "The command was expected to fail, but it crashed with RuntimeError at line 5 and returned the complete diagnostic.",
+      "An asserted diagnostic remains authoritative when a later terminal clause continues an expected execution without repeating its subject.",
+    ),
+    freshFixture(
       "hypothetical-diagnostic",
       "fallback-hypothetical-diagnostic",
       byId.get("holdout-v5-fallback-indeterminate-failure"),
@@ -112,7 +120,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
   ];
 
   const fixtures = [...seedFixtures, ...freshFixtures];
-  if (fixtures.length !== 32) throw new Error(`Expected 32 fixtures, received ${fixtures.length}.`);
+  if (fixtures.length !== 33) throw new Error(`Expected 33 fixtures, received ${fixtures.length}.`);
   const methodology = {
     schemaVersion: 1,
     artifactKind: "release_holdout",
@@ -128,9 +136,9 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
     ),
     implementationFreeze:
       process.env.APERTURE_IMPLEMENTATION_FREEZE ?? "0000000000000000000000000000000000000000",
-    fixtureCount: 32,
+    fixtureCount: 33,
     typedEvidenceFixtureCount: 12,
-    structuralFallbackFixtureCount: 20,
+    structuralFallbackFixtureCount: 21,
     oracleProvenance: {
       author: "aperture-maintainer",
       authoredWithoutExecution: true,
@@ -139,7 +147,7 @@ export async function assembleObservationKernelReleaseHoldout(): Promise<void> {
       authoredWithoutCalibrationInspection: false,
       notes: [
         "This active holdout is an honest release regression and hardening set, not an independent oracle claim.",
-        "Twelve historical regression shapes are retained and eight new fallback shapes target the repaired grammar.",
+        "Twelve historical regression shapes are retained and nine new fallback shapes target the repaired grammar.",
         "An independent adversarial re-audit remains required before publication.",
       ],
     },

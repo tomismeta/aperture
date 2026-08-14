@@ -14,9 +14,9 @@ workload.
 - scores 13 normalized Observation fields, eight observation-judgment fields,
   two decision fields, and exact end-to-end outcomes
 - records a 16-fixture calibration freeze, a retired V6 historical experiment,
-  and a fresh 32-fixture active release holdout
+  and a fresh 33-fixture active release holdout
 - requires 100% field and exact-outcome agreement across the active holdout's
-  32 expected outcomes
+  33 expected outcomes
 - consolidates task-failure payload parsing into the canonical observation
   grammar instead of maintaining a parallel grammar module
 - records the current semantic surface honestly: 105 modules, 165 exported
@@ -35,6 +35,9 @@ workload.
   legacy provider-specific rejection scripts are no longer control evidence and
   may surface as indeterminate critical failures; hosts should map
   authorization to typed `SourceEvidence` or emit structural pre-execution facts
+- preserves later asserted diagnostics when an expected or modal execution
+  clause is followed by a terminal diagnostic without repeating the subject;
+  bare pronoun diagnostics and blocked execution remain indeterminate
 - preserves historical scorecard proof metadata and marks proofless historical
   baselines as protected regression comparisons rather than release proof
 - proves two unrelated host event shapes can produce the same public-kernel
@@ -63,7 +66,7 @@ explicitly makes no independent-oracle claim:
 
 - calibration: 234/234 semantic fields, 144/144 judgment fields, 36/36 decision
   fields, and 18/18 exact outcomes
-- release holdout: 32/32 exact outcomes, with 12 typed-evidence and 20
+- release holdout: 33/33 exact outcomes, with 12 typed-evidence and 21
   structural-fallback fixtures
 - repeated-run determinism: stable for both scorecard and holdout
 

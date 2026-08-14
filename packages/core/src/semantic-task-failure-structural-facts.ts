@@ -17,24 +17,31 @@ export function readStructuralTaskFailureFact(input: {
     text,
     authoritativeText,
     scopeText,
-    diagnosticScopeText = scopeText,
+    diagnosticScopeText: context = scopeText,
     documentPayload = false,
     contradiction,
   } = input;
-  const lower = text.toLowerCase();
-  const authority = authoritativeText.toLowerCase();
+  const lower = text.toLowerCase(),
+    authority = authoritativeText.toLowerCase();
   const exits = readAssertedExitCodes(text);
-  const actualExecution = ACTUAL_EXECUTION.test(lower) && !BLOCKED_EXECUTION.test(lower);
   const completeDiagnostic = COMPLETE_DIAGNOSTIC.test(lower) && !INCOMPLETE_DIAGNOSTIC.test(lower);
   if (new Set(exits).size > 1) return null;
   const diagnostic =
     !sameAssertionShape(lower, INCOMPLETE_DIAGNOSTIC, DIRECT_DIAGNOSTIC) &&
     (DIRECT_DIAGNOSTIC.test(lower) || completeDiagnostic) &&
     hasAny(lower, [" at ", "diagnostic", "fatal:", "stderr", "crashed", "failed"]) &&
-    !hasNegatedDiagnostic(diagnosticScopeText);
+    !hasNegatedDiagnostic(context);
   const ownedDiagnostic = completeDiagnostic && OWNED_DIAGNOSTIC.test(lower);
   const acceptedDiagnostic =
     diagnostic && (!documentPayload || ownedDiagnostic || !MODAL.test(scopeText));
+  const actualExecution =
+    !BLOCKED_EXEC.test(lower) &&
+    (ACTUAL_EXECUTION.test(lower) ||
+      (diagnostic &&
+        hasAny(lower, TERMINAL) &&
+        !MODAL.test(lower) &&
+        ACTUAL_EXECUTION.test(context) &&
+        !BLOCKED_EXEC.test(context)));
   const absent =
     !hasAny(`${lower} ${authority} ${scopeText.toLowerCase()}`, ["not a failure"]) &&
     !hasAny(lower, OUTCOME_ONLY) &&
@@ -60,7 +67,6 @@ export function readStructuralTaskFailureFact(input: {
     !lower.includes("diagnostic channel is missing");
   if (
     actualExecution &&
-    hasAny(lower, TERMINAL) &&
     (acceptedDiagnostic || ownedDiagnostic) &&
     (exits.length > 0 || ownedDiagnostic || acceptedDiagnostic)
   )
@@ -101,8 +107,8 @@ function readAssertedExitCodes(text: string): number[] {
 }
 const EXECUTION = "command|process|subprocess|worker|execution|invocation|operation".split("|");
 const ACTUAL_EXECUTION =
-  /\b(?:execution|operation|invocation|command|process|subprocess|worker|tool)(?:\s+invocation)?\b[^.!?;]*\b(?:start(?:ed)?|run|ran|execute[ds]?|occurred|completed|finished|terminated|crashed|failed|exited|performed)\b/i;
-const BLOCKED_EXECUTION =
+  /\b(?:execution|operation|invocation|command|process|subprocess|worker|tool)(?:\s+invocation)?\b[^.!?;]*\b(?:start(?:ed)?|run|ran|execute[ds]?|occurred|completed|finished|terminated|crashed|fail(?:ed)?|exited|performed)\b/i;
+const BLOCKED_EXEC =
   /\b(?:execution|operation|invocation|command|process|subprocess|worker|tool)(?:\s+invocation)?\b[^.!?;]*\b(?:did|was|has)\s+not\s+(?:start(?:ed)?|run|execute[ds]?|occurred|perform|produce|return)|\bnever\s+(?:started|ran|executed|occurred)|\bno\s+(?:tool\s+call|invocation|execution)\s+(?:occurred|started)\b/i;
 const TERMINAL =
   "exit|return|started|ran|executed|occurred|terminated|completed|finished|ended|failed|crashed".split(

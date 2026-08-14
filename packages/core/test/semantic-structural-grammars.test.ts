@@ -406,6 +406,32 @@ test("modal diagnostics abstain without suppressing later asserted diagnostics",
   assert.equal(readFailure(laterDiagnostic, "bash")?.failureDetail, "diagnostic");
 });
 
+test("asserted terminal diagnostics survive omitted subject continuation", () => {
+  for (const summary of [
+    "Execution would have failed with TypeError if the guard had not caught it, but it actually crashed with RuntimeError at line 5 and the complete diagnostic was returned.",
+    "The command was expected to fail, but it crashed with RuntimeError at line 5 and returned the complete diagnostic.",
+    "Execution could have failed earlier. However, it actually terminated with TypeError at line 5.",
+    "The process was expected to fail. The prior diagnostic was incomplete. However, it crashed with RuntimeError at line 5 and returned a complete runtime diagnostic.",
+  ]) {
+    assert.equal(parseTaskFailureEventFact(summary), "runtime_diagnostic", summary);
+    const evidence = readFailure(summary, "bash");
+    assert.equal(evidence?.failureDetail, "diagnostic", summary);
+    assert.equal(evidence?.observationSyntax?.diagnosticClass, "runtime", summary);
+  }
+
+  for (const summary of [
+    "It would have crashed with RuntimeError at line 5.",
+    "It could have terminated with TypeError at line 5.",
+    "It did not crash with RuntimeError at line 5.",
+    "The documentation says that it crashed with RuntimeError at line 5.",
+    "It crashed with an incomplete diagnostic containing RuntimeError.",
+    "It crashed with RuntimeError at line 5.",
+  ]) {
+    assert.notEqual(parseTaskFailureEventFact(summary), "runtime_diagnostic", summary);
+    assert.notEqual(readFailure(summary, "bash")?.failureDetail, "diagnostic", summary);
+  }
+});
+
 test("structural fallback facts remain conservative around incomplete or contradictory evidence", () => {
   for (const summary of [
     "Command: npm run verify\nExit code: 0\nResult: completed successfully. RuntimeError: a prior example failed.",

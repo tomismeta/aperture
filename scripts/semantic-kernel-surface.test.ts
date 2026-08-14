@@ -39,6 +39,7 @@ test("semantic kernel surface report covers every declared family", async () => 
   assert.equal(report.summary.taskFailureParsingLines > 0, true);
   assert.deepEqual(report.imports.normalizedObservationDirectConsumers, [
     "packages/core/src/judgment-input-types.ts",
+    "packages/core/src/judgment-observation-contract.ts",
     "packages/core/src/task-failure-observation-normalizer.ts",
     "packages/core/src/trace-recorder.ts",
   ]);

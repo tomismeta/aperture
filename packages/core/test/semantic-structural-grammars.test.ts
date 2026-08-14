@@ -336,6 +336,50 @@ test("structural fallback facts lower terminal and bounded evidence through one 
   }
 });
 
+test("fatal diagnostics remain stable when log lines are flattened", () => {
+  for (const summary of [
+    "$ verify-index\nfatal: index checksum mismatch\nProcess exited with code 1; stderr capture complete.",
+    "$ verify-index\nerror: index checksum mismatch\nProcess exited with code 1; stderr capture complete.",
+  ]) {
+    const flattened = summary.replaceAll("\n", " ");
+    assert.equal(parseTaskFailureEventFact(summary), "runtime_diagnostic", summary);
+    assert.equal(parseTaskFailureEventFact(flattened), "runtime_diagnostic", flattened);
+  }
+
+  assert.equal(
+    parseTaskFailureEventFact(
+      "$ verify-index\nfatal: stale index text\nProcess executed and completed successfully with exit code 0; stderr capture complete.",
+    ),
+    null,
+  );
+  assert.equal(
+    parseTaskFailureEventFact(
+      'The documentation quotes "error: expected fixture"; the process did not run and no result exists.',
+    ),
+    null,
+  );
+});
+
+test("incomplete diagnostic envelopes do not promote direct runtime words", () => {
+  for (const summary of [
+    "Execution terminated. The record contains an incomplete diagnostic with a RuntimeError note.",
+    "The process ended. A partial runtime diagnostic reports that the worker crashed.",
+    "The command completed. An abbreviated diagnostic includes a fatal: checksum mismatch marker.",
+  ]) {
+    assert.equal(parseTaskFailureEventFact(summary), null, summary);
+    const evidence = readFailure(summary, "Opaque.Executor/9");
+    assert.notEqual(evidence?.failureDetail, "diagnostic", summary);
+    assert.notEqual(evidence?.observationSyntax?.diagnosticClass, "runtime", summary);
+  }
+
+  assert.equal(
+    parseTaskFailureEventFact(
+      "The prior record contains an incomplete diagnostic. However, execution terminated with RuntimeError: worker crashed and a complete runtime diagnostic was returned.",
+    ),
+    "runtime_diagnostic",
+  );
+});
+
 test("structural fallback facts remain conservative around incomplete or contradictory evidence", () => {
   for (const summary of [
     "Command: npm run verify\nExit code: 0\nResult: completed successfully. RuntimeError: a prior example failed.",

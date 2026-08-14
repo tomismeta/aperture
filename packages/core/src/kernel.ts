@@ -1,13 +1,16 @@
 import type { EnrichedApertureEvent, SourceEvidence } from "./events.js";
 import { EventEvaluator } from "./event-evaluator.js";
 import { assertValidSourceEvent } from "./aperture-core-validation.js";
-import { judgeObservation, type ObservationJudgment } from "./judgment-observation-contract.js";
-import type { AttentionJudgmentInput } from "./judgment-input-types.js";
+import {
+  judgeObservation,
+  type Observation,
+  type ObservationJudgment,
+} from "./judgment-observation-contract.js";
 import { normalizeSourceEvent } from "./semantic-normalizer.js";
 import type { SourceEvent } from "./source-event.js";
 
 export type { SourceEvidence } from "./events.js";
-export type { Observation } from "./judgment-input-types.js";
+export type { Observation } from "./judgment-observation-contract.js";
 export type { ObservationJudgment } from "./judgment-observation-contract.js";
 
 export type ApertureKernelConsequenceLevel = "low" | "medium" | "high";
@@ -174,8 +177,6 @@ export type ApertureKernelResult = {
   observationJudgment: ObservationJudgment | null;
   explanation: ApertureKernelExplanation;
 };
-
-type Observation = NonNullable<AttentionJudgmentInput["observation"]>;
 
 export type ApertureKernelExplanation = {
   schemaVersion: typeof APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION;

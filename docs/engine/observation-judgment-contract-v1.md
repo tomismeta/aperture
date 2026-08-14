@@ -47,7 +47,7 @@ flattens it into 13 fields; the public kernel nests owner and provenance and use
 Transport status and semantic polarity are separate. A failed transport status
 does not rewrite an explicit successful outcome or neutral payload.
 
-### `owner` and `toolFamily`
+### `ownership.owner` and `ownership.capabilityFamily`
 
 - `tool`: evidence is owned by an explicitly identified capability or tool
 - `source`: evidence is source-owned without an identified tool

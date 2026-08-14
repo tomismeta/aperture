@@ -385,10 +385,7 @@ async function assertPackagedRuntimeUsesCurrentCore(
       "runtime readback judgment input",
     );
     assert.equal(Object.hasOwn(readbackJudgmentInput, "failureEvidence"), false);
-    assert.equal(
-      Object.hasOwn(readbackJudgmentInput, "routineObservationalStatusConflict"),
-      false,
-    );
+    assert.equal(Object.hasOwn(readbackJudgmentInput, "routineObservationalStatusConflict"), false);
     const readbackObservation = asRecord(
       readbackJudgmentInput.observation,
       "runtime readback observation",
@@ -400,7 +397,7 @@ async function assertPackagedRuntimeUsesCurrentCore(
     assert.equal(readbackObservation.consequenceBaseline, "high");
     const readbackOwnership = asRecord(readbackObservation.ownership, "runtime readback owner");
     assert.equal(readbackOwnership.owner, "tool");
-    assert.equal(readbackOwnership.toolFamily, "edit");
+    assert.equal(readbackOwnership.capabilityFamily, "edit");
     const readbackConflict = asRecord(
       readbackJudgmentInput.observationalStatusConflict,
       "runtime readback observational status conflict",

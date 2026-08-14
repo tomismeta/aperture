@@ -1,9 +1,6 @@
 import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import {
-  judgeObservation,
-  type ObservationJudgment,
-} from "./judgment-observation-contract.js";
+import { judgeObservation, type ObservationJudgment } from "./judgment-observation-contract.js";
 import { buildObservationStatusConflictEvidenceFromCore } from "./judgment-observation-status-conflict.js";
 import { projectAttentionOntologyDiagnosticWithStatusConflictEvidence } from "./attention-ontology-projector.js";
 import type { SemanticConfidence } from "./semantic-types.js";

@@ -394,7 +394,13 @@ async function main(): Promise<void> {
       ["-xOzf", tarballPath, "package/public-dist/kernel.d.ts"],
       { cwd: repoRoot, stdio: ["ignore", "pipe", "inherit"], encoding: "utf8" },
     );
-    assert.equal(kernelDeclaration.includes("observational-status-conflict"), false);
+    for (const forbiddenKernelDeclaration of [
+      "observational-status-conflict",
+      "AttentionJudgmentInput",
+      "toolFamily",
+    ]) {
+      assert.equal(kernelDeclaration.includes(forbiddenKernelDeclaration), false);
+    }
     assert.equal(kernelDeclaration.includes("SourceEvent"), false);
     assert.equal(kernelDeclaration.includes("EnrichedApertureEvent"), false);
 

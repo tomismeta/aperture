@@ -1,6 +1,8 @@
-import type { ObservationalStatusConflictKind } from "./observational-status-conflict.js";
+import type { Observation } from "./normalized-observation.js";
 
-type ObservationInput = import("./normalized-observation.js").Observation;
+export type { Observation } from "./normalized-observation.js";
+
+type ObservationInput = Observation;
 type ObservationStatusConflictShape = Pick<
   ObservationInput,
   | "kind"
@@ -20,7 +22,14 @@ export type ObservationJudgment = {
     | "stable_observation"
     | "visible_diagnostic_failure"
     | "weak_or_uncertain";
-  statusConflictKind: ObservationalStatusConflictKind | null;
+  statusConflictKind:
+    | "command_success_observation"
+    | "execution_success_observation"
+    | "payload_observation"
+    | "rejected_tool_use_observation"
+    | "search_output_observation"
+    | "structured_output_observation"
+    | null;
   recoveryPosture:
     | "authorization_required"
     | "diagnostic_inspection"
@@ -74,13 +83,13 @@ export function judgeObservation(observation: ObservationInput): ObservationJudg
 
 export function resolveObservationStatusConflictKind(
   observation: ObservationInput,
-): ObservationalStatusConflictKind | null {
+): ObservationJudgment["statusConflictKind"] {
   return resolveObservationStatusConflictKindFromShape(observation);
 }
 
 export function resolveObservationStatusConflictKindFromShape(
   observation: ObservationStatusConflictShape,
-): ObservationalStatusConflictKind | null {
+): ObservationJudgment["statusConflictKind"] {
   if (observation.kind === "control") {
     return readObservationRecoveryPosture(observation) === "authorization_required" &&
       observation.ownership.owner === "tool" &&

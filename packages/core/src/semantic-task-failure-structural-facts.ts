@@ -1,3 +1,4 @@
+import { splitAssertions } from "./semantic-task-failure-assertion-scope.js";
 export type StructuralTaskFailureFact =
   | "absent_failure"
   | "runtime_diagnostic"
@@ -29,6 +30,7 @@ export function readStructuralTaskFailureFact(input: {
   const completeDiagnostic = COMPLETE_DIAGNOSTIC.test(lower) && !INCOMPLETE_DIAGNOSTIC.test(lower);
   if (new Set(exits).size > 1) return null;
   const diagnostic =
+    !sameAssertionShape(lower, INCOMPLETE_DIAGNOSTIC, DIRECT_DIAGNOSTIC) &&
     (DIRECT_DIAGNOSTIC.test(lower) || completeDiagnostic) &&
     hasAny(lower, [" at ", "diagnostic", "fatal:", "stderr", "crashed", "failed"]) &&
     !hasNegatedDiagnostic(`${lower} ${allPositiveText} ${diagnosticScopeText.toLowerCase()}`);
@@ -78,20 +80,18 @@ export function readStructuralTaskFailureFact(input: {
 }
 const hasAny = (value: string, terms: readonly string[] | RegExp): boolean =>
   terms instanceof RegExp ? terms.test(value) : terms.some((term) => value.includes(term));
+const ASSERTION_ADVERSATIVE = /\s+(?:but|however|yet)\s+/;
+const lastAssertion = (value: string) =>
+  value.toLowerCase().split(ASSERTION_ADVERSATIVE).at(-1) ?? "";
+const sameAssertionShape = (value: string, first: RegExp, second: RegExp): boolean =>
+  splitAssertions(value).some((clause) => first.test(clause) && second.test(clause));
 const hasSuccessConflict = (value: string): boolean =>
   SUCCESS_NEGATIVE.test(
     value
       .replace(/(?:[a-z]:)?[\\/]?[\w.-]+(?:[\\/][\w.-]+)+/gi, " ")
       .replaceAll("standard error", ""),
   );
-const lastAssertion = (value: string) =>
-  [" but ", " however ", " yet "].reduce(
-    (tail, separator) => tail.split(separator).at(-1) ?? tail,
-    value.toLowerCase(),
-  );
-const hasNegatedDiagnostic = (value: string) =>
-  NEGATED_DIAGNOSTIC.test(lastAssertion(value)) ||
-  /\b(?:hypothetical|counterfactual|conditional|simulated)\b/i.test(lastAssertion(value));
+const hasNegatedDiagnostic = (value: string) => NEGATED_DIAGNOSTIC.test(lastAssertion(value));
 function readAssertedExitCodes(text: string): number[] {
   return [...text.matchAll(EXIT)].flatMap((match) => {
     const clause =
@@ -115,9 +115,9 @@ const TERMINAL =
     "|",
   );
 const DIRECT_DIAGNOSTIC =
-  /\b(?:runtime\s+failure|runtimeerror|typeerror|referenceerror|syntaxerror|assertionerror|traceback|segmentation\s+fault|invalid\s+memory\s+access|memory\s+allocation\s+failed|out\s+of\s+memory|assertion\s+failed|command\s+not\s+found|symbol\s+lookup\s+error|library\s+load\s+error|uncaught\s+exception)\b|(?:^|[\r\n])\s*(?:fatal:|error:)\s+\S/i;
+  /\b(?:runtime\s+failure|runtimeerror|typeerror|referenceerror|syntaxerror|assertionerror|traceback|segmentation\s+fault|invalid\s+memory\s+access|memory\s+allocation\s+failed|out\s+of\s+memory|assertion\s+failed|command\s+not\s+found|symbol\s+lookup\s+error|library\s+load\s+error|uncaught\s+exception)\b|\b(?:fatal:|error:)\s+\S/i;
 const NEGATED_DIAGNOSTIC =
-  /(?:\b(?:no|without|not)\s+(?:an?\s+)?(?:runtime\s+failure|failure|error|exception|fault|crash(?:ed)?|traceback|segmentation\s+fault)\b|\b(?:den(?:y|ies|ied)|ruled\s+out|excluded|unconfirmed|cannot\s+be\s+confirmed)\b[^.!?;]*\b(?:runtime\s+failure|runtimeerror|typeerror|referenceerror|syntaxerror|assertionerror|traceback|segmentation\s+fault)\b|\b(?:runtime\s+failure|runtimeerror|typeerror|referenceerror|syntaxerror|assertionerror|traceback|segmentation\s+fault)\b[^.!?;]*\b(?:was\s+)?(?:not|never|ruled\s+out|excluded|unconfirmed|cannot\s+be\s+confirmed)\b)/i;
+  /(?:\b(?:no|without|not)\s+(?:an?\s+)?(?:runtime\s+failure|failure|error|exception|fault|crash(?:ed)?|traceback|segmentation\s+fault)\b|\b(?:den(?:y|ies|ied)|ruled\s+out|excluded|unconfirmed|cannot\s+be\s+confirmed)\b[^.!?;]*\b(?:runtime\s+failure|runtimeerror|typeerror|referenceerror|syntaxerror|assertionerror|traceback|segmentation\s+fault)\b|\b(?:runtime\s+failure|runtimeerror|typeerror|referenceerror|syntaxerror|assertionerror|traceback|segmentation\s+fault)\b[^.!?;]*\b(?:was\s+)?(?:not|never|ruled\s+out|excluded|unconfirmed|cannot\s+be\s+confirmed)\b|\b(?:hypothetical|counterfactual|conditional|simulated)\b)/i;
 const COMPLETE_DIAGNOSTIC =
   /\b(?:complete stderr|complete terminal output|complete runtime diagnostic|complete diagnostic)\b/i;
 const INCOMPLETE_DIAGNOSTIC =
@@ -129,7 +129,7 @@ const ABSENT_EVIDENCE =
 const EMPTY_STDOUT = /stdout: empty|stdout empty|standard output field is present and empty/i;
 const EMPTY_STDERR = /stderr: empty|stderr empty|standard error field is present and empty/i;
 const OUTCOME_ONLY = ["outcome-only record", "outcome-only result", "outcome-only evidence"];
-const SUCCESS_NEGATIVE = /failed|failure|error|exception|crash|runtimeerror|traceback/i;
+const SUCCESS_NEGATIVE = /failed|failure|fatal|error|exception|crash|runtimeerror|traceback/i;
 const MODAL =
   /\b(?:did\s+not|never|not|without|if|unless|when|may|might|could|would|hypothetical)\b/i;
 const EXIT =

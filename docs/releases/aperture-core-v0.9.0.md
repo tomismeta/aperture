@@ -67,6 +67,11 @@ explicitly makes no independent-oracle claim:
   structural-fallback fixtures
 - repeated-run determinism: stable for both scorecard and holdout
 
+The holdout custody history records one input-only correction wave in commit
+`1e16c6c`: four fixture inputs and one rationale changed while expected
+outcomes remained unchanged. See [Holdout History](../engine/observation-kernel-holdout-history.md).
+This is regression governance, not an independent-oracle claim.
+
 The release remains a candidate until an independent adversarial review passes
 without semantic tuning. The holdout is evidence over bounded structural
 families, not statistical accuracy over all possible agent output.
@@ -129,6 +134,16 @@ adapter instead of manufacturing phrases for Aperture to recognize.
 The direct-event semantic-default opt-out does not suppress typed evidence;
 evidence is an authoritative source contract, not an inferred default.
 
+The canonical kernel contract also makes these source-breaking type changes:
+
+| Previous surface                    | Current surface                                                       |
+| ----------------------------------- | --------------------------------------------------------------------- |
+| `ApertureKernelObservation`         | `Observation`                                                         |
+| `ApertureKernelObservationJudgment` | `ObservationJudgment`                                                 |
+| `ApertureKernelStatusConflictKind`  | `ObservationJudgment["statusConflictKind"]` (excluding `null`)        |
+| `observation.ownership.toolFamily`  | `observation.ownership.capabilityFamily`                              |
+| `evidence` on a non-failed update   | Omit `evidence`; runtime validation rejects it outside failed updates |
+
 The typed boundary does not add another evaluation API or semantic path:
 
 `kernel event -> SourceEvent -> observation syntax -> Observation -> judgment`
@@ -163,6 +178,14 @@ The public package subpaths remain:
 - `./semantic`
 - `./kernel`
 - `./trace`
+
+For new host integrations, `./kernel` is the canonical host-neutral entrypoint:
+map native events into `ApertureKernelEvent`, consume `Observation` and
+`ObservationJudgment`, and prove adapter invariance with
+`runApertureKernelConformance`. The `./semantic` entrypoint remains available
+for advanced existing integrations that need lower-level semantic interpretation;
+it is not a replacement for kernel judgment and should not be used to build a
+second host judgment path.
 
 ## Scale Characterization
 

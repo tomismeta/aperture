@@ -120,14 +120,13 @@ type TaskUpdatedEventFields = EventBase & {
   activityClass?: AttentionActivityClass;
   title: string;
   summary?: string;
+  /** Runtime-valid only when status is failed; validation rejects other combinations. */
+  evidence?: SourceEvidence;
+  status: TaskStatus;
   progress?: number;
   context?: AttentionContext;
 };
-export type TaskUpdatedEvent = TaskUpdatedEventFields &
-  (
-    | { status: "failed"; evidence?: SourceEvidence }
-    | { status: Exclude<TaskStatus, "failed">; evidence?: never }
-  );
+export type TaskUpdatedEvent = TaskUpdatedEventFields;
 export type EnrichedTaskUpdatedEvent = WithRequiredSemantic<TaskUpdatedEvent>;
 
 export type HumanInputRequestKind = "approval" | "choice" | "form";

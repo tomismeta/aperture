@@ -234,7 +234,7 @@ function readTaskFailureEvidenceProfile(input: {
   if (isSemanticCommandExecutionToolFamily(toolFamily) && hasShape("expected_diagnostic")) {
     return profile("expected_diagnostic_failure", false, "medium", toolFamily);
   }
-  if (toolFamily === "search" && hasShape("search_result")) {
+  if (hasShape("search_result")) {
     return profile(
       "routine_search_output",
       true,

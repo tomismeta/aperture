@@ -188,7 +188,7 @@ function readSubject(input: ClassifiedInput, failureDetail: TaskFailureDetail | 
     input.kind === "structured_execution_success_observation"
   )
     return "command";
-  if (input.kind === "routine_search_output" || input.toolFamily === "search") return "search";
+  if (input.kind === "routine_search_output") return "search";
   if (failureDetail === "source_window_limit") return "source";
   return input.toolFamily !== undefined ? "tool" : "unknown";
 }

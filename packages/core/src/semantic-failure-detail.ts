@@ -47,13 +47,14 @@ export function readTaskFailureTerminalProfile(
 function hasCompleteOutcomeOnlyNonzeroExit(input: TerminalInput): boolean {
   const output = input.signals.diagnosticStructuredToolOutput;
   return (
-    isBareNonzeroTerminalExit(input) ||
-    (isSemanticCommandExecutionToolFamily(input.toolFamily) &&
-      looksLikeOutcomeOnlyCommandOutput(input.summary ?? "")) ||
-    (input.signals.structuredOutputEnvelope.kind === "valid" &&
-      output?.exitCode !== undefined &&
-      output.exitCode !== 0 &&
-      looksLikeOutcomeOnlyCommandOutput(output.output))
+    !input.signals.textFallbackSuppressed &&
+    (isBareNonzeroTerminalExit(input) ||
+      (isSemanticCommandExecutionToolFamily(input.toolFamily) &&
+        looksLikeOutcomeOnlyCommandOutput(input.summary ?? "")) ||
+      (input.signals.structuredOutputEnvelope.kind === "valid" &&
+        output?.exitCode !== undefined &&
+        output.exitCode !== 0 &&
+        looksLikeOutcomeOnlyCommandOutput(output.output)))
   );
 }
 function hasTerminalDiagnosticEvidence(input: TerminalInput, includeReferences: boolean): boolean {
@@ -88,7 +89,7 @@ function hasGenericTerminalFailureEvidence(input: TerminalProfileInput): boolean
     input.terminalFailureText &&
     !input.signals.commandDiagnosticReferenceObservationTranscript &&
     !(observation?.origin === "transcript" && observation.toolFamily === undefined) &&
-    !(input.toolFamily === "search" && input.searchResultText) &&
+    !input.searchResultText &&
     (!(
       observation?.kind === "payload" &&
       (observation.origin === "read_output" || observation.origin === "structured_output")

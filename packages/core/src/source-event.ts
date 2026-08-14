@@ -59,14 +59,13 @@ type SourceTaskUpdatedEventFields = SourceEventBase & {
   activityClass?: AttentionActivityClass;
   title: string;
   summary?: string;
+  /** Runtime-valid only when status is failed; validation rejects other combinations. */
+  evidence?: SourceEvidence;
+  status: TaskStatus;
   progress?: number;
   context?: AttentionContext;
 };
-export type SourceTaskUpdatedEvent = SourceTaskUpdatedEventFields &
-  (
-    | { status: "failed"; evidence?: SourceEvidence }
-    | { status: Exclude<TaskStatus, "failed">; evidence?: never }
-  );
+export type SourceTaskUpdatedEvent = SourceTaskUpdatedEventFields;
 
 export type SourceHumanInputRequestedEvent = SourceEventBase & {
   type: "human.input.requested";

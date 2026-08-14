@@ -93,16 +93,12 @@ type ApertureKernelWorkUpdatedEventFields = ApertureKernelEventBase & {
   kind: "work.updated";
   title: string;
   summary?: string;
+  /** Runtime-valid only when status is failed; validation rejects other combinations. */
+  evidence?: SourceEvidence;
+  status: "running" | "blocked" | "waiting" | "completed" | "failed";
   progress?: number;
 };
-export type ApertureKernelWorkUpdatedEvent = ApertureKernelWorkUpdatedEventFields &
-  (
-    | { status: "failed"; evidence?: SourceEvidence }
-    | {
-        status: "running" | "blocked" | "waiting" | "completed";
-        evidence?: never;
-      }
-  );
+export type ApertureKernelWorkUpdatedEvent = ApertureKernelWorkUpdatedEventFields;
 
 export type ApertureKernelInputRequestedEvent = ApertureKernelEventBase & {
   kind: "input.requested";

@@ -370,9 +370,11 @@ test("quoted and incomplete diagnostics cannot re-enter terminal fallback", () =
   for (const summary of [
     'The template quotes "runtime failure: exit code 71" without an asserted diagnostic.',
     "The command failed. The returned record contains an incomplete diagnostic with a crash note.",
+    '"no output command exit code 7"',
   ]) {
     const evidence = readFailure(summary, "Opaque.Executor/9");
     assert.notEqual(evidence?.failureDetail, "diagnostic", summary);
+    assert.notEqual(evidence?.failureDetail, "outcome_only", summary);
     assert.notEqual(evidence?.observationSyntax?.diagnosticClass, "runtime", summary);
   }
 });
@@ -878,9 +880,11 @@ test("search result observations require completed retrieval and concrete locato
     "Search returned several matches in docs/guide.md:44.",
   ]) {
     assert.equal(looksLikeSearch(summary), true, summary);
-    const evidence = readFailure(summary, "search");
-    assert.equal(evidence?.kind, "routine_search_output", summary);
-    assert.equal(evidence?.consequenceBaseline, "low", summary);
+    for (const toolFamily of ["search", "catalog"]) {
+      const evidence = readFailure(summary, toolFamily);
+      assert.equal(evidence?.kind, "routine_search_output", `${toolFamily}: ${summary}`);
+      assert.equal(evidence?.consequenceBaseline, "low", `${toolFamily}: ${summary}`);
+    }
   }
 
   for (const summary of [

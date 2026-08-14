@@ -1094,6 +1094,22 @@ test("semantic text evidence handles terminal polarity conservatively", () => {
   assert.equal(hasSemanticTextShape(benignThenRealPermissionDenied, "terminal_failure"), true);
 });
 
+test("raw terminal success does not derive from an opaque capability prefix", () => {
+  const summaries = [
+    "catalog failure exit_code: 0.",
+    "opaque-42 failure exit_code: 0.",
+  ];
+  for (const summary of summaries) {
+    const observations = [undefined, "exec_command", "catalog", "read"].map((toolFamily) =>
+      readSemanticTextEvidence(summary, toolFamily),
+    );
+    for (const evidence of observations.slice(1)) {
+      assert.deepEqual(evidence.shapes, observations[0]?.shapes, summary);
+    }
+    assert.equal(observations[0]?.shapes.includes("routine_success"), false);
+  }
+});
+
 test("semantic text evidence classifies readback observations without treating source dumps as routine", () => {
   const log = readSemanticTextEvidence(
     "<path>/tmp/tool-output/kernel.log</path> <type>file</type> <content>1190: [ 4.998830] amdgpu ring comp_1.2.1 uses VM inv eng 10 on hub 0",

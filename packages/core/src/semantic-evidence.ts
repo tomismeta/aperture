@@ -96,7 +96,7 @@ type SemanticEvidenceTaskUpdateEvent = Record<string, unknown> & {
 export function readSemanticTextEvidence(value: string, toolFamily?: string): SemanticTextEvidence {
   const text = normalizeSemanticText(value);
   const hasTerminalFailureShape = looksLikeTerminalFailureEvidence(text);
-  const routineCommandText = stripCommandExecutionRoutinePrefix(text, toolFamily);
+  const routineCommandText = stripCommandExecutionRoutinePrefix(text);
   const shapes: SemanticTextShape[] = [];
   if (
     (isStandaloneRoutineSuccessObservation(text) ||
@@ -343,7 +343,7 @@ function looksLikeLogObservation(text: string, rawText: string): boolean {
   );
 }
 
-function isStandaloneRoutineSuccessObservation(text: string, toolFamily?: string): boolean {
+function isStandaloneRoutineSuccessObservation(text: string): boolean {
   const trimmedText = text.replace(/\.+$/, "");
   const observationPrefixIndex = trimmedText.indexOf(" observation ");
   const normalizedText =
@@ -352,7 +352,7 @@ function isStandaloneRoutineSuccessObservation(text: string, toolFamily?: string
       : trimmedText;
   const successPhrases = ROUTINE_SUCCESS_PHRASES.map((phrase) => normalizeSemanticText(phrase));
 
-  return commandExecutionRoutinePrefixes(toolFamily).some((prefix) =>
+  return commandExecutionRoutinePrefixes().some((prefix) =>
     successPhrases.some((phrase) => {
       const expected = prefix.length > 0 ? `${prefix} ${phrase}` : phrase;
       return normalizedText === expected;
@@ -360,8 +360,8 @@ function isStandaloneRoutineSuccessObservation(text: string, toolFamily?: string
   );
 }
 
-function stripCommandExecutionRoutinePrefix(text: string, toolFamily?: string): string {
-  for (const prefix of commandExecutionRoutinePrefixes(toolFamily).filter(Boolean)) {
+function stripCommandExecutionRoutinePrefix(text: string): string {
+  for (const prefix of commandExecutionRoutinePrefixes().filter(Boolean)) {
     if (text === prefix) return "";
     if (text.startsWith(`${prefix} `)) return text.slice(prefix.length + 1);
   }
@@ -369,7 +369,6 @@ function stripCommandExecutionRoutinePrefix(text: string, toolFamily?: string): 
   return text;
 }
 
-function commandExecutionRoutinePrefixes(toolFamily?: string): string[] {
-  const prefixes = ["", "observation", "bash failure", "tool failure"];
-  return toolFamily && toolFamily !== "bash" ? [...prefixes, `${toolFamily} failure`] : prefixes;
+function commandExecutionRoutinePrefixes(): string[] {
+  return ["", "observation", "bash failure", "tool failure"];
 }

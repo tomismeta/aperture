@@ -82,13 +82,13 @@ detector counts do not grow.
 The current generated surface proof records:
 
 - semantic modules: 95
-- semantic lines: 8,237
+- semantic lines: 8,223
 - all semantic-surface modules: 105
-- all semantic-surface lines: 9,199
+- all semantic-surface lines: 9,185
 - exported detector functions: 165
 - dependency fan-out: 255
 - Observation primitive lines: 731
-- task-failure parsing lines: 1,084
+- task-failure parsing lines: 1,075
 
 The budgets fail on renewed module, matcher, phrase-table, or direct-consumer
 growth. The protected-base comparison has six exact, digest-bound approvals for

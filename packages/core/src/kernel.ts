@@ -444,9 +444,9 @@ function projectKernelFinalEvent(event: EnrichedApertureEvent): ApertureKernelFi
     ...("toolFamily" in event && event.toolFamily !== undefined
       ? { capabilityFamily: event.toolFamily }
       : {}),
-    ...("activityClass" in event && event.activityClass !== undefined
-      ? { activityCategory: event.activityClass }
-      : {}),
+    ...(event.semantic.activityClass === undefined
+      ? {}
+      : { activityCategory: event.semantic.activityClass }),
     semantic: {
       intentFrame: event.semantic.intentFrame,
       ...(event.semantic.activityClass === undefined

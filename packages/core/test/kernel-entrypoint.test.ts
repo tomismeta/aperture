@@ -6,6 +6,7 @@ import {
   APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION,
   evaluateApertureKernelEvent,
   runApertureKernelConformance,
+  type ApertureKernelActivityCategory,
   type ApertureKernelEvent,
   type Observation,
   type ObservationJudgment,
@@ -331,6 +332,22 @@ test("kernel canonicalizes capability family case before semantic matching", () 
   assert.equal(mixedCase.event.semantic.capabilityFamily, "bash");
   assert.deepEqual(mixedCase.observation, lowercase.observation);
   assert.deepEqual(mixedCase.observationJudgment, lowercase.observationJudgment);
+});
+
+test("kernel projects one normalized activity category", () => {
+  const result = evaluateApertureKernelEvent(
+    failedTaskEvent(
+      "activity-category-authority",
+      "The command failed with exit code 9 and no diagnostic text was retained.",
+      {
+        capabilityFamily: "exec_command",
+        activityCategory: "permission_request",
+      },
+    ),
+  );
+
+  assert.equal(result.event.activityCategory, result.event.semantic.activityCategory);
+  assert.equal(result.event.activityCategory, "tool_failure");
 });
 
 test("kernel evaluation exposes candidates that do not yet have observation documents", () => {
@@ -766,6 +783,7 @@ test("kernel rejects malformed typed evidence at runtime", () => {
 function runningTaskEvent(
   id: string,
   options: {
+    activityCategory?: ApertureKernelActivityCategory;
     capabilityFamily?: string;
     contextCapabilityFamily?: string;
     metadataCapabilityFamily?: string;
@@ -779,9 +797,18 @@ function runningTaskEvent(
     title: "Host status",
     summary: "Routine status update.",
     status: "running",
-    ...(options.capabilityFamily === undefined
+    ...(options.capabilityFamily === undefined && options.activityCategory === undefined
       ? {}
-      : { facts: { capabilityFamily: options.capabilityFamily } }),
+      : {
+          facts: {
+            ...(options.capabilityFamily === undefined
+              ? {}
+              : { capabilityFamily: options.capabilityFamily }),
+            ...(options.activityCategory === undefined
+              ? {}
+              : { activityCategory: options.activityCategory }),
+          },
+        }),
     ...contextAndMetadataOptions(options),
   };
 }
@@ -790,6 +817,7 @@ function failedTaskEvent(
   id: string,
   summary: string,
   options: {
+    activityCategory?: ApertureKernelActivityCategory;
     capabilityFamily?: string;
     contextCapabilityFamily?: string;
     evidence?: SourceEvidence;
@@ -805,9 +833,18 @@ function failedTaskEvent(
     summary,
     status: "failed",
     ...(options.evidence === undefined ? {} : { evidence: options.evidence }),
-    ...(options.capabilityFamily === undefined
+    ...(options.capabilityFamily === undefined && options.activityCategory === undefined
       ? {}
-      : { facts: { capabilityFamily: options.capabilityFamily } }),
+      : {
+          facts: {
+            ...(options.capabilityFamily === undefined
+              ? {}
+              : { capabilityFamily: options.capabilityFamily }),
+            ...(options.activityCategory === undefined
+              ? {}
+              : { activityCategory: options.activityCategory }),
+          },
+        }),
     ...contextAndMetadataOptions(options),
   };
 }

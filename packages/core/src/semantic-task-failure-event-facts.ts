@@ -35,7 +35,6 @@ export function parseTaskFailureEventFact(
   const allPositiveEventText = eventScope.positive.replace(QUOTED_TEXT, " quoted-content ");
   const structuralFact = readStructuralTaskFailureFact({
     text: positiveEventText,
-    allPositiveText: allPositiveEventText,
     authoritativeText: authoritativeEventText,
     scopeText: semanticFields.join(". "),
     diagnosticScopeText: semanticFields

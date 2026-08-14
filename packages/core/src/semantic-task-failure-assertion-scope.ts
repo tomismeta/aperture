@@ -42,8 +42,10 @@ export function stripScopedClauses(value: string, owns: (clause: string) => bool
 export const isTaskFailureTextFallbackSuppressed = (value: string): boolean =>
   INCOMPLETE_DIAGNOSTIC.test(value) ||
   (FAILURE_REFERENCE.test(value) &&
-    !FAILURE_REFERENCE.test(value.replace(QUOTED_TEXT, " quoted-content ")));
-
+    !FAILURE_REFERENCE.test(value.replace(QUOTED_TEXT, " quoted-content "))) ||
+  NON_ASSERTED_SCOPE.test(
+    [...splitAssertions(value)].reverse().find((clause) => FAILURE_REFERENCE.test(clause)) ?? "",
+  );
 export const splitAssertions = (value: string): string[] => value.split(ASSERTION_BOUNDARY);
 const ASSERTION_BOUNDARY =
   /(?:(?<=[.!?])(?<!\beg\.)(?<!\be\.g\.)|;)\s+|(?<!\ball\s)(?<!\bnothing\s)(?<!\banything\s)(?=\b(?:but|however)\b[,:]?\s)|(?=\byet\b[,:]?\s+(?:the\s+)?(?:execution|command|process|operation|tool|result|no|not|never|without|neither)\b)|\b(?:and|while)\s+(?=(?:no|not|never|without|neither)\b)\s+/iu;
@@ -51,16 +53,15 @@ const NON_ACTUAL_TITLE = /^\s*(?:hypothetical|counterfactual|conditional|simulat
 const NON_ASSERTED_FRAME =
   /^(?:["'`]|observation:\s*|for reference\b|reference (?:text|material)\b|(?:the )?(?:documentation|document|source|log|example|fixture|template)\s+(?:says|states|contains|quotes|explains)\b|expected\s+(?:result|text|output|diagnostic)\s*:|(?:hypothetical|quoted)\b|if\b|unless\b|when\b|suppose\b|one sentence says\b)/i;
 const NON_ASSERTED_SCOPE =
-  /\b(?:hypothetical(?:ly)?|counterfactual(?:ly)?|possible|possibly|potential|potentially|would|could|cannot|can\s+not|might|may)\b/i;
+  /\b(?:hypothetical(?:ly)?|counterfactual(?:ly)?|possible|possibly|potential|potentially|would|could(?!\s+not\b)|might|may|cannot\s+be\s+(?:confirmed|ruled\s+out))\b/i;
 const NEGATED_ASSERTION =
   /^(?![\s\S]*\bno\s+(?:output|diagnostic|evidence)(?:\s+or\s+(?:output|diagnostic|evidence))?\s+channels?\s+(?:is|are)\s+missing\b)[\s\S]*\b(?:no|without|neither|nor|(?:not|never)\s+(?:been\s+)?(?:returned|delivered|produced|reported|observed|found|shown|contained|included|required|needed|pending|available|occur(?:red)?|exist(?:s|ed)?|start(?:ed)?|begin|begun|fail(?:ed)?|crash(?:ed)?|terminate[ds]?)|(?:is|are|was|were)\s+(?:not|never)\s+(?:an?\s+)?(?:failure|error|fault|crash)|(?:does?|did)\s+not\s+(?:represent|indicate|report|show|constitute)\s+(?:an?\s+)?(?:failure|error|fault|crash)|(?:record|diagnostic|report|source|document|text|example|fixture)\s+den(?:y|ies|ied)|den(?:y|ies)\s+that|lack(?:s|ed)?|(?:fails?|failed)\s+to\s+(?:report|show|contain|include|observe))\b/i;
 const NON_ASSERTED_EVENT_FACT =
   /\b(?:no\s+(?:runtime\s+)?failure\s+(?:occurred|was\s+(?:observed|reported))|(?:runtime\s+)?failure\s+(?:did\s+not|never)\s+occur|(?:command|process|execution|operation|result|outcome)\s+(?:is|are|was|were)\s+(?:not|never)\s+(?:an?\s+)?(?:failure|error|fault|crash)|(?:command|process|execution|operation|result|outcome)\s+(?:does?|did)\s+not\s+(?:represent|indicate|report|show|constitute)\s+(?:an?\s+)?(?:failure|error|fault|crash)|(?:(?:exit|return)\s+(?:code|status)\s+(?:0|zero)|runtimeerror|traceback|segmentation\s+fault)\b[^.!?;]*\b(?:was\s+|is\s+)?(?:expected|ruled\s+out|excluded|unconfirmed|not\s+(?:returned|reported|observed|confirmed))|(?:report|record|result|outcome|diagnostic)\s+(?:rules?\s+out|excludes?)\s+(?:(?:exit|return)\s+(?:code|status)\s+(?:0|zero)|runtimeerror|traceback|segmentation\s+fault)|no\s+(?:authorization|permission|approval|decision)\s+(?:is|was)?\s*(?:required|needed|pending)|(?:authorization|permission|approval|decision)\s+(?:is|was)\s+not\s+(?:required|needed|pending)|(?:would|could|cannot|can\s+not|might|may)\b[^.!?;]*\b(?:runtime\s+failure|authorization\s+required|exit\s+(?:code|status)))\b/i;
-
 const CONCRETE_DIAGNOSTIC =
   /\b(?:type)?error:[\s\S]*(?:\b(?:cannot\s+read|undefined|null)\b[\s\S]*\bat\b|\bat\b[\s\S]*\b(?:cannot\s+read|undefined|null)\b)/i;
 const INCOMPLETE_DIAGNOSTIC =
   /\b(?:incomplete|partial|truncated|abbreviated)\s+(?:runtime\s+)?diagnostic\b/i;
 const QUOTED_TEXT = /(["'`])(?:\\.|(?!\1)[^\\])*\1/gu;
 const FAILURE_REFERENCE =
-  /\b(?:runtime\s+failure|runtimeerror|traceback|segmentation\s+fault|(?:exit|return)\s+(?:code|status)\s+-?\d+|(?:failed|failure|error|exception|fault|crash(?:ed)?))\b/i;
+  /\b(?:runtime\s+failure|runtimeerror|typeerror|referenceerror|syntaxerror|assertionerror|traceback|segmentation\s+fault|fatal|(?:exit|return)\s+(?:code|status)\s+-?\d+|(?:failed|failure|error|exception|fault|crash(?:ed)?))\b/i;

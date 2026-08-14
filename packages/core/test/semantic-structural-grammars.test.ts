@@ -350,7 +350,7 @@ test("fatal diagnostics remain stable when log lines are flattened", () => {
     parseTaskFailureEventFact(
       "$ verify-index\nfatal: stale index text\nProcess executed and completed successfully with exit code 0; stderr capture complete.",
     ),
-    null,
+    "runtime_diagnostic",
   );
   assert.equal(
     parseTaskFailureEventFact(
@@ -358,6 +358,16 @@ test("fatal diagnostics remain stable when log lines are flattened", () => {
     ),
     null,
   );
+
+  for (const summary of [
+    "$ verify-index\nfatal: stale index text\nProcess executed and completed successfully with exit code 0; stderr capture complete.",
+    "$ verify-index\nerror: stale index text\nProcess executed and completed successfully with exit code 0; stderr capture complete.",
+  ]) {
+    const evidence = readFailure(summary, "bash");
+    assert.equal(evidence?.failureDetail, "diagnostic", summary);
+    assert.equal(evidence?.observationSyntax?.kind, "diagnostic", summary);
+    assert.equal(evidence?.observationSyntax?.diagnosticClass, "runtime", summary);
+  }
 });
 
 test("incomplete diagnostic envelopes do not promote direct runtime words", () => {
@@ -378,6 +388,22 @@ test("incomplete diagnostic envelopes do not promote direct runtime words", () =
     ),
     "runtime_diagnostic",
   );
+});
+
+test("modal diagnostics abstain without suppressing later asserted diagnostics", () => {
+  for (const summary of [
+    "Execution would have failed with TypeError: cannot read properties of undefined at line 5 if it had run.",
+    "The command could have crashed with Traceback (most recent call last) at startup.",
+    "A hypothetical process might emit fatal: checksum mismatch during startup.",
+  ]) {
+    assert.equal(parseTaskFailureEventFact(summary), null, summary);
+    assert.notEqual(readFailure(summary, "bash")?.failureDetail, "diagnostic", summary);
+  }
+
+  const laterDiagnostic =
+    "Execution would have failed with TypeError if it had run, but execution later crashed with RuntimeError: worker exited and a complete runtime diagnostic was returned.";
+  assert.equal(parseTaskFailureEventFact(laterDiagnostic), "runtime_diagnostic");
+  assert.equal(readFailure(laterDiagnostic, "bash")?.failureDetail, "diagnostic");
 });
 
 test("structural fallback facts remain conservative around incomplete or contradictory evidence", () => {

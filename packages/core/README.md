@@ -148,7 +148,35 @@ npm install -g @tomismeta/aperture
 
 ## Start Here
 
-If you are new to the SDK, start with:
+For a host-neutral integration, start with the `./kernel` entrypoint:
+
+- `ApertureKernelEvent`
+- `SourceEvidence`
+- `Observation`
+- `ObservationJudgment`
+- `evaluateApertureKernelEvent(...)`
+
+Map your host's native event shape into `ApertureKernelEvent` outside this
+package. The kernel then owns normalization, observation, and deterministic
+judgment. Use `runApertureKernelConformance(...)` to prove that the adapter
+preserves the canonical result.
+
+The kernel's text fallback is a bounded structural grammar, not a general
+stderr parser. It may conservatively abstain on native diagnostic text when
+the host cannot provide reliable typed facts. When the host does know the
+result, use typed evidence instead:
+
+```ts
+const evidence = {
+  kind: "diagnostic",
+  diagnostic: "runtime",
+  subject: "tool",
+  channel: "transcript",
+  complete: true,
+} as const satisfies SourceEvidence;
+```
+
+For the stateful Aperture product loop, start with:
 
 - `ApertureCore`
 - `ApertureEvent`
@@ -157,7 +185,7 @@ If you are new to the SDK, start with:
 - `AttentionView`
 - `AttentionResponse`
 
-If you only want the happy path, stop there.
+If you only want the stateful product happy path, stop there.
 
 The root package intentionally stays small. It does **not** expose the lower-level
 judgment primitives or semantic helper internals that Aperture uses inside the
@@ -209,7 +237,8 @@ events, mutate state, accept human responses, replay sessions, or report a
 realized lane. Use `ApertureCore` when you need those stateful engine behaviors.
 
 If you want Aperture's embeddable semantic judgment contract without Core's
-stateful surface loop, use the kernel subpath:
+stateful surface loop, use the kernel subpath described above. New host
+integrations should not build a second judgment path from `./semantic`.
 
 ```ts
 import {

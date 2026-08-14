@@ -3,12 +3,12 @@
   "baselineSurfaceDigest": "sha256:96944af3e5bb88d9e7afd56e291e689305364168df0849e4c105760a6c098aa6",
   "acceptedFailures": [
     "surface_comparison:new_normalized_observation_direct_consumer:packages/core/src/judgment-observation-contract.ts",
-    "surface_comparison:total_lines:9180>9171",
-    "surface_comparison:matcher_sites:592>586",
-    "surface_comparison:semantic_lines:8223>8177",
+    "surface_comparison:total_lines:9174>9171",
+    "surface_comparison:matcher_sites:591>586",
+    "surface_comparison:semantic_lines:8217>8177",
     "surface_comparison:task_failure_parsing_lines:1075>1067",
-    "surface_comparison:family_lines:task_failure_grammar:1164>1019",
-    "surface_comparison:family_matcher_sites:task_failure_grammar:72>55"
+    "surface_comparison:family_lines:task_failure_grammar:1158>1019",
+    "surface_comparison:family_matcher_sites:task_failure_grammar:71>55"
   ],
-  "rationale": "This tranche replaces overlapping task-failure fallbacks with a bounded structural grammar and removes legacy paths. The committed report remains below hard absolute budgets, decreases modules, detectors, dependency fan-out, and observation primitive lines, and keeps raw success prose capability-opaque while applying structured ownership only after an envelope is detected. The exact remaining growth is reviewed as the cost of the repaired semantic boundary. The resolver distinguishes raw text from unsupported structured envelopes. The added declaration lines and one direct normalized-observation consumer are the intentional cost of making the kernel's public ObservationJudgment declaration self-contained without importing AttentionJudgmentInput or the internal conflict module. This approval should be reassessed after the branch merges into its protected base."
+  "rationale": "This tranche replaces overlapping task-failure fallbacks with a bounded structural grammar and removes legacy paths. The current report remains below hard absolute budgets, decreases the committed branch surface, and keeps raw success prose capability-opaque while applying structured ownership only after an envelope is detected. The exact remaining growth against origin/main is the already-reviewed cost of the repaired semantic boundary and public ObservationJudgment declaration. This approval should be reassessed after the branch merges into its protected base."
 }

@@ -131,6 +131,9 @@ compatibility, while runtime validation rejects evidence on other statuses.
 Existing consumers can omit the field and retain the bounded text grammar.
 Consumers with reliable native result facts should map those facts in their
 adapter instead of manufacturing phrases for Aperture to recognize.
+The bounded text grammar is not a general stderr parser: bare native
+diagnostic text may remain conservative or uncertain when the host cannot
+provide a typed result fact.
 The direct-event semantic-default opt-out does not suppress typed evidence;
 evidence is an authoritative source contract, not an inferred default.
 

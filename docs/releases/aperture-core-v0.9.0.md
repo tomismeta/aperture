@@ -1,6 +1,6 @@
 # Aperture Core SDK v0.9.0
 
-Status: pre-release hardening; not release eligible yet.
+Status: release eligible; not yet published.
 
 `@tomismeta/aperture-core@0.9.0` makes the stateless semantic kernel smaller,
 more measurable, and easier to embed. It adds field-level quality gates,
@@ -14,9 +14,9 @@ workload.
 - scores 13 normalized Observation fields, eight observation-judgment fields,
   two decision fields, and exact end-to-end outcomes
 - records a 16-fixture calibration freeze, a retired V6 historical experiment,
-  and a fresh 46-fixture active release holdout
+  and a fresh 47-fixture active release holdout
 - requires 100% field and exact-outcome agreement across the active holdout's
-  46 expected outcomes
+  47 expected outcomes
 - consolidates task-failure payload parsing into the canonical observation
   grammar instead of maintaining a parallel grammar module
 - records the current semantic surface honestly: 105 modules, 165 exported
@@ -24,6 +24,9 @@ workload.
 - fixes raw command-success observations so their semantic result does not depend
   on host title vocabulary or opaque capability identity; structured output
   ownership remains explicit and bounded
+- treats an explicit host `capabilityFamily` as ownership context for raw
+  terminal stderr; unprefixed diagnostics without host ownership remain
+  conservatively uncertain
 - adds one typed `SourceEvidence` boundary for reliable host-native outcomes,
   diagnostics, payloads, measured partial reads, and authorization requirements
 - proves typed evidence and text fallback lower through the same Observation and
@@ -79,9 +82,11 @@ The holdout custody history records one input-only correction wave in commit
 outcomes remained unchanged. See [Holdout History](../engine/observation-kernel-holdout-history.md).
 This is regression governance, not an independent-oracle claim.
 
-The release remains a candidate until an independent adversarial review passes
-without semantic tuning. The holdout is evidence over bounded structural
-families, not statistical accuracy over all possible agent output.
+The release is eligible for publication after the independent adversarial
+re-audit of HEAD `34229dc`. That review found no P0-P2 defects and identified
+only the count and status consistency corrections reflected here. The holdout
+is evidence over bounded structural families, not statistical accuracy over all
+possible agent output.
 
 ## Semantic Compression
 
@@ -223,11 +228,10 @@ formatting, dependency audit, contract and schema checks, package boundaries,
 architecture budgets, kernel conformance, the honest surface baseline, kernel
 corpus, the active holdout, deterministic scale, and judgment battle. Public
 SDK and product smoke checks pass with host-enabled package builds and isolated
-consumers. The final independent adversarial re-audit and publication decision
-remain outstanding.
+consumers. The independent adversarial re-audit is complete; publication is
+the remaining maintainer decision.
 
-This pre-release hardening tranche does not change or publish the Aperture
-product package.
+This core release does not change or publish the Aperture product package.
 
 See:
 

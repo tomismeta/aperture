@@ -1,6 +1,6 @@
 # Aperture Core SDK v0.9.0
 
-Status: release eligible; not yet published.
+Status: published to npm as `@tomismeta/aperture-core@0.9.0`.
 
 `@tomismeta/aperture-core@0.9.0` makes the stateless semantic kernel smaller,
 more measurable, and easier to embed. It adds field-level quality gates,
@@ -82,11 +82,10 @@ The holdout custody history records one input-only correction wave in commit
 outcomes remained unchanged. See [Holdout History](../engine/observation-kernel-holdout-history.md).
 This is regression governance, not an independent-oracle claim.
 
-The release is eligible for publication after the independent adversarial
-re-audit of HEAD `34229dc`. That review found no P0-P2 defects and identified
-only the count and status consistency corrections reflected here. The holdout
-is evidence over bounded structural families, not statistical accuracy over all
-possible agent output.
+The release passed the independent adversarial re-audit of HEAD `34229dc`. That
+review found no P0-P2 defects and identified only the count and status
+consistency corrections reflected here. The holdout is evidence over bounded
+structural families, not statistical accuracy over all possible agent output.
 
 ## Semantic Compression
 
@@ -223,15 +222,16 @@ pnpm judgment:bench
 
 The focused semantic, judgment, evaluator, and structural-grammar suites pass,
 including truncation, authorization, assertion-boundary, and historical-proof
-regression coverage. Current verification also passes typecheck, lint, scoped
+regression coverage. Verification also passes typecheck, lint, scoped
 formatting, dependency audit, contract and schema checks, package boundaries,
 architecture budgets, kernel conformance, the honest surface baseline, kernel
 corpus, the active holdout, deterministic scale, and judgment battle. Public
 SDK and product smoke checks pass with host-enabled package builds and isolated
-consumers. The independent adversarial re-audit is complete; publication is
-the remaining maintainer decision.
+consumers. The independent adversarial re-audit is complete, and the package
+is published alongside the coordinated Aperture product release.
 
-This core release does not change or publish the Aperture product package.
+The coordinated Aperture product release is documented separately in
+[Aperture v0.5.0](./aperture-v0.5.0.md).
 
 See:
 

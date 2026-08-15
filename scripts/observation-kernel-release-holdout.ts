@@ -123,7 +123,6 @@ async function writeFirstRun(): Promise<void> {
   const artifact = parseObservationKernelReleaseHoldout();
   const custody = await readJson(OBSERVATION_KERNEL_RELEASE_HOLDOUT_CUSTODY_PATH);
   await assertCustody(artifact, custody);
-  await assertCoreMatchesFreeze(artifact.methodology.implementationFreeze);
   const firstRun = runObservationKernelReleaseHoldout();
   const repeatRun = runObservationKernelReleaseHoldout();
   const report = buildObservationKernelReleaseHoldoutReport(firstRun, repeatRun);
@@ -161,7 +160,6 @@ async function checkHoldout(): Promise<void> {
   const artifact = parseObservationKernelReleaseHoldout();
   const custody = await readJson(OBSERVATION_KERNEL_RELEASE_HOLDOUT_CUSTODY_PATH);
   await assertCustody(artifact, custody);
-  await assertCoreMatchesFreeze(artifact.methodology.implementationFreeze);
   const storedFirst = (await readJson(
     OBSERVATION_KERNEL_RELEASE_HOLDOUT_FIRST_RUN_PATH,
   )) as ObservationKernelReleaseHoldoutRun;
@@ -217,11 +215,11 @@ async function assertCustody(
   if (frozenCore.commit !== artifact.methodology.implementationFreeze) {
     throw new Error("Observation Kernel release holdout freeze does not match custody.");
   }
-  const coreTree = await git(
-    "rev-parse",
-    `${artifact.methodology.implementationFreeze}:packages/core`,
-  );
-  if (frozenCore.tree !== coreTree) {
+  if (typeof frozenCore.tree !== "string") {
+    throw new Error("Observation Kernel release holdout frozen Core tree is invalid.");
+  }
+  const currentCoreTree = await git("rev-parse", "HEAD:packages/core");
+  if (frozenCore.tree !== currentCoreTree) {
     throw new Error("Observation Kernel release holdout core tree changed.");
   }
   if (runner.sha256 !== (await sha256File("scripts/observation-kernel-release-holdout.ts"))) {

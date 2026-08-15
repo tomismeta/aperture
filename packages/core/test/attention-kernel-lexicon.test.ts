@@ -30,10 +30,10 @@ test("attention kernel lexicon keeps public terms explicit", async () => {
     assert.match(lexicon, new RegExp(`\\|\\s+${escapeRegExp(term)}\\s+\\|`));
   }
 
-  assert.match(lexicon, /New docs and tests\s+should prefer `AttentionOntology\*`/);
+  assert.match(lexicon, /`AttentionOntology\*` is the only ontology vocabulary exported by core/);
   assert.match(lexicon, /public judgment summaries should say `realizedLane`/);
   assert.match(lexicon, /`evaluateAttention\(\.\.\.\)`/);
-  assert.match(lexicon, /`AttentionOntologyDiagnostic\.source` is the compatibility field/);
+  assert.match(lexicon, /`AttentionOntologyDiagnostic\.source` is the canonical ontology/);
   const preferredApi = lexicon.slice(
     lexicon.indexOf("Preferred public API language:"),
     lexicon.indexOf("Avoid public API language"),

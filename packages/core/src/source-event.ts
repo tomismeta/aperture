@@ -1,4 +1,10 @@
-import type { AttentionActivityClass, HumanInputRequest, SourceRef, TaskStatus } from "./events.js";
+import type {
+  AttentionActivityClass,
+  HumanInputRequest,
+  SourceEvidence,
+  SourceRef,
+  TaskStatus,
+} from "./events.js";
 import type { AttentionConsequenceLevel, AttentionContext, AttentionProvenance } from "./frame.js";
 import type { SemanticInterpretationHints } from "./semantic-types.js";
 
@@ -33,10 +39,10 @@ type SourceEventBase = {
    */
   metadata?: Record<string, unknown>;
   /**
-   * Adapter-provided semantic hints.
+   * Adapter inputs into interpretation, never canonical semantic output.
    *
-   * These are source-side inputs into interpretation, not canonical semantic
-   * output from Aperture Core.
+   * On failed task updates, Core honors relation hints and independently
+   * verified truncated-source hints; other semantic fields are ignored.
    */
   semanticHints?: SemanticInterpretationHints;
 };
@@ -47,16 +53,19 @@ export type SourceTaskStartedEvent = SourceEventBase & {
   summary?: string;
 };
 
-export type SourceTaskUpdatedEvent = SourceEventBase & {
+type SourceTaskUpdatedEventFields = SourceEventBase & {
   type: "task.updated";
   toolFamily?: string;
   activityClass?: AttentionActivityClass;
   title: string;
   summary?: string;
+  /** Runtime-valid only when status is failed; validation rejects other combinations. */
+  evidence?: SourceEvidence;
   status: TaskStatus;
   progress?: number;
   context?: AttentionContext;
 };
+export type SourceTaskUpdatedEvent = SourceTaskUpdatedEventFields;
 
 export type SourceHumanInputRequestedEvent = SourceEventBase & {
   type: "human.input.requested";

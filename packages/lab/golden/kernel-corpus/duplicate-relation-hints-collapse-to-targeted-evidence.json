@@ -34,7 +34,7 @@
           "consequence": "high",
           "blocking": "blocking",
           "episode": "resurfaced",
-          "source": "hinted"
+          "source": "explicit"
         }
       }
     ],

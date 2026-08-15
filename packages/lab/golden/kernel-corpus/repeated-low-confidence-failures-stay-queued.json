@@ -1,7 +1,7 @@
 {
   "id": "golden:kernel-corpus:repeated-low-confidence-failures-stay-queued",
-  "title": "Repeated low-confidence failures stay queued",
-  "description": "Repeated failed statuses with the same issue target should accumulate episode evidence without bypassing the low-confidence ambiguity gate.",
+  "title": "Repeated partial-evidence failures stay queued",
+  "description": "Repeated failed statuses backed by verified partial source evidence accumulate episode evidence without bypassing the low-confidence ambiguity gate.",
   "doctrineTags": [
     "kernel_corpus",
     "failure_ambiguity",
@@ -38,7 +38,7 @@
         "stepLabel": "first uncertain failure",
         "intentFrame": "failure",
         "activityClass": "tool_failure",
-        "consequence": "high",
+        "consequence": "medium",
         "confidence": "low",
         "relationHintsExact": [
           { "kind": "same_issue", "target": "issue:corpus:uncertain-failure" }
@@ -51,7 +51,7 @@
         "ontology": {
           "ask": "status",
           "activity": "failure",
-          "consequence": "high",
+          "consequence": "medium",
           "blocking": "non_blocking",
           "episode": "same_issue",
           "source": "hinted"
@@ -61,7 +61,7 @@
         "stepLabel": "second uncertain failure",
         "intentFrame": "failure",
         "activityClass": "tool_failure",
-        "consequence": "high",
+        "consequence": "medium",
         "confidence": "low",
         "relationHintsExact": [
           { "kind": "same_issue", "target": "issue:corpus:uncertain-failure" },
@@ -74,7 +74,7 @@
         "ontology": {
           "ask": "status",
           "activity": "failure",
-          "consequence": "high",
+          "consequence": "medium",
           "blocking": "non_blocking",
           "episode": "resurfaced",
           "source": "hinted"
@@ -97,10 +97,8 @@
         "episodeKey": "custom-agent:status:issue:corpus:uncertain-failure",
         "episodeState": "emerging",
         "episodeSize": 1,
-        "episodeEvidenceScore": 2,
-        "episodeEvidenceReasonsInclude": [
-          "at least one related interaction carried high consequence or critical tone"
-        ],
+        "episodeEvidenceScore": 0,
+        "episodeEvidenceReasonsInclude": [],
         "episodeObsolete": false,
         "decisionRecordOperatorPresence": "present",
         "decisionRecordReasonCodesInclude": [
@@ -128,12 +126,11 @@
         "ambiguityResolution": "queue",
         "episodeId": "episode:custom-agent:status:issue:corpus:uncertain-failure:1",
         "episodeKey": "custom-agent:status:issue:corpus:uncertain-failure",
-        "episodeState": "actionable",
+        "episodeState": "batched",
         "episodeSize": 2,
-        "episodeEvidenceScore": 5,
+        "episodeEvidenceScore": 2,
         "episodeEvidenceReasonsInclude": [
           "multiple related interactions have accumulated in this episode",
-          "high-signal evidence is stacking up across the episode",
           "semantic relation hints indicate this issue is recurring"
         ],
         "episodeObsolete": false,
@@ -159,7 +156,7 @@
       "ambiguousLowConfidence": 2,
       "ambiguousNextThenActivated": 0,
       "ambiguousAmbientThenActivated": 0,
-      "actionableEpisodes": 1,
+      "actionableEpisodes": 0,
       "actionableActivated": 0,
       "deferredThenActivated": 0,
       "mergedEpisodeUpdates": 1
@@ -191,10 +188,12 @@
         "timestamp": "2026-04-17T12:00:10.000Z",
         "source": { "id": "custom-agent" },
         "title": "Build maybe failed",
-        "summary": "The latest build failed and may need retry.",
+        "summary": "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
         "status": "failed",
         "semanticHints": {
           "confidence": "low",
+          "factors": ["source evidence truncated"],
+          "reasons": ["source failure evidence was truncated before Aperture saw the full output"],
           "relationHints": [{ "kind": "same_issue", "target": "issue:corpus:uncertain-failure" }]
         }
       }
@@ -228,10 +227,12 @@
         "timestamp": "2026-04-17T12:00:20.000Z",
         "source": { "id": "custom-agent" },
         "title": "Build maybe failed again",
-        "summary": "The same build may have failed again and may need retry.",
+        "summary": "Showing lines 40 to 60 of 900; the rest was clipped at the output boundary.",
         "status": "failed",
         "semanticHints": {
           "confidence": "low",
+          "factors": ["source evidence truncated"],
+          "reasons": ["source failure evidence was truncated before Aperture saw the full output"],
           "relationHints": [
             { "kind": "same_issue", "target": "issue:corpus:uncertain-failure" },
             { "kind": "repeats", "target": "issue:corpus:uncertain-failure" }

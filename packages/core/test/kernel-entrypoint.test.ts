@@ -5,10 +5,17 @@ import test from "node:test";
 import {
   APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION,
   evaluateApertureKernelEvent,
+  runApertureKernelConformance,
+  type ApertureKernelActivityCategory,
   type ApertureKernelEvent,
-  type ApertureKernelObservation,
-  type ApertureKernelObservationJudgment,
+  type Observation,
+  type ObservationJudgment,
+  type SourceEvidence,
 } from "../src/kernel.js";
+import type { ApertureEvent } from "../src/events.js";
+import type { SourceEvent } from "../src/source-event.js";
+import { EventEvaluator } from "../src/event-evaluator.js";
+import { enrichApertureEvent, normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const timestamp = "2026-04-22T18:30:00.000Z";
 
@@ -54,6 +61,149 @@ test("kernel evaluation exposes event to observation to observation-judgment con
   });
 });
 
+test("kernel preserves document-scoped adversative runtime diagnostics", () => {
+  for (const conjunction of ["but", "however", "yet"] as const) {
+    for (const separator of [", ", " "] as const) {
+      const summary = `A complete document read describes how execution could fail${separator}${conjunction} execution later crashed and a complete runtime diagnostic was returned.`;
+      const result = evaluateApertureKernelEvent(
+        failedTaskEvent(`document-adversative:${conjunction}:${separator.length}`, summary, {
+          capabilityFamily: "exec_command",
+        }),
+      );
+
+      assert.equal(result.evaluation.kind, "candidate", summary);
+      assert.equal(result.observation?.diagnosticClass, "runtime", summary);
+      assert.equal(
+        result.observationJudgment?.statusEvidence,
+        "visible_diagnostic_failure",
+        summary,
+      );
+    }
+  }
+});
+
+test("kernel command observations do not depend on host title vocabulary", () => {
+  const event = failedTaskEvent(
+    "kernel:host-title",
+    "Your command ran successfully and did not produce any output.",
+    { capabilityFamily: "exec_command" },
+  );
+  const baseline = evaluateApertureKernelEvent(event);
+  const hostTitled = evaluateApertureKernelEvent({ ...event, title: "Command status" });
+
+  assert.deepEqual(hostTitled.observation, baseline.observation);
+  assert.deepEqual(hostTitled.observationJudgment, baseline.observationJudgment);
+  assert.equal(hostTitled.observation?.kind, "outcome");
+  assert.equal(hostTitled.observation?.polarity, "success");
+});
+
+test("kernel raw command observations do not depend on capability identity", () => {
+  const summary = "Your command ran successfully and did not produce any output.";
+  const results = [undefined, "exec_command", "catalog", "read"].map((capabilityFamily, index) =>
+    evaluateApertureKernelEvent(
+      failedTaskEvent(`kernel:capability-opacity:${index}`, summary, {
+        ...(capabilityFamily === undefined ? {} : { capabilityFamily }),
+      }),
+    ),
+  );
+  const baseline = results[0];
+  assert.ok(baseline.observation);
+  for (const result of results) {
+    assert.deepEqual(result.observationJudgment, baseline.observationJudgment);
+    assert.deepEqual(
+      result.observation === null ? null : { ...result.observation, ownership: undefined },
+      baseline.observation === null ? null : { ...baseline.observation, ownership: undefined },
+    );
+    assert.equal(result.observation?.kind, "outcome");
+    assert.equal(result.observation?.polarity, "success");
+  }
+});
+
+test("kernel raw success prose without command vocabulary stays capability-opaque", () => {
+  for (const summary of [
+    "Ran successfully and did not produce any output.",
+    "Exit code: 0.",
+    "Process exited with code 0.",
+    "exit_code: 0.",
+  ]) {
+    const results = [undefined, "exec_command", "catalog", "read"].map((capabilityFamily, index) =>
+      evaluateApertureKernelEvent(
+        failedTaskEvent(`kernel:capability-opacity:plain:${index}`, summary, {
+          ...(capabilityFamily === undefined ? {} : { capabilityFamily }),
+        }),
+      ),
+    );
+    const baseline = results[0];
+    assert.ok(baseline.observation);
+    for (const result of results) {
+      assert.deepEqual(result.observationJudgment, baseline.observationJudgment, summary);
+      assert.deepEqual(
+        result.observation === null ? null : { ...result.observation, ownership: undefined },
+        baseline.observation === null ? null : { ...baseline.observation, ownership: undefined },
+        summary,
+      );
+      assert.equal(result.observation?.kind, "outcome", summary);
+      assert.equal(result.observation?.polarity, "success", summary);
+    }
+  }
+});
+
+test("kernel raw capability-shaped prefixes do not fabricate terminal success", () => {
+  for (const summary of ["catalog failure exit_code: 0.", "opaque-42 failure exit_code: 0."]) {
+    const results = [undefined, "exec_command", "catalog", "read"].map((capabilityFamily, index) =>
+      evaluateApertureKernelEvent(
+        failedTaskEvent(`kernel:capability-opacity:prefix:${index}`, summary, {
+          ...(capabilityFamily === undefined ? {} : { capabilityFamily }),
+        }),
+      ),
+    );
+    const baseline = results[0];
+    for (const result of results) {
+      assert.deepEqual(result.observationJudgment, baseline.observationJudgment, summary);
+      assert.notEqual(result.observation?.polarity, "success", summary);
+    }
+  }
+});
+
+test("kernel conservative success prose remains capability-opaque", () => {
+  const summary = "Completed successfully without output.";
+  const results = [undefined, "exec_command", "catalog", "read"].map((capabilityFamily, index) =>
+    evaluateApertureKernelEvent(
+      failedTaskEvent(`kernel:capability-opacity:conservative:${index}`, summary, {
+        ...(capabilityFamily === undefined ? {} : { capabilityFamily }),
+      }),
+    ),
+  );
+  const baseline = results[0];
+  for (const result of results) {
+    assert.deepEqual(result.observationJudgment, baseline.observationJudgment, summary);
+    assert.equal(result.observation?.kind, "unknown", summary);
+    assert.equal(result.observation?.polarity, "failure", summary);
+    assert.equal(result.observation?.evidenceLoss, "unknown", summary);
+    assert.equal(result.observation?.consequenceBaseline, "high", summary);
+  }
+});
+
+test("kernel command titles cannot fabricate or override summary evidence", () => {
+  const event = failedTaskEvent("kernel:title-authority", "Result unavailable.", {
+    capabilityFamily: "exec_command",
+  });
+  const titleOnlySuccess = evaluateApertureKernelEvent({
+    ...event,
+    title: "Your command ran successfully and did not produce any output.",
+  });
+  const terminalTitle = evaluateApertureKernelEvent({
+    ...event,
+    title: "Permission denied",
+    summary: "Your command ran successfully and did not produce any output.",
+  });
+
+  assert.notEqual(titleOnlySuccess.observation?.polarity, "success");
+  assert.equal(titleOnlySuccess.observationJudgment?.statusConflictKind, null);
+  assert.notEqual(terminalTitle.observation?.polarity, "success");
+  assert.equal(terminalTitle.observationJudgment?.statusConflictKind, null);
+});
+
 test("kernel evaluation exposes the stable normalize to observe to judge explanation", () => {
   const result = evaluateApertureKernelEvent(
     failedTaskEvent(
@@ -86,34 +236,52 @@ test("kernel evaluation exposes the stable normalize to observe to judge explana
   ]);
 });
 
-test("host-owned adapters can feed unrelated event shapes through the kernel event contract", () => {
+test("host-owned adapters can prove canonical observation invariance through the kernel", () => {
   const fixture = readKernelPortabilityFixture();
+  const report = runApertureKernelConformance(
+    (input: KernelPortabilityHostInput) => adaptHostEvent(input),
+    fixture.cases.map((caseSpec) => ({
+      id: caseSpec.id,
+      input: { host: caseSpec.host, event: caseSpec.event },
+      expected: {
+        observation: caseSpec.expected.observation,
+        observationJudgment: caseSpec.expected.observationJudgment,
+        reasonCodes: caseSpec.expected.explanationReasonCodes,
+      },
+    })),
+  );
 
-  for (const caseSpec of fixture.cases) {
-    const kernelEvent = adaptHostEvent(caseSpec.host, caseSpec.event);
-
-    assert.ok(kernelEvent, caseSpec.id);
-    const result = evaluateApertureKernelEvent(kernelEvent);
-
-    assert.equal(result.evaluation.kind, "candidate", caseSpec.id);
-    assert.deepEqual(result.observation, caseSpec.expected.observation, caseSpec.id);
-    assert.deepEqual(
-      result.observationJudgment,
-      caseSpec.expected.observationJudgment,
-      caseSpec.id,
-    );
-    assert.equal(
-      result.explanation.schemaVersion,
-      APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION,
-      caseSpec.id,
-    );
-    assert.deepEqual(result.explanation.flow, ["normalize", "observe", "judge"], caseSpec.id);
-    assert.deepEqual(
-      result.explanation.reasonCodes,
-      caseSpec.expected.explanationReasonCodes,
-      caseSpec.id,
-    );
+  assert.equal(report.passed, true, JSON.stringify(report));
+  assert.equal(report.deterministic, true);
+  for (const result of report.cases) {
+    assert.equal(result.passed, true, `${result.id}: ${result.failures.join(", ")}`);
   }
+});
+
+test("kernel conformance reports adapter and validation failures without throwing", () => {
+  const report = runApertureKernelConformance(
+    () => ({
+      id: "evt:malformed",
+      workId: "work:malformed",
+      occurredAt: "not-a-timestamp",
+      kind: "work.updated",
+      title: "Malformed",
+      status: "failed",
+      evidence: { kind: "not-an-evidence-kind" } as never,
+    }),
+    [
+      {
+        id: "malformed",
+        input: { ignored: true },
+        expected: { observation: null, observationJudgment: null, reasonCodes: [] },
+      },
+    ],
+  );
+
+  assert.equal(report.passed, false);
+  assert.equal(report.deterministic, true);
+  assert.equal(report.cases[0]?.passed, false);
+  assert.match(report.cases[0]?.failures[0] ?? "", /evaluation threw/);
 });
 
 test("host-owned adapters can decline events before kernel invocation", () => {
@@ -139,6 +307,68 @@ test("kernel only treats facts capability family as capability authority", () =>
 
   assert.equal(direct.event.capabilityFamily, "exec_command");
   assert.equal(contextual.event.capabilityFamily, undefined);
+});
+
+test("kernel canonicalizes capability family case before semantic matching", () => {
+  const lowercase = evaluateApertureKernelEvent(
+    failedTaskEvent(
+      "capability-lowercase",
+      "Your command ran successfully and did not produce any output.",
+      {
+        capabilityFamily: "bash",
+      },
+    ),
+  );
+  const mixedCase = evaluateApertureKernelEvent(
+    failedTaskEvent(
+      "capability-mixed-case",
+      "Your command ran successfully and did not produce any output.",
+      {
+        capabilityFamily: " Bash ",
+      },
+    ),
+  );
+
+  assert.equal(mixedCase.event.semantic.capabilityFamily, "bash");
+  assert.deepEqual(mixedCase.observation, lowercase.observation);
+  assert.deepEqual(mixedCase.observationJudgment, lowercase.observationJudgment);
+});
+
+test("kernel preserves unprefixed native stderr with an explicit capability fact", () => {
+  for (const [id, summary] of [
+    [
+      "native-command-not-found",
+      "bash: foo: command not found\nProcess exited with code 127; stderr capture complete.",
+    ],
+    [
+      "native-missing-path",
+      "cat: /tmp/missing.txt: No such file or directory\nProcess exited with code 1; stderr capture complete.",
+    ],
+  ] as const) {
+    const result = evaluateApertureKernelEvent(
+      failedTaskEvent(id, summary, { capabilityFamily: "bash" }),
+    );
+
+    assert.equal(result.observation?.kind, "diagnostic", summary);
+    assert.equal(result.observation?.diagnosticClass, "runtime", summary);
+    assert.equal(result.observationJudgment?.statusEvidence, "visible_diagnostic_failure", summary);
+  }
+});
+
+test("kernel projects one normalized activity category", () => {
+  const result = evaluateApertureKernelEvent(
+    failedTaskEvent(
+      "activity-category-authority",
+      "The command failed with exit code 9 and no diagnostic text was retained.",
+      {
+        capabilityFamily: "exec_command",
+        activityCategory: "permission_request",
+      },
+    ),
+  );
+
+  assert.equal(result.event.activityCategory, result.event.semantic.activityCategory);
+  assert.equal(result.event.activityCategory, "tool_failure");
 });
 
 test("kernel evaluation exposes candidates that do not yet have observation documents", () => {
@@ -178,9 +408,403 @@ test("kernel evaluation leaves non-candidate events observation-judgment-free", 
   assert.equal(result.observationJudgment, null);
 });
 
+test("typed source evidence deterministically covers every observation family", () => {
+  const cases: Array<{
+    id: string;
+    evidence: SourceEvidence;
+    expected: {
+      kind: Observation["kind"];
+      polarity: Observation["polarity"];
+      subject: Observation["subject"];
+      evidenceLoss: Observation["evidenceLoss"];
+      diagnosticClass: Observation["diagnosticClass"] | null;
+      recoveryHint: Observation["recoveryHint"] | null;
+      origin: Observation["provenance"]["origin"];
+      baseline: Observation["consequenceBaseline"];
+      statusEvidence: ObservationJudgment["statusEvidence"];
+      conflict: ObservationJudgment["statusConflictKind"];
+      recovery: ObservationJudgment["recoveryPosture"];
+    };
+  }> = [
+    {
+      id: "failure-outcome",
+      evidence: {
+        kind: "outcome",
+        outcome: "failure",
+        subject: "command",
+        channel: "command",
+        complete: true,
+      },
+      expected: expectedEvidence(
+        "outcome",
+        "failure",
+        "command",
+        "none",
+        null,
+        null,
+        "command_output",
+        "medium",
+        "limited_failure",
+        null,
+        "none",
+      ),
+    },
+    {
+      id: "success-outcome",
+      evidence: {
+        kind: "outcome",
+        outcome: "success",
+        subject: "command",
+        channel: "structured",
+        complete: true,
+      },
+      expected: expectedEvidence(
+        "outcome",
+        "success",
+        "command",
+        "none",
+        null,
+        null,
+        "structured_output",
+        "low",
+        "stable_observation",
+        "execution_success_observation",
+        "none",
+      ),
+    },
+    {
+      id: "runtime-diagnostic",
+      evidence: {
+        kind: "diagnostic",
+        diagnostic: "runtime",
+        subject: "tool",
+        channel: "transcript",
+        complete: true,
+      },
+      expected: expectedEvidence(
+        "diagnostic",
+        "failure",
+        "tool",
+        "none",
+        "runtime",
+        "inspect_diagnostic",
+        "transcript",
+        "high",
+        "visible_diagnostic_failure",
+        null,
+        "diagnostic_inspection",
+      ),
+    },
+    {
+      id: "expected-diagnostic",
+      evidence: {
+        kind: "diagnostic",
+        diagnostic: "expected",
+        subject: "document",
+        channel: "structured",
+        complete: true,
+      },
+      expected: expectedEvidence(
+        "diagnostic",
+        "failure",
+        "document",
+        "none",
+        "expected",
+        "inspect_diagnostic",
+        "structured_output",
+        "medium",
+        "stable_observation",
+        null,
+        "diagnostic_inspection",
+      ),
+    },
+    {
+      id: "source-limit",
+      evidence: {
+        kind: "diagnostic",
+        diagnostic: "source_limit",
+        channel: "read",
+        window: { unit: "bytes", offset: 0, length: 2048, total: 10_000 },
+      },
+      expected: expectedEvidence(
+        "diagnostic",
+        "failure",
+        "source",
+        "partial",
+        "source_limit",
+        "narrow_evidence_scope",
+        "read_output",
+        "medium",
+        "limited_failure",
+        null,
+        "evidence_scope_required",
+      ),
+    },
+    {
+      id: "search-payload",
+      evidence: { kind: "payload", subject: "search", channel: "search", complete: true },
+      expected: expectedEvidence(
+        "payload",
+        "neutral",
+        "search",
+        "none",
+        null,
+        null,
+        "transcript",
+        "low",
+        "stable_observation",
+        "search_output_observation",
+        "none",
+      ),
+    },
+    {
+      id: "authorization",
+      evidence: {
+        kind: "authorization",
+        state: "required",
+        execution: "not_started",
+        result: "absent",
+      },
+      expected: expectedEvidence(
+        "control",
+        "neutral",
+        "tool",
+        "none",
+        null,
+        "await_authorization",
+        "status_text",
+        "low",
+        "stable_observation",
+        "rejected_tool_use_observation",
+        "authorization_required",
+      ),
+    },
+  ];
+
+  for (const testCase of cases) {
+    const result = evaluateApertureKernelEvent(
+      failedTaskEvent(testCase.id, "Contradictory prose says this was an unrelated success.", {
+        capabilityFamily: "Opaque-Capability/17",
+        evidence: testCase.evidence,
+      }),
+    );
+    const observation = result.observation;
+    const judgment = result.observationJudgment;
+    assert.ok(observation, testCase.id);
+    assert.ok(judgment, testCase.id);
+    assert.equal(observation.ownership.owner, "tool", testCase.id);
+    assert.equal(observation.ownership.capabilityFamily, "opaque-capability/17", testCase.id);
+    assert.equal(observation.semanticAgreement, "stable", testCase.id);
+    assert.equal(observation.evidenceStrength, "strong", testCase.id);
+    assert.equal(observation.provenance.authority, "explicit", testCase.id);
+    assert.deepEqual(
+      {
+        kind: observation.kind,
+        polarity: observation.polarity,
+        subject: observation.subject,
+        evidenceLoss: observation.evidenceLoss,
+        diagnosticClass: observation.diagnosticClass ?? null,
+        recoveryHint: observation.recoveryHint ?? null,
+        origin: observation.provenance.origin,
+        baseline: observation.consequenceBaseline,
+        statusEvidence: judgment.statusEvidence,
+        conflict: judgment.statusConflictKind,
+        recovery: judgment.recoveryPosture,
+      },
+      testCase.expected,
+      testCase.id,
+    );
+  }
+});
+
+test("typed evidence semantics never depend on opaque capability identity or prose", () => {
+  const evidence: SourceEvidence = {
+    kind: "payload",
+    subject: "search",
+    channel: "search",
+    complete: true,
+  };
+  const first = evaluateApertureKernelEvent(
+    failedTaskEvent("typed-invariance-a", "Permission denied and execution failed.", {
+      capabilityFamily: "alpha_native_operation",
+      evidence,
+    }),
+  );
+  const second = evaluateApertureKernelEvent(
+    failedTaskEvent("typed-invariance-b", "All work completed successfully.", {
+      capabilityFamily: "beta_external_action",
+      evidence,
+    }),
+  );
+
+  assert.deepEqual(withoutCapabilityIdentity(first), withoutCapabilityIdentity(second));
+});
+
+test("typed evidence outranks recognized capability families, risk prose, and semantic hints", () => {
+  const evidence: SourceEvidence = {
+    kind: "outcome",
+    outcome: "failure",
+    subject: "command",
+    channel: "command",
+    complete: true,
+  };
+  const variants = [
+    ["read", "Critical destructive write breached production."],
+    ["search", "Everything completed successfully."],
+    ["edit", "Permission denied before execution."],
+    ["exec_command", "A harmless read returned one document."],
+  ] as const;
+  const results = variants.map(([capabilityFamily, summary], index) =>
+    evaluateApertureKernelEvent(
+      failedTaskEvent(`typed-authority-${index}`, summary, { capabilityFamily, evidence }),
+    ),
+  );
+  const baseline = results[0];
+  assert.ok(baseline);
+  for (const result of results) {
+    assert.deepEqual(withoutCapabilityIdentity(result), withoutCapabilityIdentity(baseline));
+    assert.equal(result.observation?.semanticAgreement, "stable");
+    assert.equal(result.observation?.evidenceStrength, "strong");
+    assert.equal(result.observation?.provenance.authority, "explicit");
+    assert.equal(result.observation?.consequenceBaseline, "medium");
+  }
+
+  const source: SourceEvent = {
+    id: "evt:typed-hint-authority",
+    taskId: "task:typed-hint-authority",
+    timestamp,
+    type: "task.updated",
+    title: "Host failure",
+    summary: "Critical destructive write breached production.",
+    status: "failed",
+    toolFamily: "exec_command",
+    evidence,
+  };
+  const hinted: SourceEvent = {
+    ...source,
+    semanticHints: {
+      intentFrame: "blocked_work",
+      activityClass: "tool_failure",
+      consequence: "high",
+      confidence: "low",
+      abstained: true,
+    },
+  };
+  const plainResult = new EventEvaluator().evaluate(normalizeSourceEvent(source));
+  const hintedResult = new EventEvaluator().evaluate(normalizeSourceEvent(hinted));
+  assert.equal(plainResult.kind, "candidate");
+  assert.equal(hintedResult.kind, "candidate");
+  if (plainResult.kind !== "candidate" || hintedResult.kind !== "candidate") return;
+  assert.deepEqual(
+    hintedResult.candidate.judgmentInput.observation,
+    plainResult.candidate.judgmentInput.observation,
+  );
+});
+
+test("source, direct, and kernel events share one typed-evidence observation path", () => {
+  const evidence: SourceEvidence = {
+    kind: "diagnostic",
+    diagnostic: "source_limit",
+    channel: "read",
+    window: { unit: "lines", offset: 20, length: 40, total: 900 },
+  };
+  const event = {
+    id: "evt:shared-evidence",
+    taskId: "work:shared-evidence",
+    timestamp,
+    type: "task.updated" as const,
+    title: "Opaque host update",
+    summary: "The prose says there was no truncation.",
+    status: "failed" as const,
+    toolFamily: "native-reader-42",
+    evidence,
+  };
+  const sourceResult = new EventEvaluator().evaluate(
+    normalizeSourceEvent(event satisfies SourceEvent),
+  );
+  const directResult = new EventEvaluator().evaluate(
+    enrichApertureEvent(event satisfies ApertureEvent),
+  );
+  const optedOutDirectResult = new EventEvaluator().evaluate(
+    enrichApertureEvent(event satisfies ApertureEvent, { skipSemanticDefaults: true }),
+  );
+  const kernelResult = evaluateApertureKernelEvent({
+    id: event.id,
+    workId: event.taskId,
+    occurredAt: event.timestamp,
+    kind: "work.updated",
+    title: event.title,
+    summary: event.summary,
+    status: event.status,
+    evidence,
+    facts: { capabilityFamily: event.toolFamily },
+  });
+
+  assert.equal(sourceResult.kind, "candidate");
+  assert.equal(directResult.kind, "candidate");
+  assert.equal(optedOutDirectResult.kind, "candidate");
+  if (
+    sourceResult.kind !== "candidate" ||
+    directResult.kind !== "candidate" ||
+    optedOutDirectResult.kind !== "candidate"
+  )
+    return;
+  assert.deepEqual(
+    sourceResult.candidate.judgmentInput.observation,
+    directResult.candidate.judgmentInput.observation,
+  );
+  assert.deepEqual(
+    optedOutDirectResult.candidate.judgmentInput.observation,
+    directResult.candidate.judgmentInput.observation,
+  );
+  assert.deepEqual(sourceResult.candidate.judgmentInput.observation, kernelResult.observation);
+});
+
+test("kernel rejects malformed typed evidence at runtime", () => {
+  assert.throws(
+    () =>
+      evaluateApertureKernelEvent({
+        id: "evt:kernel:nonfailed-evidence",
+        workId: "work:kernel:nonfailed-evidence",
+        occurredAt: timestamp,
+        kind: "work.updated",
+        title: "Invalid running evidence",
+        status: "running",
+        evidence: {
+          kind: "outcome",
+          outcome: "success",
+          subject: "command",
+          channel: "command",
+          complete: true,
+        } as never,
+      }),
+    /event\.evidence/,
+  );
+
+  assert.throws(
+    () =>
+      evaluateApertureKernelEvent({
+        id: "evt:kernel:invalid-evidence",
+        workId: "work:kernel:invalid-evidence",
+        occurredAt: timestamp,
+        kind: "work.updated",
+        title: "Invalid source window",
+        status: "failed",
+        evidence: {
+          kind: "diagnostic",
+          diagnostic: "source_limit",
+          channel: "read",
+          window: { unit: "bytes", offset: 0, length: 100, total: 100 },
+        } as never,
+      }),
+    /event\.evidence\.window must be valid bounded source evidence/,
+  );
+});
+
 function runningTaskEvent(
   id: string,
   options: {
+    activityCategory?: ApertureKernelActivityCategory;
     capabilityFamily?: string;
     contextCapabilityFamily?: string;
     metadataCapabilityFamily?: string;
@@ -194,9 +818,18 @@ function runningTaskEvent(
     title: "Host status",
     summary: "Routine status update.",
     status: "running",
-    ...(options.capabilityFamily === undefined
+    ...(options.capabilityFamily === undefined && options.activityCategory === undefined
       ? {}
-      : { facts: { capabilityFamily: options.capabilityFamily } }),
+      : {
+          facts: {
+            ...(options.capabilityFamily === undefined
+              ? {}
+              : { capabilityFamily: options.capabilityFamily }),
+            ...(options.activityCategory === undefined
+              ? {}
+              : { activityCategory: options.activityCategory }),
+          },
+        }),
     ...contextAndMetadataOptions(options),
   };
 }
@@ -205,8 +838,10 @@ function failedTaskEvent(
   id: string,
   summary: string,
   options: {
+    activityCategory?: ApertureKernelActivityCategory;
     capabilityFamily?: string;
     contextCapabilityFamily?: string;
+    evidence?: SourceEvidence;
     metadataCapabilityFamily?: string;
   },
 ): ApertureKernelEvent {
@@ -218,10 +853,59 @@ function failedTaskEvent(
     title: "Host observation",
     summary,
     status: "failed",
-    ...(options.capabilityFamily === undefined
+    ...(options.evidence === undefined ? {} : { evidence: options.evidence }),
+    ...(options.capabilityFamily === undefined && options.activityCategory === undefined
       ? {}
-      : { facts: { capabilityFamily: options.capabilityFamily } }),
+      : {
+          facts: {
+            ...(options.capabilityFamily === undefined
+              ? {}
+              : { capabilityFamily: options.capabilityFamily }),
+            ...(options.activityCategory === undefined
+              ? {}
+              : { activityCategory: options.activityCategory }),
+          },
+        }),
     ...contextAndMetadataOptions(options),
+  };
+}
+
+function expectedEvidence(
+  kind: Observation["kind"],
+  polarity: Observation["polarity"],
+  subject: Observation["subject"],
+  evidenceLoss: Observation["evidenceLoss"],
+  diagnosticClass: Observation["diagnosticClass"] | null,
+  recoveryHint: Observation["recoveryHint"] | null,
+  origin: Observation["provenance"]["origin"],
+  baseline: Observation["consequenceBaseline"],
+  statusEvidence: ObservationJudgment["statusEvidence"],
+  conflict: ObservationJudgment["statusConflictKind"],
+  recovery: ObservationJudgment["recoveryPosture"],
+) {
+  return {
+    kind,
+    polarity,
+    subject,
+    evidenceLoss,
+    diagnosticClass,
+    recoveryHint,
+    origin,
+    baseline,
+    statusEvidence,
+    conflict,
+    recovery,
+  };
+}
+
+function withoutCapabilityIdentity(result: ReturnType<typeof evaluateApertureKernelEvent>) {
+  return {
+    observation:
+      result.observation === null
+        ? null
+        : { ...result.observation, ownership: { owner: result.observation.ownership.owner } },
+    judgment: result.observationJudgment,
+    reasonCodes: result.explanation.reasonCodes,
   };
 }
 
@@ -250,8 +934,13 @@ function contextAndMetadataOptions(options: {
 }
 
 type KernelPortabilityFixture = {
-  id: "aperture.kernel.portability.v1";
+  id: "aperture.kernel.portability";
   cases: KernelPortabilityFixtureCase[];
+};
+
+type KernelPortabilityHostInput = {
+  host: KernelPortabilityFixtureCase["host"];
+  event: Record<string, unknown>;
 };
 
 type KernelPortabilityFixtureCase = {
@@ -259,27 +948,24 @@ type KernelPortabilityFixtureCase = {
   host: "record-log" | "snapshot-state";
   event: Record<string, unknown>;
   expected: {
-    observation: ApertureKernelObservation;
-    observationJudgment: ApertureKernelObservationJudgment;
+    observation: Observation;
+    observationJudgment: ObservationJudgment;
     explanationReasonCodes: string[];
   };
 };
 
 function readKernelPortabilityFixture(): KernelPortabilityFixture {
   return JSON.parse(
-    readFileSync(new URL("./fixtures/kernel-portability-v1.json", import.meta.url), "utf8"),
+    readFileSync(new URL("./fixtures/kernel-portability.json", import.meta.url), "utf8"),
   ) as KernelPortabilityFixture;
 }
 
-function adaptHostEvent(
-  host: KernelPortabilityFixtureCase["host"],
-  event: Record<string, unknown>,
-): ApertureKernelEvent | null {
-  switch (host) {
+function adaptHostEvent(input: KernelPortabilityHostInput): ApertureKernelEvent | null {
+  switch (input.host) {
     case "record-log":
-      return adaptRecordLogEvent(event);
+      return adaptRecordLogEvent(input.event);
     case "snapshot-state":
-      return adaptSnapshotStateEvent(event);
+      return adaptSnapshotStateEvent(input.event);
   }
 }
 

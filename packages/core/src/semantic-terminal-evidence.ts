@@ -1,8 +1,6 @@
 import { ISSUE_SIGNAL_PHRASES, TERMINAL_FAILURE_PHRASES } from "./semantic-patterns.js";
 import { normalizeSemanticText } from "./semantic-text.js";
 
-export { looksLikeBareNonzeroTerminalExitEvidence } from "./semantic-bare-nonzero-terminal-exit.js";
-
 export function looksLikeTerminalFailureEvidence(text: string): boolean {
   if (
     looksLikeNonzeroTerminalExit(text) ||
@@ -59,9 +57,24 @@ function hasTerminalExitCode(text: string, predicate: (code: number) => boolean)
   return false;
 }
 
-function removeTerminalExitCodeObservations(text: string): string {
+export function removeTerminalExitCodeObservations(text: string): string {
   return text.replace(new RegExp(TERMINAL_EXIT_CODE_PATTERN_SOURCE, "g"), " ");
 }
+
+export const assertedContinuation = (
+  clauses: readonly string[],
+  isDiagnostic: (clause: string) => boolean,
+  isExecutionContext: (clause: string) => boolean,
+) =>
+  clauses.some(
+    (clause, index) =>
+      index > 0 && isDiagnostic(clause) && clauses.slice(0, index).some(isExecutionContext),
+  );
+export const negatedAssertion = (clauses: readonly string[], negated: RegExp, direct: RegExp) =>
+  clauses.findIndex((clause) => negated.test(clause)) >= 0 &&
+  !clauses
+    .slice(clauses.findIndex((clause) => negated.test(clause)) + 1)
+    .some((clause) => direct.test(clause));
 
 function stripRoutineFailurePrefix(text: string): string {
   return text.replace(
@@ -129,8 +142,12 @@ function isOccurrenceCoveredByAnyPattern(
 
 function defaultBenignPhrasePatterns(phrase: string): RegExp[] {
   const normalizedPhrase = escapeRegExp(normalizeSemanticText(phrase));
+  const absence =
+    phrase === "permission denied"
+      ? String.raw`(?:no ${normalizedPhrase}|${normalizedPhrase} before (?:tool )?(?:invocation|execution))`
+      : String.raw`no ${normalizedPhrase}`;
   return [
-    new RegExp(String.raw`\bno ${normalizedPhrase}\b`),
+    new RegExp(String.raw`\b${absence}\b`),
     new RegExp(String.raw`\bwithout ${normalizedPhrase}\b`),
   ];
 }
@@ -146,20 +163,11 @@ function defaultBenignIssuePatterns(phrase: string): RegExp[] {
 }
 
 const BENIGN_EXCEPTION_PATTERNS = [
-  /\bno exceptions?(?: occurred| raised| reported| found| seen| present)?\b/,
-  /\bwithout (?:an? )?exceptions?\b/,
-  /\bexpected exceptions?(?: was| were)? (?:caught|handled|raised)\b/,
-  /\b(?:caught|handled) (?:the )?expected exceptions?\b/,
-  /\bexceptions?(?: was| were)? expected\b/,
+  /\b(?:no exceptions?(?: occurred| raised| reported| found| seen| present)?|without (?:an? )?exceptions?|expected exceptions?(?: was| were)? (?:caught|handled|raised)|(?:caught|handled) (?:the )?expected exceptions?|exceptions?(?: was| were)? expected)\b/,
 ] as const;
-
 const BENIGN_TRACEBACK_PATTERNS = [
-  /\bno tracebacks?(?: occurred| raised| reported| found| seen| present)?\b/,
-  /\bwithout (?:a )?tracebacks?\b/,
-  /\bexpected tracebacks?(?: was| were)? (?:caught|handled|raised|produced)\b/,
-  /\btracebacks?(?: was| were)? expected\b/,
+  /\b(?:no tracebacks?(?: occurred| raised| reported| found| seen| present)?|without (?:a )?tracebacks?|expected tracebacks?(?: was| were)? (?:caught|handled|raised|produced)|tracebacks?(?: was| were)? expected)\b/,
 ] as const;
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

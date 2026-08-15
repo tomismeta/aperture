@@ -40,12 +40,7 @@ import type {
   SemanticInterpretation,
   SemanticInterpretationHints,
   SemanticRelationHint,
-  SemanticOntologyDiagnostic as DeprecatedSemanticOntologyDiagnostic,
   TruncatedSourceEvidenceHintOptions,
-} from "../src/semantic.js";
-import {
-  projectSemanticOntologyDiagnostic,
-  readSemanticOntologyDiagnostic,
 } from "../src/semantic.js";
 import type {
   AttentionClaimAction,
@@ -68,10 +63,14 @@ import type {
 import type {
   ApertureKernelEvent,
   ApertureKernelEvaluation,
+  ApertureKernelConformanceCase,
+  ApertureKernelConformanceCaseResult,
+  ApertureKernelConformanceReport,
   ApertureKernelExplanation,
   ApertureKernelFinalEvent,
-  ApertureKernelObservation,
-  ApertureKernelObservationJudgment,
+  ApertureKernelHostAdapter,
+  Observation,
+  ObservationJudgment,
   ApertureKernelResult,
 } from "../src/kernel.js";
 
@@ -112,7 +111,6 @@ void (0 as unknown as SemanticInterpretationHints);
 void (0 as unknown as AttentionOntologyDiagnostic);
 void (0 as unknown as SemanticRelationHint);
 void (0 as unknown as SemanticConfidence);
-void (0 as unknown as DeprecatedSemanticOntologyDiagnostic);
 void (0 as unknown as TruncatedSourceEvidenceHintOptions);
 void (0 as unknown as AttentionClaim);
 void (0 as unknown as AttentionClaimAction);
@@ -132,10 +130,14 @@ void (0 as unknown as AttentionEvaluationInput);
 void (0 as unknown as AttentionOperatorPresence);
 void (0 as unknown as ApertureKernelEvent);
 void (0 as unknown as ApertureKernelEvaluation);
+void (0 as unknown as ApertureKernelConformanceCase<unknown>);
+void (0 as unknown as ApertureKernelConformanceCaseResult);
+void (0 as unknown as ApertureKernelConformanceReport);
 void (0 as unknown as ApertureKernelExplanation);
 void (0 as unknown as ApertureKernelFinalEvent);
-void (0 as unknown as ApertureKernelObservation);
-void (0 as unknown as ApertureKernelObservationJudgment);
+void (0 as unknown as ApertureKernelHostAdapter<unknown>);
+void (0 as unknown as Observation);
+void (0 as unknown as ObservationJudgment);
 void (0 as unknown as ApertureKernelResult);
 
 const truncatedSourceOptions: TruncatedSourceEvidenceHintOptions = {
@@ -150,38 +152,5 @@ const evaluatorJudgment: AttentionClaimJudgment = {
   },
 };
 
-const ontologyCompatibilitySourceEvent: SourceEvent = {
-  id: "evt:ontology:source",
-  taskId: "task:ontology:source",
-  timestamp: "2026-04-08T12:00:00.000Z",
-  type: "task.updated",
-  title: "Task blocked",
-  summary: "Waiting for user input.",
-  status: "blocked",
-};
-const ontologyCompatibilityApertureEvent: ApertureEvent = {
-  id: "evt:ontology:aperture",
-  taskId: "task:ontology:aperture",
-  timestamp: "2026-04-08T12:00:00.000Z",
-  type: "task.updated",
-  title: "Task blocked",
-  summary: "Waiting for user input.",
-  status: "blocked",
-};
-const ontologyCompatibilitySemantic: SemanticInterpretation = {
-  intentFrame: "failure",
-  activityClass: "tool_failure",
-  confidence: "high",
-  factors: ["failed"],
-  relationHints: [],
-  reasons: ["compatibility fixture"],
-};
-
 void truncatedSourceOptions;
 void evaluatorJudgment;
-void readSemanticOntologyDiagnostic(ontologyCompatibilitySourceEvent);
-void readSemanticOntologyDiagnostic(ontologyCompatibilityApertureEvent);
-void projectSemanticOntologyDiagnostic(
-  ontologyCompatibilityApertureEvent,
-  ontologyCompatibilitySemantic,
-);

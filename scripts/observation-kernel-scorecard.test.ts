@@ -11,6 +11,7 @@ import {
 import {
   buildObservationKernelScorecard,
   digestKernelCanonicalJson,
+  evaluateObservationKernelQuality,
   parseObservationKernelScorecard,
   serializeKernelCanonicalJson,
 } from "../packages/lab/src/index.js";
@@ -20,16 +21,32 @@ test("observation kernel scorecard covers the normalized observation contract", 
   const scorecard = buildObservationKernelScorecard();
 
   assert.equal(scorecard.passed, true);
-  assert.equal(scorecard.summary.fixtures.total, 15);
-  assert.equal(scorecard.summary.fixtures.withObservation, 15);
-  assert.equal(scorecard.summary.observations.total, 17);
-  assert.equal(scorecard.summary.observations.unique, 17);
+  assert.deepEqual(scorecard.proof, {
+    releaseEligible: false,
+    retiredRegressionHoldout: true,
+    independentPostFreezeHoldoutRequired: true,
+  });
+  assert.equal(scorecard.summary.fixtures.total, 40);
+  assert.equal(scorecard.summary.fixtures.withObservation, 40);
+  assert.equal(scorecard.summary.fixtures.calibration, 16);
+  assert.equal(scorecard.summary.fixtures.retiredRegression, 24);
+  assert.equal(scorecard.summary.observations.total, 42);
   assert.equal(
     new Set(scorecard.observations.map((observation) => observation.semanticDigest)).size,
     scorecard.summary.observations.unique,
   );
   assert.ok(scorecard.observations.every((observation) => observation.judgmentDigest.length > 0));
   assert.equal(scorecard.summary.determinism.stable, true);
+  assert.equal(scorecard.quality.passed, true);
+  assert.deepEqual(scorecard.quality.failures, []);
+  assert.equal(scorecard.quality.summary.semantics.score, 1);
+  assert.equal(scorecard.quality.summary.judgment.score, 1);
+  assert.equal(scorecard.quality.summary.decision.score, 1);
+  assert.equal(scorecard.quality.summary.exactOutcomes.score, 1);
+  assert.equal(scorecard.quality.bySplit.retired_regression.exactOutcomes.total, 24);
+  assert.equal(scorecard.quality.semanticFields.length, 13);
+  assert.equal(scorecard.quality.judgmentFields.length, 8);
+  assert.equal(scorecard.quality.decisionFields.length, 2);
   assert.equal(
     scorecard.observations.some(
       (observation) => observation.fixtureId === "structured-output-source-readback",
@@ -64,7 +81,7 @@ test("observation kernel scorecard covers the normalized observation contract", 
       .map((observation) => observation.judgment.statusEvidence),
     ["limited_failure", "stable_observation"],
   );
-  assert.notEqual(
+  assert.equal(
     scorecard.observations.find(
       (observation) => observation.fixtureId === "read-source-window-limit",
     )?.semanticDigest,
@@ -79,7 +96,14 @@ test("observation kernel scorecard covers the normalized observation contract", 
   );
   assert.deepEqual(
     scorecard.coverage.provenanceOrigins.map((entry) => entry.id),
-    ["read_output", "semantic_evidence", "status_text", "structured_output", "transcript"],
+    [
+      "command_output",
+      "read_output",
+      "semantic_evidence",
+      "status_text",
+      "structured_output",
+      "transcript",
+    ],
   );
   assert.deepEqual(
     scorecard.coverage.recoveryHints.map((entry) => entry.id),
@@ -127,53 +151,37 @@ test("observation kernel scorecard covers the normalized observation contract", 
       "structured_output_observation",
     ],
   );
-  assert.deepEqual(
-    scorecard.coverage.extractorIds.map((entry) => entry.id),
-    [
-      "command_success",
-      "empty_payload",
-      "expected_diagnostic",
-      "operation_success",
-      "payload",
-      "read_truncated_source",
-      "rejected_tool_use",
-      "search_output",
-      "structured_execution_success",
-      "structured_output",
-      "terminal_diagnostic",
-      "terminal_outcome",
-      "unknown_failure",
-    ],
-  );
-  assertExtractor(
-    scorecard,
-    "explicit-tool-family-authority",
-    "command_success",
-    "command_success_observation",
-  );
-  assertExtractor(scorecard, "read-source-window-limit", "read_truncated_source", null);
-  assertExtractor(
-    scorecard,
-    "rejected-tool-use",
-    "rejected_tool_use",
-    "rejected_tool_use_observation",
-  );
-  assertExtractor(scorecard, "search-result-output", "search_output", "search_output_observation");
-  assertExtractor(
-    scorecard,
-    "structured-output-source-readback",
-    "structured_output",
-    "structured_output_observation",
-  );
-  assertExtractor(
-    scorecard,
-    "explicit-tool-family-authority",
-    "structured_execution_success",
-    "execution_success_observation",
-    1,
-  );
-  assertExtractor(scorecard, "expected-diagnostic-output", "expected_diagnostic", null);
-  assertExtractor(scorecard, "ambiguous-terminal-output", "unknown_failure", null);
+  assert.deepEqual(Object.keys(scorecard.coverage).sort(), [
+    "consequenceBaselines",
+    "diagnosticClasses",
+    "dimensions",
+    "evidenceLosses",
+    "evidenceStrengths",
+    "kinds",
+    "owners",
+    "polarities",
+    "provenanceAuthorities",
+    "provenanceOrigins",
+    "recoveryHints",
+    "semanticAgreements",
+    "splits",
+    "subjects",
+  ]);
+  assert.deepEqual(Object.keys(scorecard.observations[0]?.fields ?? {}).sort(), [
+    "consequenceBaseline",
+    "diagnosticClass",
+    "evidenceLoss",
+    "evidenceStrength",
+    "kind",
+    "owner",
+    "polarity",
+    "provenanceAuthority",
+    "provenanceOrigin",
+    "recoveryHint",
+    "semanticAgreement",
+    "subject",
+    "toolFamily",
+  ]);
 });
 
 test("observation kernel keeps facts capability authoritative without context or metadata aliases", () => {
@@ -189,12 +197,39 @@ test("observation kernel keeps facts capability authoritative without context or
   }
 });
 
+test("observation kernel quality identifies semantic, judgment, and decision drift separately", () => {
+  const scorecard = buildObservationKernelScorecard();
+  const [first, ...rest] = scorecard.observations;
+  assert.ok(first);
+  if (first === undefined) return;
+
+  const quality = evaluateObservationKernelQuality([
+    {
+      ...first,
+      fields: { ...first.fields, polarity: "unknown" },
+      judgment: { ...first.judgment, stableStatusEvidence: !first.judgment.stableStatusEvidence },
+      decision: { ...first.decision, resultLane: "none" },
+    },
+    ...rest,
+  ]);
+
+  assert.equal(quality.passed, false);
+  assert.equal(quality.summary.semantics.passed, quality.summary.semantics.total - 1);
+  assert.equal(quality.summary.judgment.passed, quality.summary.judgment.total - 1);
+  assert.equal(quality.summary.decision.passed, quality.summary.decision.total - 1);
+  assert.ok(quality.failures.some((failure) => failure.includes(":semantics:polarity:")));
+  assert.ok(
+    quality.failures.some((failure) => failure.includes(":judgment:stableStatusEvidence:")),
+  );
+  assert.ok(quality.failures.some((failure) => failure.includes(":decision:resultLane:")));
+});
+
 test("observation kernel scorecard check rejects stale artifacts", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-observation-kernel-"));
   const previousExitCode = process.exitCode;
   const previousStderrWrite = process.stderr.write;
   try {
-    const scorecardPath = join(root, "observation-kernel-scorecard-v1.json");
+    const scorecardPath = join(root, "observation-kernel-scorecard-v3.json");
     const scorecard = buildObservationKernelScorecard();
 
     await runObservationKernelScorecardCommand({ args: ["--write"], scorecardPath });
@@ -295,22 +330,6 @@ function readObservationJudgmentAuthority(event: ApertureKernelEvent): {
     topLevelCapabilityFamily: result.event.capabilityFamily ?? null,
     statusConflictKind: result.observationJudgment.statusConflictKind,
   };
-}
-
-function assertExtractor(
-  scorecard: ReturnType<typeof buildObservationKernelScorecard>,
-  fixtureId: string,
-  extractorId: string,
-  statusConflictKind: string | null,
-  sequence = 0,
-): void {
-  const observation = scorecard.observations.find(
-    (entry) => entry.fixtureId === fixtureId && entry.sequence === sequence,
-  );
-
-  assert.ok(observation, fixtureId);
-  assert.equal(observation?.fields.observationExtractorId, extractorId, fixtureId);
-  assert.equal(observation?.judgment.statusConflictKind, statusConflictKind, fixtureId);
 }
 
 function failedTaskEvent(

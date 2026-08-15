@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { TypeCompiler } from "@sinclair/typebox/compiler";
 
 import { createApertureRuntime } from "../src/runtime.js";
 import { ApertureRuntimeAdapterClient } from "../src/adapter-client.js";
@@ -8,6 +9,15 @@ import {
   mapWorkEventToSourceEvent,
   type WorkEvent,
 } from "../src/work-event-ingest.js";
+import {
+  WorkEndpointDescriptionSchema,
+  WorkReceiptSchema,
+  WorkResponseSchema,
+} from "../src/work-public-contract.js";
+
+const workEndpointDescriptionCompiler = TypeCompiler.Compile(WorkEndpointDescriptionSchema);
+const workReceiptCompiler = TypeCompiler.Compile(WorkReceiptSchema);
+const workResponseCompiler = TypeCompiler.Compile(WorkResponseSchema);
 
 test("maps neutral work.updated events into SourceEvent with facts and hints", () => {
   const event = mapWorkEventToSourceEvent({
@@ -127,6 +137,7 @@ test("runtime work endpoint accepts neutral events directly", async () => {
     assert.equal(response.status, 200);
     const payload = (await response.json()) as {
       ok: boolean;
+      apiVersion: string;
       accepted: number;
       receivedAs: string;
       published: Array<{
@@ -137,6 +148,8 @@ test("runtime work endpoint accepts neutral events directly", async () => {
       }>;
     };
     assert.equal(payload.ok, true);
+    assert.equal(payload.apiVersion, "1.0");
+    assert.equal(workReceiptCompiler.Check(payload), true);
     assert.equal(payload.accepted, 1);
     assert.equal(payload.receivedAs, "event");
     assert.equal(payload.published[0]?.taskId, "task:runtime:approval");
@@ -406,6 +419,7 @@ test("work response path stays pending until a response is submitted", async () 
     assert.equal(answered.response?.kind, "approved");
     assert.equal(answered.response?.reason, "Looks good.");
     assert.equal(typeof answered.answeredAt, "string");
+    assert.equal(workResponseCompiler.Check(answered), true);
   } finally {
     await runtime.close();
   }
@@ -624,6 +638,7 @@ test("work endpoint explains itself on GET", async () => {
       next: Array<{ send: string }>;
     };
     assert.equal(payload.apiVersion, "1.0");
+    assert.equal(workEndpointDescriptionCompiler.Check(payload), true);
     assert.equal(payload.path, "/work");
     assert.equal(payload.method, "POST");
     assert.match(payload.auth, /bearer token/i);
@@ -732,30 +747,61 @@ test("work endpoint rejects oversized payloads with the shared body limit error"
   }
 });
 
-test("work endpoint accepts compatible 1.x spec versions and rejects 2.x", async () => {
+test("work endpoint accepts only the current Work contract version", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { baseUrl, authToken } = await runtime.listen();
 
   try {
-    const accepted = await authorizedFetch(baseUrl, authToken, "/v1/work", {
+    const accepted = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...workApprovalEvent("task:version:accepted"),
-        specVersion: "1.1",
+        specVersion: "1.0",
       }),
     });
     assert.equal(accepted.status, 200);
 
-    const rejected = await authorizedFetch(baseUrl, authToken, "/v1/work", {
+    const rejectedMinor = await authorizedFetch(baseUrl, authToken, "/work", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...workApprovalEvent("task:version:rejected"),
+        ...workApprovalEvent("task:version:rejected-minor"),
+        specVersion: "1.1",
+      }),
+    });
+    assert.equal(rejectedMinor.status, 400);
+    const minorPayload = (await rejectedMinor.json()) as {
+      error: {
+        code: string;
+        message: string;
+        hint?: string;
+        receivedVersion?: unknown;
+        supportedVersion?: string;
+      };
+    };
+    assert.equal(minorPayload.error.code, "unsupported_work_spec_version");
+    assert.equal(minorPayload.error.receivedVersion, "1.1");
+    assert.equal(minorPayload.error.supportedVersion, "1.0");
+    assert.match(minorPayload.error.hint ?? "", /omit specVersion/i);
+
+    const rejectedMajor = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...workApprovalEvent("task:version:rejected-major"),
         specVersion: "2.0",
       }),
     });
-    assert.equal(rejected.status, 400);
+    assert.equal(rejectedMajor.status, 400);
+    assert.equal(runtime.exportSessionCapture().publishedSourceEvents.length, 1);
+
+    const removedAlias = await authorizedFetch(baseUrl, authToken, "/v1/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(workApprovalEvent("task:version:removed-alias")),
+    });
+    assert.equal(removedAlias.status, 404);
   } finally {
     await runtime.close();
   }

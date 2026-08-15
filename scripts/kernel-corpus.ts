@@ -17,9 +17,10 @@ import {
   serializeKernelCanonicalJson,
   type KernelCorpusScorecard,
 } from "../packages/lab/src/index.js";
+import { isDirectExecution } from "./direct-execution.js";
 
-const DEFAULT_REPORT_PATH = "packages/lab/conformance/kernel-corpus-v2.json";
-const DEFAULT_SCORECARD_PATH = "packages/lab/conformance/kernel-corpus-scorecard-v6.json";
+const DEFAULT_REPORT_PATH = "packages/lab/conformance/kernel-corpus-v3.json";
+const DEFAULT_SCORECARD_PATH = "packages/lab/conformance/kernel-corpus-scorecard-v7.json";
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(scriptPath), "..");
 const execFileAsync = promisify(execFile);
@@ -81,15 +82,17 @@ export async function runKernelCorpusCommand(
     stale = true;
   }
   if (baseScorecard) {
-    try {
-      assertKernelCorpusScorecardComparisonPassed(
-        buildKernelCorpusScorecardComparison(baseScorecard, scorecard),
-      );
-    } catch (error) {
-      process.stderr.write(
-        `Kernel corpus scorecard regressed versus protected base: ${error instanceof Error ? error.message : String(error)}\n`,
-      );
-      stale = true;
+    if (baseScorecard.proof.releaseEligible || baseScorecard.proof.protectedRegressionBaseline) {
+      try {
+        assertKernelCorpusScorecardComparisonPassed(
+          buildKernelCorpusScorecardComparison(baseScorecard, scorecard),
+        );
+      } catch (error) {
+        process.stderr.write(
+          `Kernel corpus scorecard regressed versus protected base: ${error instanceof Error ? error.message : String(error)}\n`,
+        );
+        stale = true;
+      }
     }
   }
   if (actual !== expected) {
@@ -139,8 +142,31 @@ async function readComparisonBaseScorecard(
     (await readProtectedBaseScorecard(scorecardPath, baseRef)) ??
     (historicalBaseScorecard !== undefined
       ? historicalBaseScorecard
-      : await readHistoricalBranchScorecard(scorecardPath, currentScorecardSource))
+      : await readHistoricalBranchScorecard(scorecardPath, currentScorecardSource)) ??
+    (await readVersionedProtectedBaseScorecard(scorecardPath, baseRef))
   );
+}
+
+async function readVersionedProtectedBaseScorecard(
+  scorecardPath: string,
+  baseRef: string | false,
+): Promise<KernelCorpusScorecard | null> {
+  const match = path.basename(scorecardPath).match(/^(.*)-v(\d+)\.json$/);
+  if (!match || baseRef === false) return null;
+  const version = Number(match[2]);
+  if (!Number.isInteger(version) || version <= 1) return null;
+  const relativeScorecardPath = path.relative(repoRoot, scorecardPath);
+  const protectedPath = path.join(
+    path.dirname(relativeScorecardPath),
+    `${match[1]}-v${version - 1}.json`,
+  );
+  try {
+    const { stdout } = await execFileAsync("git", ["show", `${baseRef}:${protectedPath}`]);
+    return parseHistoricalKernelCorpusScorecard(String(stdout));
+  } catch (error) {
+    if (isProtectedBaseUnavailable(error)) return null;
+    throw error;
+  }
 }
 
 async function readHistoricalBranchScorecard(
@@ -223,7 +249,7 @@ function isProtectedBaseUnavailable(error: unknown): boolean {
   );
 }
 
-if (process.argv[1] === scriptPath) {
+if (isDirectExecution(import.meta.url)) {
   void main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);

@@ -19,9 +19,7 @@ export function buildTruncatedSourceEvidenceSemanticHints(
   input: { truncated?: boolean },
   status: SourceTaskUpdateStatus,
 ): SourceTaskUpdateSemanticHints | undefined {
-  return input.truncated === true
-    ? semanticHintsForTruncatedSourceEvidence({ status, consequence: false })
-    : undefined;
+  return input.truncated === true ? semanticHintsForTruncatedSourceEvidence({ status }) : undefined;
 }
 
 export function buildTaskUpdateSourceQualityFields(input: {
@@ -45,7 +43,6 @@ export function buildTaskUpdateSourceQualityFields(input: {
     truncated
       ? semanticHintsForTruncatedSourceEvidence({
           status: input.status,
-          consequence: false,
         })
       : undefined,
   );

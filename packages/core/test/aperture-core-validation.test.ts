@@ -49,6 +49,61 @@ test("assertValidSourceEvent rejects non-object metadata", () => {
   }, /event\.metadata must be an object/);
 });
 
+test("source evidence is bounded to failed task updates", () => {
+  assert.throws(() => {
+    assertValidSourceEvent({
+      id: "evt:evidence-running",
+      type: "task.updated",
+      taskId: "task:evidence-running",
+      timestamp: "2026-04-06T00:05:00.000Z",
+      title: "Running",
+      status: "running",
+      evidence: {
+        kind: "payload",
+        subject: "search",
+        channel: "search",
+        complete: true,
+      },
+    });
+  }, /event\.evidence must be valid bounded source evidence/);
+});
+
+test("source evidence rejects invalid variants and undeclared fields", () => {
+  for (const evidence of [
+    {
+      kind: "diagnostic",
+      diagnostic: "source_limit",
+      channel: "read",
+      window: { unit: "bytes", offset: 0, length: 100, total: 100 },
+    },
+    {
+      kind: "authorization",
+      state: "required",
+      execution: "started",
+      result: "absent",
+    },
+    {
+      kind: "payload",
+      subject: "search",
+      channel: "search",
+      complete: true,
+      judgment: "ambient",
+    },
+  ]) {
+    assert.throws(() => {
+      assertValidSourceEvent({
+        id: "evt:evidence-invalid",
+        type: "task.updated",
+        taskId: "task:evidence-invalid",
+        timestamp: "2026-04-06T00:05:00.000Z",
+        title: "Failed",
+        status: "failed",
+        evidence: evidence as never,
+      });
+    }, /event\.evidence(?:\.window)? must be valid bounded source evidence/);
+  }
+});
+
 test("assertValidFrameResponse rejects empty option selections", () => {
   assert.throws(() => {
     assertValidFrameResponse({
@@ -60,6 +115,59 @@ test("assertValidFrameResponse rejects empty option selections", () => {
       },
     });
   }, /response\.optionIds must contain at least one option id/);
+});
+
+test("assertValidFrameResponse rejects malformed answer fields", () => {
+  assert.throws(() => {
+    assertValidFrameResponse({
+      taskId: "task:choice",
+      interactionId: "interaction:choice",
+      response: { kind: "option_selected", optionIds: ["   "] },
+    });
+  }, /response\.optionIds\[\] must be a non-empty string/);
+
+  assert.throws(() => {
+    assertValidFrameResponse({
+      taskId: "task:text",
+      interactionId: "interaction:text",
+      response: { kind: "text_submitted", text: "   " },
+    });
+  }, /response\.text must be a non-empty string/);
+
+  assert.throws(() => {
+    assertValidFrameResponse({
+      taskId: "task:approval",
+      interactionId: "interaction:approval",
+      response: { kind: "approved", reason: 42 } as never,
+    });
+  }, /response\.reason must be a string/);
+});
+
+test("assertValidFrameResponse rejects unknown variants and undeclared fields", () => {
+  assert.throws(() => {
+    assertValidFrameResponse({
+      taskId: "task:unknown",
+      interactionId: "interaction:unknown",
+      response: { kind: "bogus" },
+    } as never);
+  }, /response\.response must have a supported kind/);
+
+  assert.throws(() => {
+    assertValidFrameResponse({
+      taskId: "task:extra",
+      interactionId: "interaction:extra",
+      response: { kind: "approved", extra: true },
+    } as never);
+  }, /response\.response contains undeclared fields/);
+
+  assert.throws(() => {
+    assertValidFrameResponse({
+      taskId: "task:extra-top-level",
+      interactionId: "interaction:extra-top-level",
+      response: { kind: "dismissed" },
+      extra: true,
+    } as never);
+  }, /response contains undeclared fields/);
 });
 
 test("assertValidSignal rejects invalid timestamps", () => {

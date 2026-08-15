@@ -44,12 +44,6 @@ export type {
   AttentionOntologyAuthority,
   AttentionOntologyBlocking,
   AttentionOntologyEpisode,
-  SemanticOntologyDiagnostic,
-  SemanticOntologyActivity,
-  SemanticOntologyAsk,
-  SemanticOntologyBlocking,
-  SemanticOntologyEpisode,
-  SemanticOntologySource,
 } from "./semantic-ontology.js";
 
 /**

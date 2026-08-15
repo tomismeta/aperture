@@ -2,12 +2,12 @@ import type { SourceEvent } from "@tomismeta/aperture-core";
 
 import type {
   RuntimeWorkResponseRecord,
+  WorkEndpointDescription,
   WorkReceipt,
   WorkReceiptItem,
   WorkReceiptMode,
   WorkReceiptNextStep,
   WorkResponse,
-  WorkResponseState,
 } from "./runtime-contract.js";
 import type { WorkInput } from "./work-event-ingest.js";
 import { WORK_API_VERSION } from "./work-contract.js";
@@ -16,32 +16,7 @@ export function describeWorkEndpoint(retention: {
   pendingTtlMs: number;
   terminalRetentionMs: number;
   capacity: number;
-}): {
-  apiVersion: string;
-  path: "/work";
-  method: "POST";
-  summary: string;
-  auth: string;
-  send: Array<{
-    receivedAs: WorkReceiptMode;
-    contentType: string;
-    body: string;
-    bestFor: string;
-    example: string;
-  }>;
-  response: {
-    path: "/work/response/{interactionId}";
-    deletePath: "/work/response/{interactionId}";
-    bestFor: string;
-    states: WorkResponseState[];
-  };
-  retention: {
-    pendingTtlMs: number;
-    terminalRetentionMs: number;
-    capacity: number;
-  };
-  next: WorkReceiptNextStep[];
-} {
+}): WorkEndpointDescription {
   return {
     apiVersion: WORK_API_VERSION,
     path: "/work",
@@ -165,21 +140,39 @@ export function readWorkResponseInteractionId(path: string): string | null {
 }
 
 export function describeWorkResponse(response: RuntimeWorkResponseRecord): WorkResponse {
-  return {
+  const base = {
     ok: true,
     apiVersion: WORK_API_VERSION,
     taskId: response.taskId,
     interactionId: response.interactionId,
-    state: response.state,
     message: workResponseMessage(response),
-    ...(response.response !== undefined ? { response: response.response } : {}),
-    ...(response.answeredAt !== undefined ? { answeredAt: response.answeredAt } : {}),
-    ...(response.expiresAt !== undefined ? { expiresAt: response.expiresAt } : {}),
-    ...(response.cancelledAt !== undefined ? { cancelledAt: response.cancelledAt } : {}),
-    ...(response.retentionExpiresAt !== undefined
-      ? { retentionExpiresAt: response.retentionExpiresAt }
-      : {}),
-  };
+  } as const;
+  switch (response.state) {
+    case "pending":
+      return { ...base, state: response.state, expiresAt: response.expiresAt };
+    case "answered":
+      return {
+        ...base,
+        state: response.state,
+        response: response.response,
+        answeredAt: response.answeredAt,
+        retentionExpiresAt: response.retentionExpiresAt,
+      };
+    case "expired":
+      return {
+        ...base,
+        state: response.state,
+        expiresAt: response.expiresAt,
+        retentionExpiresAt: response.retentionExpiresAt,
+      };
+    case "cancelled":
+      return {
+        ...base,
+        state: response.state,
+        cancelledAt: response.cancelledAt,
+        retentionExpiresAt: response.retentionExpiresAt,
+      };
+  }
 }
 
 function describeWorkReceiptMode(payload: WorkInput): WorkReceiptMode {

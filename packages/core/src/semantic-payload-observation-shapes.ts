@@ -12,10 +12,7 @@ import {
   looksLikeStrongRawSourceObservation,
   looksLikeStructuredToolOutputObservation,
 } from "./semantic-observation-shapes.js";
-import {
-  readOwnedObservationPayload,
-  type OwnedObservationPayload,
-} from "./semantic-owned-observation-payload-shapes.js";
+import { readOwnedObservationPayload } from "./semantic-owned-observation-payload-shapes.js";
 import { hasOwnedReadTerminalDiagnosticEvidence } from "./semantic-owned-read-observation-shapes.js";
 import {
   OBSERVATIONAL_READBACK_PHRASES,
@@ -30,6 +27,7 @@ import { normalizeSemanticText } from "./semantic-text.js";
 
 export type PayloadSyntaxObservation = {
   consequenceBaseline: "low" | "medium" | "high";
+  completeBoundary?: true;
   source: boolean;
 };
 
@@ -40,24 +38,21 @@ type StructuredPayloadSyntaxInput = {
   recoveredEnvelope: boolean;
 };
 
-export function readReadOutputPayloadObservation(value: string): PayloadSyntaxObservation | null {
-  if (hasOwnedReadTerminalDiagnosticEvidence(value)) {
-    return null;
+export function readReadOutputPayloadObservation(
+  value: string,
+  mode: "all" | "complete_bounded" | "unbounded" = "all",
+): PayloadSyntaxObservation | null {
+  if (mode !== "unbounded") {
+    const bounded = readCompleteBoundedSourcePayload(value);
+    if (bounded !== null || mode === "complete_bounded") return bounded;
   }
-
+  if (hasOwnedReadTerminalDiagnosticEvidence(value)) return null;
+  if (looksLikeReadTruncationProtocolObservation(value)) return payloadSyntax(false, "low");
   const tagged = readTaggedFilePayload(value);
-  if (looksLikeReadTruncationProtocolObservation(value)) {
-    return payloadSyntax(false, "low");
-  }
-  if (tagged !== null) {
-    return tagged;
-  }
-  if (hasReadTransportWindow(value) && looksLikeOwnedRawReadObservation(value)) {
+  if (tagged !== null) return tagged;
+  if (hasReadTransportWindow(value) && looksLikeOwnedRawReadObservation(value))
     return payloadSyntax(true, "high");
-  }
-  if (looksLikeTruncatedRawReadListingObservation(value)) {
-    return payloadSyntax(false, "high");
-  }
+  if (looksLikeTruncatedRawReadListingObservation(value)) return payloadSyntax(false, "high");
   if (looksLikePlainReadObservation(value)) {
     return payloadSyntax(
       looksLikeStrongRawSourceObservation(value),
@@ -66,17 +61,46 @@ export function readReadOutputPayloadObservation(value: string): PayloadSyntaxOb
   }
 
   const wrapper = readReadWrapperPayload(value);
-  if (wrapper !== null) {
-    return wrapper;
-  }
+  if (wrapper !== null) return wrapper;
 
   const payload = hasReadTransportWindow(value)
     ? null
     : readOwnedObservationPayload(value, { allowReadOwnedFlattenedFilePayloads: true });
-  return payload === null
-    ? null
-    : payloadSyntax(payload.source, readRawReadConsequenceBaseline(payload, value));
+  if (payload === null) return null;
+  const consequence =
+    payload.shape === "readback" && looksLikeBuildOrLogObservation(value)
+      ? "low"
+      : payload.consequenceBaseline;
+  return payloadSyntax(payload.source, consequence);
 }
+
+function readCompleteBoundedSourcePayload(value: string): PayloadSyntaxObservation | null {
+  const lines = value.replaceAll("\r\n", "\n").split("\n");
+  const markers = lines.flatMap((line, index) => {
+    const match = SOURCE_ENVELOPE_BOUNDARY.exec(line);
+    return match === null
+      ? []
+      : [{ index, edge: match[1]?.toLowerCase(), label: match[2]?.toLowerCase() }];
+  });
+  const [start, end] = markers;
+  if (markers.length !== 2 || start?.edge !== "begin" || end?.edge !== "end") return null;
+  if (start.label !== end.label || start.index + 1 >= end.index) return null;
+  const body = lines
+    .slice(start.index + 1, end.index)
+    .join("\n")
+    .trim();
+  const envelope = [...lines.slice(0, start.index), ...lines.slice(end.index + 1)].join(" ");
+  return body.length > 0 &&
+    COMPLETE_BOUNDED_SOURCE_ENVELOPE.test(envelope) &&
+    !hasOwnedReadTerminalDiagnosticEvidence(envelope)
+    ? { ...payloadSyntax(true, "low"), completeBoundary: true }
+    : null;
+}
+
+const SOURCE_ENVELOPE_BOUNDARY =
+  /^\s*(BEGIN|END)\s+(SOURCE(?:\s+VIEW)?|DOCUMENT(?:\s+(?:VIEW|PAYLOAD))?)\s*$/i;
+const COMPLETE_BOUNDED_SOURCE_ENVELOPE =
+  /^(?:(?:a|the)\s+)?(?:read|source)\s+(?:operation\s+)?(?:returned|produced|delivered)\b(?=[\s\S]*\bcomplete\b)(?=[\s\S]*\b(?:no\s+(?:content|source|text|data)\s+(?:lies|exists|remains)\s+outside\s+(?:the\s+)?declared\s+(?:view|boundary|payload)|no\s+(?:content|source|text|data)\s+(?:was|is)\s+omitted)\b)[\s\S]+$/i;
 
 export function readCommandOutputPayloadObservation(
   value: string,
@@ -124,34 +148,19 @@ function payloadSyntax(
   return { consequenceBaseline, source };
 }
 
-function readRawReadConsequenceBaseline(
-  payload: OwnedObservationPayload,
-  text: string,
-): PayloadSyntaxObservation["consequenceBaseline"] {
-  return payload.shape === "readback" && looksLikeBuildOrLogObservation(text)
-    ? "low"
-    : payload.consequenceBaseline;
-}
-
 function readTaggedFilePayload(text: string): PayloadSyntaxObservation | null {
   const tagged = readTaggedFileParts(text);
-  if (tagged === null) {
-    return null;
-  }
-  if (looksLikeLowConsequenceTaggedRead(tagged.path, tagged.content)) {
+  if (tagged === null) return null;
+  if (looksLikeLowConsequenceTaggedRead(tagged.path, tagged.content))
     return payloadSyntax(false, "low");
-  }
-  if (looksLikeSourcePath(tagged.path) || looksLikeStrongRawSourceObservation(tagged.content)) {
+  if (looksLikeSourcePath(tagged.path) || looksLikeStrongRawSourceObservation(tagged.content))
     return payloadSyntax(true, "high");
-  }
   return payloadSyntax(false, "high");
 }
 
 function readTaggedFileParts(text: string): { content: string; path: string } | null {
   const path = readTag(text.trim(), "path", 0);
-  if (path === null) {
-    return null;
-  }
+  if (path === null) return null;
   const type = readTag(text, "type", path.end);
   const content = readTag(text, "content", type?.end ?? path.end, { allowOpenEnded: true });
   return type?.value.toLowerCase() === "file" && content !== null
@@ -169,9 +178,7 @@ function readTag(
   const open = `<${tag}>`;
   const close = `</${tag}>`;
   const start = lower.indexOf(open, fromIndex);
-  if (start < 0) {
-    return null;
-  }
+  if (start < 0) return null;
   const closeIndex = lower.indexOf(close, start + open.length);
   const end = closeIndex < 0 && options.allowOpenEnded === true ? text.length : closeIndex;
   const value = end < 0 ? "" : text.slice(start + open.length, end).trim();
@@ -182,15 +189,16 @@ function readTag(
 function looksLikeLowConsequenceTaggedRead(path: string, content: string): boolean {
   const lowerPath = path.toLowerCase();
   const lowerContent = content.toLowerCase();
+  const buildFile = "/makefile|/cmakelists.txt|.cmake"
+    .split("|")
+    .some((suffix) => lowerPath.endsWith(suffix));
+  const buildToken = "spdx-license-identifier|version =|patchlevel =|sublevel =|project("
+    .split("|")
+    .some((token) => lowerContent.includes(token));
   return (
     lowerPath.endsWith(".log") ||
     looksLikeBuildOrLogObservation(content) ||
-    ((lowerPath.endsWith("/makefile") ||
-      lowerPath.endsWith("/cmakelists.txt") ||
-      lowerPath.endsWith(".cmake")) &&
-      ["spdx-license-identifier", "version =", "patchlevel =", "sublevel =", "project("].some(
-        (token) => lowerContent.includes(token),
-      ))
+    (buildFile && buildToken)
   );
 }
 
@@ -205,16 +213,12 @@ function readReadWrapperPayload(value: string): PayloadSyntaxObservation | null 
   const text = normalizeSemanticText(body);
   const source = looksLikeSourcePath(body) || looksLikeStrongRawSourceObservation(body);
   const metadata =
-    rawText.includes("contents of") ||
-    rawText.includes("content of") ||
-    rawText.includes("observation path") ||
-    rawText.includes("showing first") ||
-    rawText.includes("showing top") ||
+    "contents of|content of|observation path|showing first|showing top"
+      .split("|")
+      .some((token) => rawText.includes(token)) ||
     (rawText.includes("top") && rawText.includes("lines"));
   const readback = OBSERVATIONAL_READBACK_PHRASES.some((phrase) => text.includes(phrase));
-  if ((!source && !PATH_LIKE_TOKEN_PATTERN.test(rawText)) || (!metadata && !readback)) {
-    return null;
-  }
+  if ((!source && !PATH_LIKE_TOKEN_PATTERN.test(rawText)) || (!metadata && !readback)) return null;
 
   const low = rawText.includes(".log") || looksLikeBuildOrLogObservation(body);
   return payloadSyntax(source && !low, source && !low ? "high" : "low");

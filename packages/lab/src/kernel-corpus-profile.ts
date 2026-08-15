@@ -13,8 +13,8 @@ export {
   KERNEL_CORPUS_SCENARIO_IDS,
 } from "./kernel-corpus-profile-data.js";
 
-export const KERNEL_CORPUS_PROFILE_ID = "aperture.kernel.messy_event_corpus.v2" as const;
-export const KERNEL_CORPUS_PROFILE_VERSION = 2 as const;
+export const KERNEL_CORPUS_PROFILE_ID = "aperture.kernel.messy_event_corpus.v3" as const;
+export const KERNEL_CORPUS_PROFILE_VERSION = 3 as const;
 
 export const KERNEL_CORPUS_PROFILE = {
   id: KERNEL_CORPUS_PROFILE_ID,

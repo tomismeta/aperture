@@ -52,7 +52,7 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("readTaskFailureSemanticEvidence" in sdk, false);
   assert.equal("readTaskFailureSemanticSignals" in sdk, false);
   assert.equal("readCandidateObservation" in sdk, false);
-  assert.equal("NormalizedObservation" in sdk, false);
+  assert.equal("Observation" in sdk, false);
   assert.equal("readExplicitSemanticToolFamily" in sdk, false);
   assert.equal("hasSemanticRelationKind" in sdk, false);
   assert.equal("readSemanticRelationTarget" in sdk, false);
@@ -100,19 +100,23 @@ test("@tomismeta/aperture-core exposes the intended public SDK surface", () => {
   assert.equal("readTaskFailureSemanticEvidence" in semanticSdk, false);
   assert.equal("readTaskFailureSemanticSignals" in semanticSdk, false);
   assert.equal("readCandidateObservation" in semanticSdk, false);
-  assert.equal("NormalizedObservation" in semanticSdk, false);
+  assert.equal("Observation" in semanticSdk, false);
   assert.equal("ObservationSemantics" in semanticSdk, false);
+  assert.equal("readSemanticOntologyDiagnostic" in semanticSdk, false);
+  assert.equal("projectSemanticOntologyDiagnostic" in semanticSdk, false);
   assert.equal("readCandidateObservation" in evaluatorSdk, false);
-  assert.equal("NormalizedObservation" in evaluatorSdk, false);
+  assert.equal("Observation" in evaluatorSdk, false);
   assert.equal("ObservationSemantics" in evaluatorSdk, false);
   assert.equal("readCandidateObservation" in traceSdk, false);
-  assert.equal("NormalizedObservation" in traceSdk, false);
+  assert.equal("Observation" in traceSdk, false);
   assert.equal("ObservationSemantics" in traceSdk, false);
   assert.deepEqual(Object.keys(kernelSdk).sort(), [
     "APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION",
     "evaluateApertureKernelEvent",
+    "runApertureKernelConformance",
   ]);
   assert.equal(typeof kernelSdk.evaluateApertureKernelEvent, "function");
+  assert.equal(typeof kernelSdk.runApertureKernelConformance, "function");
   assert.equal("SourceEvent" in kernelSdk, false);
   assert.equal("readSemanticTextEvidence" in kernelSdk, false);
   assert.equal("readTaskFailureSemanticEvidence" in kernelSdk, false);
@@ -364,14 +368,8 @@ test("advanced semantic helpers live behind the semantic subpath", () => {
 
   const hints = semanticSdk.semanticHintsForTruncatedSourceEvidence({ status: "failed" });
   assert.equal(hints.confidence, "low");
-  assert.equal(hints.consequence, "high");
+  assert.equal(Object.hasOwn(hints, "consequence"), false);
   assert.deepEqual(hints.factors, [semanticSdk.TRUNCATED_SOURCE_EVIDENCE_FACTOR]);
-
-  const invalidLowHints = semanticSdk.semanticHintsForTruncatedSourceEvidence({
-    status: "failed",
-    consequence: "low" as never,
-  });
-  assert.equal(invalidLowHints.consequence, "high");
 });
 
 test("trace helpers live behind the trace subpath", () => {

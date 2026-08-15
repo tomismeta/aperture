@@ -21,8 +21,10 @@ export type OpencodeConnectionProfile = {
   };
 };
 
+const OPENCODE_CONNECTION_CONFIG_VERSION = 1 as const;
+
 type OpencodeConnectionConfig = {
-  version: 1;
+  version: typeof OPENCODE_CONNECTION_CONFIG_VERSION;
   updatedAt: string;
   profiles: OpencodeConnectionProfile[];
 };
@@ -71,7 +73,7 @@ export async function saveGlobalOpencodeProfile(
   nextProfiles.sort((left, right) => left.id.localeCompare(right.id));
 
   await writeGlobalOpencodeConfig({
-    version: 1,
+    version: OPENCODE_CONNECTION_CONFIG_VERSION,
     updatedAt: now,
     profiles: nextProfiles,
   });
@@ -92,7 +94,7 @@ export async function removeGlobalOpencodeProfile(profileId: string): Promise<bo
   }
 
   await writeGlobalOpencodeConfig({
-    version: 1,
+    version: OPENCODE_CONNECTION_CONFIG_VERSION,
     updatedAt: new Date().toISOString(),
     profiles: nextProfiles,
   });
@@ -173,9 +175,18 @@ export function resolveProfilePassword(profile: OpencodeConnectionProfile): stri
 async function readGlobalOpencodeConfig(): Promise<OpencodeConnectionConfig> {
   try {
     const raw = await readFile(GLOBAL_CONFIG_PATH, "utf8");
-    const parsed = JSON.parse(raw) as Partial<OpencodeConnectionConfig>;
+    const parsed = JSON.parse(raw) as {
+      version?: unknown;
+      updatedAt?: unknown;
+      profiles?: unknown;
+    };
+    if (parsed.version !== OPENCODE_CONNECTION_CONFIG_VERSION) {
+      throw new Error(
+        `Unsupported OpenCode connection config version: ${String(parsed.version)}. Expected ${OPENCODE_CONNECTION_CONFIG_VERSION}.`,
+      );
+    }
     return {
-      version: 1,
+      version: OPENCODE_CONNECTION_CONFIG_VERSION,
       updatedAt:
         typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date(0).toISOString(),
       profiles: Array.isArray(parsed.profiles) ? parsed.profiles.filter(isProfile) : [],
@@ -183,7 +194,7 @@ async function readGlobalOpencodeConfig(): Promise<OpencodeConnectionConfig> {
   } catch (error) {
     if (isMissingFile(error)) {
       return {
-        version: 1,
+        version: OPENCODE_CONNECTION_CONFIG_VERSION,
         updatedAt: new Date(0).toISOString(),
         profiles: [],
       };

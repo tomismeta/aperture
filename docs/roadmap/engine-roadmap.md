@@ -175,12 +175,13 @@ What is already true:
 - OpenCode is also a live end-to-end path through the server / terminal flow
 - Codex now has an experimental live adapter path through App Server and hooks
 - `@tomismeta/aperture-core` is published on npm
+- the public kernel has a packed host-neutral reference embedder
+- repeated mixed-event rounds characterize deterministic performance at scale
 
 What is still missing:
 
 - more hardened live transports beyond the flagship Claude path
 - broader external adoption and pressure-tested package contracts
-- performance characterization at scale
 
 ## Near-Term Core Maturation
 

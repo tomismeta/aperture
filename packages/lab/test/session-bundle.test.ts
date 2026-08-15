@@ -238,11 +238,10 @@ test("current replay rehydrates clipped failed source summaries as source-qualit
             taskId: "task:bundle:clipped-source-quality",
             timestamp: "2026-03-21T18:31:00.000Z",
             type: "task.updated",
-            title: "bash failure",
-            summary:
-              '{"exit_code":1,"wall_time":"0.0510 seconds","output":"(no output)","truncated":true}',
+            title: "read failure",
+            summary: "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
             status: "failed",
-            toolFamily: "bash",
+            metadata: { truncated: true },
           },
         },
       ],
@@ -255,7 +254,7 @@ test("current replay rehydrates clipped failed source summaries as source-qualit
   assert.equal(replayedEvent?.metadata?.truncated, true);
   assert.equal(replayedEvent?.semanticHints?.confidence, "low");
   assert.equal(replayedEvent?.semanticHints?.consequence, undefined);
-  assert.equal(result.semantics[0]?.interpretation.consequence, "high");
+  assert.equal(result.semantics[0]?.interpretation.consequence, "medium");
   assert.equal(result.semantics[0]?.interpretation.confidence, "low");
   assert.equal(result.semantics[0]?.interpretation.provenance?.consequence, "inferred");
   assert.equal(result.semantics[0]?.interpretation.provenance?.confidence, "hint");

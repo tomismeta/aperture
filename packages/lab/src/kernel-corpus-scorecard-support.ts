@@ -80,6 +80,7 @@ function isKernelCorpusScorecard(
     value.schemaVersion === schemaVersion &&
     isScorecardProfile(value.profile) &&
     typeof value.passed === "boolean" &&
+    isScorecardProof(value.proof) &&
     isStringArray(value.failures) &&
     (thresholds === null
       ? isScorecardThresholdShape(value.thresholds)
@@ -89,6 +90,17 @@ function isKernelCorpusScorecard(
     isOutcomeCoverage(value.outcomeCoverage) &&
     isWeakestScenarios(value.weakestScenarios) &&
     isScenarioCheckpointArray(value.scenarioCheckpoints)
+  );
+}
+
+function isScorecardProof(value: unknown): value is KernelCorpusScorecard["proof"] {
+  return (
+    isRecord(value) &&
+    value.retiredRegressionOracle === true &&
+    value.releaseEligible === false &&
+    value.independentPostFreezeHoldoutRequired === true &&
+    (value.protectedRegressionBaseline === undefined ||
+      typeof value.protectedRegressionBaseline === "boolean")
   );
 }
 

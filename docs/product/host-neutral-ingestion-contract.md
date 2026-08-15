@@ -250,13 +250,27 @@ if (event !== null) {
 
 The kernel projection accepts capability authority only from
 `facts.capabilityFamily`. `context.items` and `metadata` remain descriptive
-payloads and do not promote capability facts. Product ingestion should still
-prefer `WorkEvent.facts` with `capabilityFamily`, then map it into Aperture's internal
-`SourceEvent` shape.
+payloads and do not promote capability facts. The capability value is opaque
+identity and cannot imply command, read, search, diagnostic, or authorization
+semantics.
+
+A failed kernel work update may include one optional `evidence` value when the
+adapter has reliable native result facts. This is a closed `SourceEvidence`
+union, not an adapter-authored Observation: Core derives semantic authority,
+strength, agreement, recovery, consequence, and judgment. Typed evidence wins
+over contradictory title or summary prose. When evidence is absent, Aperture's
+bounded structural text grammar remains the fallback. Evidence on a non-failed
+update, an unknown variant, or an incomplete variant is rejected at runtime.
+
+Product ingestion should still prefer `WorkEvent.facts` with
+`capabilityFamily`, then map it into Aperture's internal `SourceEvent` shape.
 
 ## Structured Event: `WorkEvent`
 
 This is the host-neutral event Aperture should be able to consume.
+The live contract currently accepts only `specVersion = "1.0"`; producers using
+another version must migrate before sending events. Aperture does not accept a
+generic `1.x` range.
 At minimum, producers only need:
 
 ```json
@@ -671,8 +685,6 @@ The current shared runtime can ingest this contract directly over HTTP at:
 
 - `POST /work`
 - `GET /work`
-- `POST /v1/work`
-- `GET /v1/work`
 
 This is intentionally the producer-facing ingress path.
 The deeper `/runtime/*` control routes still exist for the Aperture product and
@@ -688,7 +700,6 @@ Accepted request shapes:
 Current scope:
 
 - `/work` is the public ingress contract
-- `/v1/work` is the explicit compatibility alias for the current major version
 - every non-health route requires `Authorization: Bearer <runtime-token>`
 - plain text stays one-way, lowest-friction, and always maps to a running status update
 - structured `input.requested` events create a public response loop

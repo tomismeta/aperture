@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tomismeta.dev/aperture/observation-kernel-holdout-v2.schema.json",
+  "title": "Aperture Observation Kernel Holdout v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["methodology", "fixtures"],
+  "properties": {
+    "methodology": { "$ref": "#/$defs/methodology" },
+    "fixtures": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/fixture" }
+    }
+  },
+  "$defs": {
+    "methodology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "contractId",
+        "contractDigest",
+        "implementationFreeze",
+        "author",
+        "authoredWithoutImplementationInspection",
+        "authoredWithoutExecution",
+        "firstExecutionPermittedAfterCommit",
+        "fixtureCount",
+        "notes"
+      ],
+      "properties": {
+        "schemaVersion": { "const": 2 },
+        "contractId": { "const": "aperture-observation-judgment-contract/v1" },
+        "contractDigest": {
+          "const": "sha256:9d53456de27a9db5342c98d100971bd3cec6336d2f61b1cef9048e2297ea294e"
+        },
+        "implementationFreeze": { "const": "ca18486a54544a8a154f7c626437f0d803cde933" },
+        "author": { "const": "gpt-5.6-sol" },
+        "authoredWithoutImplementationInspection": { "const": true },
+        "authoredWithoutExecution": { "const": true },
+        "firstExecutionPermittedAfterCommit": { "const": true },
+        "fixtureCount": { "const": 12 },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        }
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "dimension", "split", "events", "expected", "rationale"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^holdout-v2-[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "dimension": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "split": { "const": "holdout" },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/event" }
+        },
+        "expected": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/expected" }
+        },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "taskId", "timestamp", "type", "title", "summary", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^event-v2-[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "taskId": {
+          "type": "string",
+          "pattern": "^task-v2-[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "timestamp": { "const": "2026-08-12T12:00:00.000Z" },
+        "type": { "const": "task.updated" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "status": { "const": "failed" },
+        "toolFamily": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-z][a-z0-9_-]*$"
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fields", "judgment", "decision"],
+      "properties": {
+        "fields": { "$ref": "#/$defs/fields" },
+        "judgment": { "$ref": "#/$defs/judgment" },
+        "decision": { "$ref": "#/$defs/decision" }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "polarity",
+        "owner",
+        "toolFamily",
+        "subject",
+        "evidenceLoss",
+        "evidenceStrength",
+        "semanticAgreement",
+        "diagnosticClass",
+        "recoveryHint",
+        "provenanceOrigin",
+        "provenanceAuthority",
+        "consequenceBaseline"
+      ],
+      "properties": {
+        "kind": {
+          "enum": ["control", "diagnostic", "outcome", "payload", "unknown"]
+        },
+        "polarity": { "enum": ["failure", "neutral", "success", "unknown"] },
+        "owner": { "enum": ["engine", "source", "tool", "unknown"] },
+        "toolFamily": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 80 }, { "type": "null" }]
+        },
+        "subject": { "enum": ["command", "document", "search", "source", "tool", "unknown"] },
+        "evidenceLoss": { "enum": ["absent", "none", "partial", "unknown"] },
+        "evidenceStrength": { "enum": ["weak", "qualified", "strong"] },
+        "semanticAgreement": { "enum": ["stable", "overridden", "uncertain"] },
+        "diagnosticClass": {
+          "oneOf": [{ "enum": ["expected", "runtime", "source_limit"] }, { "type": "null" }]
+        },
+        "recoveryHint": {
+          "oneOf": [
+            {
+              "enum": [
+                "await_authorization",
+                "inspect_diagnostic",
+                "inspect_original_evidence",
+                "narrow_evidence_scope",
+                "request_evidence"
+              ]
+            },
+            { "type": "null" }
+          ]
+        },
+        "provenanceOrigin": {
+          "enum": [
+            "command_output",
+            "read_output",
+            "semantic_evidence",
+            "status_text",
+            "structured_output",
+            "transcript"
+          ]
+        },
+        "provenanceAuthority": { "enum": ["explicit", "hinted", "inferred", "unknown"] },
+        "consequenceBaseline": { "enum": ["low", "medium", "high"] }
+      }
+    },
+    "judgment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statusEvidence",
+        "statusConflictKind",
+        "recoveryPosture",
+        "baselineConsequence",
+        "outcomeOnlyFailureStatus",
+        "limitedFailureStatus",
+        "stableStatusEvidence",
+        "visibleDiagnosticFailure"
+      ],
+      "properties": {
+        "statusEvidence": {
+          "enum": [
+            "limited_failure",
+            "stable_observation",
+            "visible_diagnostic_failure",
+            "weak_or_uncertain"
+          ]
+        },
+        "statusConflictKind": {
+          "oneOf": [
+            {
+              "enum": [
+                "command_success_observation",
+                "execution_success_observation",
+                "payload_observation",
+                "rejected_tool_use_observation",
+                "search_output_observation",
+                "structured_output_observation"
+              ]
+            },
+            { "type": "null" }
+          ]
+        },
+        "recoveryPosture": {
+          "enum": [
+            "authorization_required",
+            "diagnostic_inspection",
+            "evidence_required",
+            "evidence_scope_required",
+            "original_evidence_required",
+            "none"
+          ]
+        },
+        "baselineConsequence": { "enum": ["low", "medium", "high"] },
+        "outcomeOnlyFailureStatus": { "type": "boolean" },
+        "limitedFailureStatus": { "type": "boolean" },
+        "stableStatusEvidence": { "type": "boolean" },
+        "visibleDiagnosticFailure": { "type": "boolean" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plannerKind", "resultLane"],
+      "properties": {
+        "plannerKind": {
+          "enum": ["activate", "ambient", "auto_approve", "clear", "queue", "suppressed"]
+        },
+        "resultLane": { "enum": ["ambient", "next", "none", "now"] }
+      }
+    }
+  }
+}

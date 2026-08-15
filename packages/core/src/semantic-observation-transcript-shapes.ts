@@ -13,7 +13,6 @@ import { readOwnedObservationPayload } from "./semantic-owned-observation-payloa
 import { readTestOutputObservation } from "./semantic-test-output-observation-shapes.js";
 import { looksLikeSectionedTestOutputFailure } from "./semantic-test-result-section-shapes.js";
 import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
-import { hasToolUseRejectionSignal } from "./semantic-tool-use-rejection-shapes.js";
 import type { ExplicitObservationTranscript } from "./semantic-observation-transcript-types.js";
 
 export type { ExplicitObservationTranscript } from "./semantic-observation-transcript-types.js";
@@ -22,7 +21,7 @@ export function readExplicitObservationTranscript(
   value: string,
 ): ExplicitObservationTranscript | null {
   const body = readExplicitObservationTranscriptBody(value);
-  if (body === null || hasToolUseRejectionSignal(body)) {
+  if (body === null) {
     return null;
   }
 
@@ -37,7 +36,6 @@ export function looksLikeExplicitDiagnosticObservationTranscript(value: string):
   const body = readExplicitObservationTranscriptBody(value);
   return (
     body !== null &&
-    !hasToolUseRejectionSignal(body) &&
     readObservationTranscriptBody(body) === null &&
     looksLikeObservationTranscriptDiagnostic(body)
   );

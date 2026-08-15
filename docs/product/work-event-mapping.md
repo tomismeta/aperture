@@ -35,7 +35,7 @@ formal contract.
 
 | `WorkEvent` field | `SourceEvent` field | Notes |
 | --- | --- | --- |
-| `specVersion` | n/a | Optional on ingress. Aperture defaults it to `1.0` when omitted. |
+| `specVersion` | n/a | Optional on ingress. Aperture defaults it to `1.0` when omitted and rejects versions other than `1.0`. |
 | `id` | `id` | Passed through unchanged when present. Aperture generates one when omitted. |
 | `source` | `source.kind` | Optional on ingress. Aperture defaults it to `urn:aperture:work` when omitted. |
 | `type` | n/a | Optional interoperability field. Aperture routes on `kind` and derives `io.agent.<kind>.v1` when this is omitted. |
@@ -204,8 +204,6 @@ The shared runtime accepts this contract at:
 
 - `POST /work`
 - `GET /work`
-- `POST /v1/work`
-- `GET /v1/work`
 - `GET /work/response/{interactionId}`
 - `DELETE /work/response/{interactionId}`
 

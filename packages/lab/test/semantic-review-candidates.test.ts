@@ -7,11 +7,7 @@ import test from "node:test";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
-import {
-  extractTaskFailureObservationCore,
-  type TaskFailureObservationInput,
-  type TaskFailureSemanticEvidence,
-} from "@tomismeta/aperture-core/internal";
+import { type TaskFailureSemanticEvidence } from "@tomismeta/aperture-core/internal";
 import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "@tomismeta/aperture-core/semantic";
 
 import {
@@ -662,13 +658,14 @@ function createMetadataTruncatedUnclassifiedFailedBundle() {
 
 function createUnclassifiedEvidence(toolFamily?: string): TaskFailureSemanticEvidence {
   const text = { shapes: [] };
-  const evidence: TaskFailureObservationInput = {
+  return {
     kind: "unclassified_failure",
     ...(toolFamily ? { toolFamily } : {}),
     readsAsObservation: false,
     consequenceBaseline: "high",
+    failureDetail: "indeterminate",
+    text,
   };
-  return { ...evidence, text, ...extractTaskFailureObservationCore(evidence) };
 }
 
 function sumRecordValues(record: Record<string, number>): number {
@@ -767,9 +764,9 @@ test("semantic review candidate reports shortlist deterministic review pressure"
   assert.equal(report.selection.promotionAuthority, "review_required");
   assert.equal(report.input.evaluationMode, "persisted_bundle_snapshots");
   assert.deepEqual(report.input.engine, {
-    corePackage: { name: "@tomismeta/aperture-core", version: "0.8.0" },
+    corePackage: { name: "@tomismeta/aperture-core", version: "0.9.0" },
     kernelDecisionRecordProjectionVersion: 2,
-    fingerprint: "@tomismeta/aperture-core@0.8.0/kernel-decision-v2",
+    fingerprint: "@tomismeta/aperture-core@0.9.0/kernel-decision-v2",
   });
   assert.equal(report.input.replayClock.strategy, "none");
   assert.equal(report.selection.maxFailureEvidenceExamplesPerKind, 2);
@@ -779,7 +776,7 @@ test("semantic review candidate reports shortlist deterministic review pressure"
   assert.equal(report.input.scannedBundleCount, 1);
   assert.ok(report.summary.countsByKind.failure_attention > 0);
   assert.equal(report.coverage.shapeSchemaVersion, 1);
-  assert.equal(report.coverage.baseline.profileId, "aperture.kernel.messy_event_corpus.v2");
+  assert.equal(report.coverage.baseline.profileId, "aperture.kernel.messy_event_corpus.v3");
   assert.equal(report.coverage.baseline.engineFingerprint, report.input.engine.fingerprint);
   assert.equal(report.coverage.baseline.evaluationMode, report.input.evaluationMode);
   assert.equal(report.coverage.baseline.signatureSetDigest, null);
@@ -861,7 +858,7 @@ test("semantic review candidate reports ledger corpus novelty and judgment cover
   });
   const coverage = report.coverage;
 
-  assert.equal(coverage.baseline.profileId, "aperture.kernel.messy_event_corpus.v2");
+  assert.equal(coverage.baseline.profileId, "aperture.kernel.messy_event_corpus.v3");
   assert.equal(coverage.baseline.authority, "engine_observation_coverage");
   assert.match(coverage.baseline.profileDigest, /^sha256:/);
   assert.equal(coverage.observations.stepCount, 4);
@@ -2156,7 +2153,7 @@ test("review-candidates CLI writes JSON and markdown reports", async () => {
   assert.ok(payload.summary.countsByKind.failure_attention > 0);
   assert.match(markdown, /Semantic Review Candidate Census/);
   assert.match(markdown, /Evaluation mode: current_engine_replay/);
-  assert.match(markdown, /Engine: @tomismeta\/aperture-core@0\.8\.0\/kernel-decision-v2/);
+  assert.match(markdown, /Engine: @tomismeta\/aperture-core@0\.9\.0\/kernel-decision-v2/);
   assert.match(markdown, /Replay clock: monotonic_step_timestamp_previous_timestamp_fallback/);
   assert.match(markdown, /Engine Coverage/);
   assert.match(markdown, /failure_attention/);

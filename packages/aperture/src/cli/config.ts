@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { stdout } from "node:process";
 
 import {
+  APERTURE_STATE_SCHEMA_VERSION,
   loadPolicyConfig,
   ProfileStore,
   type ApertureProfile,
@@ -428,7 +429,7 @@ function formatDiagnostics(diagnostics: ConfigDiagnostic[]): string[] {
 
 function defaultApertureProfile(): ApertureProfile {
   return {
-    version: 1,
+    version: APERTURE_STATE_SCHEMA_VERSION,
     operatorId: "default",
     updatedAt: PROFILE_FALLBACK_UPDATED_AT,
   };
@@ -436,14 +437,14 @@ function defaultApertureProfile(): ApertureProfile {
 
 function defaultPolicyConfig(): PolicyConfig {
   return {
-    version: 1,
+    version: APERTURE_STATE_SCHEMA_VERSION,
     updatedAt: PROFILE_FALLBACK_UPDATED_AT,
   };
 }
 
 function defaultMemoryProfile(): MemoryProfile {
   return {
-    version: 1,
+    version: APERTURE_STATE_SCHEMA_VERSION,
     operatorId: "default",
     updatedAt: PROFILE_FALLBACK_UPDATED_AT,
     sessionCount: 0,

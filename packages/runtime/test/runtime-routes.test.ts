@@ -37,13 +37,11 @@ test("runtime route table preserves auth and rate-limit policy invariants", asyn
   }
 });
 
-test("runtime route table keeps public work aliases aligned with control policy", async () => {
+test("runtime route table exposes only the canonical Work contract paths", async () => {
   const routes = await buildRoutesForTest();
 
   const workGet = findRoute(routes, "GET", "/work");
-  const v1WorkGet = findRoute(routes, "GET", "/v1/work");
   const workPost = findRoute(routes, "POST", "/work");
-  const v1WorkPost = findRoute(routes, "POST", "/v1/work");
   const workResponseGet = findRoute(routes, "GET", "/work/response/interaction%3Atest%3Aapproval");
   const workResponseDelete = findRoute(
     routes,
@@ -53,20 +51,22 @@ test("runtime route table keeps public work aliases aligned with control policy"
   const sourceEventsPost = findRoute(routes, "POST", "/runtime/events/source");
 
   assert.ok(workGet);
-  assert.ok(v1WorkGet);
   assert.ok(workPost);
-  assert.ok(v1WorkPost);
   assert.ok(workResponseGet);
   assert.ok(workResponseDelete);
   assert.ok(sourceEventsPost);
 
   assertRoutePolicy(workGet, { mutating: undefined, rateLimitKey: undefined });
-  assertRoutePolicy(v1WorkGet, { mutating: undefined, rateLimitKey: undefined });
   assertRoutePolicy(workPost, { mutating: true, rateLimitKey: "work" });
-  assertRoutePolicy(v1WorkPost, { mutating: true, rateLimitKey: "work" });
   assertRoutePolicy(workResponseGet, { mutating: undefined, rateLimitKey: undefined });
   assertRoutePolicy(workResponseDelete, { mutating: true, rateLimitKey: "work" });
   assertRoutePolicy(sourceEventsPost, { mutating: true, rateLimitKey: "source" });
+  assert.equal(findRoute(routes, "GET", "/v1/work"), undefined);
+  assert.equal(findRoute(routes, "POST", "/v1/work"), undefined);
+  assert.equal(
+    findRoute(routes, "GET", "/v1/work/response/interaction%3Atest%3Aapproval"),
+    undefined,
+  );
 });
 
 async function buildRoutesForTest(): Promise<RuntimeRoute[]> {

@@ -1,0 +1,495 @@
+{
+  "schemaVersion": 1,
+  "contractId": "aperture-observation-judgment-contract/v1",
+  "holdoutId": "observation-kernel-holdout-v2",
+  "verdict": {
+    "engineGapCount": 0,
+    "oracleContractMismatchCount": 7,
+    "mixedCount": 5,
+    "contractAmbiguityCount": 0,
+    "releaseEligible": false,
+    "retireIfTuned": true,
+    "summary": "Every event lacks a typed category or result boundary. The structured failed status supports failure polarity, and toolFamily identifies only a capability and tool ownership, not command, read, search, payload, diagnostic, control, provenance, or subject semantics. Seven substantive disagreements are oracle contract mismatches. Five are mixed because both oracle and actual overclaim unsupported semantics or metadata. The safe substantive outcome for all fixtures is unknown/failure/unknown/null/original_evidence_required/activate/now."
+  },
+  "fixtures": [
+    {
+      "fixtureId": "holdout-v2-pair1-complete-nonzero",
+      "classification": "mixed",
+      "substantiveExpected": {
+        "kind": "unknown",
+        "polarity": "failure",
+        "evidenceLoss": "unknown",
+        "diagnosticClass": null,
+        "recoveryPosture": "original_evidence_required",
+        "plannerKind": "activate",
+        "resultLane": "now"
+      },
+      "actualSubstantivelyCorrect": false,
+      "oracleFieldsNotEntailed": [
+        "fields.kind=outcome",
+        "fields.subject=command",
+        "fields.evidenceLoss=none",
+        "fields.evidenceStrength=strong",
+        "fields.semanticAgreement=stable",
+        "fields.recoveryHint=null",
+        "fields.provenanceOrigin=command_output",
+        "fields.provenanceAuthority=explicit",
+        "fields.consequenceBaseline=medium",
+        "judgment.statusEvidence=limited_failure",
+        "judgment.recoveryPosture=none",
+        "judgment.baselineConsequence=medium",
+        "judgment.outcomeOnlyFailureStatus=true",
+        "judgment.limitedFailureStatus=true",
+        "judgment.stableStatusEvidence=true",
+        "decision.plannerKind=queue"
+      ],
+      "actualContractContradictions": [
+        "kind=diagnostic lacks a typed diagnostic boundary",
+        "subject=tool is not established by capability identity",
+        "evidenceLoss=none lacks a typed completeness boundary",
+        "evidenceStrength=strong conflicts with indeterminate evidence",
+        "semanticAgreement=stable conflicts with indeterminate evidence",
+        "diagnosticClass=runtime lacks a concrete typed diagnostic",
+        "provenanceOrigin=semantic_evidence and provenanceAuthority=explicit are not established by the event boundary",
+        "recoveryHint=inspect_diagnostic and recoveryPosture=diagnostic_inspection do not follow from unknown evidence",
+        "statusEvidence=visible_diagnostic_failure and visibleDiagnosticFailure=true lack a typed diagnostic",
+        "stableStatusEvidence=true conflicts with the required uncertain posture"
+      ],
+      "capabilityBoundaryFinding": "toolFamily identifies a capability and supports tool ownership only. It supplies neither a command-outcome boundary nor a diagnostic-channel boundary. Both outcome inference from prose and diagnostic inference from the capability identity are unsupported; no name inference is permitted.",
+      "rationale": "The prose assertions of completion, exit status, and absent diagnostic channels are not typed event fields. The oracle selects an unsupported outcome while the actual selects an unsupported runtime diagnostic, so both miss the conservative substantive result."
+    },
+    {
+      "fixtureId": "holdout-v2-pair1-ambiguous-nonzero",
+      "classification": "mixed",
+      "substantiveExpected": {
+        "kind": "unknown",
+        "polarity": "failure",
+        "evidenceLoss": "unknown",
+        "diagnosticClass": null,
+        "recoveryPosture": "original_evidence_required",
+        "plannerKind": "activate",
+        "resultLane": "now"
+      },
+      "actualSubstantivelyCorrect": true,
+      "oracleFieldsNotEntailed": [
+        "fields.subject=command"
+      ],
+      "actualContractContradictions": [
+        "semanticAgreement=stable conflicts with indeterminate evidence",
+        "provenanceOrigin=semantic_evidence and provenanceAuthority=explicit overstate the untyped fragment"
+      ],
+      "capabilityBoundaryFinding": "No capability is explicitly identified and no typed operation boundary exists. The prose reference to execution does not establish a command subject.",
+      "rationale": "Both sides have the correct substantive unknown posture. The oracle over-specifies the subject, while the actual overstates semantic agreement and provenance authority, making the disagreement mixed at the secondary-field level."
+    },
+    {
+      "fixtureId": "holdout-v2-pair2-direct-runtime",
+      "classification": "mixed",
+      "substantiveExpected": {
+        "kind": "unknown",
+        "polarity": "failure",
+        "evidenceLoss": "unknown",
+        "diagnosticClass": null,
+        "recoveryPosture": "original_evidence_required",
+        "plannerKind": "activate",
+        "resultLane": "now"
+      },
+      "actualSubstantivelyCorrect": false,
+      "oracleFieldsNotEntailed": [
+        "fields.kind=diagnostic",
+        "fields.subject=command",
+        "fields.evidenceLoss=none",
+        "fields.evidenceStrength=strong",
+        "fields.semanticAgreement=stable",
+        "fields.diagnosticClass=runtime",
+        "fields.recoveryHint=inspect_diagnostic",
+        "fields.provenanceOrigin=command_output",
+        "fields.provenanceAuthority=explicit",
+        "judgment.statusEvidence=visible_diagnostic_failure",
+        "judgment.recoveryPosture=diagnostic_inspection",
+        "judgment.stableStatusEvidence=true",
+        "judgment.visibleDiagnosticFailure=true"
+      ],
+      "actualContractContradictions": [
+        "kind=diagnostic lacks a typed diagnostic boundary",
+        "subject=tool is not established by capability identity",
+        "evidenceLoss=none lacks a typed completeness boundary",
+        "evidenceStrength=strong conflicts with indeterminate evidence",
+        "semanticAgreement=stable conflicts with indeterminate evidence",
+        "diagnosticClass=runtime lacks a concrete typed diagnostic",
+        "provenanceOrigin=semantic_evidence and provenanceAuthority=explicit are not established by the event boundary",
+        "recoveryHint=inspect_diagnostic and recoveryPosture=diagnostic_inspection do not follow from unknown evidence",
+        "statusEvidence=visible_diagnostic_failure and visibleDiagnosticFailure=true lack a typed diagnostic",
+        "stableStatusEvidence=true conflicts with the required uncertain posture"
+      ],
+      "capabilityBoundaryFinding": "process_exec is an arbitrary capability identity. It supports tool ownership but creates no command-output or runtime-diagnostic category boundary. Inferring either from its name is forbidden.",
+      "rationale": "The quoted diagnostic and terminal status occur only in prose. Oracle and actual agree on a concrete runtime diagnostic that the contract cannot establish, while also disagreeing on unsupported subject and provenance details."
+    },
+    {
+      "fixtureId": "holdout-v2-pair2-source-prose",
+      "classification": "oracle_contract_mismatch",
+      "substantiveExpected": {
+        "kind": "unknown",
+        "polarity": "failure",
+        "evidenceLoss": "unknown",
+        "diagnosticClass": null,
+        "recoveryPosture": "original_evidence_required",
+        "plannerKind": "activate",
+        "resultLane": "now"
+      },
+      "actualSubstantivelyCorrect": true,
+      "oracleFieldsNotEntailed": [
+        "fields.kind=payload",
+        "fields.polarity=neutral",
+        "fields.owner=source",
+        "fields.subject=source",
+        "fields.evidenceLoss=none",
+        "fields.evidenceStrength=strong",
+        "fields.semanticAgreement=stable",
+        "fields.recoveryHint=null",
+        "fields.provenanceOrigin=read_output",
+        "fields.provenanceAuthority=explicit",
+        "fields.consequenceBaseline=low",
+        "judgment.statusEvidence=stable_observation",
+        "judgment.statusConflictKind=payload_observation",
+        "judgment.recoveryPosture=none",
+        "judgment.baselineConsequence=low",
+        "judgment.stableStatusEvidence=true",
+        "decision.plannerKind=ambient",
+        "decision.resultLane=ambient"
+      ],
+      "actualContractContradictions": [
+        "semanticAgreement=stable conflicts with indeterminate evidence",
+        "provenanceOrigin=semantic_evidence and provenanceAuthority=explicit overstate the untyped prose"
+      ],
+      "capabilityBoundaryFinding": "There is no capability identity and no typed returned-content boundary. Calling text a source passage in prose does not establish payload, source ownership, source subject, or read_output provenance.",
+      "rationale": "The actual conservative high-level result is correct. The oracle promotes untyped prose to payload and neutralizes the structured failed status without a stronger typed semantic boundary. The actual retains secondary agreement and provenance overclaims."
+    },
+    {
+      "fixtureId": "holdout-v2-pair3-measured-window",
+      "classification": "oracle_contract_mismatch",
+      "substantiveExpected": {
+        "kind": "unknown",
+        "polarity": "failure",
+        "evidenceLoss": "unknown",
+        "diagnosticClass": null,
+        "recoveryPosture": "original_evidence_required",
+        "plannerKind": "activate",
+        "resultLane": "now"
+      },
+      "actualSubstantivelyCorrect": true,
+      "oracleFieldsNotEntailed": [
+        "fields.kind=diagnostic",
+        "fields.subject=source",
+        "fields.evidenceLoss=partial",
+        "fields.evidenceStrength=strong",
+        "fields.semanticAgreement=stable",
+        "fields.diagnosticClass=source_limit",
+        "fields.recoveryHint=narrow_evidence_scope",
+        "fields.provenanceOrigin=read_output",
+        "fields.provenanceAuthority=explicit",
+        "fields.consequenceBaseline=medium",
+        "judgment.statusEvidence=limited_failure",
+        "judgment.recoveryPosture=evidence_scope_required",
+        "judgment.baselineConsequence=medium",
+        "judgment.limitedFailureStatus=true",
+        "judgment.stableStatusEvidence=true",
+        "decision.plannerKind=queue"
+      ],
+      "actualContractContradictions": [
+        "subject=tool is not established by capability identity",
+        "semanticAgreement=stable conflicts with indeterminate evidence",
+        "provenanceOrigin=semantic_evidence and provenanceAuthority=explicit are not established by a typed result boundary"
+      ],
+      "capabilityBoundaryFinding": "source_read identifies a capability but does not type it as a read operation or supply a bounded source-window structure. The byte-window prose cannot establish source_limit or partial loss, and the capability name must remain opaque.",
+      "rationale": "A bounded source window requires a declared typed partial boundary. The oracle relies on prose and capability naming, while the actual correctly preserves the unknown high-level posture but overstates subject and provenance metadata."
+    },
+    {
+      "fixtureId": "holdout-v2-pair3-line-reference",
+      "classification": "oracle_contract_mismatch",
+      "substantiveExpected": {
+        "kind": "unknown",
+        "polarity": "failure",
+        "evidenceLoss": "unknown",
+        "diagnosticClass": null,
+        "recoveryPosture": "original_evidence_required",
+        "plannerKind": "activate",
+        "resultLane": "now"
+      },
+      "actualSubstantivelyCorrect": true,
+      "oracleFieldsNotEntailed": [
+        "fields.kind=payload",
+        "fields.polarity=neutral",
+        "fields.owner=source",
+        "fields.subject=source",
+        "fields.evidenceLoss=none",
+        "fields.evidenceStrength=strong",
+        "fields.semanticAgreement=stable",
+        "fields.recoveryHint=null",
+        "fields.provenanceOrigin=read_output",
+        "fields.provenanceAuthority=explicit",
+        "fields.consequenceBaseline=low",
+        "judgment.statusEvidence=stable_observation",
+        "judgment.statusConflictKind=payload_observation",
+        "judgment.recoveryPosture=none",
+        "judgment.baselineConsequence=low",
+        "judgment.stableStatusEvidence=true",
+        "decision.plannerKind=ambient",
+        "decision.resultLane=ambient"
+      ],
+      "actualContractContradictions": [
+        "semanticAgreement=stable conflicts with indeterminate evidence",
+        "provenanceOrigin=semantic_evidence and provenanceAuthority=explicit overstate the untyped annotation"
+      ],
+      "capabilityBoundaryFinding": "No capability or typed returned-content boundary exists. A prose line citation establishes neither a read result nor source ownership, source subject, completeness, or read_output provenance.",
+      "rationale": "The actual substantive unknown result is correct. The oracle treats an untyped editorial note as a complete payload despite the absence of a valid returned-content boundary."
+    },
+    {
+      "fixtureId": "holdout-v2-pair4-complete-search",
+      "classification": "oracle_contract_mismatch",
+      "substantiveExpected": {
+        "kind": "unknown",
+        "polarity": "failure",
+        "evidenceLoss": "unknown",
+        "diagnosticClass": null,
+        "recoveryPosture": "original_evidence_required",
+        "plannerKind": "activate",
+        "resultLane": "now"
+      },
+      "actualSubstantivelyCorrect": true,
+      "oracleFieldsNotEntailed": [
+        "fields.kind=payload",
+        "fields.polarity=neutral",
+        "fields.subject=search",
+        "fields.evidenceLoss=none",
+        "fields.evidenceStrength=strong",
+        "fields.semanticAgreement=stable",
+        "fields.recoveryHint=null",
+        "fields.provenanceOrigin=transcript",
+        "fields.provenanceAuthority=explicit",
+        "fields.consequenceBaseline=low",
+        "judgment.statusEvidence=stable_observation",
+        "judgment.statusConflictKind=search_output_observation",
+        "judgment.recoveryPosture=none",
+        "judgment.baselineConsequence=low",
+        "judgment.stableStatusEvidence=true",
+        "decision.plannerKind=ambient",
+        "decision.resultLane=ambient"
+      ],
+      "actualContractContradictions": [
+        "subject=tool is not established by capability identity",
+        "semanticAgreement=stable conflicts with indeterminate evidence",
+        "provenanceOrigin=semantic_evidence and provenanceAuthority=explicit are not established by a typed result boundary"
+      ],
+      "capabilityBoundaryFinding": "catalog_search identifies a capability but does not type it as search or provide a returned search-result document. Search subject, payload status, completeness, and transcript provenance cannot be inferred from the arbitrary name or prose.",
+      "rationale": "The actual high-level fallback is correct. The oracle promotes prose claiming a complete search transcript into a payload despite the explicit rule requiring a valid returned-content boundary."
+    },
+    {
+      "fixtureId": "holdout-v2-pair4-incomplete-search",
+      "classification": "mixed",
+      "substantiveExpected": {
+        "kind": "unknown",
+        "polarity": "failure",
+        "evidenceLoss": "unknown",
+        "diagnosticClass": null,
+        "recoveryPosture": "original_evidence_required",
+        "plannerKind": "activate",
+        "resultLane": "now"
+      },
+      "actualSubstantivelyCorrect": true,
+      "oracleFieldsNotEntailed": [
+        "fields.subject=search"
+      ],
+      "actualContractContradictions": [
+        "semanticAgreement=stable conflicts with indeterminate evidence",
+        "provenanceOrigin=semantic_evidence and provenanceAuthority=explicit overstate the unidentified fragment"
+      ],
+      "capabilityBoundaryFinding": "No capability is identified and no typed search boundary exists. The word search in prose does not establish a search subject.",
+      "rationale": "Both sides select the correct substantive unknown posture. The oracle over-specifies search subject, while the actual overstates agreement and provenance, producing a mixed secondary-field disagreement."
+    },
+    {
+      "fixtureId": "holdout-v2-pair5-preexecution-control",
+      "classification": "oracle_contract_mismatch",
+      "substantiveExpected": {
+        "kind": "unknown",
+        "polarity": "failure",
+        "evidenceLoss": "unknown",
+        "diagnosticClass": null,
+        "recoveryPosture": "original_evidence_required",
+        "plannerKind": "activate",
+        "resultLane": "now"
+      },
+      "actualSubstantivelyCorrect": true,
+      "oracleFieldsNotEntailed": [
+        "fields.kind=control",
+        "fields.polarity=neutral",
+        "fields.subject=tool",
+        "fields.evidenceLoss=none",
+        "fields.evidenceStrength=strong",
+        "fields.semanticAgreement=stable",
+        "fields.recoveryHint=await_authorization",
+        "fields.provenanceAuthority=explicit",
+        "fields.consequenceBaseline=low",
+        "judgment.statusEvidence=stable_observation",
+        "judgment.statusConflictKind=rejected_tool_use_observation",
+        "judgment.recoveryPosture=authorization_required",
+        "judgment.baselineConsequence=low",
+        "judgment.stableStatusEvidence=true",
+        "decision.plannerKind=ambient",
+        "decision.resultLane=ambient"
+      ],
+      "actualContractContradictions": [
+        "subject=tool is not established by capability identity",
+        "semanticAgreement=stable conflicts with indeterminate evidence",
+        "provenanceOrigin=semantic_evidence and provenanceAuthority=explicit are not established by a complete control grammar"
+      ],
+      "capabilityBoundaryFinding": "archive_write identifies a capability but supplies no typed authorization-gate grammar proving non-invocation and absence of an execution result. Control cannot be inferred from the capability name or summary.",
+      "rationale": "Control requires complete typed pre-execution grammar. The oracle relies entirely on prose, while the actual correctly falls back to unknown at the substantive level."
+    },
+    {
+      "fixtureId": "holdout-v2-pair5-postexecution-conflict",
+      "classification": "oracle_contract_mismatch",
+      "substantiveExpected": {
+        "kind": "unknown",
+        "polarity": "failure",
+        "evidenceLoss": "unknown",
+        "diagnosticClass": null,
+        "recoveryPosture": "original_evidence_required",
+        "plannerKind": "activate",
+        "resultLane": "now"
+      },
+      "actualSubstantivelyCorrect": true,
+      "oracleFieldsNotEntailed": [
+        "fields.kind=diagnostic",
+        "fields.subject=tool",
+        "fields.evidenceLoss=none",
+        "fields.evidenceStrength=strong",
+        "fields.semanticAgreement=stable",
+        "fields.diagnosticClass=runtime",
+        "fields.recoveryHint=inspect_diagnostic",
+        "fields.provenanceOrigin=command_output",
+        "fields.provenanceAuthority=explicit",
+        "judgment.statusEvidence=visible_diagnostic_failure",
+        "judgment.recoveryPosture=diagnostic_inspection",
+        "judgment.stableStatusEvidence=true",
+        "judgment.visibleDiagnosticFailure=true"
+      ],
+      "actualContractContradictions": [
+        "subject=tool is not established by capability identity",
+        "semanticAgreement=stable conflicts with indeterminate evidence",
+        "provenanceOrigin=semantic_evidence and provenanceAuthority=explicit are not established by a typed execution or diagnostic boundary"
+      ],
+      "capabilityBoundaryFinding": "archive_write identifies a capability but does not establish execution, command output, or a runtime diagnostic channel. The arbitrary identity cannot supply those missing typed categories.",
+      "rationale": "Terminal diagnostics would outrank control if a typed diagnostic existed, but all execution and diagnostic facts are prose-only. The oracle therefore overreaches; the actual substantive unknown result is correct."
+    },
+    {
+      "fixtureId": "holdout-v2-pair6-expected-diagnostic",
+      "classification": "oracle_contract_mismatch",
+      "substantiveExpected": {
+        "kind": "unknown",
+        "polarity": "failure",
+        "evidenceLoss": "unknown",
+        "diagnosticClass": null,
+        "recoveryPosture": "original_evidence_required",
+        "plannerKind": "activate",
+        "resultLane": "now"
+      },
+      "actualSubstantivelyCorrect": true,
+      "oracleFieldsNotEntailed": [
+        "fields.kind=diagnostic",
+        "fields.subject=tool",
+        "fields.evidenceLoss=none",
+        "fields.evidenceStrength=strong",
+        "fields.semanticAgreement=stable",
+        "fields.diagnosticClass=expected",
+        "fields.recoveryHint=inspect_diagnostic",
+        "fields.provenanceOrigin=structured_output",
+        "fields.provenanceAuthority=explicit",
+        "fields.consequenceBaseline=medium",
+        "judgment.statusEvidence=stable_observation",
+        "judgment.recoveryPosture=diagnostic_inspection",
+        "judgment.baselineConsequence=medium",
+        "judgment.stableStatusEvidence=true"
+      ],
+      "actualContractContradictions": [
+        "subject=tool is not established by capability identity",
+        "semanticAgreement=stable conflicts with indeterminate evidence",
+        "provenanceOrigin=semantic_evidence and provenanceAuthority=explicit are not established by a typed expected-diagnostic result"
+      ],
+      "capabilityBoundaryFinding": "validation_runner identifies a capability but supplies no typed case envelope or bounded expected-diagnostic result. Neither expected classification nor structured_output provenance may be inferred from its name or prose.",
+      "rationale": "An expected diagnostic requires a typed bounded diagnostic result that is itself marked expected. The prose description of a structured envelope is explicitly insufficient, so the oracle overreaches and the actual high-level fallback is correct."
+    },
+    {
+      "fixtureId": "holdout-v2-pair6-runner-failure",
+      "classification": "mixed",
+      "substantiveExpected": {
+        "kind": "unknown",
+        "polarity": "failure",
+        "evidenceLoss": "unknown",
+        "diagnosticClass": null,
+        "recoveryPosture": "original_evidence_required",
+        "plannerKind": "activate",
+        "resultLane": "now"
+      },
+      "actualSubstantivelyCorrect": false,
+      "oracleFieldsNotEntailed": [
+        "fields.kind=diagnostic",
+        "fields.subject=tool",
+        "fields.evidenceLoss=none",
+        "fields.evidenceStrength=strong",
+        "fields.semanticAgreement=stable",
+        "fields.diagnosticClass=runtime",
+        "fields.recoveryHint=inspect_diagnostic",
+        "fields.provenanceOrigin=command_output",
+        "fields.provenanceAuthority=explicit",
+        "judgment.statusEvidence=visible_diagnostic_failure",
+        "judgment.recoveryPosture=diagnostic_inspection",
+        "judgment.stableStatusEvidence=true",
+        "judgment.visibleDiagnosticFailure=true"
+      ],
+      "actualContractContradictions": [
+        "kind=diagnostic lacks a typed diagnostic boundary",
+        "subject=tool is not established by capability identity",
+        "evidenceLoss=none lacks a typed completeness boundary",
+        "evidenceStrength=strong conflicts with indeterminate evidence",
+        "semanticAgreement=stable conflicts with indeterminate evidence",
+        "diagnosticClass=runtime lacks a concrete typed diagnostic",
+        "provenanceOrigin=semantic_evidence and provenanceAuthority=explicit are not established by the event boundary",
+        "recoveryHint=inspect_diagnostic and recoveryPosture=diagnostic_inspection do not follow from unknown evidence",
+        "statusEvidence=visible_diagnostic_failure and visibleDiagnosticFailure=true lack a typed diagnostic",
+        "stableStatusEvidence=true conflicts with the required uncertain posture"
+      ],
+      "capabilityBoundaryFinding": "validation_runner identifies a capability only. It does not provide a typed runner-result, command-output, or diagnostic boundary, and its arbitrary name cannot establish those categories.",
+      "rationale": "Oracle and actual both promote prose about an assertion mismatch and terminal stream into a runtime diagnostic. Without typed execution and diagnostic fields, both are substantively unsupported."
+    }
+  ],
+  "recommendedStructuralChanges": [
+    {
+      "id": "typed-result-boundary",
+      "necessity": "required",
+      "contractArea": "host event translation",
+      "change": "Add an explicit discriminated result boundary for completed outcomes, runtime diagnostics, bounded source windows, returned payloads, authorization controls, and expected diagnostics, including the fields each category requires.",
+      "mustNotDo": "Do not infer the discriminant from title, summary, status text, fixture prose, or capability names."
+    },
+    {
+      "id": "typed-capability-semantics",
+      "necessity": "required",
+      "contractArea": "capability ownership and subject",
+      "change": "Keep opaque capability identity separate from an optional typed semantic role and an independently typed evidence subject.",
+      "mustNotDo": "Do not derive command, read, search, write, source, payload, or tool subject semantics from arbitrary capability identity."
+    },
+    {
+      "id": "typed-evidence-provenance",
+      "necessity": "required",
+      "contractArea": "evidence extent and provenance",
+      "change": "Represent origin, authority, completeness, omitted extent, diagnostic channels, completion state, and returned-content boundaries as structured fields supplied by the host boundary.",
+      "mustNotDo": "Do not treat prose labels such as complete transcript, structured envelope, source passage, terminal stream, or diagnostic channel as typed provenance or completeness evidence."
+    }
+  ],
+  "holdoutDisposition": {
+    "preserveFirstRun": true,
+    "editExpectedValues": false,
+    "retireFromReleaseEligibilityIfImplementationChanges": true,
+    "requiresFreshIndependentHoldoutAfterTuning": true,
+    "rationale": "The frozen v2 run must remain an immutable audit record. Its expected values contain systematic boundary overreach, and implementation tuning against these fixtures would invalidate release use. Preserve the run, keep v2 ineligible, and use a fresh independently authored holdout after structural correction."
+  }
+}

@@ -6,15 +6,20 @@ import {
   assertSemanticKernelSurfaceReportPassed,
   buildSemanticKernelSurfaceComparison,
   buildSemanticKernelSurfaceReport,
+  isSemanticKernelSurfaceProtectedBaseGrowthApproved,
   parseSemanticKernelSurfaceReport,
   readProtectedSemanticKernelSurfaceReport,
+  type SemanticKernelSurfaceProtectedBaseApproval,
 } from "./semantic-kernel-surface-support.js";
 
 const DEFAULT_REPORT_PATH = "packages/lab/conformance/semantic-kernel-surface-v1.json";
+const PROTECTED_BASE_APPROVAL_PATH =
+  "packages/lab/conformance/semantic-kernel-surface-approval.json";
 
 async function main(): Promise<void> {
   const reportPath = path.resolve(DEFAULT_REPORT_PATH);
   const report = await buildSemanticKernelSurfaceReport();
+  const protectedBaseApproval = await readProtectedBaseApproval();
   assertSemanticKernelSurfaceReportPassed(report);
   const expected = `${serializeKernelCanonicalJson(report)}\n`;
   const allowSurfaceRegression = process.argv.includes("--allow-surface-regression");
@@ -32,6 +37,7 @@ async function main(): Promise<void> {
   const baseline = parseSemanticKernelSurfaceReport(actual);
   const committedComparison = buildSemanticKernelSurfaceComparison(baseline, report);
   const protectedBaseline = await readProtectedSemanticKernelSurfaceReport(reportPath);
+  const protectedBaseRef = process.env.APERTURE_SEMANTIC_KERNEL_SURFACE_BASE_REF ?? "origin/main";
   const protectedComparison =
     protectedBaseline === null
       ? { passed: true, failures: [] }
@@ -44,7 +50,15 @@ async function main(): Promise<void> {
     );
     stale = true;
   }
-  if (!protectedComparison.passed) {
+  if (
+    !protectedComparison.passed &&
+    !isSemanticKernelSurfaceProtectedBaseGrowthApproved({
+      approval: protectedBaseApproval,
+      baseRef: protectedBaseRef,
+      protectedBaseline,
+      comparison: protectedComparison,
+    })
+  ) {
     process.stderr.write(
       `Semantic kernel surface regressed versus protected base: ${protectedComparison.failures.join(", ")}\n`,
     );
@@ -58,6 +72,29 @@ async function main(): Promise<void> {
   }
   if (stale) {
     process.exitCode = 1;
+  }
+}
+
+async function readProtectedBaseApproval(): Promise<
+  SemanticKernelSurfaceProtectedBaseApproval | undefined
+> {
+  try {
+    const value = JSON.parse(
+      await readFile(path.resolve(PROTECTED_BASE_APPROVAL_PATH), "utf8"),
+    ) as Partial<SemanticKernelSurfaceProtectedBaseApproval>;
+    if (
+      typeof value.baseRef !== "string" ||
+      typeof value.baselineSurfaceDigest !== "string" ||
+      !Array.isArray(value.acceptedFailures) ||
+      !value.acceptedFailures.every((failure) => typeof failure === "string") ||
+      typeof value.rationale !== "string"
+    ) {
+      throw new Error("Invalid semantic kernel surface protected-base approval.");
+    }
+    return value as SemanticKernelSurfaceProtectedBaseApproval;
+  } catch (error) {
+    if (isMissingReport(error)) return undefined;
+    throw error;
   }
 }
 

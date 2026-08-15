@@ -17,7 +17,7 @@ import {
   readCandidateSemanticConfidence,
   readCandidateSemanticEvidence,
 } from "./judgment-input.js";
-import type { NormalizedObservation } from "./normalized-observation.js";
+import type { Observation } from "./normalized-observation.js";
 import type { AttentionPressure } from "./attention-pressure.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type {
@@ -237,13 +237,13 @@ function buildSemanticSummary(
   };
 }
 
-function buildTraceObservationSummary(observation: NormalizedObservation): TraceObservationSummary {
+function buildTraceObservationSummary(observation: Observation): TraceObservationSummary {
   return {
     kind: observation.kind,
     polarity: observation.polarity,
     owner: observation.ownership.owner,
-    ...(observation.ownership.toolFamily !== undefined
-      ? { toolFamily: observation.ownership.toolFamily }
+    ...(observation.ownership.capabilityFamily !== undefined
+      ? { toolFamily: observation.ownership.capabilityFamily }
       : {}),
     subject: observation.subject,
     evidenceLoss: observation.evidenceLoss,

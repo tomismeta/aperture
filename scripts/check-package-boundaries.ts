@@ -3,6 +3,8 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
+import { isDirectExecution } from "./direct-execution.js";
+
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRepoRoot = resolve(dirname(scriptPath), "..");
 const ignoredDirNames = new Set([
@@ -166,7 +168,7 @@ export async function checkPackageBoundaries(root = defaultRepoRoot): Promise<Bo
           file,
           matches: rawFailureEvidenceReads,
           guidance:
-            "Judgment and policy code should consume observation. Keep raw task-failure evidence local to semantic evidence readers and the NormalizedObservation normalizer.",
+            "Judgment and policy code should consume observation. Keep raw task-failure evidence local to semantic evidence readers and the Observation normalizer.",
         });
       }
       const rawTaskFailureEvidenceReads = allowsRawTaskFailureEvidenceReads(root, file)
@@ -1644,7 +1646,7 @@ function collectCorpusLabels(content: string): string[] {
   return [...labels];
 }
 
-if (process.argv[1] === scriptPath) {
+if (isDirectExecution(import.meta.url)) {
   void main().catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);

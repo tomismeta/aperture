@@ -1,9 +1,17 @@
-import type { EnrichedApertureEvent } from "./events.js";
+import type { EnrichedApertureEvent, SourceEvidence } from "./events.js";
 import { EventEvaluator } from "./event-evaluator.js";
-import type { AttentionJudgmentInput } from "./judgment-input-types.js";
-import { projectObservationJudgmentContract } from "./judgment-observation-contract.js";
+import { assertValidSourceEvent } from "./aperture-core-validation.js";
+import {
+  judgeObservation,
+  type Observation,
+  type ObservationJudgment,
+} from "./judgment-observation-contract.js";
 import { normalizeSourceEvent } from "./semantic-normalizer.js";
 import type { SourceEvent } from "./source-event.js";
+
+export type { SourceEvidence } from "./events.js";
+export type { Observation } from "./judgment-observation-contract.js";
+export type { ObservationJudgment } from "./judgment-observation-contract.js";
 
 export type ApertureKernelConsequenceLevel = "low" | "medium" | "high";
 
@@ -86,13 +94,16 @@ export type ApertureKernelWorkStartedEvent = ApertureKernelEventBase & {
   summary?: string;
 };
 
-export type ApertureKernelWorkUpdatedEvent = ApertureKernelEventBase & {
+type ApertureKernelWorkUpdatedEventFields = ApertureKernelEventBase & {
   kind: "work.updated";
   title: string;
   summary?: string;
+  /** Runtime-valid only when status is failed; validation rejects other combinations. */
+  evidence?: SourceEvidence;
   status: "running" | "blocked" | "waiting" | "completed" | "failed";
   progress?: number;
 };
+export type ApertureKernelWorkUpdatedEvent = ApertureKernelWorkUpdatedEventFields;
 
 export type ApertureKernelInputRequestedEvent = ApertureKernelEventBase & {
   kind: "input.requested";
@@ -129,6 +140,7 @@ export type ApertureKernelFinalEvent = {
   title?: string;
   summary?: string;
   status?: ApertureKernelWorkUpdatedEvent["status"];
+  evidence?: SourceEvidence;
   progress?: number;
   interactionId?: string;
   capabilityFamily?: string;
@@ -142,88 +154,6 @@ export type ApertureKernelFinalEvent = {
     whyNow?: string;
     factors: string[];
   };
-};
-
-export type ApertureKernelObservationKind =
-  | "control"
-  | "diagnostic"
-  | "outcome"
-  | "payload"
-  | "unknown";
-export type ApertureKernelObservationPolarity = "failure" | "neutral" | "success" | "unknown";
-export type ApertureKernelObservationOwner = "engine" | "source" | "tool" | "unknown";
-export type ApertureKernelObservationSubject =
-  | "command"
-  | "document"
-  | "search"
-  | "source"
-  | "tool"
-  | "unknown";
-export type ApertureKernelEvidenceLoss = "absent" | "none" | "partial" | "unknown";
-export type ApertureKernelDiagnosticClass = "expected" | "runtime" | "source_limit";
-export type ApertureKernelRecoveryHint =
-  | "await_authorization"
-  | "inspect_diagnostic"
-  | "inspect_original_evidence"
-  | "narrow_evidence_scope"
-  | "request_evidence";
-export type ApertureKernelObservationOrigin =
-  | "command_output"
-  | "read_output"
-  | "semantic_evidence"
-  | "status_text"
-  | "structured_output"
-  | "transcript";
-export type ApertureKernelObservationAuthority = "explicit" | "hinted" | "inferred" | "unknown";
-export type ApertureKernelSemanticAgreement = "stable" | "overridden" | "uncertain";
-export type ApertureKernelEvidenceStrength = "weak" | "qualified" | "strong";
-export type ApertureKernelStatusConflictKind =
-  | "command_success_observation"
-  | "execution_success_observation"
-  | "payload_observation"
-  | "rejected_tool_use_observation"
-  | "search_output_observation"
-  | "structured_output_observation";
-
-export type ApertureKernelObservation = {
-  kind: ApertureKernelObservationKind;
-  polarity: ApertureKernelObservationPolarity;
-  ownership: {
-    owner: ApertureKernelObservationOwner;
-    capabilityFamily?: string;
-  };
-  subject: ApertureKernelObservationSubject;
-  evidenceLoss: ApertureKernelEvidenceLoss;
-  semanticAgreement: ApertureKernelSemanticAgreement;
-  evidenceStrength: ApertureKernelEvidenceStrength;
-  diagnosticClass?: ApertureKernelDiagnosticClass;
-  recoveryHint?: ApertureKernelRecoveryHint;
-  provenance: {
-    origin: ApertureKernelObservationOrigin;
-    authority: ApertureKernelObservationAuthority;
-  };
-  consequenceBaseline: ApertureKernelConsequenceLevel;
-};
-
-export type ApertureKernelObservationJudgment = {
-  statusEvidence:
-    | "limited_failure"
-    | "stable_observation"
-    | "visible_diagnostic_failure"
-    | "weak_or_uncertain";
-  statusConflictKind: ApertureKernelStatusConflictKind | null;
-  recoveryPosture:
-    | "authorization_required"
-    | "diagnostic_inspection"
-    | "evidence_required"
-    | "evidence_scope_required"
-    | "original_evidence_required"
-    | "none";
-  baselineConsequence: ApertureKernelConsequenceLevel;
-  outcomeOnlyFailureStatus: boolean;
-  limitedFailureStatus: boolean;
-  stableStatusEvidence: boolean;
-  visibleDiagnosticFailure: boolean;
 };
 
 export type ApertureKernelEvaluation =
@@ -243,8 +173,8 @@ export const APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION = 1 as const;
 export type ApertureKernelResult = {
   event: ApertureKernelFinalEvent;
   evaluation: ApertureKernelEvaluation;
-  observation: ApertureKernelObservation | null;
-  observationJudgment: ApertureKernelObservationJudgment | null;
+  observation: Observation | null;
+  observationJudgment: ObservationJudgment | null;
   explanation: ApertureKernelExplanation;
 };
 
@@ -254,9 +184,31 @@ export type ApertureKernelExplanation = {
   reasonCodes: string[];
 };
 
-type ApertureKernelEvaluationResult = Omit<ApertureKernelResult, "explanation">;
+export type ApertureKernelHostAdapter<HostEvent> = (event: HostEvent) => ApertureKernelEvent | null;
 
-type SourceObservation = NonNullable<AttentionJudgmentInput["observation"]>;
+export type ApertureKernelConformanceCase<HostEvent> = {
+  id: string;
+  input: HostEvent;
+  expected: {
+    observation: Observation | null;
+    observationJudgment: ObservationJudgment | null;
+    reasonCodes: readonly string[];
+  };
+};
+
+export type ApertureKernelConformanceCaseResult = {
+  id: string;
+  passed: boolean;
+  failures: string[];
+};
+
+export type ApertureKernelConformanceReport = {
+  passed: boolean;
+  deterministic: boolean;
+  cases: ApertureKernelConformanceCaseResult[];
+};
+
+type ApertureKernelEvaluationResult = Omit<ApertureKernelResult, "explanation">;
 
 export function evaluateApertureKernelEvent(event: ApertureKernelEvent): ApertureKernelResult {
   const result = evaluateApertureKernelResult(event);
@@ -267,8 +219,105 @@ export function evaluateApertureKernelEvent(event: ApertureKernelEvent): Apertur
   };
 }
 
+export function runApertureKernelConformance<HostEvent>(
+  adapter: ApertureKernelHostAdapter<HostEvent>,
+  cases: readonly ApertureKernelConformanceCase<HostEvent>[],
+): ApertureKernelConformanceReport {
+  let deterministic = true;
+  const results = cases.map((testCase) => {
+    const failures: string[] = [];
+    try {
+      const event = adapter(testCase.input);
+      if (event === null) {
+        compareConformanceValue("observation", null, testCase.expected.observation, failures);
+        compareConformanceValue(
+          "observationJudgment",
+          null,
+          testCase.expected.observationJudgment,
+          failures,
+        );
+        compareConformanceValue("reasonCodes", [], testCase.expected.reasonCodes, failures);
+      } else {
+        const first = evaluateApertureKernelEvent(event);
+        const second = evaluateApertureKernelEvent(event);
+        compareConformanceValue(
+          "observation",
+          first.observation,
+          testCase.expected.observation,
+          failures,
+        );
+        compareConformanceValue(
+          "observationJudgment",
+          first.observationJudgment,
+          testCase.expected.observationJudgment,
+          failures,
+        );
+        compareConformanceValue(
+          "reasonCodes",
+          first.explanation.reasonCodes,
+          testCase.expected.reasonCodes,
+          failures,
+        );
+        if (conformanceProjection(first) !== conformanceProjection(second)) {
+          deterministic = false;
+          failures.push("repeated evaluation changed the canonical result");
+        }
+      }
+    } catch (error) {
+      failures.push(`evaluation threw: ${readConformanceError(error)}`);
+    }
+
+    return { id: testCase.id, passed: failures.length === 0, failures };
+  });
+
+  return {
+    passed: deterministic && results.every((result) => result.passed),
+    deterministic,
+    cases: results,
+  };
+}
+
+function conformanceProjection(result: ApertureKernelResult): string {
+  return canonicalConformanceJson({
+    observation: result.observation,
+    observationJudgment: result.observationJudgment,
+    reasonCodes: result.explanation.reasonCodes,
+  });
+}
+
+function compareConformanceValue(
+  label: string,
+  actual: unknown,
+  expected: unknown,
+  failures: string[],
+): void {
+  if (canonicalConformanceJson(actual) !== canonicalConformanceJson(expected)) {
+    failures.push(`${label} did not match the expected canonical value`);
+  }
+}
+
+function canonicalConformanceJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => canonicalConformanceJson(item)).join(",")}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalConformanceJson(record[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function readConformanceError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function evaluateApertureKernelResult(event: ApertureKernelEvent): ApertureKernelEvaluationResult {
-  const finalizedEvent = normalizeSourceEvent(toSourceEvent(event));
+  const sourceEvent = toSourceEvent(event);
+  assertValidSourceEvent(sourceEvent);
+  const finalizedEvent = normalizeSourceEvent(sourceEvent);
   const result = new EventEvaluator().evaluate(finalizedEvent);
 
   if (result.kind !== "candidate") {
@@ -293,9 +342,8 @@ function evaluateApertureKernelResult(event: ApertureKernelEvent): ApertureKerne
       interactionId: result.candidate.interactionId,
       mode: result.candidate.mode,
     },
-    observation: observation === undefined ? null : projectKernelObservation(observation),
-    observationJudgment:
-      observation === undefined ? null : projectKernelObservationJudgment(observation),
+    observation: observation ?? null,
+    observationJudgment: observation === undefined ? null : judgeObservation(observation),
   };
 }
 
@@ -333,18 +381,24 @@ function toSourceEvent(event: ApertureKernelEvent): SourceEvent {
         title: event.title,
         ...(event.summary === undefined ? {} : { summary: event.summary }),
       };
-    case "work.updated":
-      return {
+    case "work.updated": {
+      const update = {
         ...base,
-        type: "task.updated",
+        type: "task.updated" as const,
         title: event.title,
-        status: event.status,
         ...(event.summary === undefined ? {} : { summary: event.summary }),
         ...(event.progress === undefined ? {} : { progress: event.progress }),
         ...(event.context === undefined ? {} : { context: event.context }),
         ...(capabilityFamily === null ? {} : { toolFamily: capabilityFamily }),
         ...(activityClass === undefined ? {} : { activityClass }),
       };
+      const evidence = (event as unknown as { evidence?: SourceEvidence }).evidence;
+      return {
+        ...update,
+        status: event.status,
+        ...(evidence === undefined ? {} : { evidence }),
+      } as SourceEvent;
+    }
     case "input.requested":
       return {
         ...base,
@@ -384,14 +438,15 @@ function projectKernelFinalEvent(event: EnrichedApertureEvent): ApertureKernelFi
     ...("title" in event ? { title: event.title } : {}),
     ...("summary" in event && event.summary !== undefined ? { summary: event.summary } : {}),
     ...("status" in event ? { status: event.status } : {}),
+    ...("evidence" in event && event.evidence !== undefined ? { evidence: event.evidence } : {}),
     ...("progress" in event && event.progress !== undefined ? { progress: event.progress } : {}),
     ...("interactionId" in event ? { interactionId: event.interactionId } : {}),
     ...("toolFamily" in event && event.toolFamily !== undefined
       ? { capabilityFamily: event.toolFamily }
       : {}),
-    ...("activityClass" in event && event.activityClass !== undefined
-      ? { activityCategory: event.activityClass }
-      : {}),
+    ...(event.semantic.activityClass === undefined
+      ? {}
+      : { activityCategory: event.semantic.activityClass }),
     semantic: {
       intentFrame: event.semantic.intentFrame,
       ...(event.semantic.activityClass === undefined
@@ -425,41 +480,7 @@ function toKernelEventKind(type: EnrichedApertureEvent["type"]): ApertureKernelE
   }
 }
 
-function projectKernelObservation(observation: SourceObservation): ApertureKernelObservation {
-  return {
-    kind: observation.kind,
-    polarity: observation.polarity,
-    ownership: projectKernelOwnership(observation),
-    subject: observation.subject,
-    evidenceLoss: observation.evidenceLoss,
-    evidenceStrength: observation.evidenceStrength,
-    semanticAgreement: observation.semanticAgreement,
-    ...(observation.diagnosticClass === undefined
-      ? {}
-      : { diagnosticClass: observation.diagnosticClass }),
-    ...(observation.recoveryHint === undefined ? {} : { recoveryHint: observation.recoveryHint }),
-    provenance: observation.provenance,
-    consequenceBaseline: observation.consequenceBaseline,
-  };
-}
-
-function projectKernelObservationJudgment(
-  observation: SourceObservation,
-): ApertureKernelObservationJudgment {
-  const contract = projectObservationJudgmentContract(observation);
-  return {
-    statusEvidence: contract.statusEvidence,
-    statusConflictKind: contract.statusConflictKind,
-    recoveryPosture: contract.recoveryPosture,
-    baselineConsequence: contract.baselineConsequence,
-    outcomeOnlyFailureStatus: contract.outcomeOnlyFailureStatus,
-    limitedFailureStatus: contract.limitedFailureStatus,
-    stableStatusEvidence: contract.stableStatusEvidence,
-    visibleDiagnosticFailure: contract.visibleDiagnosticFailure,
-  };
-}
-
-function explainKernelObservation(observation: ApertureKernelObservation | null): string[] {
+function explainKernelObservation(observation: Observation | null): string[] {
   if (observation === null) {
     return ["kernel:observe:absent"];
   }
@@ -478,7 +499,7 @@ function explainKernelObservation(observation: ApertureKernelObservation | null)
 }
 
 function explainKernelObservationJudgment(
-  observationJudgment: ApertureKernelObservationJudgment | null,
+  observationJudgment: ObservationJudgment | null,
 ): string[] {
   if (observationJudgment === null) {
     return ["kernel:judge:absent"];
@@ -500,15 +521,4 @@ function readCapabilityFamily(event: ApertureKernelEvent): string | null {
 
 function normalizeCapabilityFamily(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim().toLowerCase() : null;
-}
-
-function projectKernelOwnership(
-  observation: SourceObservation,
-): ApertureKernelObservation["ownership"] {
-  return observation.ownership.toolFamily === undefined
-    ? { owner: observation.ownership.owner }
-    : {
-        owner: observation.ownership.owner,
-        capabilityFamily: observation.ownership.toolFamily,
-      };
 }

@@ -1,7 +1,7 @@
 {
   "id": "golden:kernel-corpus:hinted-or-forged-outcome-only-softening-is-rejected",
   "title": "Hinted outcome-only softening is rejected",
-  "description": "A hint may lower the semantic consequence annotation, but diagnostic terminal evidence must not receive the stable outcome-only failed-status posture.",
+  "description": "A forged consequence hint cannot soften complete diagnostic terminal evidence or its failed-status posture.",
   "doctrineTags": [
     "kernel_corpus",
     "semantic_normalization",
@@ -26,22 +26,22 @@
         "intentFrame": "failure",
         "activityClass": "tool_failure",
         "toolFamily": "exec_command",
-        "consequence": "medium",
+        "consequence": "high",
         "confidence": "high",
         "whyNowIncludes": "failed and should be reviewed",
         "factorsInclude": ["failed"],
-        "reasonsInclude": ["adapter claimed this only needs acknowledgement"],
+        "reasonsInclude": ["task status explicitly indicates failure"],
         "provenanceIncludes": {
-          "consequence": "hint"
+          "consequence": "inferred"
         },
         "ontology": {
           "ask": "status",
           "activity": "failure",
-          "consequence": "medium",
+          "consequence": "high",
           "blocking": "non_blocking",
           "episode": "unknown",
           "confidence": "high",
-          "source": "hinted"
+          "source": "explicit"
         }
       }
     ],

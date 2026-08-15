@@ -7,6 +7,9 @@ This is the portability posture for Aperture: compact, boring, portable,
 replayable, inspectable, and trusted.
 
 For term boundaries, see [Attention Kernel Lexicon](./attention-kernel-lexicon.md).
+For the normative semantic-to-judgment boundary, see
+[Observation And Judgment Contract v1](./observation-judgment-contract-v1.md).
+For versioning rules, see [Contract Version Policy](./contract-version-policy.md).
 
 ## Category
 
@@ -52,14 +55,23 @@ public subpaths:
 1. `SourceEvent`
 2. `SemanticInterpretation`
 3. `AttentionOntologyDiagnostic`
-4. `AttentionJudgmentInput`
-5. `AttentionCandidate`
-6. `AttentionDecisionRecord`
-7. `ApertureTrace`
+4. `Observation`
+5. `ObservationJudgment`
+6. `AttentionJudgmentInput`
+7. `AttentionCandidate`
+8. `AttentionDecisionRecord`
+9. `ApertureTrace`
 
-`AttentionOntologyDiagnostic` is the compact kernel vocabulary. The older
-`SemanticOntologyDiagnostic` name remains a compatibility alias, but new kernel
-work should prefer the attention-named contract.
+`AttentionOntologyDiagnostic` is the compact, canonical ontology vocabulary.
+Core exports no parallel semantic-era ontology contract.
+
+`Observation` is the one typed semantic document between messy source evidence
+and deterministic judgment. `ObservationJudgment` is its pure judgment result.
+The public kernel returns the exact canonical Observation object consumed by
+judgment; it does not copy, rename, or maintain a second DTO contract. The
+adapter-facing `facts.capabilityFamily` becomes `ownership.capabilityFamily`
+once at the source boundary. Historical `SourceEvent.toolFamily` vocabulary
+does not enter the canonical Observation.
 
 `AttentionDecisionRecord` is the first-class judgment artifact. It binds the
 decision, claim, evaluation clock, evidence snapshot, policy evaluations, value calculation,
@@ -81,7 +93,11 @@ removal, renaming, or semantic reinterpretation requires a new projection
 version. The determinism audit normalizes these projection fields so kernel
 drift is visible even when the final attention view does not change.
 Projection version `1` snapshots remain readable inside session bundle schema
-`1` artifacts, but current conformance writers emit version `2`.
+`1` artifacts through an explicitly archival Lab reader; normal conformance
+writers and the live runtime emit version `2`. Core and Runtime do not accept
+multiple live versions of their state or Work contracts. A future projection
+change must migrate or retire the archival reader before broadening the live
+path.
 Replay decision snapshots still carry the legacy `resultLane` source field; the
 version `2` projection exposes that placement as `realizedLane`.
 
@@ -133,6 +149,13 @@ when a case lacks final-lane assertions, a step-labeled semantic ontology
 checkpoint, a decision projection checkpoint, dimension assignment, or
 repeated-run determinism.
 
+The public `/kernel` entrypoint also exposes
+`runApertureKernelConformance(adapter, cases)`. It invokes only the public
+evaluator, compares canonical Observation, ObservationJudgment, and reason
+codes, repeats each evaluation for determinism, and reports failures without
+requiring a test framework. Hosts can use the same runner in their own adapter
+tests without importing Lab or reimplementing judgment.
+
 Each conformance case should assert:
 
 - input event and context
@@ -146,6 +169,16 @@ Each conformance case should assert:
   components that are semantically important for that case
 - stable decision reason codes from the record projection
 - the canonical decision fingerprint generated from the projection
+
+The Observation Kernel scorecard adds field-level quality evidence
+over that path. Human-authored expected values can be scored separately for
+calibration and holdout fixture splits across normalized Observation fields,
+the derived observation judgment, planner behavior, realized lane, and exact
+end-to-end outcomes. The implementation-freeze scorecard contains only
+calibration evidence; a holdout must be authored independently after that
+freeze and executed without semantic tuning before release. A scorecard drift
+therefore identifies which boundary changed instead of reporting only that a
+final route moved.
 
 The current kernel fixture matrix covers:
 
@@ -182,14 +215,26 @@ The corpus should continue adding adversarial examples:
 - safe read approvals
 - high-consequence writes
 
+## Scale Characterization
+
+`pnpm kernel:scale` evaluates a fixed mixed-event workload in repeated rounds
+through `evaluateApertureKernelEvent(...)`. Every round must produce the same
+SHA-256 digest over the complete canonical public result stream. The command
+reports throughput, round-mean latency, and heap movement while applying only a
+coarse performance regression floor.
+
+Machine-specific timing is not committed as a golden compatibility artifact.
+See [Kernel Scale Characterization](./kernel-scale-characterization.md) for the
+workload and release invariants.
+
 ## Public API Posture
 
 Decision as of 2026-08-03: keep the root package stateful, but publish narrow
 pure subpaths for embedders.
 
-The public `semantic` subpath exposes the attention-named ontology entry points
-as additive aliases over the existing semantic contract. The public
-`evaluator` subpath exposes `evaluateAttention(...)`, which evaluates one
+The public `semantic` subpath exposes the canonical attention ontology entry
+point and no parallel semantic-era aliases. The public `evaluator` subpath
+exposes `evaluateAttention(...)`, which evaluates one
 `AttentionClaim` against explicit context, config, and clock input and returns a
 versioned `AttentionDecisionRecord`.
 
@@ -228,6 +273,18 @@ host event -> adapter-owned ApertureKernelEvent -> normalize -> observe -> judge
 The adapter returns `ApertureKernelEvent | null`; accepted events are passed to
 `evaluateApertureKernelEvent(...)`. The kernel does not import source adapters,
 host protocols, product strings, persistence, networking, or UI behavior.
+
+For failed work updates, the neutral DTO may include one `SourceEvidence` fact
+when the host reliably knows the structure of its native result. The closed
+union represents complete outcomes, diagnostics, payloads, measured partial
+read windows, and authorization requirements. It does not expose Observation
+fields for hosts to populate. Typed evidence is authoritative when present;
+otherwise the same path uses the bounded structural text grammar. Both lower
+through the single private syntax-to-Observation path before judgment.
+
+`facts.capabilityFamily` remains opaque identity. It can establish ownership,
+but its value never infers evidence kind, subject, channel, polarity, or
+diagnostic class. See [Source Evidence Contract v1](./source-evidence-contract-v1.md).
 
 The architecture shape is intentionally small:
 

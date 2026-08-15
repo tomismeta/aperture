@@ -6,7 +6,6 @@ export function normalizeSemanticText(value: string): string {
     .replace(/[^a-z0-9/._-]+/g, " ")
     .trim();
 }
-
 export function normalizeSemanticLexicalText(value: string): string {
   return value
     .toLowerCase()
@@ -17,7 +16,6 @@ export function normalizeSemanticLexicalText(value: string): string {
 export function containsAnySemanticPhrase(value: string, phrases: readonly string[]): boolean {
   return phrases.some((phrase) => containsSemanticPhrase(value, phrase));
 }
-
 export function containsSemanticPhrase(value: string, phrase: string): boolean {
   const normalizedPhrase = normalizeSemanticText(phrase);
   if (!normalizedPhrase) {
@@ -54,7 +52,6 @@ export function hasSemanticWord(value: string, word: string): boolean {
     normalizedValue,
   );
 }
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

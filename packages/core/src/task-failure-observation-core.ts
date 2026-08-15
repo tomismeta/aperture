@@ -1,12 +1,80 @@
 import type { ObservationSemantics } from "./observation-semantics.js";
+import type { SourceEvidence } from "./events.js";
 import type { TaskFailureDetail, TaskFailureEvidenceKind } from "./semantic-evidence.js";
-import type { TaskFailureObservationSyntax } from "./task-failure-observation-grammar.js";
 
-type ObservationDiagnosticClass = NonNullable<ObservationSemantics["diagnosticClass"]>;
+export type TaskFailureObservationSyntax = Omit<
+  ObservationSemantics,
+  "evidenceCertainty" | "ownership" | "provenance"
+> & {
+  origin: ObservationSemantics["provenance"]["origin"];
+  owner?: ObservationSemantics["ownership"]["owner"];
+  evidenceCertainty?: ObservationSemantics["evidenceCertainty"];
+  completeBoundary?: true;
+  toolFamily?: string;
+};
+type ObservationSyntaxDetails = Partial<
+  Pick<TaskFailureObservationSyntax, "diagnosticClass" | "evidenceLoss" | "recoveryHint">
+> & { completeBoundary?: true };
+type SourceEvidenceChannel = Exclude<SourceEvidence, { kind: "authorization" }>["channel"];
+
+export function createTaskFailureObservationSyntax(
+  kind: ObservationSemantics["kind"],
+  polarity: ObservationSemantics["polarity"],
+  origin: ObservationSemantics["provenance"]["origin"],
+  subject: ObservationSemantics["subject"],
+  consequenceBaseline: ObservationSemantics["consequenceBaseline"],
+  toolFamily?: string,
+  details: ObservationSyntaxDetails = {},
+): TaskFailureObservationSyntax {
+  return {
+    kind,
+    polarity,
+    origin,
+    subject,
+    evidenceLoss: "none",
+    consequenceBaseline,
+    ...(toolFamily !== undefined ? { toolFamily } : {}),
+    ...details,
+  };
+}
+
+export function compileSourceEvidenceSyntax(evidence: SourceEvidence, toolFamily?: string) {
+  const syntax = createTaskFailureObservationSyntax;
+  if (evidence.kind === "authorization")
+    return syntax("control", "neutral", "status_text", "tool", "low", toolFamily, {
+      recoveryHint: "await_authorization",
+    });
+  const origin = sourceEvidenceOrigin(evidence.channel);
+  if (evidence.kind === "payload") {
+    const consequence =
+      evidence.channel === "structured" || evidence.subject === "tool" ? "high" : "low";
+    return syntax("payload", "neutral", origin, evidence.subject, consequence, toolFamily);
+  }
+  if (evidence.kind === "outcome") {
+    const consequence = evidence.outcome === "success" ? "low" : "medium";
+    return syntax("outcome", evidence.outcome, origin, evidence.subject, consequence, toolFamily);
+  }
+  const sourceLimit = evidence.diagnostic === "source_limit";
+  const subject = "subject" in evidence ? evidence.subject : "source";
+  const consequence = evidence.diagnostic === "runtime" ? "high" : "medium";
+  const details = {
+    diagnosticClass: evidence.diagnostic,
+    evidenceLoss: sourceLimit ? "partial" : "none",
+    recoveryHint: sourceLimit ? "narrow_evidence_scope" : "inspect_diagnostic",
+  } as const;
+  return syntax("diagnostic", "failure", origin, subject, consequence, toolFamily, details);
+}
+
+function sourceEvidenceOrigin(channel: SourceEvidenceChannel) {
+  if (channel === "search") return "transcript";
+  return (
+    channel === "transcript" ? channel : `${channel}_output`
+  ) as TaskFailureObservationSyntax["origin"];
+}
+
 type ObservationEvidenceLoss = ObservationSemantics["evidenceLoss"];
-type ObservationRecoveryHint = NonNullable<ObservationSemantics["recoveryHint"]>;
 
-export type TaskFailureObservationInput = {
+type ClassifiedInput = {
   kind: TaskFailureEvidenceKind;
   failureDetail?: TaskFailureDetail;
   toolFamily?: string;
@@ -14,137 +82,82 @@ export type TaskFailureObservationInput = {
   readsAsObservation: boolean;
   consequenceBaseline: ObservationSemantics["consequenceBaseline"];
 };
-
-export type TaskFailureObservationExtractorId =
-  | "command_success"
-  | "empty_payload"
-  | "expected_diagnostic"
-  | "operation_success"
-  | "payload"
-  | "read_truncated_source"
-  | "rejected_tool_use"
-  | "search_output"
-  | "structured_execution_success"
-  | "structured_output"
-  | "terminal_diagnostic"
-  | "terminal_outcome"
-  | "unknown_failure";
-
-type ObservationExtraction = {
-  observationExtractorId: TaskFailureObservationExtractorId;
-  observationSemantics: ObservationSemantics;
-};
-type ObservationExtractor = (input: TaskFailureObservationInput) => ObservationExtraction;
+type TaskFailureObservationInput = ClassifiedInput | { syntax: TaskFailureObservationSyntax };
+type ObservationSyntaxCompiler = (input: ClassifiedInput) => TaskFailureObservationSyntax;
 
 const EVIDENCE_LOSS_BY_DETAIL: Partial<Record<TaskFailureDetail, ObservationEvidenceLoss>> = {
   absent_evidence: "absent",
   source_window_limit: "partial",
   indeterminate: "unknown",
 };
-const RECOVERY_HINT_BY_EVIDENCE_LOSS: Record<string, ObservationRecoveryHint> = {
-  absent: "request_evidence",
-  partial: "narrow_evidence_scope",
-  unknown: "inspect_original_evidence",
-};
+const TASK_FAILURE_OBSERVATION_SYNTAX = {
+  routine_bash_success_observation: s("outcome", "success"),
+  structured_execution_success_observation: s("outcome", "success"),
+  operation_success_observation: s("outcome", "success"),
+  structured_tool_output_observation: s("payload", "neutral"),
+  empty_failure_payload: s("outcome", "failure", "absent_evidence"),
+  observational_payload: s("payload", "neutral"),
+  routine_search_output: s("payload", "neutral"),
+  expected_diagnostic_failure: s("diagnostic", "failure"),
+  terminal_failure: compileTerminalFailureSyntax,
+  rejected_tool_use_observation: s("control", "neutral"),
+  unclassified_failure: s("unknown", "failure", "indeterminate"),
+} satisfies Record<TaskFailureEvidenceKind, ObservationSyntaxCompiler>;
 
-const TASK_FAILURE_OBSERVATION_EXTRACTORS = {
-  routine_bash_success_observation: o("command_success", "outcome", "success"),
-  structured_execution_success_observation: o("structured_execution_success", "outcome", "success"),
-  operation_success_observation: o("operation_success", "outcome", "success"),
-  structured_tool_output_observation: o("structured_output", "payload", "neutral"),
-  empty_failure_payload: o("empty_payload", "outcome", "failure", "absent_evidence"),
-  observational_payload: o("payload", "payload", "neutral"),
-  routine_search_output: o("search_output", "payload", "neutral"),
-  expected_diagnostic_failure: o("expected_diagnostic", "diagnostic", "failure"),
-  terminal_failure: extractTerminalFailureObservation,
-  rejected_tool_use_observation: o("rejected_tool_use", "control", "neutral"),
-  unclassified_failure: o("unknown_failure", "unknown", "failure", "indeterminate"),
-} satisfies Record<TaskFailureEvidenceKind, ObservationExtractor>;
-
-export function extractTaskFailureObservationCore(input: TaskFailureObservationInput) {
-  if (input.observationSyntax !== undefined) return observationFromSyntax(input.observationSyntax);
-  return TASK_FAILURE_OBSERVATION_EXTRACTORS[input.kind](input);
-}
-
-export function readTaskFailureObservationCore(input: TaskFailureObservationInput) {
-  return extractTaskFailureObservationCore(input).observationSemantics;
+export function projectTaskFailureObservationCore(input: TaskFailureObservationInput) {
+  const syntax =
+    "syntax" in input
+      ? input.syntax
+      : input.observationSyntax !== undefined
+        ? input.observationSyntax
+        : TASK_FAILURE_OBSERVATION_SYNTAX[input.kind](input);
+  return observationFromSyntax(syntax);
 }
 
 function observationFromSyntax(syntax: TaskFailureObservationSyntax) {
-  const toolFamily = syntax.toolFamily;
-  const observationSemantics: ObservationSemantics = {
+  return {
     kind: syntax.kind,
-    polarity: syntax.kind === "outcome" ? "success" : "neutral",
+    polarity: syntax.polarity,
     ownership: {
-      owner: syntax.kind === "control" ? "tool" : toolFamily === undefined ? "source" : "tool",
-      ...(toolFamily !== undefined ? { toolFamily } : {}),
+      owner:
+        syntax.owner ??
+        (syntax.kind === "control" || syntax.toolFamily !== undefined ? "tool" : "source"),
+      ...(syntax.toolFamily !== undefined ? { capabilityFamily: syntax.toolFamily } : {}),
     },
-    subject: readSyntaxSubject(syntax),
-    evidenceLoss: "none",
+    subject: syntax.subject,
+    evidenceLoss: syntax.evidenceLoss,
     provenance: { origin: syntax.origin },
-    consequenceBaseline: readSyntaxConsequenceBaseline(syntax),
-    evidenceCertainty: "determinate",
-    ...(syntax.kind === "control" ? { recoveryHint: syntax.recoveryHint } : {}),
-  };
-  return { observationExtractorId: readSyntaxExtractorId(syntax), observationSemantics };
+    consequenceBaseline: syntax.consequenceBaseline,
+    evidenceCertainty: syntax.evidenceCertainty ?? "determinate",
+    ...(syntax.diagnosticClass === undefined ? {} : { diagnosticClass: syntax.diagnosticClass }),
+    ...(syntax.recoveryHint === undefined ? {} : { recoveryHint: syntax.recoveryHint }),
+  } satisfies ObservationSemantics;
 }
 
-function readSyntaxExtractorId(
-  syntax: TaskFailureObservationSyntax,
-): TaskFailureObservationExtractorId {
-  if (syntax.kind === "control") return "rejected_tool_use";
-  if (syntax.kind === "outcome") return "structured_execution_success";
-  return syntax.origin === "structured_output" ? "structured_output" : "payload";
+function compileTerminalFailureSyntax(input: ClassifiedInput) {
+  if (input.failureDetail === "source_window_limit" || input.failureDetail === "diagnostic")
+    return compileSyntax(input, "diagnostic", "failure");
+  if (input.failureDetail === "outcome_only") return compileSyntax(input, "outcome", "failure");
+  return compileSyntax(input, "unknown", "failure", "indeterminate");
 }
 
-function readSyntaxSubject(syntax: TaskFailureObservationSyntax): ObservationSemantics["subject"] {
-  if (syntax.kind === "control") return "tool";
-  if (syntax.kind === "outcome") return syntax.subject;
-  return syntax.payload.source ? "source" : syntax.fallbackSubject;
-}
-
-function readSyntaxConsequenceBaseline(
-  syntax: TaskFailureObservationSyntax,
-): ObservationSemantics["consequenceBaseline"] {
-  if (syntax.kind === "control") return "low";
-  return syntax.kind === "payload"
-    ? syntax.payload.consequenceBaseline
-    : syntax.consequenceBaseline;
-}
-
-function extractTerminalFailureObservation(input: TaskFailureObservationInput) {
-  switch (input.failureDetail) {
-    case "source_window_limit":
-      return observation(input, "read_truncated_source", "diagnostic", "failure");
-    case "diagnostic":
-      return observation(input, "terminal_diagnostic", "diagnostic", "failure");
-    case "outcome_only":
-      return observation(input, "terminal_outcome", "outcome", "failure");
-    default:
-      return observation(input, "unknown_failure", "unknown", "failure", "indeterminate");
-  }
-}
-
-function o(
-  observationExtractorId: TaskFailureObservationExtractorId,
+function s(
   kind: ObservationSemantics["kind"],
   polarity: ObservationSemantics["polarity"],
   fallbackDetail?: TaskFailureDetail,
 ) {
-  return (input: TaskFailureObservationInput) =>
-    observation(input, observationExtractorId, kind, polarity, fallbackDetail);
+  return (input: ClassifiedInput) => compileSyntax(input, kind, polarity, fallbackDetail);
 }
 
-function observation(
-  input: TaskFailureObservationInput,
-  observationExtractorId: TaskFailureObservationExtractorId,
+function compileSyntax(
+  input: ClassifiedInput,
   kind: ObservationSemantics["kind"],
   polarity: ObservationSemantics["polarity"],
   fallbackDetail?: TaskFailureDetail,
 ) {
   const failureDetail = fallbackDetail ?? input.failureDetail;
   const evidenceLoss = EVIDENCE_LOSS_BY_DETAIL[failureDetail ?? "outcome_only"] ?? "none";
-  let diagnosticClass: ObservationDiagnosticClass | null = null;
+  let diagnosticClass: TaskFailureObservationSyntax["diagnosticClass"];
   if (input.kind === "expected_diagnostic_failure") diagnosticClass = "expected";
   else if (kind === "diagnostic") {
     diagnosticClass = failureDetail === "source_window_limit" ? "source_limit" : "runtime";
@@ -153,48 +166,38 @@ function observation(
     input.kind === "rejected_tool_use_observation"
       ? "await_authorization"
       : readRecoveryHint(evidenceLoss, diagnosticClass);
-  const observationSemantics: ObservationSemantics = {
+  return {
     kind,
     polarity,
-    ownership: { owner: readOwner(input) },
-    subject: readSubject(input, observationExtractorId, failureDetail),
+    origin: "semantic_evidence",
+    owner: input.toolFamily !== undefined ? "tool" : input.readsAsObservation ? "source" : "engine",
+    subject: readSubject(input, failureDetail),
     evidenceLoss,
-    provenance: { origin: "semantic_evidence" },
     consequenceBaseline: input.consequenceBaseline,
-    evidenceCertainty:
-      input.kind === "terminal_failure" && failureDetail === "indeterminate"
-        ? "indeterminate"
-        : "determinate",
-  };
-  if (input.toolFamily !== undefined) observationSemantics.ownership.toolFamily = input.toolFamily;
-  if (diagnosticClass !== null) observationSemantics.diagnosticClass = diagnosticClass;
-  if (recoveryHint !== null) observationSemantics.recoveryHint = recoveryHint;
-  return { observationExtractorId, observationSemantics };
+    evidenceCertainty: failureDetail === "indeterminate" ? "indeterminate" : "determinate",
+    ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
+    ...(diagnosticClass !== undefined ? { diagnosticClass } : {}),
+    ...(recoveryHint !== null ? { recoveryHint } : {}),
+  } satisfies TaskFailureObservationSyntax;
 }
 
-function readOwner(input: TaskFailureObservationInput) {
-  if (input.toolFamily !== undefined) return "tool";
-  if (input.readsAsObservation) return "source";
-  return input.kind === "unclassified_failure" ? "unknown" : "engine";
-}
-
-function readSubject(
-  input: TaskFailureObservationInput,
-  id: TaskFailureObservationExtractorId,
-  failureDetail: TaskFailureDetail | undefined,
-) {
-  if (id === "command_success" || id === "structured_execution_success") return "command";
-  if (id === "search_output" || input.toolFamily === "search") return "search";
+function readSubject(input: ClassifiedInput, failureDetail: TaskFailureDetail | undefined) {
+  if (
+    input.kind === "routine_bash_success_observation" ||
+    input.kind === "structured_execution_success_observation"
+  )
+    return "command";
+  if (input.kind === "routine_search_output") return "search";
   if (failureDetail === "source_window_limit") return "source";
   return input.toolFamily !== undefined ? "tool" : "unknown";
 }
 
 function readRecoveryHint(
   evidenceLoss: ObservationEvidenceLoss,
-  diagnosticClass: ObservationDiagnosticClass | null,
+  diagnosticClass: TaskFailureObservationSyntax["diagnosticClass"],
 ) {
-  return (
-    RECOVERY_HINT_BY_EVIDENCE_LOSS[evidenceLoss] ??
-    (diagnosticClass !== null ? "inspect_diagnostic" : null)
-  );
+  if (evidenceLoss === "absent") return "request_evidence";
+  if (evidenceLoss === "partial") return "narrow_evidence_scope";
+  if (evidenceLoss === "unknown") return "inspect_original_evidence";
+  return diagnosticClass !== undefined ? "inspect_diagnostic" : null;
 }

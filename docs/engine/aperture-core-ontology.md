@@ -64,9 +64,8 @@ host-shaped concepts.
 
 The current Aperture Core ontology should stay centered on seven dimensions.
 
-The kernel type is `AttentionOntologyDiagnostic`. The older
-`SemanticOntologyDiagnostic` name remains a compatibility alias for the semantic
-entrypoint, but new kernel work should use the attention-named contract.
+The kernel type is `AttentionOntologyDiagnostic`. It is the only exported
+ontology diagnostic contract.
 
 ### 1. `ask`
 

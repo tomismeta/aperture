@@ -1,6 +1,9 @@
 import { stderr, stdout } from "node:process";
 
-import { globalOpencodeConfigPath, removeGlobalOpencodeProfile } from "./opencode-config.ts";
+import {
+  globalOpencodeConfigPath,
+  removeGlobalOpencodeProfile,
+} from "../packages/aperture/src/opencode-config.ts";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);

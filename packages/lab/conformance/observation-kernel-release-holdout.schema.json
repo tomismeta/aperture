@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://tomismeta.dev/aperture/observation-kernel-release-holdout.schema.json",
+  "title": "Aperture Observation Kernel Release Holdout",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["methodology", "fixtures"],
+  "properties": {
+    "methodology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "artifactKind",
+        "holdoutId",
+        "releaseTarget",
+        "observationContractId",
+        "observationContractDigest",
+        "sourceEvidenceContractId",
+        "sourceEvidenceContractDigest",
+        "outputContractId",
+        "outputContractDigest",
+        "implementationFreeze",
+        "fixtureCount",
+        "typedEvidenceFixtureCount",
+        "structuralFallbackFixtureCount",
+        "oracleProvenance",
+        "notes"
+      ],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "artifactKind": { "const": "release_holdout" },
+        "holdoutId": { "type": "string", "minLength": 1 },
+        "releaseTarget": { "type": "string", "minLength": 1 },
+        "observationContractId": { "type": "string", "minLength": 1 },
+        "observationContractDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "sourceEvidenceContractId": { "type": "string", "minLength": 1 },
+        "sourceEvidenceContractDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "outputContractId": { "type": "string", "minLength": 1 },
+        "outputContractDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "implementationFreeze": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "fixtureCount": { "const": 47 },
+        "typedEvidenceFixtureCount": { "const": 12 },
+        "structuralFallbackFixtureCount": { "const": 35 },
+        "oracleProvenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "author",
+            "authoredWithoutExecution",
+            "authoredWithoutImplementationInspection",
+            "authoredWithoutPriorOracleInspection",
+            "authoredWithoutCalibrationInspection",
+            "notes"
+          ],
+          "properties": {
+            "author": { "type": "string", "minLength": 1 },
+            "authoredWithoutExecution": { "type": "boolean" },
+            "authoredWithoutImplementationInspection": { "type": "boolean" },
+            "authoredWithoutPriorOracleInspection": { "type": "boolean" },
+            "authoredWithoutCalibrationInspection": { "type": "boolean" },
+            "notes": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "notes": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "fixtures": {
+      "type": "array",
+      "minItems": 47,
+      "maxItems": 47,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "dimension", "split", "events", "expected", "rationale"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^holdout-release-[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "dimension": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "split": { "const": "holdout" },
+          "events": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "$ref": "#/$defs/event" } },
+          "expected": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "$ref": "#/$defs/expected" } },
+          "rationale": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "taskId", "timestamp", "type", "title", "summary", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^event-release-[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "taskId": { "type": "string", "pattern": "^task-release-[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "type": { "const": "task.updated" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "status": { "const": "failed" },
+        "toolFamily": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "metadata": { "type": "object" },
+        "evidence": { "type": "object" },
+        "semanticHints": { "type": "object" }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fields", "judgment", "decision"],
+      "properties": {
+        "fields": { "type": "object" },
+        "judgment": { "type": "object" },
+        "decision": { "type": "object" }
+      }
+    }
+  }
+}

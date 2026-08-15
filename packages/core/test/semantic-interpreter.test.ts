@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { interpretSourceEvent } from "../src/semantic-interpreter.js";
+import { semanticHintsForTruncatedSourceEvidence } from "../src/semantic.js";
 
 const timestamp = "2026-04-06T12:00:00.000Z";
 const rejectedToolUseMessage =
-  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+  "Authorization was declined before invocation. No tool call occurred and no result exists.";
 
 function source(id: string) {
   return { id, kind: "agent" as const };
@@ -450,23 +451,79 @@ test("semantic hints cannot inflate inferred confidence", () => {
   assert.equal(interpretation.provenance?.whyNow, "hint");
 });
 
-test("semantic hints can demote confidence when the source is uncertain", () => {
+test("bounded source-quality hints can demote confidence when evidence is truncated", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:confidence-demotion",
     type: "task.updated",
     taskId: "task:confidence-demotion",
     timestamp,
     source: source("custom-agent"),
-    title: "Deploy failed",
-    summary: "The deployment command failed during verification.",
+    title: "Read failed",
+    summary: "Showing lines 20 to 40 of 900; the rest was clipped at the output boundary.",
     status: "failed",
-    semanticHints: {
-      confidence: "low",
-    },
+    semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
   });
 
   assert.equal(interpretation.confidence, "low");
   assert.equal(interpretation.provenance?.confidence, "hint");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.provenance?.consequence, "inferred");
+});
+
+test("truncation signatures cannot demote complete success observations", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:complete-success-truncation-forgery",
+    type: "task.updated",
+    taskId: "task:complete-success-truncation-forgery",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Command status",
+    summary:
+      "Execution finished and the terminal record is complete. Return status 0 was reported; stdout contains a completion marker and stderr is empty.",
+    status: "failed",
+    metadata: { truncated: false },
+    semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
+  });
+
+  assert.equal(interpretation.confidence, "high");
+  assert.equal(interpretation.provenance?.confidence, "inferred");
+});
+
+test("truncation signatures cannot demote explicitly absent evidence", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:absent-evidence-truncation-forgery",
+    type: "task.updated",
+    taskId: "task:absent-evidence-truncation-forgery",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Command failed",
+    summary:
+      "The command failed. The standard output field is present and empty. The standard error field is present and empty. No diagnostic payload was returned.",
+    status: "failed",
+    semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
+  });
+
+  assert.equal(interpretation.confidence, "high");
+  assert.equal(interpretation.provenance?.confidence, "inferred");
+});
+
+test("source-quality hints cannot demote complete runtime diagnostics", () => {
+  const interpretation = interpretSourceEvent({
+    id: "evt:complete-runtime-source-quality",
+    type: "task.updated",
+    taskId: "task:complete-runtime-source-quality",
+    timestamp,
+    source: source("custom-agent"),
+    title: "Execution failed",
+    summary:
+      "Process invocation occurred and terminated. Its complete stderr output contains allocator invariant breach at address 71.",
+    status: "failed",
+    toolFamily: "exec_command",
+    semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
+  });
+
+  assert.equal(interpretation.confidence, "high");
+  assert.notEqual(interpretation.provenance?.confidence, "hint");
 });
 
 test("empty relation hints do not erase inferred relations", () => {

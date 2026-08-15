@@ -1,0 +1,1700 @@
+{
+  "methodology": {
+    "schemaVersion": 5,
+    "observationContractId": "aperture-observation-judgment-contract/v1",
+    "observationContractDigest": "sha256:57b79ade46e476378695a0652f7fe145bc6ee3dc9fa351f7994370419158086f",
+    "sourceEvidenceContractId": "aperture-source-evidence-contract/v1",
+    "sourceEvidenceContractDigest": "sha256:ba6d6ba64e3b5cf6bf99edda9248cec30f8958c532f9f56cc77248140bfd125c",
+    "outputContractId": "aperture-source-evidence-observation-projection/v2",
+    "outputContractDigest": "sha256:3c9ca79b89cd39571f7d24f866edf0b88d49e76e16a9216fd741fdca3bc35032",
+    "implementationFreeze": "2926ea9489526a572e232da51584f224cbcc7252",
+    "author": "gpt-5.6-sol",
+    "authoredWithoutImplementationInspection": true,
+    "authoredWithoutExecution": true,
+    "firstExecutionPermittedAfterCommit": true,
+    "fixtureCount": 24,
+    "typedEvidenceFixtureCount": 12,
+    "structuralFallbackFixtureCount": 12,
+    "authoredWithoutPriorOracleInspection": true,
+    "authoredWithoutCalibrationInspection": true,
+    "notes": [
+      "Authored solely from the supplied schema and normative contracts before any execution.",
+      "Twenty-four one-event fixtures are evenly divided between authoritative typed evidence and structural fallback."
+    ]
+  },
+  "fixtures": [
+    {
+      "id": "holdout-v5-typed-command-success-contradiction",
+      "dimension": "typed-command-success-over-failure-prose",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-amber-command-success",
+          "taskId": "task-v5-amber-command-success",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "The command failed before producing a result",
+          "summary": "A fatal execution error is reported and no successful completion is claimed.",
+          "status": "failed",
+          "toolFamily": "batch.command",
+          "metadata": {
+            "narrativeState": "failure",
+            "claimedExitCode": 41
+          },
+          "evidence": {
+            "kind": "outcome",
+            "outcome": "success",
+            "subject": "command",
+            "channel": "command",
+            "complete": true
+          },
+          "semanticHints": {
+            "intentFrame": "failure",
+            "activityClass": "tool_failure",
+            "toolFamily": "unrelated.family",
+            "consequence": "high",
+            "whyNow": "The prose claims a terminal failure.",
+            "confidence": "high",
+            "reasons": ["The title and summary deny success."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "outcome",
+            "polarity": "success",
+            "owner": "tool",
+            "toolFamily": "batch.command",
+            "subject": "command",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "command_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "low"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "command_success_observation",
+            "recoveryPosture": "none",
+            "baselineConsequence": "low",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "ambient",
+            "resultLane": "ambient"
+          }
+        }
+      ],
+      "rationale": "Complete typed command success remains authoritative over failed transport status, contradictory prose, metadata, and semantic hints."
+    },
+    {
+      "id": "holdout-v5-typed-transcript-failure-contradiction",
+      "dimension": "typed-transcript-failure-over-completion-prose",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-bronze-transcript-failure",
+          "taskId": "task-v5-bronze-transcript-failure",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Work completed successfully",
+          "summary": "The requested material was returned in full and there is no failure to inspect.",
+          "status": "failed",
+          "metadata": {
+            "displayOutcome": "success",
+            "payloadComplete": true
+          },
+          "evidence": {
+            "kind": "outcome",
+            "outcome": "failure",
+            "subject": "command",
+            "channel": "transcript",
+            "complete": true
+          },
+          "semanticHints": {
+            "intentFrame": "completion",
+            "activityClass": "tool_completion",
+            "consequence": "low",
+            "whyNow": "The prose presents a routine completion.",
+            "confidence": "high",
+            "reasons": ["The visible language is wholly positive."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "outcome",
+            "polarity": "failure",
+            "owner": "source",
+            "toolFamily": null,
+            "subject": "command",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "transcript",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "medium"
+          },
+          "judgment": {
+            "statusEvidence": "limited_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "none",
+            "baselineConsequence": "medium",
+            "outcomeOnlyFailureStatus": true,
+            "limitedFailureStatus": true,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "queue",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "Typed transcript evidence establishes a complete failed outcome without requiring a named capability."
+    },
+    {
+      "id": "holdout-v5-typed-structured-runtime-contradiction",
+      "dimension": "typed-structured-runtime-over-payload-prose",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-cobalt-structured-runtime",
+          "taskId": "task-v5-cobalt-structured-runtime",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "A routine structured payload was returned",
+          "summary": "The content is informational, complete, and carries no diagnostic meaning.",
+          "status": "failed",
+          "toolFamily": "compute.action",
+          "metadata": {
+            "presentation": "payload",
+            "severity": "none"
+          },
+          "evidence": {
+            "kind": "diagnostic",
+            "diagnostic": "runtime",
+            "subject": "tool",
+            "channel": "structured",
+            "complete": true
+          },
+          "semanticHints": {
+            "intentFrame": "completion",
+            "activityClass": "tool_completion",
+            "consequence": "low",
+            "whyNow": "The prose labels the result as passive content.",
+            "confidence": "high",
+            "reasons": ["No diagnostic is acknowledged by the narrative."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "tool",
+            "toolFamily": "compute.action",
+            "subject": "tool",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "runtime",
+            "recoveryHint": "inspect_diagnostic",
+            "provenanceOrigin": "structured_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "visible_diagnostic_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "diagnostic_inspection",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": true
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "Typed runtime diagnostic evidence controls kind, polarity, subject, completeness, origin, and consequence despite payload prose."
+    },
+    {
+      "id": "holdout-v5-typed-search-expected-contradiction",
+      "dimension": "typed-search-expected-diagnostic-authority",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-denim-search-expected",
+          "taskId": "task-v5-denim-search-expected",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Search finished without findings",
+          "summary": "Every result was ordinary and no diagnostic condition was observed.",
+          "status": "failed",
+          "metadata": {
+            "reportedMatches": 0,
+            "reportedCondition": "clear"
+          },
+          "evidence": {
+            "kind": "diagnostic",
+            "diagnostic": "expected",
+            "subject": "search",
+            "channel": "search",
+            "complete": true
+          },
+          "semanticHints": {
+            "intentFrame": "completion",
+            "activityClass": "tool_completion",
+            "consequence": "low",
+            "whyNow": "The summary denies a finding.",
+            "confidence": "high",
+            "reasons": ["The text describes a clean search."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "source",
+            "toolFamily": null,
+            "subject": "search",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "expected",
+            "recoveryHint": "inspect_diagnostic",
+            "provenanceOrigin": "transcript",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "medium"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": null,
+            "recoveryPosture": "diagnostic_inspection",
+            "baselineConsequence": "medium",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "A complete expected diagnostic on the search channel remains explicit and source-owned when no capability identity is supplied."
+    },
+    {
+      "id": "holdout-v5-typed-source-window-contradiction",
+      "dimension": "typed-source-limit-over-complete-read-prose",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-ember-source-window",
+          "taskId": "task-v5-ember-source-window",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "The entire source was read",
+          "summary": "The returned view covers all available lines with nothing omitted.",
+          "status": "failed",
+          "metadata": {
+            "displayCompleteness": "full"
+          },
+          "evidence": {
+            "kind": "diagnostic",
+            "diagnostic": "source_limit",
+            "channel": "read",
+            "window": {
+              "unit": "lines",
+              "offset": 40,
+              "length": 80,
+              "total": 640
+            }
+          },
+          "semanticHints": {
+            "intentFrame": "completion",
+            "activityClass": "tool_completion",
+            "consequence": "low",
+            "whyNow": "The prose claims complete coverage.",
+            "confidence": "high",
+            "reasons": ["The summary says nothing was omitted."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "source",
+            "toolFamily": null,
+            "subject": "source",
+            "evidenceLoss": "partial",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "source_limit",
+            "recoveryHint": "narrow_evidence_scope",
+            "provenanceOrigin": "read_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "medium"
+          },
+          "judgment": {
+            "statusEvidence": "limited_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "evidence_scope_required",
+            "baselineConsequence": "medium",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": true,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "queue",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "The measured typed window establishes partial source evidence even though every prose surface calls the read complete."
+    },
+    {
+      "id": "holdout-v5-typed-document-payload-contradiction",
+      "dimension": "typed-read-payload-over-runtime-prose",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-flint-document-payload",
+          "taskId": "task-v5-flint-document-payload",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Execution crashed with a visible diagnostic",
+          "summary": "A runtime fault terminated the operation and requires immediate inspection.",
+          "status": "failed",
+          "toolFamily": "library.read",
+          "metadata": {
+            "claimedDiagnostic": "runtime",
+            "claimedSeverity": "high"
+          },
+          "evidence": {
+            "kind": "payload",
+            "subject": "document",
+            "channel": "read",
+            "complete": true
+          },
+          "semanticHints": {
+            "intentFrame": "failure",
+            "activityClass": "tool_failure",
+            "consequence": "high",
+            "whyNow": "The prose describes a runtime fault.",
+            "confidence": "high",
+            "reasons": ["The title requests diagnostic attention."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "payload",
+            "polarity": "neutral",
+            "owner": "tool",
+            "toolFamily": "library.read",
+            "subject": "document",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "read_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "low"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "payload_observation",
+            "recoveryPosture": "none",
+            "baselineConsequence": "low",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "ambient",
+            "resultLane": "ambient"
+          }
+        }
+      ],
+      "rationale": "Typed document payload boundaries prevent diagnostic-looking event prose from changing a neutral read observation."
+    },
+    {
+      "id": "holdout-v5-typed-authorization-contradiction",
+      "dimension": "typed-authorization-over-executed-result-prose",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-garnet-authorization",
+          "taskId": "task-v5-garnet-authorization",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Execution finished with exit code four",
+          "summary": "The operation ran to completion and produced a concrete failed result.",
+          "status": "failed",
+          "metadata": {
+            "claimedExecution": "finished",
+            "claimedExitCode": 4
+          },
+          "evidence": {
+            "kind": "authorization",
+            "state": "required",
+            "execution": "not_started",
+            "result": "absent"
+          },
+          "semanticHints": {
+            "intentFrame": "failure",
+            "activityClass": "tool_failure",
+            "consequence": "high",
+            "whyNow": "The prose claims execution already occurred.",
+            "confidence": "high",
+            "reasons": ["A failed result is described in the summary."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "control",
+            "polarity": "neutral",
+            "owner": "tool",
+            "toolFamily": null,
+            "subject": "tool",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": "await_authorization",
+            "provenanceOrigin": "status_text",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "low"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "rejected_tool_use_observation",
+            "recoveryPosture": "authorization_required",
+            "baselineConsequence": "low",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "ambient",
+            "resultLane": "ambient"
+          }
+        }
+      ],
+      "rationale": "Typed authorization facts establish non-invocation and absent result regardless of prose claiming a completed execution."
+    },
+    {
+      "id": "holdout-v5-typed-structured-search-success",
+      "dimension": "typed-structured-success-over-authorization-prose",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-hazel-structured-success",
+          "taskId": "task-v5-hazel-structured-success",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Authorization is still pending",
+          "summary": "Nothing has started and no result exists because a decision is required first.",
+          "status": "failed",
+          "metadata": {
+            "claimedExecution": "not_started",
+            "claimedResult": "absent"
+          },
+          "evidence": {
+            "kind": "outcome",
+            "outcome": "success",
+            "subject": "search",
+            "channel": "structured",
+            "complete": true
+          },
+          "semanticHints": {
+            "intentFrame": "approval_request",
+            "activityClass": "permission_request",
+            "consequence": "low",
+            "whyNow": "The prose frames the update as pre-execution control.",
+            "confidence": "high",
+            "reasons": ["The summary denies invocation."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "outcome",
+            "polarity": "success",
+            "owner": "source",
+            "toolFamily": null,
+            "subject": "search",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "structured_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "low"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "execution_success_observation",
+            "recoveryPosture": "none",
+            "baselineConsequence": "low",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "ambient",
+            "resultLane": "ambient"
+          }
+        }
+      ],
+      "rationale": "Typed structured success controls execution state and yields the structured success conflict kind even for a search subject."
+    },
+    {
+      "id": "holdout-v5-typed-read-document-failure",
+      "dimension": "typed-read-failure-over-neutral-payload-prose",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-ivory-read-failure",
+          "taskId": "task-v5-ivory-read-failure",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "A complete document was returned",
+          "summary": "The update contains only neutral source material and no failed outcome.",
+          "status": "failed",
+          "toolFamily": "record.fetch",
+          "metadata": {
+            "displayKind": "payload",
+            "displayPolarity": "neutral"
+          },
+          "evidence": {
+            "kind": "outcome",
+            "outcome": "failure",
+            "subject": "document",
+            "channel": "read",
+            "complete": true
+          },
+          "semanticHints": {
+            "intentFrame": "completion",
+            "activityClass": "tool_completion",
+            "consequence": "low",
+            "whyNow": "The prose presents document content.",
+            "confidence": "high",
+            "reasons": ["The narrative denies an outcome failure."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "outcome",
+            "polarity": "failure",
+            "owner": "tool",
+            "toolFamily": "record.fetch",
+            "subject": "document",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "read_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "medium"
+          },
+          "judgment": {
+            "statusEvidence": "limited_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "none",
+            "baselineConsequence": "medium",
+            "outcomeOnlyFailureStatus": true,
+            "limitedFailureStatus": true,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "queue",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "Typed failed outcome evidence remains an outcome even when the read-channel prose presents neutral document content."
+    },
+    {
+      "id": "holdout-v5-typed-command-runtime-control",
+      "dimension": "typed-command-runtime-over-control-prose",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-jade-command-runtime",
+          "taskId": "task-v5-jade-command-runtime",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Waiting for authorization before any execution",
+          "summary": "The operation has not started, no result exists, and a decision is the only next step.",
+          "status": "failed",
+          "metadata": {
+            "claimedControl": "authorization_required",
+            "claimedExecution": "not_started"
+          },
+          "evidence": {
+            "kind": "diagnostic",
+            "diagnostic": "runtime",
+            "subject": "command",
+            "channel": "command",
+            "complete": true
+          },
+          "semanticHints": {
+            "intentFrame": "approval_request",
+            "activityClass": "permission_request",
+            "consequence": "low",
+            "whyNow": "The text supplies a complete control shape.",
+            "confidence": "high",
+            "reasons": ["No execution is acknowledged in prose."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "source",
+            "toolFamily": null,
+            "subject": "command",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "runtime",
+            "recoveryHint": "inspect_diagnostic",
+            "provenanceOrigin": "command_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "visible_diagnostic_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "diagnostic_inspection",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": true
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "Typed command diagnostic evidence proves execution occurred and displaces the contradictory authorization narrative."
+    },
+    {
+      "id": "holdout-v5-typed-search-payload-contradiction",
+      "dimension": "typed-search-payload-over-command-failure-prose",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-khaki-search-payload",
+          "taskId": "task-v5-khaki-search-payload",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "A command terminated with a runtime fault",
+          "summary": "Execution stopped abruptly and exposed a complete diagnostic requiring inspection.",
+          "status": "failed",
+          "metadata": {
+            "claimedKind": "diagnostic",
+            "claimedSubject": "command"
+          },
+          "evidence": {
+            "kind": "payload",
+            "subject": "search",
+            "channel": "search",
+            "complete": true
+          },
+          "semanticHints": {
+            "intentFrame": "failure",
+            "activityClass": "tool_failure",
+            "consequence": "high",
+            "whyNow": "The prose asserts a command fault.",
+            "confidence": "high",
+            "reasons": ["The narrative is diagnostic rather than observational."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "payload",
+            "polarity": "neutral",
+            "owner": "source",
+            "toolFamily": null,
+            "subject": "search",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "transcript",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "low"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "search_output_observation",
+            "recoveryPosture": "none",
+            "baselineConsequence": "low",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "ambient",
+            "resultLane": "ambient"
+          }
+        }
+      ],
+      "rationale": "Typed search payload evidence preserves neutral search output semantics over command-failure prose and hints."
+    },
+    {
+      "id": "holdout-v5-typed-tool-transcript-payload",
+      "dimension": "typed-tool-payload-high-consequence",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-lilac-tool-payload",
+          "taskId": "task-v5-lilac-tool-payload",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "The command completed successfully",
+          "summary": "A zero exit code confirms a routine successful outcome rather than returned tool content.",
+          "status": "failed",
+          "toolFamily": "workflow.invoke",
+          "metadata": {
+            "claimedOutcome": "success",
+            "claimedExitCode": 0
+          },
+          "evidence": {
+            "kind": "payload",
+            "subject": "tool",
+            "channel": "transcript",
+            "complete": true
+          },
+          "semanticHints": {
+            "intentFrame": "completion",
+            "activityClass": "tool_completion",
+            "consequence": "low",
+            "whyNow": "The text supplies success language.",
+            "confidence": "high",
+            "reasons": ["The narrative treats content as an outcome."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "payload",
+            "polarity": "neutral",
+            "owner": "tool",
+            "toolFamily": "workflow.invoke",
+            "subject": "tool",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "transcript",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "payload_observation",
+            "recoveryPosture": "none",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "A complete typed tool payload is neutral but high consequence, and the event capability identity supplies tool ownership."
+    },
+    {
+      "id": "holdout-v5-fallback-complete-command-success",
+      "dimension": "fallback-complete-command-success",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-marble-command-success",
+          "taskId": "task-v5-marble-command-success",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Command finished with a zero exit code",
+          "summary": "Execution is complete. Exit code 0 was returned, standard output contains the completion note, and standard error is empty.",
+          "status": "failed",
+          "toolFamily": "batch.execute",
+          "metadata": {
+            "commandOutcome": {
+              "completed": true,
+              "exitCode": 0,
+              "stdout": "archive prepared",
+              "stderr": ""
+            }
+          },
+          "semanticHints": {
+            "intentFrame": "completion",
+            "activityClass": "tool_completion",
+            "consequence": "low",
+            "whyNow": "A terminal zero-code outcome is present.",
+            "confidence": "high",
+            "reasons": ["The command channels and completion state are explicit."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "outcome",
+            "polarity": "success",
+            "owner": "tool",
+            "toolFamily": "batch.execute",
+            "subject": "command",
+            "evidenceLoss": "none",
+            "evidenceStrength": "qualified",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "command_output",
+            "provenanceAuthority": "inferred",
+            "consequenceBaseline": "low"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "command_success_observation",
+            "recoveryPosture": "none",
+            "baselineConsequence": "low",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "ambient",
+            "resultLane": "ambient"
+          }
+        }
+      ],
+      "rationale": "A complete zero-code command outcome overrides failed transport status through qualified structural inference."
+    },
+    {
+      "id": "holdout-v5-fallback-nonzero-outcome-only",
+      "dimension": "fallback-complete-nonzero-outcome-only",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-navy-nonzero-outcome",
+          "taskId": "task-v5-navy-nonzero-outcome",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Command ended with a nonzero outcome",
+          "summary": "Execution is complete with exit code 23. This is a complete outcome-only record; no diagnostic payload is part of the record.",
+          "status": "failed",
+          "metadata": {
+            "commandOutcome": {
+              "completed": true,
+              "exitCode": 23,
+              "outcomeOnly": true,
+              "diagnosticsIncluded": false
+            }
+          },
+          "semanticHints": {
+            "intentFrame": "failure",
+            "activityClass": "tool_failure",
+            "consequence": "medium",
+            "whyNow": "A terminal nonzero result is complete.",
+            "confidence": "high",
+            "reasons": ["The outcome fact does not depend on diagnostic content."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "outcome",
+            "polarity": "failure",
+            "owner": "source",
+            "toolFamily": null,
+            "subject": "command",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "command_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "medium"
+          },
+          "judgment": {
+            "statusEvidence": "limited_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "none",
+            "baselineConsequence": "medium",
+            "outcomeOnlyFailureStatus": true,
+            "limitedFailureStatus": true,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "queue",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "A complete nonzero outcome has no evidence loss even when no diagnostic payload accompanies the terminal result."
+    },
+    {
+      "id": "holdout-v5-fallback-explicitly-absent-evidence",
+      "dimension": "fallback-explicitly-empty-failure-evidence",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-ochre-absent-evidence",
+          "taskId": "task-v5-ochre-absent-evidence",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Failure ended without its evidence channel",
+          "summary": "Execution is complete and failed with exit code 9. The required failure output is explicitly empty, so no diagnostic text was supplied.",
+          "status": "failed",
+          "toolFamily": "remote.action",
+          "metadata": {
+            "commandOutcome": {
+              "completed": true,
+              "exitCode": 9,
+              "failureEvidence": {
+                "state": "absent",
+                "content": null
+              }
+            }
+          },
+          "semanticHints": {
+            "intentFrame": "failure",
+            "activityClass": "tool_failure",
+            "consequence": "medium",
+            "whyNow": "The expected evidence channel is explicitly empty.",
+            "confidence": "high",
+            "reasons": ["Absence is declared rather than inferred from silence."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "outcome",
+            "polarity": "failure",
+            "owner": "tool",
+            "toolFamily": "remote.action",
+            "subject": "command",
+            "evidenceLoss": "absent",
+            "evidenceStrength": "weak",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": "request_evidence",
+            "provenanceOrigin": "command_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "medium"
+          },
+          "judgment": {
+            "statusEvidence": "limited_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "evidence_required",
+            "baselineConsequence": "medium",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": true,
+            "stableStatusEvidence": false,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "queue",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "An explicitly empty failure channel is absent evidence, not an outcome-only record and not unexplained incompleteness."
+    },
+    {
+      "id": "holdout-v5-fallback-runtime-diagnostic",
+      "dimension": "fallback-complete-runtime-diagnostic",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-pearl-runtime-diagnostic",
+          "taskId": "task-v5-pearl-runtime-diagnostic",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Execution stopped with a complete runtime diagnostic",
+          "summary": "The process terminated after memory allocation failed. Exit code 71 and the full runtime diagnostic were returned.",
+          "status": "failed",
+          "metadata": {
+            "commandExecution": {
+              "completed": true,
+              "exitCode": 71,
+              "diagnostic": {
+                "class": "runtime",
+                "complete": true,
+                "message": "memory allocation failed"
+              }
+            }
+          },
+          "semanticHints": {
+            "intentFrame": "failure",
+            "activityClass": "tool_failure",
+            "consequence": "high",
+            "whyNow": "A terminal execution diagnostic is fully visible.",
+            "confidence": "high",
+            "reasons": ["The diagnostic channel is declared complete."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "source",
+            "toolFamily": null,
+            "subject": "command",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "runtime",
+            "recoveryHint": "inspect_diagnostic",
+            "provenanceOrigin": "command_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "visible_diagnostic_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "diagnostic_inspection",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": true
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "A complete asserted runtime diagnostic is visible high-consequence failure evidence with no evidence loss."
+    },
+    {
+      "id": "holdout-v5-fallback-bounded-source-window",
+      "dimension": "fallback-measured-partial-source-window",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-quartz-source-window",
+          "taskId": "task-v5-quartz-source-window",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Only a bounded source window was returned",
+          "summary": "The read produced a measured partial view: 80 lines beginning at offset 40 from a source totaling 640 lines.",
+          "status": "failed",
+          "toolFamily": "source.read",
+          "metadata": {
+            "sourceWindow": {
+              "unit": "lines",
+              "offset": 40,
+              "length": 80,
+              "total": 640,
+              "complete": false
+            }
+          },
+          "semanticHints": {
+            "intentFrame": "failure",
+            "activityClass": "tool_failure",
+            "consequence": "medium",
+            "whyNow": "The returned source view has a declared boundary.",
+            "confidence": "high",
+            "reasons": ["The offset, length, total, and unit are measured."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "tool",
+            "toolFamily": "source.read",
+            "subject": "source",
+            "evidenceLoss": "partial",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "source_limit",
+            "recoveryHint": "narrow_evidence_scope",
+            "provenanceOrigin": "read_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "medium"
+          },
+          "judgment": {
+            "statusEvidence": "limited_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "evidence_scope_required",
+            "baselineConsequence": "medium",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": true,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "queue",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "A measured window that ends before the source total is partial source-limit evidence and requests a narrower scope."
+    },
+    {
+      "id": "holdout-v5-fallback-expected-source-diagnostic",
+      "dimension": "fallback-complete-expected-source-diagnostic",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-russet-source-diagnostic",
+          "taskId": "task-v5-russet-source-diagnostic",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Requested source diagnostic completed",
+          "summary": "The bounded diagnostic check is complete. Its expected observation is a failed source validation caused by an unmatched delimiter on line 18.",
+          "status": "failed",
+          "metadata": {
+            "diagnosticResult": {
+              "complete": true,
+              "class": "expected",
+              "subject": "source",
+              "outcome": "failure",
+              "finding": "unmatched delimiter on line 18"
+            }
+          },
+          "semanticHints": {
+            "intentFrame": "failure",
+            "activityClass": "tool_completion",
+            "consequence": "medium",
+            "whyNow": "The requested diagnostic itself produced the expected failed observation.",
+            "confidence": "high",
+            "reasons": ["The diagnostic result is complete and bounded."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "source",
+            "toolFamily": null,
+            "subject": "source",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "expected",
+            "recoveryHint": "inspect_diagnostic",
+            "provenanceOrigin": "read_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "medium"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": null,
+            "recoveryPosture": "diagnostic_inspection",
+            "baselineConsequence": "medium",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "A complete failed source check is an expected diagnostic result, not a runtime crash or partial source window."
+    },
+    {
+      "id": "holdout-v5-fallback-document-quoted-failure",
+      "dimension": "fallback-complete-document-with-quoted-failure",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-saffron-document-payload",
+          "taskId": "task-v5-saffron-document-payload",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Document contents returned in full",
+          "summary": "The complete document payload includes the quoted example \"runtime failure: exit code 88\"; that sentence is source text, not an asserted execution result.",
+          "status": "failed",
+          "metadata": {
+            "documentPayload": {
+              "complete": true,
+              "content": "Example transcript: runtime failure: exit code 88",
+              "quotedContent": true
+            }
+          },
+          "semanticHints": {
+            "intentFrame": "completion",
+            "activityClass": "tool_completion",
+            "consequence": "low",
+            "whyNow": "A complete payload boundary identifies the failure words as document content.",
+            "confidence": "high",
+            "reasons": ["The diagnostic-looking phrase is quoted inside returned content."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "payload",
+            "polarity": "neutral",
+            "owner": "source",
+            "toolFamily": null,
+            "subject": "document",
+            "evidenceLoss": "none",
+            "evidenceStrength": "qualified",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": null,
+            "provenanceOrigin": "read_output",
+            "provenanceAuthority": "inferred",
+            "consequenceBaseline": "low"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "payload_observation",
+            "recoveryPosture": "none",
+            "baselineConsequence": "low",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "ambient",
+            "resultLane": "ambient"
+          }
+        }
+      ],
+      "rationale": "A complete document boundary protects quoted failure text from promotion to a runtime diagnostic."
+    },
+    {
+      "id": "holdout-v5-fallback-preexecution-authorization",
+      "dimension": "fallback-complete-preexecution-authorization",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-sienna-authorization",
+          "taskId": "task-v5-sienna-authorization",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Authorization is required before execution",
+          "summary": "The operation has not started. A decision is required first, and no execution result exists.",
+          "status": "failed",
+          "metadata": {
+            "authorization": {
+              "state": "required"
+            },
+            "execution": {
+              "state": "not_started"
+            },
+            "result": {
+              "state": "absent"
+            }
+          },
+          "semanticHints": {
+            "intentFrame": "approval_request",
+            "activityClass": "permission_request",
+            "consequence": "low",
+            "whyNow": "Execution is gated before invocation.",
+            "confidence": "high",
+            "reasons": ["Both non-invocation and result absence are explicit."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "control",
+            "polarity": "neutral",
+            "owner": "tool",
+            "toolFamily": null,
+            "subject": "tool",
+            "evidenceLoss": "none",
+            "evidenceStrength": "qualified",
+            "semanticAgreement": "stable",
+            "diagnosticClass": null,
+            "recoveryHint": "await_authorization",
+            "provenanceOrigin": "status_text",
+            "provenanceAuthority": "inferred",
+            "consequenceBaseline": "low"
+          },
+          "judgment": {
+            "statusEvidence": "stable_observation",
+            "statusConflictKind": "rejected_tool_use_observation",
+            "recoveryPosture": "authorization_required",
+            "baselineConsequence": "low",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "ambient",
+            "resultLane": "ambient"
+          }
+        }
+      ],
+      "rationale": "The complete structural control grammar proves authorization is required before invocation and that no result exists."
+    },
+    {
+      "id": "holdout-v5-fallback-indeterminate-failure",
+      "dimension": "fallback-indeterminate-failed-evidence",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-slate-indeterminate-failure",
+          "taskId": "task-v5-slate-indeterminate-failure",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Task failed with indeterminate evidence",
+          "summary": "The update reports failure, but the original evidence is opaque; its kind, subject, completeness, and diagnostic meaning cannot be established.",
+          "status": "failed",
+          "metadata": {
+            "failure": {
+              "state": "indeterminate",
+              "evidenceState": "unknown"
+            }
+          },
+          "semanticHints": {
+            "intentFrame": "failure",
+            "activityClass": "status_update",
+            "consequence": "high",
+            "whyNow": "Only failed status is established.",
+            "confidence": "low",
+            "reasons": ["No narrower complete structural family is available."],
+            "abstained": true
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "unknown",
+            "polarity": "failure",
+            "owner": "engine",
+            "toolFamily": null,
+            "subject": "unknown",
+            "evidenceLoss": "unknown",
+            "evidenceStrength": "weak",
+            "semanticAgreement": "uncertain",
+            "diagnosticClass": null,
+            "recoveryHint": "inspect_original_evidence",
+            "provenanceOrigin": "semantic_evidence",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "weak_or_uncertain",
+            "statusConflictKind": null,
+            "recoveryPosture": "original_evidence_required",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": false,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "Failed status without a complete structural family remains an engine-owned indeterminate failure requiring original evidence."
+    },
+    {
+      "id": "holdout-v5-fallback-terminal-precedence",
+      "dimension": "fallback-terminal-diagnostic-precedence",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-teal-terminal-precedence",
+          "taskId": "task-v5-teal-terminal-precedence",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Terminal diagnostic appears beside routine alternatives",
+          "summary": "Execution reached a terminal runtime failure: the process exited 74 after an invalid memory access, and the full diagnostic is present. The update also says completed successfully, includes returned notes, and asks for authorization, even though execution already produced a result.",
+          "status": "failed",
+          "toolFamily": "operation.execute",
+          "metadata": {
+            "runtimeDiagnostic": {
+              "complete": true,
+              "exitCode": 74,
+              "message": "invalid memory access"
+            },
+            "routineSuccessClaim": true,
+            "returnedNotes": "ordinary status text",
+            "authorizationClaim": "required",
+            "executionResultExists": true
+          },
+          "semanticHints": {
+            "intentFrame": "completion",
+            "activityClass": "tool_completion",
+            "consequence": "low",
+            "whyNow": "Routine language competes with a terminal diagnostic.",
+            "confidence": "high",
+            "reasons": ["The hint follows the success phrase."],
+            "abstained": false
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "diagnostic",
+            "polarity": "failure",
+            "owner": "tool",
+            "toolFamily": "operation.execute",
+            "subject": "command",
+            "evidenceLoss": "none",
+            "evidenceStrength": "strong",
+            "semanticAgreement": "stable",
+            "diagnosticClass": "runtime",
+            "recoveryHint": "inspect_diagnostic",
+            "provenanceOrigin": "command_output",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "visible_diagnostic_failure",
+            "statusConflictKind": null,
+            "recoveryPosture": "diagnostic_inspection",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": true,
+            "visibleDiagnosticFailure": true
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "A complete terminal runtime diagnostic outranks routine success, payload, control language, and contradictory semantic hints."
+    },
+    {
+      "id": "holdout-v5-fallback-quoted-incomplete",
+      "dimension": "fallback-quoted-incomplete-shape",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-umber-quoted-incomplete",
+          "taskId": "task-v5-umber-quoted-incomplete",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Quoted diagnostic fragment lacks an asserted observation",
+          "summary": "The only diagnostic-looking words are a quotation from a template: \"runtime failure, exit code 51\". No complete outcome, payload boundary, control state, or diagnostic channel is established.",
+          "status": "failed",
+          "metadata": {
+            "fragments": [
+              {
+                "form": "quoted",
+                "text": "runtime failure, exit code 51",
+                "asserted": false
+              }
+            ],
+            "evidenceState": "unknown"
+          },
+          "semanticHints": {
+            "intentFrame": "failure",
+            "activityClass": "status_update",
+            "consequence": "high",
+            "whyNow": "A quotation resembles a diagnostic without asserting one.",
+            "confidence": "low",
+            "reasons": ["The fragment has no complete evidence boundary."],
+            "abstained": true
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "unknown",
+            "polarity": "failure",
+            "owner": "engine",
+            "toolFamily": null,
+            "subject": "unknown",
+            "evidenceLoss": "unknown",
+            "evidenceStrength": "weak",
+            "semanticAgreement": "uncertain",
+            "diagnosticClass": null,
+            "recoveryHint": "inspect_original_evidence",
+            "provenanceOrigin": "semantic_evidence",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "weak_or_uncertain",
+            "statusConflictKind": null,
+            "recoveryPosture": "original_evidence_required",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": false,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "A quoted incomplete diagnostic shape is not promoted beyond indeterminate failed evidence."
+    },
+    {
+      "id": "holdout-v5-fallback-hypothetical-negated",
+      "dimension": "fallback-hypothetical-negated-incomplete-shapes",
+      "split": "holdout",
+      "events": [
+        {
+          "id": "event-v5-vermilion-hypothetical-negated",
+          "taskId": "task-v5-vermilion-hypothetical-negated",
+          "timestamp": "2026-08-13T00:30:00.000Z",
+          "type": "task.updated",
+          "title": "Hypothetical and negated fragments remain incomplete",
+          "summary": "The update says a timeout might occur if execution were attempted, then states that no timeout occurred. It does not establish whether execution began, ended, or returned evidence.",
+          "status": "failed",
+          "metadata": {
+            "fragments": [
+              {
+                "form": "hypothetical",
+                "text": "a timeout might occur"
+              },
+              {
+                "form": "negated",
+                "text": "no timeout occurred"
+              }
+            ],
+            "execution": {
+              "state": "unknown"
+            },
+            "evidenceState": "unknown"
+          },
+          "semanticHints": {
+            "intentFrame": "failure",
+            "activityClass": "status_update",
+            "consequence": "high",
+            "whyNow": "Neither fragment supplies a concrete terminal fact.",
+            "confidence": "low",
+            "reasons": ["Execution and evidence boundaries remain unknown."],
+            "abstained": true
+          }
+        }
+      ],
+      "expected": [
+        {
+          "fields": {
+            "kind": "unknown",
+            "polarity": "failure",
+            "owner": "engine",
+            "toolFamily": null,
+            "subject": "unknown",
+            "evidenceLoss": "unknown",
+            "evidenceStrength": "weak",
+            "semanticAgreement": "uncertain",
+            "diagnosticClass": null,
+            "recoveryHint": "inspect_original_evidence",
+            "provenanceOrigin": "semantic_evidence",
+            "provenanceAuthority": "explicit",
+            "consequenceBaseline": "high"
+          },
+          "judgment": {
+            "statusEvidence": "weak_or_uncertain",
+            "statusConflictKind": null,
+            "recoveryPosture": "original_evidence_required",
+            "baselineConsequence": "high",
+            "outcomeOnlyFailureStatus": false,
+            "limitedFailureStatus": false,
+            "stableStatusEvidence": false,
+            "visibleDiagnosticFailure": false
+          },
+          "decision": {
+            "plannerKind": "activate",
+            "resultLane": "now"
+          }
+        }
+      ],
+      "rationale": "Hypothetical and negated fragments cannot establish a complete outcome, diagnostic, payload, or control shape."
+    }
+  ]
+}

@@ -6,15 +6,13 @@ import { evaluateAttention } from "../src/attention-evaluator.js";
 import { EventEvaluator } from "../src/event-evaluator.js";
 import { JudgmentCoordinator } from "../src/judgment-coordinator.js";
 import { normalizePublicEvaluationInput } from "../src/attention-evaluator-input.js";
-import { semanticHintsForTruncatedSourceEvidence } from "../src/semantic-source-quality.js";
+import { semanticHintsForTruncatedSourceEvidence } from "../src/semantic.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 
 const evaluation = new EventEvaluator();
 const coordinator = new JudgmentCoordinator();
-const rejectedToolUseMessage =
-  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
-const declinedActionMessage =
-  "The user doesn't want to take this action right now. STOP what you are doing and wait for the user to tell you how to proceed.";
+const structuralAuthorizationMessage =
+  "Authorization was declined before invocation. No tool call occurred and no result exists.";
 const successfulTestObservationTranscript =
   "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
 const abbreviatedFileViewObservationTranscript =
@@ -213,7 +211,7 @@ test("no-matching command work routes as focused medium outcome-only status", ()
     semanticAgreement: "stable",
     ownership: {
       owner: "tool",
-      toolFamily: "bash",
+      capabilityFamily: "bash",
     },
     evidenceStrength: "strong",
     subject: "tool",
@@ -322,6 +320,34 @@ test("read source-window limits stay visible without critical routing", () => {
   assert.equal(explanation.ambiguity, null);
 });
 
+test("truncation hints lower evidence strength without changing source-limit disposition", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:failed-read-source-window-truncated",
+      taskId: "task:failed-read-source-window-truncated",
+      timestamp: "2026-03-08T12:02:06.637Z",
+      type: "task.updated",
+      title: "read failure",
+      summary:
+        "The read produced a measured partial view: 80 lines beginning at offset 40 from a source totaling 640 lines.",
+      status: "failed",
+      toolFamily: "read",
+      semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") return;
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "medium");
+  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "stable");
+  assert.equal(result.candidate.judgmentInput.observation?.evidenceStrength, "weak");
+  assert.equal(result.candidate.judgmentInput.observation?.diagnosticClass, "source_limit");
+  assert.equal(result.candidate.judgmentInput.observation?.recoveryHint, "narrow_evidence_scope");
+  assert.equal(result.candidate.judgmentInput.observation?.evidenceLoss, "partial");
+});
+
 test("mixed read source-window diagnostics keep critical routing", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
@@ -379,7 +405,7 @@ test("high-risk empty failed payloads keep critical routing", () => {
   assert.equal(result.candidate.judgmentInput.semanticEvidence?.strength, "strong");
 });
 
-test("truncated outcome-only hints keep failed statuses conservative", () => {
+test("truncation markers cannot alter complete outcome-only evidence", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:failed-truncated-outcome-only-exit",
@@ -400,15 +426,15 @@ test("truncated outcome-only hints keep failed statuses conservative", () => {
     return;
   }
 
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.consequence, "high");
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "medium");
   assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
   assert.equal(result.candidate.judgmentInput.observation?.kind, "outcome");
-  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "uncertain");
-  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "low");
-  assert.equal(result.candidate.judgmentInput.ontology?.consequence, "high");
-  assert.equal(result.candidate.judgmentInput.ontology?.confidence, "low");
+  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "stable");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "high");
+  assert.equal(result.candidate.judgmentInput.ontology?.consequence, "medium");
+  assert.equal(result.candidate.judgmentInput.ontology?.confidence, "high");
 });
 
 test("truncated source evidence helper cannot undercut failed status consequence", () => {
@@ -423,10 +449,7 @@ test("truncated source evidence helper cannot undercut failed status consequence
       status: "failed",
       toolFamily: "exec_command",
       metadata: { truncated: true },
-      semanticHints: semanticHintsForTruncatedSourceEvidence({
-        status: "failed",
-        consequence: "low" as never,
-      }),
+      semanticHints: semanticHintsForTruncatedSourceEvidence({ status: "failed" }),
     }),
   );
 
@@ -435,14 +458,14 @@ test("truncated source evidence helper cannot undercut failed status consequence
     return;
   }
 
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.consequence, "high");
-  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "low");
-  assert.equal(result.candidate.judgmentInput.ontology?.consequence, "high");
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "medium");
+  assert.equal(result.candidate.judgmentInput.semanticEvidence?.confidence, "high");
+  assert.equal(result.candidate.judgmentInput.ontology?.consequence, "medium");
 });
 
-test("hinted outcome-only softening is rejected for diagnostic failures", () => {
+test("generic failed-event hints cannot soften diagnostic observations", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:failed-forged-outcome-only-softening",
@@ -470,8 +493,8 @@ test("hinted outcome-only softening is rejected for diagnostic failures", () => 
   assert.equal(result.candidate.consequence, "high");
   assert.equal(Object.hasOwn(result.candidate.judgmentInput, "failureEvidence"), false);
   assert.equal(result.candidate.judgmentInput.observation?.kind, "diagnostic");
-  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "overridden");
-  assert.equal(result.candidate.judgmentInput.observation?.evidenceStrength, "weak");
+  assert.equal(result.candidate.judgmentInput.observation?.semanticAgreement, "stable");
+  assert.equal(result.candidate.judgmentInput.observation?.evidenceStrength, "strong");
 });
 
 test("failed-status routine bash observations route as non-interruptive status", () => {
@@ -611,7 +634,7 @@ test("failed edit applied readbacks route through typed observation status confl
     kind: "payload",
     polarity: "neutral",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "edit" },
+    ownership: { owner: "tool", capabilityFamily: "edit" },
     evidenceStrength: "qualified",
     subject: "tool",
     evidenceLoss: "none",
@@ -740,7 +763,7 @@ test("semantic hints cannot forge routine bash status-conflict routing", () => {
   assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
 });
 
-test("metadata tool family cannot forge routine bash status-conflict routing", () => {
+test("metadata tool family does not affect self-describing command routing", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:metadata-forged-observation-conflict",
@@ -767,15 +790,14 @@ test("metadata tool family cannot forge routine bash status-conflict routing", (
     return;
   }
 
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.consequence, "high");
-  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
-  assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.consequence, "low");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
-test("medium-confidence routine bash observations keep failed-status routing", () => {
+test("generic confidence hints cannot suppress routine bash observations", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:medium-confidence-routine-observation",
@@ -797,11 +819,11 @@ test("medium-confidence routine bash observations keep failed-status routing", (
     return;
   }
 
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.consequence, "high");
-  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.consequence, "low");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
 test("low-consequence failed read observations use observational status-conflict routing", () => {
@@ -1217,11 +1239,16 @@ test("command execution aliases preserve family while using command observation 
 
 test("tool-use rejection outcomes route as background status updates", () => {
   for (const [id, title, summary, toolFamily] of [
-    ["bash", "bash failure", rejectedToolUseMessage, "bash"],
-    ["edit", "edit failure", rejectedToolUseMessage, "edit"],
-    ["web", "web failure", rejectedToolUseMessage, "web"],
-    ["absent", "tool failure", rejectedToolUseMessage, undefined],
-    ["declined-action", "bash failure", declinedActionMessage, "bash"],
+    ["bash", "bash failure", structuralAuthorizationMessage, "bash"],
+    ["edit", "edit failure", structuralAuthorizationMessage, "edit"],
+    ["web", "web failure", structuralAuthorizationMessage, "web"],
+    ["absent", "tool failure", structuralAuthorizationMessage, undefined],
+    [
+      "declined-action",
+      "bash failure",
+      "A decision is required before the operation. Execution has not started, and no result exists.",
+      "bash",
+    ],
   ] as const) {
     const result = evaluation.evaluate(
       normalizeSourceEvent({
@@ -1254,7 +1281,7 @@ test("tool-use rejection outcomes route as background status updates", () => {
   }
 });
 
-test("tool-use rejection hints cannot forge status-conflict routing", () => {
+test("generic tool hints cannot suppress tool-use rejection observations", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:hinted-tool-use-rejection",
@@ -1262,7 +1289,7 @@ test("tool-use rejection hints cannot forge status-conflict routing", () => {
       timestamp: "2026-03-08T12:02:29.950Z",
       type: "task.updated",
       title: "tool failure",
-      summary: rejectedToolUseMessage,
+      summary: structuralAuthorizationMessage,
       status: "failed",
       semanticHints: {
         toolFamily: "edit",
@@ -1276,13 +1303,13 @@ test("tool-use rejection hints cannot forge status-conflict routing", () => {
   }
 
   assert.equal(result.candidate.toolFamily, undefined);
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
-test("successful-test observation hints cannot forge status-conflict routing", () => {
+test("generic tool hints cannot suppress successful-test observations", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:hinted-successful-test-observation",
@@ -1304,11 +1331,11 @@ test("successful-test observation hints cannot forge status-conflict routing", (
   }
 
   assert.equal(result.candidate.toolFamily, undefined);
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.responseSpec.kind, "acknowledge");
-  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
-  assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
 });
 
 test("nonmatching rejection prose keeps failed-status routing", () => {
@@ -1338,7 +1365,7 @@ test("nonmatching rejection prose keeps failed-status routing", () => {
   assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
 });
 
-test("mismatched command alias hints cannot forge status-conflict routing", () => {
+test("mismatched command hints cannot suppress canonical observations", () => {
   const result = evaluation.evaluate(
     normalizeSourceEvent({
       id: "evt:mismatched-command-alias-observation",
@@ -1361,10 +1388,10 @@ test("mismatched command alias hints cannot forge status-conflict routing", () =
   }
 
   assert.equal(result.candidate.toolFamily, "exec_command");
-  assert.equal(result.candidate.priority, "high");
-  assert.equal(result.candidate.tone, "critical");
-  assert.equal(result.candidate.judgmentInput.observationalStatusConflict, undefined);
-  assert.equal(result.candidate.judgmentInput.ontology?.activity, "failure");
+  assert.equal(result.candidate.priority, "background");
+  assert.equal(result.candidate.tone, "ambient");
+  assert.notEqual(result.candidate.judgmentInput.observationalStatusConflict, undefined);
+  assert.equal(result.candidate.judgmentInput.ontology?.activity, "task_progress");
 });
 
 test("task.updated semantics enrich provenance without overriding status routing", () => {

@@ -2,23 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  projectObservationJudgmentContract,
+  judgeObservation,
   resolveObservationStatusConflictKind,
 } from "../src/judgment-observation-contract.js";
-import type { NormalizedObservation } from "../src/normalized-observation.js";
+import type { Observation } from "../src/normalized-observation.js";
 
 function observation(
-  overrides: Partial<Omit<NormalizedObservation, "ownership" | "provenance">> & {
-    ownership?: Partial<NormalizedObservation["ownership"]>;
-    provenance?: Partial<NormalizedObservation["provenance"]>;
+  overrides: Partial<Omit<Observation, "ownership" | "provenance">> & {
+    ownership?: Partial<Observation["ownership"]>;
+    provenance?: Partial<Observation["provenance"]>;
   } = {},
-): NormalizedObservation {
+): Observation {
   const { ownership, provenance, ...flat } = overrides;
   return {
     kind: "payload",
     polarity: "neutral",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "fixture", ...ownership },
+    ownership: { owner: "tool", capabilityFamily: "fixture", ...ownership },
     evidenceStrength: "strong",
     subject: "tool",
     evidenceLoss: "none",
@@ -30,13 +30,13 @@ function observation(
 
 test("observation judgment projection covers the status-evidence truth table", () => {
   assert.equal(
-    projectObservationJudgmentContract(
+    judgeObservation(
       observation({ kind: "outcome", polarity: "failure", consequenceBaseline: "medium" }),
     ).statusEvidence,
     "limited_failure",
   );
   assert.equal(
-    projectObservationJudgmentContract(
+    judgeObservation(
       observation({
         kind: "diagnostic",
         polarity: "failure",
@@ -46,20 +46,30 @@ test("observation judgment projection covers the status-evidence truth table", (
     ).statusEvidence,
     "visible_diagnostic_failure",
   );
+  assert.equal(judgeObservation(observation()).statusEvidence, "stable_observation");
   assert.equal(
-    projectObservationJudgmentContract(observation()).statusEvidence,
-    "stable_observation",
+    judgeObservation(observation({ semanticAgreement: "uncertain", evidenceStrength: "weak" }))
+      .statusEvidence,
+    "weak_or_uncertain",
   );
   assert.equal(
-    projectObservationJudgmentContract(
-      observation({ semanticAgreement: "uncertain", evidenceStrength: "weak" }),
+    judgeObservation(
+      observation({
+        kind: "diagnostic",
+        polarity: "failure",
+        semanticAgreement: "stable",
+        evidenceStrength: "weak",
+        evidenceLoss: "partial",
+        diagnosticClass: "source_limit",
+        recoveryHint: "narrow_evidence_scope",
+      }),
     ).statusEvidence,
-    "weak_or_uncertain",
+    "limited_failure",
   );
 });
 
 test("observation judgment projection classifies recovery posture", () => {
-  const cases: Array<[string, Partial<NormalizedObservation>, string]> = [
+  const cases: Array<[string, Partial<Observation>, string]> = [
     ["no recovery", {}, "none"],
     [
       "authorization",
@@ -131,16 +141,12 @@ test("observation judgment projection classifies recovery posture", () => {
   ];
 
   for (const [name, input, expected] of cases) {
-    assert.equal(
-      projectObservationJudgmentContract(observation(input)).recoveryPosture,
-      expected,
-      name,
-    );
+    assert.equal(judgeObservation(observation(input)).recoveryPosture, expected, name);
   }
 });
 
 test("observation judgment projection classifies status conflicts structurally", () => {
-  const cases: Array<[string, NormalizedObservation, string | null]> = [
+  const cases: Array<[string, Observation, string | null]> = [
     [
       "rejected control",
       observation({ kind: "control", recoveryHint: "await_authorization" }),
@@ -195,7 +201,7 @@ test("observation judgment projection classifies status conflicts structurally",
         kind: "outcome",
         polarity: "success",
         subject: "tool",
-        ownership: { toolFamily: "custom_runner" },
+        ownership: { capabilityFamily: "custom_runner" },
       }),
       "payload_observation",
     ],
@@ -218,6 +224,6 @@ test("observation judgment projection classifies status conflicts structurally",
 
   for (const [name, input, expected] of cases) {
     assert.equal(resolveObservationStatusConflictKind(input), expected, name);
-    assert.equal(projectObservationJudgmentContract(input).statusConflictKind, expected, name);
+    assert.equal(judgeObservation(input).statusConflictKind, expected, name);
   }
 });

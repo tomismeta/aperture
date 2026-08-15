@@ -1,125 +1,40 @@
-import { ApertureCore } from "@tomismeta/aperture-core";
-import {
-  extractTaskFailureObservationCore,
-  isCandidateTrace,
-  projectObservationJudgmentContract,
-  readTaskFailureSemanticEvidence,
-  subscribeInternalTrace,
-  type ApertureTrace,
-} from "@tomismeta/aperture-core/internal";
-import { normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
-
 import { compareKernelCanonicalKey, digestKernelCanonicalJson } from "./kernel-canonical-json.js";
+import { OBSERVATION_KERNEL_EXPECTATIONS } from "./observation-kernel-expectations.js";
 import {
   OBSERVATION_KERNEL_FIXTURES,
   type ObservationKernelFixture,
 } from "./observation-kernel-fixtures.js";
+import { evaluateObservationKernelQuality } from "./observation-kernel-quality.js";
+import {
+  OBSERVATION_KERNEL_SCORECARD_PROFILE_ID,
+  OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_PROOF,
+  OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
+  type ObservationKernelCoverage,
+  type ObservationKernelDistribution,
+  type ObservationKernelObservation,
+  type ObservationKernelScorecard,
+} from "./observation-kernel-scorecard-model.js";
+import {
+  digestObservationKernelList,
+  evaluateObservationKernelFixture,
+} from "./observation-kernel-evaluator.js";
 
-export const OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION = 1 as const;
-export const OBSERVATION_KERNEL_SCORECARD_PROFILE_ID = "observation-kernel-scorecard" as const;
-export const OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION = 1 as const;
-
-export const OBSERVATION_KERNEL_SCORECARD_THRESHOLDS = {
-  minimumFixtures: 13,
-  minimumObservationFixtures: 13,
-  minimumObservations: 14,
-  minimumCoveredDimensions: 13,
-} as const;
-
-export type ObservationKernelScorecard = {
-  schemaVersion: typeof OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION;
-  profile: {
-    id: typeof OBSERVATION_KERNEL_SCORECARD_PROFILE_ID;
-    version: typeof OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION;
-    suiteDigest: string;
-  };
-  thresholds: typeof OBSERVATION_KERNEL_SCORECARD_THRESHOLDS;
-  passed: boolean;
-  failures: string[];
-  summary: {
-    fixtures: {
-      total: number;
-      withObservation: number;
-    };
-    observations: {
-      total: number;
-      unique: number;
-    };
-    dimensions: {
-      total: number;
-      covered: number;
-      missing: number;
-    };
-    determinism: {
-      repeatedRuns: 2;
-      stable: boolean;
-    };
-  };
-  coverage: ObservationKernelCoverage;
-  observations: ObservationKernelObservation[];
-};
-
-export type ObservationKernelCoverage = {
-  dimensions: ObservationKernelDistribution;
-  kinds: ObservationKernelDistribution;
-  polarities: ObservationKernelDistribution;
-  owners: ObservationKernelDistribution;
-  subjects: ObservationKernelDistribution;
-  evidenceLosses: ObservationKernelDistribution;
-  evidenceStrengths: ObservationKernelDistribution;
-  semanticAgreements: ObservationKernelDistribution;
-  diagnosticClasses: ObservationKernelDistribution;
-  recoveryHints: ObservationKernelDistribution;
-  provenanceOrigins: ObservationKernelDistribution;
-  provenanceAuthorities: ObservationKernelDistribution;
-  consequenceBaselines: ObservationKernelDistribution;
-  extractorIds: ObservationKernelDistribution;
-};
-
-export type ObservationKernelDistribution = Array<{
-  id: string;
-  count: number;
-  fixtureCount: number;
-  fixtureIds: string[];
-}>;
-export type ObservationKernelObservation = {
-  fixtureId: string;
-  dimension: string;
-  sequence: number;
-  digest: string;
-  semanticDigest: string;
-  judgmentDigest: string;
-  fields: ObservationKernelFields;
-  judgment: ObservationKernelJudgmentFields;
-};
-
-export type ObservationKernelFields = {
-  kind: string;
-  polarity: string;
-  owner: string;
-  toolFamily: string | null;
-  subject: string;
-  evidenceLoss: string;
-  evidenceStrength: string;
-  semanticAgreement: string;
-  diagnosticClass: string | null;
-  recoveryHint: string | null;
-  provenanceOrigin: string;
-  provenanceAuthority: string;
-  consequenceBaseline: string;
-  observationExtractorId: string | null;
-};
-
-export type ObservationKernelJudgmentFields = {
-  statusEvidence: string;
-  statusConflictKind: string | null;
-  recoveryPosture: string;
-  baselineConsequence: string;
-  outcomeOnlyFailureStatus: boolean;
-  limitedFailureStatus: boolean;
-  stableStatusEvidence: boolean;
-  visibleDiagnosticFailure: boolean;
-};
+export {
+  OBSERVATION_KERNEL_SCORECARD_PROFILE_ID,
+  OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_PROOF,
+  OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
+  type ObservationKernelCoverage,
+  type ObservationKernelDecisionFields,
+  type ObservationKernelDistribution,
+  type ObservationKernelFields,
+  type ObservationKernelJudgmentFields,
+  type ObservationKernelObservation,
+  type ObservationKernelScorecard,
+} from "./observation-kernel-scorecard-model.js";
 
 type ObservationAccumulator = Map<string, { count: number; fixtureIds: Set<string> }>;
 
@@ -139,7 +54,7 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
   }
 
   const stable =
-    readObservationDigestList(observations) === readObservationDigestList(repeatObservations);
+    digestObservationKernelList(observations) === digestObservationKernelList(repeatObservations);
   if (!stable) {
     failures.push("observation_kernel:non_deterministic_observations");
   }
@@ -152,6 +67,7 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
     (dimension) => !coveredDimensions.has(dimension),
   );
   const coverage = buildObservationKernelCoverage(observations);
+  const quality = evaluateObservationKernelQuality(observations);
 
   failures.push(
     ...collectThresholdFailures({
@@ -160,6 +76,7 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
       coveredDimensions,
       missingDimensions,
     }),
+    ...quality.failures,
   );
 
   return {
@@ -171,23 +88,26 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
         fixtures: OBSERVATION_KERNEL_FIXTURES.map((fixture) => ({
           id: fixture.id,
           dimension: fixture.dimension,
+          split: fixture.split,
           events: fixture.events,
         })),
-        observations: observations.map((observation) => ({
-          fixtureId: observation.fixtureId,
-          digest: observation.digest,
-          semanticDigest: observation.semanticDigest,
-          judgmentDigest: observation.judgmentDigest,
-        })),
+        expectations: OBSERVATION_KERNEL_EXPECTATIONS,
       }),
     },
     thresholds: OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
+    proof: OBSERVATION_KERNEL_SCORECARD_PROOF,
     passed: failures.length === 0,
     failures,
     summary: {
       fixtures: {
         total: OBSERVATION_KERNEL_FIXTURES.length,
         withObservation: new Set(observations.map((observation) => observation.fixtureId)).size,
+        calibration: OBSERVATION_KERNEL_FIXTURES.filter(
+          (fixture) => fixture.split === "calibration",
+        ).length,
+        retiredRegression: OBSERVATION_KERNEL_FIXTURES.filter(
+          (fixture) => fixture.split === "holdout",
+        ).length,
       },
       observations: {
         total: observations.length,
@@ -203,6 +123,7 @@ export function buildObservationKernelScorecard(): ObservationKernelScorecard {
         stable,
       },
     },
+    quality,
     coverage,
     observations: observations.sort(
       (left, right) =>
@@ -228,70 +149,7 @@ export function assertObservationKernelScorecardPassed(
 function runObservationKernelFixture(
   fixture: ObservationKernelFixture,
 ): ObservationKernelObservation[] {
-  const core = new ApertureCore();
-  const traces: ApertureTrace[] = [];
-  subscribeInternalTrace(core, (trace) => {
-    traces.push(trace);
-  });
-
-  for (const event of fixture.events) {
-    core.publish(normalizeSourceEvent(event));
-  }
-
-  let sequence = 0;
-  return traces.flatMap((trace) => {
-    if (!isCandidateTrace(trace)) {
-      return [];
-    }
-    const observation = trace.evaluation.adjusted.judgmentInput.observation;
-    if (observation === undefined) {
-      return [];
-    }
-    const failureEvidence = readTaskFailureSemanticEvidence(trace.event);
-    const observationExtractorId =
-      failureEvidence === null
-        ? null
-        : extractTaskFailureObservationCore(failureEvidence).observationExtractorId;
-    const fields: ObservationKernelFields = {
-      kind: observation.kind,
-      polarity: observation.polarity,
-      owner: observation.ownership.owner,
-      toolFamily: observation.ownership.toolFamily ?? null,
-      subject: observation.subject,
-      evidenceLoss: observation.evidenceLoss,
-      evidenceStrength: observation.evidenceStrength,
-      semanticAgreement: observation.semanticAgreement,
-      diagnosticClass: observation.diagnosticClass ?? null,
-      recoveryHint: observation.recoveryHint ?? null,
-      provenanceOrigin: observation.provenance.origin,
-      provenanceAuthority: observation.provenance.authority,
-      consequenceBaseline: observation.consequenceBaseline,
-      observationExtractorId,
-    };
-    const judgment = projectObservationJudgmentContract(observation);
-    const observationSequence = sequence++;
-    const judgmentDigest = digestKernelCanonicalJson(judgment);
-    const semanticDigest = digestKernelCanonicalJson({ fields, judgment });
-
-    return [
-      {
-        fixtureId: fixture.id,
-        dimension: fixture.dimension,
-        sequence: observationSequence,
-        digest: digestKernelCanonicalJson({
-          fixtureId: fixture.id,
-          dimension: fixture.dimension,
-          sequence: observationSequence,
-          fields,
-          judgment,
-        }),
-        semanticDigest,
-        judgmentDigest,
-        fields,
-        judgment,
-      },
-    ];
-  });
+  return evaluateObservationKernelFixture(fixture);
 }
 
 function buildObservationKernelCoverage(
@@ -300,6 +158,7 @@ function buildObservationKernelCoverage(
   const accumulators = createObservationAccumulators();
   for (const observation of observations) {
     const values: Array<[keyof ObservationKernelCoverage, string | null]> = [
+      ["splits", observation.split],
       ["dimensions", observation.dimension],
       ["kinds", observation.fields.kind],
       ["polarities", observation.fields.polarity],
@@ -313,7 +172,6 @@ function buildObservationKernelCoverage(
       ["provenanceOrigins", observation.fields.provenanceOrigin],
       ["provenanceAuthorities", observation.fields.provenanceAuthority],
       ["consequenceBaselines", observation.fields.consequenceBaseline],
-      ["extractorIds", observation.fields.observationExtractorId],
     ];
     for (const [field, value] of values) {
       addObservationOutcome(accumulators[field], value, observation.fixtureId);
@@ -321,6 +179,7 @@ function buildObservationKernelCoverage(
   }
 
   return {
+    splits: finalizeObservationDistribution(accumulators.splits),
     dimensions: finalizeObservationDistribution(accumulators.dimensions),
     kinds: finalizeObservationDistribution(accumulators.kinds),
     polarities: finalizeObservationDistribution(accumulators.polarities),
@@ -334,7 +193,6 @@ function buildObservationKernelCoverage(
     provenanceOrigins: finalizeObservationDistribution(accumulators.provenanceOrigins),
     provenanceAuthorities: finalizeObservationDistribution(accumulators.provenanceAuthorities),
     consequenceBaselines: finalizeObservationDistribution(accumulators.consequenceBaselines),
-    extractorIds: finalizeObservationDistribution(accumulators.extractorIds),
   };
 }
 
@@ -343,6 +201,7 @@ function createObservationAccumulators(): Record<
   ObservationAccumulator
 > {
   return {
+    splits: new Map(),
     dimensions: new Map(),
     kinds: new Map(),
     polarities: new Map(),
@@ -356,7 +215,6 @@ function createObservationAccumulators(): Record<
     provenanceOrigins: new Map(),
     provenanceAuthorities: new Map(),
     consequenceBaselines: new Map(),
-    extractorIds: new Map(),
   };
 }
 
@@ -417,15 +275,5 @@ function collectThresholdFailures(input: {
   for (const dimension of input.missingDimensions) {
     failures.push(`observation_kernel:missing_dimension:${dimension}`);
   }
-  if (input.uniqueSemanticDigests.size !== input.observations.length) {
-    failures.push("observation_kernel:duplicate_semantic_observation_digest");
-  }
   return failures;
-}
-
-function readObservationDigestList(observations: readonly ObservationKernelObservation[]): string {
-  return observations
-    .map((observation) => `${observation.fixtureId}:${observation.digest}`)
-    .sort(compareKernelCanonicalKey)
-    .join("\n");
 }

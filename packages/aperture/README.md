@@ -99,6 +99,31 @@ integrations. If you need to send external work into a running Aperture
 instance, see the host-neutral `/work` contract in
 [docs/product/host-neutral-ingestion-contract.md](https://github.com/tomismeta/aperture/blob/main/docs/product/host-neutral-ingestion-contract.md).
 
+For a supported programmatic integration, import `@tomismeta/aperture/work`.
+It exposes the current Work `1.0` types, schemas, local-runtime discovery, and
+bounded publish/response client without exposing the private Runtime package.
+
+```ts
+import { connectWork } from "@tomismeta/aperture/work";
+
+const authToken = process.env.APERTURE_RUNTIME_TOKEN;
+if (!authToken) throw new Error("Set APERTURE_RUNTIME_TOKEN before connecting.");
+
+const work = await connectWork({
+  baseUrl: "http://127.0.0.1:4546",
+  authToken,
+});
+
+await work.publish({
+  kind: "work.updated",
+  work: { id: "task:deploy-42", status: "waiting", summary: "Waiting for approval." },
+});
+```
+
+`readResponse` returns a state-discriminated `WorkResponse`. Narrow on
+`state === "answered"` before reading `response`; pending, expired, and
+cancelled responses expose only the fields valid for those states.
+
 If you are troubleshooting a real session from the repo, the quickest bridge
 from a captured bundle into offline review is documented in
 [docs/lab/capture-review-quickstart.md](https://github.com/tomismeta/aperture/blob/main/docs/lab/capture-review-quickstart.md).
@@ -180,6 +205,6 @@ npm uninstall -g @tomismeta/aperture
 
 - npm package: [`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture)
 - SDK package: [`@tomismeta/aperture-core`](https://www.npmjs.com/package/@tomismeta/aperture-core)
-- Release notes: [Aperture v0.4.3](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-v0.4.3.md)
+- Release notes: [Aperture v0.5.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-v0.5.0.md)
 - GitHub repo: [tomismeta/aperture](https://github.com/tomismeta/aperture)
 - Architecture overview: [docs/product/architecture-overview.md](https://github.com/tomismeta/aperture/blob/main/docs/product/architecture-overview.md)

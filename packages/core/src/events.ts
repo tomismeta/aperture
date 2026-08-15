@@ -37,6 +37,55 @@ export type EnrichedApertureEvent =
 
 export type TaskStatus = "running" | "blocked" | "waiting" | "completed" | "failed";
 
+type SourceEvidenceChannel = "command" | "read" | "search" | "structured" | "transcript";
+type SourceEvidenceSubject = "command" | "document" | "search" | "source" | "tool";
+
+/**
+ * Explicit source facts about the evidence carried by a failed task update.
+ *
+ * Core derives the normalized Observation, provenance authority, evidence
+ * strength, semantic agreement, recovery, consequence, and judgment. Capability
+ * identity remains separate and opaque.
+ */
+export type SourceEvidence =
+  | {
+      kind: "outcome";
+      outcome: "success" | "failure";
+      subject: SourceEvidenceSubject;
+      channel: SourceEvidenceChannel;
+      complete: true;
+    }
+  | {
+      kind: "diagnostic";
+      diagnostic: "runtime" | "expected";
+      subject: SourceEvidenceSubject;
+      channel: SourceEvidenceChannel;
+      complete: true;
+    }
+  | {
+      kind: "diagnostic";
+      diagnostic: "source_limit";
+      channel: "read";
+      window: {
+        unit: "bytes" | "lines";
+        offset: number;
+        length: number;
+        total: number;
+      };
+    }
+  | {
+      kind: "payload";
+      subject: Exclude<SourceEvidenceSubject, "command">;
+      channel: SourceEvidenceChannel;
+      complete: true;
+    }
+  | {
+      kind: "authorization";
+      state: "required";
+      execution: "not_started";
+      result: "absent";
+    };
+
 export type { AttentionActivityClass } from "./attention-contract-types.js";
 
 export type SourceRef = {
@@ -54,9 +103,9 @@ type EventBase = {
   semantic?: SemanticInterpretation;
 };
 
-type WithRequiredSemantic<T extends EventBase> = Omit<T, "semantic"> & {
-  semantic: SemanticInterpretation;
-};
+type WithRequiredSemantic<T extends EventBase> = T extends EventBase
+  ? Omit<T, "semantic"> & { semantic: SemanticInterpretation }
+  : never;
 
 export type TaskStartedEvent = EventBase & {
   type: "task.started";
@@ -65,16 +114,19 @@ export type TaskStartedEvent = EventBase & {
 };
 export type EnrichedTaskStartedEvent = WithRequiredSemantic<TaskStartedEvent>;
 
-export type TaskUpdatedEvent = EventBase & {
+type TaskUpdatedEventFields = EventBase & {
   type: "task.updated";
   toolFamily?: string;
   activityClass?: AttentionActivityClass;
   title: string;
   summary?: string;
+  /** Runtime-valid only when status is failed; validation rejects other combinations. */
+  evidence?: SourceEvidence;
   status: TaskStatus;
   progress?: number;
   context?: AttentionContext;
 };
+export type TaskUpdatedEvent = TaskUpdatedEventFields;
 export type EnrichedTaskUpdatedEvent = WithRequiredSemantic<TaskUpdatedEvent>;
 
 export type HumanInputRequestKind = "approval" | "choice" | "form";

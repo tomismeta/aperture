@@ -6,11 +6,10 @@ import {
   readActualDiagnosticSectionCandidate,
   readObservationTranscriptDiagnosticCandidate,
 } from "./semantic-observation-transcript-diagnostic-candidate.js";
-import { hasToolUseRejectionSignal } from "./semantic-tool-use-rejection-shapes.js";
 
 export function looksLikeExplicitDiagnosticReferenceObservationTranscript(value: string): boolean {
   const body = readExplicitObservationTranscriptBody(value);
-  if (body === null || hasToolUseRejectionSignal(body)) {
+  if (body === null) {
     return false;
   }
   const parts = readActualDiagnosticTranscriptSectionParts(body);
@@ -30,7 +29,7 @@ export function looksLikeExplicitDiagnosticReferenceObservationTranscript(value:
 
 export function looksLikeExplicitActualDiagnosticObservationTranscript(value: string): boolean {
   const body = readExplicitObservationTranscriptBody(value);
-  if (body === null || hasToolUseRejectionSignal(body)) {
+  if (body === null) {
     return false;
   }
   const parts = readActualDiagnosticTranscriptSectionParts(body);

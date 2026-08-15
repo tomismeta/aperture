@@ -1,14 +1,18 @@
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { randomBytes } from "node:crypto";
+import { Type } from "@sinclair/typebox";
+import { TypeCompiler } from "@sinclair/typebox/compiler";
 
 import type { AttentionResponse } from "@tomismeta/aperture-core";
+import { assertValidFrameResponse } from "@tomismeta/aperture-core/internal";
 
 import type {
   ApertureRuntimeWorkResponseHealthSnapshot,
   RuntimeWorkResponseRecord,
   WorkResponseState,
 } from "./runtime-contract.js";
+import { WorkResponseAnswerSchema } from "./work-public-contract.js";
 
 type WorkResponseStoreOptions = {
   stateDir: string;
@@ -18,12 +22,64 @@ type WorkResponseStoreOptions = {
   timeSource?: () => number;
 };
 
+const WORK_RESPONSE_STORE_SCHEMA_VERSION = 1 as const;
+
 type PersistedWorkResponseStore = {
-  schemaVersion: 1;
+  schemaVersion: typeof WORK_RESPONSE_STORE_SCHEMA_VERSION;
   records: RuntimeWorkResponseRecord[];
 };
 
-const WORK_RESPONSE_STORE_SCHEMA_VERSION = 1 as const;
+const PersistedWorkResponseRecordSchema = Type.Union([
+  Type.Object(
+    {
+      taskId: Type.String(),
+      interactionId: Type.String(),
+      state: Type.Literal("pending"),
+      createdAt: Type.String(),
+      updatedAt: Type.String(),
+      expiresAt: Type.String(),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      taskId: Type.String(),
+      interactionId: Type.String(),
+      state: Type.Literal("answered"),
+      createdAt: Type.String(),
+      updatedAt: Type.String(),
+      response: WorkResponseAnswerSchema,
+      answeredAt: Type.String(),
+      retentionExpiresAt: Type.String(),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      taskId: Type.String(),
+      interactionId: Type.String(),
+      state: Type.Literal("expired"),
+      createdAt: Type.String(),
+      updatedAt: Type.String(),
+      expiresAt: Type.String(),
+      retentionExpiresAt: Type.String(),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      taskId: Type.String(),
+      interactionId: Type.String(),
+      state: Type.Literal("cancelled"),
+      createdAt: Type.String(),
+      updatedAt: Type.String(),
+      cancelledAt: Type.String(),
+      retentionExpiresAt: Type.String(),
+    },
+    { additionalProperties: false },
+  ),
+]);
+const persistedWorkResponseRecordCompiler = TypeCompiler.Compile(PersistedWorkResponseRecordSchema);
 
 export class WorkResponseStore {
   private readonly filePath: string;
@@ -79,9 +135,6 @@ export class WorkResponseStore {
       createdAt: current?.createdAt ?? nowIso,
       updatedAt: nowIso,
       expiresAt: new Date(Date.parse(nowIso) + this.pendingTtlMs).toISOString(),
-      ...(current?.retentionExpiresAt !== undefined
-        ? { retentionExpiresAt: current.retentionExpiresAt }
-        : {}),
     };
     this.records.set(interactionId, record);
     this.prune();
@@ -121,14 +174,15 @@ export class WorkResponseStore {
     if (current.state === "answered") {
       return current;
     }
+    const withoutExpiry =
+      current.state === "pending" || current.state === "expired" ? omitExpiresAt(current) : current;
     const record: RuntimeWorkResponseRecord = {
-      ...current,
+      ...withoutExpiry,
       state: "cancelled",
       updatedAt: nowIso,
       cancelledAt: nowIso,
       retentionExpiresAt: new Date(Date.parse(nowIso) + this.retentionMs).toISOString(),
     };
-    delete record.expiresAt;
     this.records.set(interactionId, record);
     this.prune();
     this.persist();
@@ -191,7 +245,7 @@ export class WorkResponseStore {
     }
 
     for (const [interactionId, record] of this.records.entries()) {
-      if (!record.retentionExpiresAt) {
+      if (!("retentionExpiresAt" in record)) {
         continue;
       }
       const retentionMs = Date.parse(record.retentionExpiresAt);
@@ -236,27 +290,30 @@ export class WorkResponseStore {
     try {
       parsed = JSON.parse(raw) as PersistedWorkResponseStore;
     } catch (error) {
-      warnStorePersistenceIssue(
-        this.filePath,
-        "Failed to parse persisted work-response state. Starting from an empty store.",
-        error,
+      throw new Error(
+        `Unable to read persisted work-response state in ${this.filePath}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       );
-      return;
     }
     if (
       parsed.schemaVersion !== WORK_RESPONSE_STORE_SCHEMA_VERSION ||
       !Array.isArray(parsed.records)
     ) {
-      return;
+      throw new Error(
+        `Unsupported persisted work-response state in ${this.filePath}. Expected schemaVersion ${WORK_RESPONSE_STORE_SCHEMA_VERSION}.`,
+      );
     }
+    const loadedRecords = new Map<string, RuntimeWorkResponseRecord>();
     for (const record of parsed.records) {
-      if (
-        isWorkResponseState(record.state) &&
-        typeof record.interactionId === "string" &&
-        typeof record.taskId === "string"
-      ) {
-        this.records.set(record.interactionId, record);
+      if (!isPersistedWorkResponseRecord(record) || loadedRecords.has(record.interactionId)) {
+        throw new Error(`Invalid persisted work-response record in ${this.filePath}.`);
       }
+      loadedRecords.set(record.interactionId, record);
+    }
+    this.records.clear();
+    for (const record of loadedRecords.values()) {
+      this.records.set(record.interactionId, record);
     }
   }
 
@@ -292,10 +349,42 @@ function isMissingFile(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
-function isWorkResponseState(value: unknown): value is WorkResponseState {
-  return (
-    value === "pending" || value === "answered" || value === "expired" || value === "cancelled"
-  );
+function isPersistedWorkResponseRecord(value: unknown): value is RuntimeWorkResponseRecord {
+  if (!persistedWorkResponseRecordCompiler.Check(value)) return false;
+  const record = value as RuntimeWorkResponseRecord;
+  if (!isNonEmptyString(record.interactionId) || !isNonEmptyString(record.taskId)) return false;
+  if (!isIsoDate(record.createdAt) || !isIsoDate(record.updatedAt)) return false;
+  if ("expiresAt" in record && !isIsoDate(record.expiresAt)) return false;
+  if ("answeredAt" in record && !isIsoDate(record.answeredAt)) return false;
+  if ("cancelledAt" in record && !isIsoDate(record.cancelledAt)) return false;
+  if ("retentionExpiresAt" in record && !isIsoDate(record.retentionExpiresAt)) return false;
+  if (record.state === "answered") {
+    try {
+      assertValidFrameResponse({
+        taskId: record.taskId,
+        interactionId: record.interactionId,
+        response: record.response,
+      });
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function omitExpiresAt<T extends { expiresAt: string }>(record: T): Omit<T, "expiresAt"> {
+  const { expiresAt: _expiresAt, ...withoutExpiry } = record;
+  return withoutExpiry;
+}
+
+function isIsoDate(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.toISOString() === value;
 }
 
 async function writeJsonFileAtomically(

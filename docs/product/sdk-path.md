@@ -22,13 +22,13 @@ The package path should broaden distribution, not redefine the product.
 
 Today, the real judgment layer lives in the [Aperture core SDK package](../../packages/core/package.json), published on npm as `@tomismeta/aperture-core`.
 
-Current workspace package version:
+Current workspace release-candidate version:
 
-- `@tomismeta/aperture-core@0.8.0`
+- `@tomismeta/aperture-core@0.9.0`
 
 Current published npm latest:
 
-- `@tomismeta/aperture-core@0.7.0`
+- `@tomismeta/aperture-core@0.8.0`
 
 The workspace version and published npm latest can differ while a release branch
 is under review. Treat the published npm package and the versioned release notes
@@ -49,6 +49,11 @@ What is already true:
 - the root public surface is intentionally minimal
 - external-consumer proof paths exist
 - `pnpm sdk:prove` verifies both external consumption and tarball shape
+- field-level Observation and end-to-end judgment quality have a committed
+  calibration baseline; independent post-freeze holdout evidence is required
+  before the 0.9 release
+- deterministic mixed-event behavior is characterized across repeated
+  10,000-event rounds
 
 What is still maturing:
 
@@ -144,9 +149,17 @@ judgment prefix.
 It exists for consumers who want to:
 
 - map their own host event shape into `ApertureKernelEvent` outside core
+- provide a typed `SourceEvidence` fact when a failed host event carries a
+  reliable outcome, diagnostic, payload, partial-read window, or authorization
+  boundary
 - call `evaluateApertureKernelEvent(...)`
 - receive a bounded finalized event projection, normalized observation,
   observation judgment contract, and versioned explanation reason codes
+
+Typed evidence is optional and authoritative when present; host prose cannot
+override it. Without it, the kernel uses the same bounded structural text
+grammar as the stateful engine. Hosts never construct an Observation or
+judgment, and capability-family values remain opaque identity.
 
 It does not export host adapters, mutate state, apply attention policy,
 calculate continuity, accept responses, persist data, or render UI. Use the

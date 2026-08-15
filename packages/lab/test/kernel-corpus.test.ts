@@ -13,6 +13,7 @@ import {
   KERNEL_CORPUS_COVERAGE_DIMENSIONS,
   KERNEL_CORPUS_PROFILE,
   KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION,
+  KERNEL_CORPUS_SCORECARD_PROOF,
   KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
   KERNEL_CORPUS_SCORECARD_THRESHOLDS,
   KERNEL_CORPUS_SCENARIO_IDS,
@@ -31,18 +32,18 @@ test("kernel corpus profile declares a stable exact scenario set", async () => {
 
   assert.equal(new Set(KERNEL_CORPUS_SCENARIO_IDS).size, KERNEL_CORPUS_SCENARIO_IDS.length);
   assert.deepEqual(actualCorpusIds, [...KERNEL_CORPUS_SCENARIO_IDS]);
-  assert.equal(KERNEL_CORPUS_PROFILE.id, "aperture.kernel.messy_event_corpus.v2");
-  assert.equal(KERNEL_CORPUS_PROFILE.version, 2);
+  assert.equal(KERNEL_CORPUS_PROFILE.id, "aperture.kernel.messy_event_corpus.v3");
+  assert.equal(KERNEL_CORPUS_PROFILE.version, 3);
   assert.equal(KERNEL_CORPUS_PROFILE.coverageDimensions, KERNEL_CORPUS_COVERAGE_DIMENSIONS);
 });
 
-test("kernel corpus conformance report matches the committed v2 artifact", async () => {
+test("kernel corpus conformance report matches the committed v3 artifact", async () => {
   const report = await buildKernelCorpusConformanceReport();
   const scenarios = await loadGoldenScenarios();
   const scorecard = buildKernelCorpusScorecard(report, scenarios);
-  const committed = await readFile("packages/lab/conformance/kernel-corpus-v2.json", "utf8");
+  const committed = await readFile("packages/lab/conformance/kernel-corpus-v3.json", "utf8");
   const committedScorecard = await readFile(
-    "packages/lab/conformance/kernel-corpus-scorecard-v6.json",
+    "packages/lab/conformance/kernel-corpus-scorecard-v7.json",
     "utf8",
   );
   const parsedCommittedScorecard = parseKernelCorpusScorecard(committedScorecard);
@@ -169,7 +170,7 @@ test("kernel corpus scorecard comparison protects the committed quality baseline
   const scenarios = await loadGoldenScenarios();
   const scorecard = buildKernelCorpusScorecard(report, scenarios);
   const committedScorecard = parseKernelCorpusScorecard(
-    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v6.json", "utf8"),
+    await readFile("packages/lab/conformance/kernel-corpus-scorecard-v7.json", "utf8"),
   );
   const comparison = buildKernelCorpusScorecardComparison(committedScorecard, scorecard);
 
@@ -274,6 +275,7 @@ test("kernel corpus scorecard v5 migration preserves v4 coverage and adds normal
 
   assert.deepEqual(projected, comparableHistorical);
   assert.equal(migratedHistorical.schemaVersion, KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION);
+  assert.equal(migratedHistorical.proof.protectedRegressionBaseline, true);
   assert.equal(migratedHistorical.summary.normalizedObservationCheckpoints.total, 0);
 });
 
@@ -285,6 +287,8 @@ test("kernel corpus scorecard v6 migration renames active attention ontology che
     await readFile("packages/lab/conformance/kernel-corpus-scorecard-v6.json", "utf8"),
   ) as Record<string, unknown>;
   const currentAsV5 = structuredClone(current);
+  current.proof = KERNEL_CORPUS_SCORECARD_PROOF;
+  currentAsV5.proof = KERNEL_CORPUS_SCORECARD_PROOF;
 
   currentAsV5.schemaVersion = 5;
   moveRecordField(

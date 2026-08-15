@@ -223,8 +223,6 @@ This is the route we should actively stand behind for low-friction producer inte
 
 - `GET /work`
 - `POST /work`
-- `GET /v1/work`
-- `POST /v1/work`
 - `GET /work/response/{interactionId}`
 - `DELETE /work/response/{interactionId}`
 

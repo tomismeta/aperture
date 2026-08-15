@@ -91,14 +91,11 @@ function renderFailureEvidenceExamples(report: SemanticReviewCandidateReport): s
       if (example.stepLabel) {
         lines.push(`  step: ${example.stepLabel}`);
       }
-      const terminalShape = example.evidence.terminalShape
-        ? `, terminalShape=${example.evidence.terminalShape}`
-        : "";
       const failureDetail = example.evidence.failureDetail
         ? `, detail=${example.evidence.failureDetail}`
         : "";
       lines.push(
-        `  evidence: tool=${example.evidence.toolFamily ?? "none"}, observation=${String(example.evidence.readsAsObservation)}, baseline=${example.evidence.consequenceBaseline}${failureDetail}${terminalShape}`,
+        `  evidence: tool=${example.evidence.toolFamily ?? "none"}, observation=${String(example.evidence.readsAsObservation)}, baseline=${example.evidence.consequenceBaseline}${failureDetail}`,
       );
       lines.push(`  shape: ${example.eventShape}`);
       lines.push(

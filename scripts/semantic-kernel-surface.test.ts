@@ -39,9 +39,8 @@ test("semantic kernel surface report covers every declared family", async () => 
   assert.equal(report.summary.taskFailureParsingLines > 0, true);
   assert.deepEqual(report.imports.normalizedObservationDirectConsumers, [
     "packages/core/src/judgment-input-types.ts",
-    "packages/core/src/judgment-input.ts",
+    "packages/core/src/judgment-observation-contract.ts",
     "packages/core/src/task-failure-observation-normalizer.ts",
-    "packages/core/src/task-failure-observation-reader.ts",
     "packages/core/src/trace-recorder.ts",
   ]);
 });
@@ -191,6 +190,124 @@ test("semantic kernel surface comparison rejects concrete import edge identity c
   assert.equal(comparison.passed, false);
   assert.match(comparison.failures.join("\n"), /surface_comparison:new_cross_family_import_edge/);
 });
+
+test("semantic kernel surface comparison allows imports transferred from a removed module", async () => {
+  const { baseline, candidate } = await buildSyntheticSurfaceConsolidation();
+
+  const comparison = buildSemanticKernelSurfaceComparison(baseline, candidate);
+
+  assert.equal(comparison.passed, true, comparison.failures.join("\n"));
+});
+
+test("semantic kernel surface comparison rejects symbol substitution during consolidation", async () => {
+  const { baseline, candidate, producer, target } = await buildSyntheticSurfaceConsolidation();
+  const changed: SemanticKernelSurfaceReport = {
+    ...candidate,
+    families: candidate.families.map((family) => ({
+      ...family,
+      files: family.files.map((file) =>
+        file.path === target
+          ? {
+              ...file,
+              namedImports: file.namedImports.map((dependency) =>
+                dependency.path === producer
+                  ? {
+                      ...dependency,
+                      names: [...dependency.names, "looksLikeUnrelatedEvidence"].sort(),
+                    }
+                  : dependency,
+              ),
+            }
+          : file,
+      ),
+    })),
+  };
+
+  const comparison = buildSemanticKernelSurfaceComparison(baseline, changed);
+
+  assert.equal(comparison.passed, false);
+  assert.match(comparison.failures.join("\n"), /surface_comparison:new_cross_family_import_edge/);
+});
+
+async function buildSyntheticSurfaceConsolidation(): Promise<{
+  baseline: SemanticKernelSurfaceReport;
+  candidate: SemanticKernelSurfaceReport;
+  producer: string;
+  target: string;
+}> {
+  const baseline = await buildSemanticKernelSurfaceReport();
+  const moved = baseline.imports.detectorConsumersOutsideFamily.find((consumer) => {
+    const family = baseline.families.find((entry) => entry.id === consumer.consumerFamily);
+    return family !== undefined && family.files.length > 1;
+  });
+  assert.ok(moved);
+  const family = baseline.families.find((entry) => entry.id === moved.consumerFamily);
+  const removedFile = family?.files.find((file) => file.path === moved.consumer);
+  const movedProducers = new Set(
+    baseline.imports.crossFamilyImportEdges
+      .filter((edge) => edge.consumer === moved.consumer)
+      .map((edge) => edge.producer),
+  );
+  const targetFile = family?.files.find(
+    (file) =>
+      file.path !== moved.consumer &&
+      [...file.namedImports, ...file.namedExports].every(
+        (dependency) => !movedProducers.has(dependency.path),
+      ),
+  );
+  assert.ok(family);
+  assert.ok(removedFile);
+  assert.ok(targetFile);
+
+  const transferredFile = {
+    ...targetFile,
+    totalLines: targetFile.totalLines + removedFile.totalLines - 1,
+    imports: [...new Set([...targetFile.imports, ...removedFile.imports])].sort(),
+    namedImports: [...targetFile.namedImports, ...removedFile.namedImports].sort((left, right) =>
+      left.path.localeCompare(right.path),
+    ),
+    namedExports: [...targetFile.namedExports, ...removedFile.namedExports].sort((left, right) =>
+      left.path.localeCompare(right.path),
+    ),
+    crossFamilyImports: [
+      ...new Set([...targetFile.crossFamilyImports, ...removedFile.crossFamilyImports]),
+    ].sort(),
+  };
+  const candidate: SemanticKernelSurfaceReport = {
+    ...baseline,
+    summary: {
+      ...baseline.summary,
+      modules: baseline.summary.modules - 1,
+      totalLines: baseline.summary.totalLines - 1,
+    },
+    imports: {
+      ...baseline.imports,
+      crossFamilyImportEdges: baseline.imports.crossFamilyImportEdges.map((edge) =>
+        edge.consumer === moved.consumer ? { ...edge, consumer: targetFile.path } : edge,
+      ),
+      detectorConsumersOutsideFamily: baseline.imports.detectorConsumersOutsideFamily.map(
+        (consumer) =>
+          consumer.consumer === moved.consumer
+            ? { ...consumer, consumer: targetFile.path }
+            : consumer,
+      ),
+    },
+    families: baseline.families.map((entry) =>
+      entry.id === family.id
+        ? {
+            ...entry,
+            modules: entry.modules - 1,
+            totalLines: entry.totalLines - 1,
+            files: entry.files
+              .filter((file) => file.path !== removedFile.path)
+              .map((file) => (file.path === targetFile.path ? transferredFile : file)),
+          }
+        : entry,
+    ),
+  };
+
+  return { baseline, candidate, producer: moved.producer, target: targetFile.path };
+}
 
 test("semantic kernel surface traces detector provenance through re-export barrels", async () => {
   const report = await buildSemanticKernelSurfaceReport();

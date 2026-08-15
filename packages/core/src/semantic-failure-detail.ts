@@ -1,21 +1,15 @@
 import type { TaskFailureSemanticSignals } from "./semantic-task-failure-signals.js";
-import {
-  looksLikeBareNonzeroTerminalExitEvidence,
-  looksLikeTerminalFailureEvidence,
-} from "./semantic-terminal-evidence.js";
+import { looksLikeTerminalFailureEvidence } from "./semantic-terminal-evidence.js";
 import { normalizeSemanticText } from "./semantic-text.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
-
 export type TaskFailureDetail =
   | "outcome_only"
   | "diagnostic"
   | "indeterminate"
   | "absent_evidence"
   | "source_window_limit";
-export type TaskFailureTerminalShape = "bare_nonzero_exit";
 export type TaskFailureTerminalProfile = {
   failureDetail: TaskFailureDetail;
-  terminalShape?: TaskFailureTerminalShape;
   consequenceBaseline: "medium" | "high";
 };
 type TerminalInput = {
@@ -30,44 +24,41 @@ type TerminalProfileInput = TerminalInput & {
 export function readTaskFailureTerminalProfile(
   input: TerminalProfileInput,
 ): TaskFailureTerminalProfile | null {
-  if (!hasTerminalFailureEvidence(input)) return null;
-  const failureDetail = readTerminalFailureDetail(input);
+  const outcomeOnly = hasCompleteOutcomeOnlyNonzeroExit(input);
+  const diagnostic =
+    !input.signals.textFallbackSuppressed && hasTerminalDiagnosticEvidence(input, false);
+  if (
+    !input.signals.structuredOutputExitFailure &&
+    !diagnostic &&
+    !outcomeOnly &&
+    !hasGenericTerminalFailureEvidence(input)
+  )
+    return null;
+  const failureDetail = outcomeOnly
+    ? "outcome_only"
+    : !input.signals.textFallbackSuppressed && hasTerminalDiagnosticEvidence(input, true)
+      ? "diagnostic"
+      : "indeterminate";
   return {
     failureDetail,
-    ...(isBareNonzeroTerminalExit(input) ? { terminalShape: "bare_nonzero_exit" as const } : {}),
-    consequenceBaseline:
-      failureDetail === "outcome_only" || failureDetail === "source_window_limit"
-        ? "medium"
-        : "high",
+    consequenceBaseline: failureDetail === "outcome_only" ? "medium" : "high",
   };
-}
-
-function readTerminalFailureDetail(input: TerminalInput): TaskFailureDetail {
-  if (hasCompleteOutcomeOnlyNonzeroExit(input)) return "outcome_only";
-  if (input.signals.sourceWindowLimitFailure) return "source_window_limit";
-  const signals = input.signals;
-  return hasSharedTerminalDiagnosticSignals(signals) ||
-    signals.rawToolOutputFailureDiagnostic ||
-    (signals.structuredOutputEnvelope.kind === "raw" &&
-      isSemanticCommandExecutionToolFamily(input.toolFamily) &&
-      looksLikeTerminalFailureEvidence(normalizeSemanticText(input.summary ?? "")) &&
-      !looksLikeBareNonzeroTerminalExitEvidence(input.summary ?? ""))
-    ? "diagnostic"
-    : "indeterminate";
 }
 function hasCompleteOutcomeOnlyNonzeroExit(input: TerminalInput): boolean {
   const output = input.signals.diagnosticStructuredToolOutput;
   return (
-    isBareNonzeroTerminalExit(input) ||
-    (isSemanticCommandExecutionToolFamily(input.toolFamily) &&
-      looksLikeOutcomeOnlyCommandOutput(input.summary ?? "")) ||
-    (input.signals.structuredOutputEnvelope.kind === "valid" &&
-      output?.exitCode !== undefined &&
-      output.exitCode !== 0 &&
-      looksLikeOutcomeOnlyCommandOutput(output.output))
+    !input.signals.textFallbackSuppressed &&
+    (isBareNonzeroTerminalExit(input) ||
+      (isSemanticCommandExecutionToolFamily(input.toolFamily) &&
+        looksLikeOutcomeOnlyCommandOutput(input.summary ?? "")) ||
+      (input.signals.structuredOutputEnvelope.kind === "valid" &&
+        output?.exitCode !== undefined &&
+        output.exitCode !== 0 &&
+        looksLikeOutcomeOnlyCommandOutput(output.output)))
   );
 }
-function hasSharedTerminalDiagnosticSignals(signals: TaskFailureSemanticSignals): boolean {
+function hasTerminalDiagnosticEvidence(input: TerminalInput, includeReferences: boolean): boolean {
+  const signals = input.signals;
   return (
     signals.strongSourceRuntimeDiagnostic ||
     signals.structuredOutputFailureDiagnostic ||
@@ -79,29 +70,26 @@ function hasSharedTerminalDiagnosticSignals(signals: TaskFailureSemanticSignals)
     Boolean(
       signals.commandDiagnosticObservationTranscript &&
       !signals.commandDiagnosticReferenceObservationTranscript,
-    )
-  );
-}
-function hasTerminalFailureEvidence(input: TerminalProfileInput): boolean {
-  const signals = input.signals;
-  return (
-    signals.structuredOutputExitFailure ||
-    hasSharedTerminalDiagnosticSignals(signals) ||
+    ) ||
     Boolean(
       signals.rawToolOutputFailureDiagnostic &&
-      !signals.commandDiagnosticReferenceObservationTranscript,
+      (includeReferences || !signals.commandDiagnosticReferenceObservationTranscript),
     ) ||
-    hasCompleteOutcomeOnlyNonzeroExit(input) ||
-    hasGenericTerminalFailureEvidence(input)
+    (signals.structuredOutputEnvelope.kind === "raw" &&
+      isSemanticCommandExecutionToolFamily(input.toolFamily) &&
+      looksLikeTerminalFailureEvidence(normalizeSemanticText(input.summary ?? "")) &&
+      !looksLikeBareNonzeroTerminalExitEvidence(input.summary ?? "") &&
+      (includeReferences || !signals.commandDiagnosticReferenceObservationTranscript))
   );
 }
 function hasGenericTerminalFailureEvidence(input: TerminalProfileInput): boolean {
   const observation = input.signals.observationSyntax;
   return (
+    !input.signals.textFallbackSuppressed &&
     input.terminalFailureText &&
     !input.signals.commandDiagnosticReferenceObservationTranscript &&
     !(observation?.origin === "transcript" && observation.toolFamily === undefined) &&
-    !(input.toolFamily === "search" && input.searchResultText) &&
+    !input.searchResultText &&
     (!(
       observation?.kind === "payload" &&
       (observation.origin === "read_output" || observation.origin === "structured_output")
@@ -115,9 +103,21 @@ function isBareNonzeroTerminalExit(input: TerminalInput): boolean {
     looksLikeBareNonzeroTerminalExitEvidence(input.summary ?? "")
   );
 }
+export function looksLikeBareNonzeroTerminalExitEvidence(value: string): boolean {
+  return BARE_NONZERO_EXIT.test(value.toLowerCase().replace(/\W+/g, " ").trim());
+}
+export const successConflict = (value: string): boolean =>
+  SUCCESS_NEGATIVE.test(
+    value
+      .replace(/(?:[a-z]:)?[\\/]?[\w.-]+(?:[\\/][\w.-]+)+/gi, " ")
+      .replaceAll("standard error", ""),
+  );
 function looksLikeOutcomeOnlyCommandOutput(output: string): boolean {
   const text = normalizeSemanticText(output).replace(/[.]+$/g, "").replace(/\s+/g, " ");
   return /^(?:no output|without output|no stdout no stderr|no stderr no stdout|empty stdout empty stderr|stdout empty stderr empty|no tests? found(?: exiting with code -?\d+)?|no test files(?: were)? found|no files matching .+ (?:were )?found|collected 0 items|found 0 tests?|0 tests? found)$/.test(
     text,
   );
 }
+const BARE_NONZERO_EXIT =
+  /^(?:(?:no output|without output|no stdout no stderr|no stderr no stdout|empty stdout empty stderr|stdout empty stderr empty)\s+(?:(?:command|process|tool|subprocess)\s+)?(?:(?:exit|return)(?:ed)?\s+(?:with\s+)?(?:code|status)\s*(?:is|was)?\s*-?[1-9]\d*|(?:failed\s+with\s+)?(?:a\s+)?non[- ]?zero\s+exit)|(?:the )?(?:command|process|tool|subprocess)\s+(?:exit|return)(?:ed)?\s+(?:with\s+)?(?:code|status)\s*(?:is|was)?\s*-?[1-9]\d*\s+(?:no|without)\s+(?:(?:standard|error) output|stdout|stderr|diagnostic (?:text|output))(?:\s*(?:and|or)?\s*(?:(?:standard|error) output|stdout|stderr|diagnostic (?:text|output))){1,3}\s+(?:(?:was|were)\s+)?(?:retained|captured|available|produced))$/i;
+const SUCCESS_NEGATIVE = /failed|failure|fatal|error|exception|crash|runtimeerror|traceback/i;

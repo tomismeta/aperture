@@ -49,6 +49,8 @@ These runnable repo examples use `@tomismeta/aperture-core` directly:
   - lower-level judgment types and lane reasoning
 - [core-kernel-entrypoint/index.ts](./core-kernel-entrypoint/index.ts)
   - host-neutral event -> observation -> judgment projection
+- [core-kernel-host-embedder/index.ts](./core-kernel-host-embedder/index.ts)
+  - two unrelated host event shapes adapted outside core into the same kernel result
 - [core-semantic-entrypoint/index.ts](./core-semantic-entrypoint/index.ts)
   - semantic interpretation and normalization helpers
 - [core-trace-entrypoint/index.ts](./core-trace-entrypoint/index.ts)

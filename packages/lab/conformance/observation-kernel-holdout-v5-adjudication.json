@@ -1,0 +1,892 @@
+{
+  "schemaVersion": 1,
+  "holdoutId": "aperture-observation-kernel-holdout/v5",
+  "implementationFreeze": "2926ea9489526a572e232da51584f224cbcc7252",
+  "oracleDigest": "sha256:43b66ce0d88cde517629b632b0c41045b441b5e33ab89e1be1918a9a9cd2b252",
+  "firstRunDigest": "sha256:f5ba611cef35c029af98ef75007fee7ed64347cd7fb87305e65437ad72f726f6",
+  "verdict": {
+    "implementationFreezeRecommendation": "NO-GO",
+    "releaseEligible": false,
+    "retiredBecauseImplementationWillChange": true,
+    "expectationsRemainImmutable": true,
+    "oracleAcceptedAsAuthored": true,
+    "summary": "All 12 typed SourceEvidence fixtures were exact. All 12 fallback fixtures were non-exact: nine contract-complete structural families were underrecognized, and three correctly indeterminate fixtures exposed semantic-hint authority leakage plus isolated high-indeterminate routing. All 148 field deltas are engine defects; no oracle defect or genuine ambiguity was found."
+  },
+  "firstRun": {
+    "deterministic": true,
+    "repeatedRuns": 2,
+    "calibrationExactOutcomes": {
+      "passed": 18,
+      "total": 18
+    },
+    "holdoutSemanticFields": {
+      "passed": 219,
+      "total": 312
+    },
+    "holdoutJudgmentFields": {
+      "passed": 149,
+      "total": 192
+    },
+    "holdoutDecisionFields": {
+      "passed": 36,
+      "total": 48
+    },
+    "holdoutExactOutcomes": {
+      "passed": 12,
+      "total": 24
+    },
+    "reportedFailures": 152,
+    "fieldDeltas": 148,
+    "thresholdFailures": 4
+  },
+  "aggregateDecisions": {
+    "typedEvidence": {
+      "fixtures": 12,
+      "contractValidExpectations": 12,
+      "structurallyCompleteVariants": 12,
+      "semanticFields": {
+        "passed": 156,
+        "total": 156
+      },
+      "judgmentFields": {
+        "passed": 96,
+        "total": 96
+      },
+      "decisionFields": {
+        "passed": 24,
+        "total": 24
+      },
+      "exactOutcomes": {
+        "passed": 12,
+        "total": 12
+      },
+      "engineDefectFixtures": 0,
+      "oracleDefectFixtures": 0,
+      "genuineAmbiguityFixtures": 0,
+      "finding": "Typed evidence remained authoritative over contradictory prose, metadata, semantic hints, and opaque capability identity. Complete typed variants without toolFamily were source-owned, while typed authorization without toolFamily was tool-owned."
+    },
+    "structuralFallback": {
+      "fixtures": 12,
+      "contractValidExpectations": 12,
+      "completeStructuralFamilies": 9,
+      "indeterminateByDesign": 3,
+      "fixtureAdequateForExpectedFamilyOrIndeterminacy": 12,
+      "semanticFields": {
+        "passed": 63,
+        "total": 156,
+        "deltas": 93
+      },
+      "judgmentFields": {
+        "passed": 53,
+        "total": 96,
+        "deltas": 43
+      },
+      "decisionFields": {
+        "passed": 12,
+        "total": 24,
+        "deltas": 12
+      },
+      "exactOutcomes": {
+        "passed": 0,
+        "total": 12
+      },
+      "engineDefectFixtures": 12,
+      "oracleDefectFixtures": 0,
+      "genuineAmbiguityFixtures": 0,
+      "finding": "The nine complete fallback families were phrased independently but supplied every contract fact. The other three intentionally supplied only quoted, hypothetical, negated, or opaque evidence and were correctly expected to remain indeterminate."
+    },
+    "mismatchAttribution": {
+      "engineDefectFields": 148,
+      "oracleDefectFields": 0,
+      "genuineAmbiguityFields": 0,
+      "observationDeltas": 93,
+      "judgmentProjectionDefects": 0,
+      "judgmentDeltasDownstreamOfObservation": 43,
+      "decisionDeltasDownstreamOfObservation": 9,
+      "independentIsolatedDecisionDefects": 3,
+      "allOracleDeltasStand": true
+    },
+    "rootCauses": [
+      {
+        "id": "structural_family_underrecognition",
+        "fixtures": 9,
+        "finding": "The fallback compiler recognizes narrow sentence templates rather than the contract's wording-independent event families; it also reads summary without composing title facts."
+      },
+      {
+        "id": "semantic_hints_authority_leak",
+        "fixtures": 11,
+        "finding": "Non-relation semanticHints leak into ontology authority, semantic agreement, or isolated routing. Under the frozen output contract, only relation hints may affect continuity and no semantic hint may change Observation or judgment fields."
+      },
+      {
+        "id": "capability_identity_leaks_into_subject",
+        "fixtures": 4,
+        "finding": "When structural compilation fails, the legacy path uses toolFamily to produce subject tool. Capability identity may establish ownership and be copied, but may not determine subject or behavior."
+      },
+      {
+        "id": "fallback_ownership_masked_by_underrecognition",
+        "fixtures": 5,
+        "finding": "Complete no-toolFamily families fell into engine-owned indeterminacy instead of source ownership; authorization should remain tool-owned without a capability identity. Typed fixtures prove the ownership rules themselves are implementable."
+      },
+      {
+        "id": "terminal_and_scope_precedence",
+        "fixtures": 3,
+        "finding": "The complete runtime contradiction was suppressed by routine success text, explicitly absent evidence became a runtime diagnostic, and a complete document boundary was not recognized. The two incomplete quoted or hypothetical negative cases did remain indeterminate."
+      },
+      {
+        "id": "missing_expected_diagnostic_fallback",
+        "fixtures": 1,
+        "finding": "The consolidated event-fact grammar has no expected-diagnostic family for a complete bounded source diagnostic result."
+      },
+      {
+        "id": "isolated_high_indeterminate_routing",
+        "fixtures": 3,
+        "finding": "An already-correct high-consequence indeterminate Observation was queued because low-confidence abstained hints won generic uncertainty routing; the isolated profile requires activate/now."
+      }
+    ]
+  },
+  "fixtureAdjudication": [
+    {
+      "id": "holdout-v5-typed-command-success-contradiction",
+      "inputMode": "typed_evidence",
+      "expectedFamily": "complete_command_success",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "Valid complete outcome/success evidence on the command channel."
+      },
+      "firstRun": {
+        "exact": true,
+        "semanticDeltas": 0,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 0
+      },
+      "mismatchClassification": "none",
+      "finding": "Typed success correctly overrode failed status and hostile failure prose while preserving batch.command exactly."
+    },
+    {
+      "id": "holdout-v5-typed-transcript-failure-contradiction",
+      "inputMode": "typed_evidence",
+      "expectedFamily": "complete_outcome_failure",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "Valid complete outcome/failure evidence with command subject and transcript channel."
+      },
+      "firstRun": {
+        "exact": true,
+        "semanticDeltas": 0,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 0
+      },
+      "mismatchClassification": "none",
+      "finding": "The no-toolFamily failed outcome was correctly source-owned and remained an outcome-only limited failure."
+    },
+    {
+      "id": "holdout-v5-typed-structured-runtime-contradiction",
+      "inputMode": "typed_evidence",
+      "expectedFamily": "complete_runtime_diagnostic",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "Valid complete runtime diagnostic evidence on the structured channel."
+      },
+      "firstRun": {
+        "exact": true,
+        "semanticDeltas": 0,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 0
+      },
+      "mismatchClassification": "none",
+      "finding": "Typed runtime evidence correctly controlled diagnostic class, structured origin, tool subject, and high consequence."
+    },
+    {
+      "id": "holdout-v5-typed-search-expected-contradiction",
+      "inputMode": "typed_evidence",
+      "expectedFamily": "expected_diagnostic_result",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "Valid complete expected diagnostic evidence with search subject and channel."
+      },
+      "firstRun": {
+        "exact": true,
+        "semanticDeltas": 0,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 0
+      },
+      "mismatchClassification": "none",
+      "finding": "The expected diagnostic was correctly source-owned without toolFamily and projected to activate/now."
+    },
+    {
+      "id": "holdout-v5-typed-source-window-contradiction",
+      "inputMode": "typed_evidence",
+      "expectedFamily": "bounded_source_window",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "The source_limit variant is structurally complete; its measured window correctly denotes partial evidence."
+      },
+      "firstRun": {
+        "exact": true,
+        "semanticDeltas": 0,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 0
+      },
+      "mismatchClassification": "none",
+      "finding": "Typed window facts remained authoritative over prose that incorrectly called the read complete."
+    },
+    {
+      "id": "holdout-v5-typed-document-payload-contradiction",
+      "inputMode": "typed_evidence",
+      "expectedFamily": "returned_document_payload",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "Valid complete document payload evidence on the read channel."
+      },
+      "firstRun": {
+        "exact": true,
+        "semanticDeltas": 0,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 0
+      },
+      "mismatchClassification": "none",
+      "finding": "The typed payload boundary correctly protected diagnostic-looking prose and copied library.read unchanged."
+    },
+    {
+      "id": "holdout-v5-typed-authorization-contradiction",
+      "inputMode": "typed_evidence",
+      "expectedFamily": "preexecution_authorization_control",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "The authorization variant explicitly supplies required state, not-started execution, and absent result."
+      },
+      "firstRun": {
+        "exact": true,
+        "semanticDeltas": 0,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 0
+      },
+      "mismatchClassification": "none",
+      "finding": "Authorization was correctly tool-owned even without toolFamily and overrode prose claiming execution."
+    },
+    {
+      "id": "holdout-v5-typed-structured-search-success",
+      "inputMode": "typed_evidence",
+      "expectedFamily": "complete_structured_execution_success",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "Valid complete outcome/success evidence with search subject and structured channel."
+      },
+      "firstRun": {
+        "exact": true,
+        "semanticDeltas": 0,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 0
+      },
+      "mismatchClassification": "none",
+      "finding": "Structured success correctly produced execution_success_observation while remaining source-owned."
+    },
+    {
+      "id": "holdout-v5-typed-read-document-failure",
+      "inputMode": "typed_evidence",
+      "expectedFamily": "complete_outcome_failure",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "Valid complete outcome/failure evidence with document subject and read channel."
+      },
+      "firstRun": {
+        "exact": true,
+        "semanticDeltas": 0,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 0
+      },
+      "mismatchClassification": "none",
+      "finding": "Typed failed outcome semantics correctly outranked neutral document prose."
+    },
+    {
+      "id": "holdout-v5-typed-command-runtime-control",
+      "inputMode": "typed_evidence",
+      "expectedFamily": "complete_runtime_diagnostic",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "Valid complete runtime diagnostic evidence with command subject and channel."
+      },
+      "firstRun": {
+        "exact": true,
+        "semanticDeltas": 0,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 0
+      },
+      "mismatchClassification": "none",
+      "finding": "Typed terminal evidence correctly displaced contradictory pre-execution control prose."
+    },
+    {
+      "id": "holdout-v5-typed-search-payload-contradiction",
+      "inputMode": "typed_evidence",
+      "expectedFamily": "returned_search_payload",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "Valid complete search payload evidence on the search channel."
+      },
+      "firstRun": {
+        "exact": true,
+        "semanticDeltas": 0,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 0
+      },
+      "mismatchClassification": "none",
+      "finding": "Typed search payload semantics correctly overrode command-failure prose and hints."
+    },
+    {
+      "id": "holdout-v5-typed-tool-transcript-payload",
+      "inputMode": "typed_evidence",
+      "expectedFamily": "returned_tool_payload",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "Valid complete tool payload evidence on the transcript channel."
+      },
+      "firstRun": {
+        "exact": true,
+        "semanticDeltas": 0,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 0
+      },
+      "mismatchClassification": "none",
+      "finding": "The neutral tool payload correctly retained its contract-defined high consequence and activated now."
+    },
+    {
+      "id": "holdout-v5-fallback-complete-command-success",
+      "inputMode": "structural_fallback",
+      "expectedFamily": "complete_command_success",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "Execution completion, zero exit code, stdout content, and empty stderr jointly establish a complete command success."
+      },
+      "firstRun": {
+        "exact": false,
+        "semanticDeltas": 10,
+        "judgmentDeltas": 5,
+        "decisionDeltas": 2,
+        "mismatchedFields": {
+          "observation": [
+            "kind",
+            "polarity",
+            "subject",
+            "evidenceLoss",
+            "evidenceStrength",
+            "semanticAgreement",
+            "recoveryHint",
+            "provenanceOrigin",
+            "provenanceAuthority",
+            "consequenceBaseline"
+          ],
+          "judgment": [
+            "statusEvidence",
+            "statusConflictKind",
+            "recoveryPosture",
+            "baselineConsequence",
+            "stableStatusEvidence"
+          ],
+          "decision": [
+            "plannerKind",
+            "resultLane"
+          ]
+        }
+      },
+      "mismatchClassification": "engine_defect",
+      "rootCauseIds": [
+        "structural_family_underrecognition",
+        "semantic_hints_authority_leak",
+        "capability_identity_leaks_into_subject"
+      ],
+      "finding": "Core required a narrower complete-record phrase, fell back to unknown failure, and activated a contract-complete low success. All deltas stand."
+    },
+    {
+      "id": "holdout-v5-fallback-nonzero-outcome-only",
+      "inputMode": "structural_fallback",
+      "expectedFamily": "complete_nonzero_outcome_without_diagnostic_channels",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "The event states completion, exit code 23, a complete outcome-only record, and exclusion of diagnostic payload."
+      },
+      "firstRun": {
+        "exact": false,
+        "semanticDeltas": 10,
+        "judgmentDeltas": 6,
+        "decisionDeltas": 1,
+        "mismatchedFields": {
+          "observation": [
+            "kind",
+            "owner",
+            "subject",
+            "evidenceLoss",
+            "evidenceStrength",
+            "semanticAgreement",
+            "recoveryHint",
+            "provenanceOrigin",
+            "provenanceAuthority",
+            "consequenceBaseline"
+          ],
+          "judgment": [
+            "statusEvidence",
+            "recoveryPosture",
+            "baselineConsequence",
+            "outcomeOnlyFailureStatus",
+            "limitedFailureStatus",
+            "stableStatusEvidence"
+          ],
+          "decision": [
+            "plannerKind"
+          ]
+        }
+      },
+      "mismatchClassification": "engine_defect",
+      "rootCauseIds": [
+        "structural_family_underrecognition",
+        "semantic_hints_authority_leak",
+        "fallback_ownership_masked_by_underrecognition"
+      ],
+      "finding": "No capability identity is needed to establish command subject; the classified family should be source-owned and outcome-only, not engine-owned indeterminacy. All deltas stand."
+    },
+    {
+      "id": "holdout-v5-fallback-explicitly-absent-evidence",
+      "inputMode": "structural_fallback",
+      "expectedFamily": "explicitly_empty_failure_evidence",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "The failed completed execution names an expected failure output as explicitly empty and states that no diagnostic text was supplied."
+      },
+      "firstRun": {
+        "exact": false,
+        "semanticDeltas": 9,
+        "judgmentDeltas": 5,
+        "decisionDeltas": 1,
+        "mismatchedFields": {
+          "observation": [
+            "kind",
+            "subject",
+            "evidenceLoss",
+            "semanticAgreement",
+            "diagnosticClass",
+            "recoveryHint",
+            "provenanceOrigin",
+            "provenanceAuthority",
+            "consequenceBaseline"
+          ],
+          "judgment": [
+            "statusEvidence",
+            "recoveryPosture",
+            "baselineConsequence",
+            "limitedFailureStatus",
+            "visibleDiagnosticFailure"
+          ],
+          "decision": [
+            "plannerKind"
+          ]
+        }
+      },
+      "mismatchClassification": "engine_defect",
+      "rootCauseIds": [
+        "structural_family_underrecognition",
+        "semantic_hints_authority_leak",
+        "capability_identity_leaks_into_subject",
+        "terminal_and_scope_precedence"
+      ],
+      "finding": "Core collapsed explicit absence into a complete runtime diagnostic and marked agreement overridden. Absent evidence is distinct from diagnostic evidence and remains a limited failed outcome. All deltas stand."
+    },
+    {
+      "id": "holdout-v5-fallback-runtime-diagnostic",
+      "inputMode": "structural_fallback",
+      "expectedFamily": "complete_runtime_diagnostic",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "The process terminated, exit code 71 was returned, and the full runtime diagnostic names the concrete allocation failure."
+      },
+      "firstRun": {
+        "exact": false,
+        "semanticDeltas": 9,
+        "judgmentDeltas": 4,
+        "decisionDeltas": 0,
+        "mismatchedFields": {
+          "observation": [
+            "kind",
+            "owner",
+            "subject",
+            "evidenceLoss",
+            "evidenceStrength",
+            "semanticAgreement",
+            "diagnosticClass",
+            "recoveryHint",
+            "provenanceOrigin"
+          ],
+          "judgment": [
+            "statusEvidence",
+            "recoveryPosture",
+            "stableStatusEvidence",
+            "visibleDiagnosticFailure"
+          ],
+          "decision": []
+        }
+      },
+      "mismatchClassification": "engine_defect",
+      "rootCauseIds": [
+        "structural_family_underrecognition",
+        "fallback_ownership_masked_by_underrecognition"
+      ],
+      "finding": "The independently worded full runtime diagnostic was underrecognized and became engine-owned unknown evidence; its activate/now decision passed only because both shapes are high consequence. All deltas stand."
+    },
+    {
+      "id": "holdout-v5-fallback-bounded-source-window",
+      "inputMode": "structural_fallback",
+      "expectedFamily": "bounded_source_window",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "The measured line window supplies offset 40, length 80, total 640, and explicitly calls the returned view partial."
+      },
+      "firstRun": {
+        "exact": false,
+        "semanticDeltas": 10,
+        "judgmentDeltas": 5,
+        "decisionDeltas": 1,
+        "mismatchedFields": {
+          "observation": [
+            "kind",
+            "subject",
+            "evidenceLoss",
+            "evidenceStrength",
+            "semanticAgreement",
+            "diagnosticClass",
+            "recoveryHint",
+            "provenanceOrigin",
+            "provenanceAuthority",
+            "consequenceBaseline"
+          ],
+          "judgment": [
+            "statusEvidence",
+            "recoveryPosture",
+            "baselineConsequence",
+            "limitedFailureStatus",
+            "stableStatusEvidence"
+          ],
+          "decision": [
+            "plannerKind"
+          ]
+        }
+      },
+      "mismatchClassification": "engine_defect",
+      "rootCauseIds": [
+        "structural_family_underrecognition",
+        "semantic_hints_authority_leak",
+        "capability_identity_leaks_into_subject"
+      ],
+      "finding": "Structural completeness is not the same as evidence completeness: the family is complete and proves partial source evidence. Core missed it and used capability identity to produce tool subject. All deltas stand."
+    },
+    {
+      "id": "holdout-v5-fallback-expected-source-diagnostic",
+      "inputMode": "structural_fallback",
+      "expectedFamily": "expected_diagnostic_result",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "The bounded diagnostic check is declared complete and its expected failed source validation includes a concrete delimiter finding."
+      },
+      "firstRun": {
+        "exact": false,
+        "semanticDeltas": 11,
+        "judgmentDeltas": 4,
+        "decisionDeltas": 0,
+        "mismatchedFields": {
+          "observation": [
+            "kind",
+            "owner",
+            "subject",
+            "evidenceLoss",
+            "evidenceStrength",
+            "semanticAgreement",
+            "diagnosticClass",
+            "recoveryHint",
+            "provenanceOrigin",
+            "provenanceAuthority",
+            "consequenceBaseline"
+          ],
+          "judgment": [
+            "statusEvidence",
+            "recoveryPosture",
+            "baselineConsequence",
+            "stableStatusEvidence"
+          ],
+          "decision": []
+        }
+      },
+      "mismatchClassification": "engine_defect",
+      "rootCauseIds": [
+        "structural_family_underrecognition",
+        "semantic_hints_authority_leak",
+        "fallback_ownership_masked_by_underrecognition",
+        "missing_expected_diagnostic_fallback"
+      ],
+      "finding": "The expected-diagnostic family is contract-defined but absent from the consolidated event-fact grammar, so the complete source result remained indeterminate. All deltas stand."
+    },
+    {
+      "id": "holdout-v5-fallback-document-quoted-failure",
+      "inputMode": "structural_fallback",
+      "expectedFamily": "returned_document_payload",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "A complete document payload boundary explicitly scopes the quoted runtime-failure phrase as source text rather than an event result."
+      },
+      "firstRun": {
+        "exact": false,
+        "semanticDeltas": 11,
+        "judgmentDeltas": 5,
+        "decisionDeltas": 2,
+        "mismatchedFields": {
+          "observation": [
+            "kind",
+            "polarity",
+            "owner",
+            "subject",
+            "evidenceLoss",
+            "evidenceStrength",
+            "semanticAgreement",
+            "recoveryHint",
+            "provenanceOrigin",
+            "provenanceAuthority",
+            "consequenceBaseline"
+          ],
+          "judgment": [
+            "statusEvidence",
+            "statusConflictKind",
+            "recoveryPosture",
+            "baselineConsequence",
+            "stableStatusEvidence"
+          ],
+          "decision": [
+            "plannerKind",
+            "resultLane"
+          ]
+        }
+      },
+      "mismatchClassification": "engine_defect",
+      "rootCauseIds": [
+        "structural_family_underrecognition",
+        "semantic_hints_authority_leak",
+        "fallback_ownership_masked_by_underrecognition",
+        "terminal_and_scope_precedence"
+      ],
+      "finding": "Core did not recognize the independently phrased complete payload boundary. The quotation is properly scoped and does not create ambiguity or a runtime diagnostic. All deltas stand."
+    },
+    {
+      "id": "holdout-v5-fallback-preexecution-authorization",
+      "inputMode": "structural_fallback",
+      "expectedFamily": "preexecution_authorization_control",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "The title establishes required authorization; the summary establishes non-started execution, prior decision, and absent result."
+      },
+      "firstRun": {
+        "exact": false,
+        "semanticDeltas": 11,
+        "judgmentDeltas": 5,
+        "decisionDeltas": 2,
+        "mismatchedFields": {
+          "observation": [
+            "kind",
+            "polarity",
+            "owner",
+            "subject",
+            "evidenceLoss",
+            "evidenceStrength",
+            "semanticAgreement",
+            "recoveryHint",
+            "provenanceOrigin",
+            "provenanceAuthority",
+            "consequenceBaseline"
+          ],
+          "judgment": [
+            "statusEvidence",
+            "statusConflictKind",
+            "recoveryPosture",
+            "baselineConsequence",
+            "stableStatusEvidence"
+          ],
+          "decision": [
+            "plannerKind",
+            "resultLane"
+          ]
+        }
+      },
+      "mismatchClassification": "engine_defect",
+      "rootCauseIds": [
+        "structural_family_underrecognition",
+        "semantic_hints_authority_leak",
+        "fallback_ownership_masked_by_underrecognition"
+      ],
+      "finding": "The event-level family is complete across title and summary. Core parsed summary alone and required narrower authorization wording, losing the tool-owned control. All deltas stand."
+    },
+    {
+      "id": "holdout-v5-fallback-indeterminate-failure",
+      "inputMode": "structural_fallback",
+      "expectedFamily": "indeterminate_failed_evidence",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": false,
+        "completeFamilyExpected": false,
+        "basis": "The event explicitly says kind, subject, completeness, and diagnostic meaning cannot be established; preserving unknown is the contract-required result."
+      },
+      "firstRun": {
+        "exact": false,
+        "semanticDeltas": 1,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 1,
+        "mismatchedFields": {
+          "observation": [
+            "provenanceAuthority"
+          ],
+          "judgment": [],
+          "decision": [
+            "plannerKind"
+          ]
+        }
+      },
+      "mismatchClassification": "engine_defect",
+      "rootCauseIds": [
+        "semantic_hints_authority_leak",
+        "isolated_high_indeterminate_routing"
+      ],
+      "finding": "Core got the indeterminate Observation and all judgment fields right, but hints changed explicit failed-status authority to hinted and generic uncertainty queued a shape the isolated contract requires to activate. Both deltas stand."
+    },
+    {
+      "id": "holdout-v5-fallback-terminal-precedence",
+      "inputMode": "structural_fallback",
+      "expectedFamily": "complete_runtime_diagnostic",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": true,
+        "basis": "Execution produced exit 74 and a full invalid-memory-access diagnostic; routine success, notes, and impossible pre-execution authorization are explicit contradictions."
+      },
+      "firstRun": {
+        "exact": false,
+        "semanticDeltas": 9,
+        "judgmentDeltas": 4,
+        "decisionDeltas": 0,
+        "mismatchedFields": {
+          "observation": [
+            "kind",
+            "subject",
+            "evidenceLoss",
+            "evidenceStrength",
+            "semanticAgreement",
+            "diagnosticClass",
+            "recoveryHint",
+            "provenanceOrigin",
+            "provenanceAuthority"
+          ],
+          "judgment": [
+            "statusEvidence",
+            "recoveryPosture",
+            "stableStatusEvidence",
+            "visibleDiagnosticFailure"
+          ],
+          "decision": []
+        }
+      },
+      "mismatchClassification": "engine_defect",
+      "rootCauseIds": [
+        "structural_family_underrecognition",
+        "semantic_hints_authority_leak",
+        "capability_identity_leaks_into_subject",
+        "terminal_and_scope_precedence"
+      ],
+      "finding": "Concrete complete terminal diagnostics must outrank routine alternatives. Core's detector rejected the family because success wording was present and fell back to unknown tool subject. All deltas stand."
+    },
+    {
+      "id": "holdout-v5-fallback-quoted-incomplete",
+      "inputMode": "structural_fallback",
+      "expectedFamily": "indeterminate_failed_evidence",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": false,
+        "completeFamilyExpected": false,
+        "basis": "The only diagnostic phrase is quoted template text and the event expressly denies every complete outcome, payload, control, or diagnostic boundary."
+      },
+      "firstRun": {
+        "exact": false,
+        "semanticDeltas": 1,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 1,
+        "mismatchedFields": {
+          "observation": [
+            "provenanceAuthority"
+          ],
+          "judgment": [],
+          "decision": [
+            "plannerKind"
+          ]
+        }
+      },
+      "mismatchClassification": "engine_defect",
+      "rootCauseIds": [
+        "semantic_hints_authority_leak",
+        "isolated_high_indeterminate_routing"
+      ],
+      "finding": "Quoted text was correctly not promoted and the Observation shape was otherwise exact. Explicit failed-status authority and activate/now routing were still lost to hints. Both deltas stand."
+    },
+    {
+      "id": "holdout-v5-fallback-hypothetical-negated",
+      "inputMode": "structural_fallback",
+      "expectedFamily": "indeterminate_failed_evidence",
+      "oracleExpectationContractValid": true,
+      "structuralCompleteness": {
+        "completeFamily": false,
+        "completeFamilyExpected": false,
+        "basis": "A hypothetical timeout is immediately negated and execution plus evidence boundaries remain unknown."
+      },
+      "firstRun": {
+        "exact": false,
+        "semanticDeltas": 1,
+        "judgmentDeltas": 0,
+        "decisionDeltas": 1,
+        "mismatchedFields": {
+          "observation": [
+            "provenanceAuthority"
+          ],
+          "judgment": [],
+          "decision": [
+            "plannerKind"
+          ]
+        }
+      },
+      "mismatchClassification": "engine_defect",
+      "rootCauseIds": [
+        "semantic_hints_authority_leak",
+        "isolated_high_indeterminate_routing"
+      ],
+      "finding": "The hypothetical and negated clauses were correctly kept indeterminate. Explicit failed-status authority and required high-indeterminate activation remained wrong. Both deltas stand."
+    }
+  ],
+  "correctionPolicy": [
+    "Leave typed SourceEvidence validation, lowering, normalization, judgment, and planning unchanged.",
+    "Compile wording-independent event facts from title and summary into the existing TaskFailureObservationSyntax; do not depend on metadata, semanticHints, capability names, or holdout sentence templates.",
+    "Keep non-relation semanticHints from changing Observation enrichment, provenance authority, semantic agreement, judgment, or isolated decision routing; relation hints may affect continuity only.",
+    "Represent expected diagnostics as a first-class structural fallback family and preserve distinct none, absent, partial, and unknown evidence loss.",
+    "Apply terminal precedence after clause scoping: asserted complete diagnostics outrank success, payload, and control, while quoted, hypothetical, conditional, negated, documentation, and reference clauses cannot create terminal evidence.",
+    "Derive subject from the structural family. Use toolFamily only for ownership and exact identity copying; classified no-toolFamily evidence is source-owned, authorization is tool-owned, and only indeterminate no-toolFamily evidence is engine-owned.",
+    "Route the isolated high-consequence indeterminate Observation to activate/now before generic low-confidence or abstention peripheralization.",
+    "Do not edit or relabel the V5 oracle or first-run artifact. Retire V5 after implementation changes and require a fresh independently authored holdout for the next release freeze."
+  ]
+}

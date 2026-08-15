@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "holdoutId": "aperture-observation-kernel-holdout/v4",
+  "implementationFreeze": "d9df71cc45bac51bc0e834f173d1fac3b1b81a70",
+  "oracleDigest": "sha256:4543ac2ea96e5ca031b370df28176ea66d87ce1b7b5dbe3d35e0e556f9f8010b",
+  "firstRunDigest": "sha256:12892caad0ae49b9df48adc0354d4f26c75fa85802fede8e109777605d080b22",
+  "verdict": {
+    "releaseEligible": false,
+    "retiredBecauseImplementationWillChange": true,
+    "expectationsRemainImmutable": true,
+    "summary": "Typed SourceEvidence was exact. All eight evidence-absent fallback fixtures were non-exact, exposing narrow sentence templates, an internal syntax-versus-terminal-profile fork, and incomplete clause scoping. Eight oracle semantic targets also exceeded the authority contract and remain immutable as authored."
+  },
+  "firstRun": {
+    "deterministic": true,
+    "calibrationExactOutcomes": { "passed": 18, "total": 18 },
+    "holdoutSemanticFields": { "passed": 197, "total": 260 },
+    "holdoutJudgmentFields": { "passed": 130, "total": 160 },
+    "holdoutDecisionFields": { "passed": 31, "total": 40 },
+    "holdoutExactOutcomes": { "passed": 12, "total": 20 }
+  },
+  "typedEvidence": {
+    "fixtures": 12,
+    "semanticFields": { "passed": 156, "total": 156 },
+    "judgmentFields": { "passed": 96, "total": 96 },
+    "decisionFields": { "passed": 24, "total": 24 },
+    "exactOutcomes": { "passed": 12, "total": 12 },
+    "finding": "All 276 typed-evidence field assertions were exact. Typed facts remained authoritative over hostile prose, opaque capability identity was preserved, and all results used the canonical Observation and judgment path."
+  },
+  "structuralFallback": {
+    "fixtures": 8,
+    "semanticFields": { "passed": 41, "total": 104 },
+    "judgmentFields": { "passed": 34, "total": 64 },
+    "decisionFields": { "passed": 7, "total": 16 },
+    "exactOutcomes": { "passed": 0, "total": 8 },
+    "oracleSemanticTargetsRejected": 8,
+    "frozenValuesAlreadyCorrectForRejectedTargets": 7,
+    "genuineFieldDefects": 95,
+    "finding": "After rejecting seven raw mismatches whose frozen values were contract-correct, 56 semantic, 30 judgment, and nine decision defects remain. The eighth rejected target is bounded-source evidence strength: the oracle expected qualified and Core returned weak, while the contract-correct target is strong."
+  },
+  "fixtureAdjudication": [
+    {
+      "id": "holdout-v4-fallback-command-success",
+      "verdict": "all_deltas_stand",
+      "finding": "A complete zero-exit command record is a low successful outcome even under failed transport status."
+    },
+    {
+      "id": "holdout-v4-fallback-outcome-only-failure",
+      "verdict": "oracle_targets_partially_rejected",
+      "rejectedTargets": {
+        "evidenceStrength": { "oracle": "qualified", "correct": "strong" },
+        "provenanceAuthority": { "oracle": "inferred", "correct": "explicit" }
+      },
+      "finding": "A complete nonzero outcome with excluded diagnostic channels is not a runtime diagnostic and retains explicit failed-status authority."
+    },
+    {
+      "id": "holdout-v4-fallback-absent-evidence",
+      "verdict": "oracle_targets_partially_rejected",
+      "rejectedTargets": {
+        "provenanceAuthority": { "oracle": "inferred", "correct": "explicit" }
+      },
+      "finding": "Present-but-empty output channels establish absent evidence and explicit failed-status authority."
+    },
+    {
+      "id": "holdout-v4-fallback-terminal-contradiction",
+      "verdict": "oracle_targets_partially_rejected",
+      "rejectedTargets": {
+        "evidenceStrength": { "oracle": "qualified", "correct": "strong" },
+        "provenanceAuthority": { "oracle": "inferred", "correct": "explicit" }
+      },
+      "finding": "The runtime diagnostic correctly outranked pending-authorization prose, but the legacy terminal profile lost command subject and command-output origin."
+    },
+    {
+      "id": "holdout-v4-fallback-bounded-source",
+      "verdict": "oracle_targets_partially_rejected",
+      "rejectedTargets": {
+        "evidenceStrength": { "oracle": "qualified", "correct": "strong" },
+        "provenanceAuthority": { "oracle": "inferred", "correct": "explicit" }
+      },
+      "finding": "The measured partial source window must become a stable source-limit diagnostic. Core's explicit authority is correct; its weak strength and remaining semantic projection are not."
+    },
+    {
+      "id": "holdout-v4-fallback-document-quotation",
+      "verdict": "all_deltas_stand",
+      "finding": "The complete returned document is a payload; quotation and hypothetical language scope diagnostic-looking text to the document instead of the event."
+    },
+    {
+      "id": "holdout-v4-fallback-authorization",
+      "verdict": "all_deltas_stand",
+      "finding": "Required authorization, non-started execution, and absent result form a complete low control observation."
+    },
+    {
+      "id": "holdout-v4-fallback-indeterminate-failure",
+      "verdict": "oracle_targets_partially_rejected",
+      "rejectedTargets": {
+        "provenanceAuthority": { "oracle": "unknown", "correct": "explicit" }
+      },
+      "finding": "The derived indeterminate status observation is engine-owned while the explicit failed status remains its authority."
+    }
+  ],
+  "correctionPolicy": [
+    "Leave typed SourceEvidence lowering, normalization, judgment, and planning unchanged.",
+    "Compile evidence-absent event facts into the existing TaskFailureObservationSyntax instead of adding a preprocessor or evaluator.",
+    "Separate outcome-only, absent, partial, and unknown evidence loss from clause-scoped event facts.",
+    "Derive command, source, document, and control roles from event shape, never capability identity.",
+    "Make asserted terminal diagnostics outrank success, payload, and control while suppressing quoted, hypothetical, conditional, future, documentation, and reference clauses.",
+    "Converge complete structural syntax and the legacy terminal profile before authoring a fresh V5 oracle.",
+    "Do not edit or relabel the V4 oracle or first-run artifact."
+  ]
+}

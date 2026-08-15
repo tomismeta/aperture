@@ -16,16 +16,16 @@ test("task-failure judgment agreement stays behind the normalized observation bo
     "utf8",
   );
 
-  assert.match(source, /readTaskFailureObservationCoreFromEvent/);
+  assert.match(source, /projectTaskFailureObservationFromEvent/);
   assert.match(source, /normalizeTaskFailureObservationFromCore/);
-  assert.equal(source.match(/readTaskFailureObservationCoreFromEvent\(/g)?.length, 1);
+  assert.equal(source.match(/projectTaskFailureObservationFromEvent\(/g)?.length, 1);
   assert.equal(source.includes("type TaskFailureSemanticEvidence"), false);
   assert.equal(source.includes("failureEvidenceAgreesWithSemanticRead"), false);
   assert.equal(source.includes("readTaskFailureSemanticEvidence"), false);
   assert.equal(source.includes("draftObservation"), false);
   assert.equal(source.includes("type TaskFailureObservationCore"), false);
   assert.match(reader, /readObservationExpectedSemanticRead/);
-  assert.match(reader, /readTaskFailureObservationCoreFromEvent/);
+  assert.match(reader, /projectTaskFailureObservationFromEvent/);
   assert.match(reader, /ObservationSemantics/);
   assert.match(reader, /enrichTaskFailureObservation/);
   assert.match(reader, /function readTaskFailureObservationSemanticAgreement/);
@@ -44,7 +44,7 @@ test("task-failure judgment agreement stays behind the normalized observation bo
 test("task-failure semantic interpreter stays behind the observation-core boundary", () => {
   const source = readFileSync(new URL("../src/semantic-interpreter.ts", import.meta.url), "utf8");
 
-  assert.match(source, /readTaskFailureObservationCoreFromEvent/);
+  assert.match(source, /projectTaskFailureObservationFromEvent/);
   assert.match(source, /observationReadsAsStatusUpdate/);
   assert.match(source, /observation-semantic-read/);
   assert.equal(source.includes("readTaskFailureSemanticEvidence"), false);
@@ -69,12 +69,11 @@ test("observation semantics stays source-internal and out of package entrypoints
     "../src/index.ts",
     "../src/semantic.ts",
     "../src/evaluator.ts",
-    "../src/kernel.ts",
     "../src/trace.ts",
     "../src/internal-contract.ts",
   ]) {
     const source = readFileSync(new URL(entrypoint, import.meta.url), "utf8");
-    assert.equal(source.includes("NormalizedObservation"), false, entrypoint);
+    assert.equal(source.includes('from "./normalized-observation.js"'), false, entrypoint);
     assert.equal(source.includes("ObservationSemantics"), false, entrypoint);
     assert.equal(source.includes("observation-semantics"), false, entrypoint);
     assert.equal(source.includes("observation-semantic-read"), false, entrypoint);
@@ -84,6 +83,11 @@ test("observation semantics stays source-internal and out of package entrypoints
     assert.equal(source.includes("TaskFailureObservationGrammarInput"), false, entrypoint);
     assert.equal(source.includes("TaskFailurePayloadObservationGrammarInput"), false, entrypoint);
   }
+
+  const kernel = readFileSync(new URL("../src/kernel.ts", import.meta.url), "utf8");
+  assert.match(kernel, /export type \{ Observation \}/);
+  assert.match(kernel, /export type \{ ObservationJudgment \}/);
+  assert.equal(kernel.includes("ObservationSemantics"), false);
 });
 
 test("public package surface does not expose raw semantic evidence contracts", () => {
@@ -129,8 +133,8 @@ test("kernel entrypoint exposes one result shape without product-specific vocabu
   const source = readFileSync(new URL("../src/kernel.ts", import.meta.url), "utf8");
 
   assert.match(source, /evaluateApertureKernelEvent/);
-  assert.match(source, /projectObservationJudgmentContract/);
-  assert.match(source, /observationJudgment: ApertureKernelObservationJudgment \| null/);
+  assert.match(source, /judgeObservation/);
+  assert.match(source, /observationJudgment: ObservationJudgment \| null/);
   assert.match(source, /APERTURE_KERNEL_EXPLANATION_SCHEMA_VERSION/);
   assert.equal(source.includes("export type ApertureKernelEvent = SourceEvent"), false);
 });
@@ -142,7 +146,7 @@ test("judgment and policy consume projected observation contracts, not raw obser
   ]) {
     const source = readFileSync(new URL(consumer, import.meta.url), "utf8");
 
-    assert.match(source, /readCandidateObservationJudgmentContract/);
+    assert.match(source, /readCandidateObservationJudgment/);
     assert.equal(source.includes("readCandidateObservation("), false, consumer);
     for (const rawObservationField of [
       "observation.kind",
@@ -169,8 +173,8 @@ test("judgment and policy consume projected observation contracts, not raw obser
     new URL("../src/judgment-observation-contract.ts", import.meta.url),
     "utf8",
   );
-  assert.match(projection, /projectObservationJudgmentContract/);
-  assert.match(projection, /NormalizedObservation/);
+  assert.match(projection, /judgeObservation/);
+  assert.match(projection, /Observation/);
   assert.match(projection, /observation\.kind/);
 });
 
@@ -184,8 +188,9 @@ test("observation semantics owns vocabulary upstream of normalized observations"
     "utf8",
   );
 
-  assert.equal(semantics.includes("normalized-observation"), false);
-  assert.match(normalized, /from "\.\/observation-semantics\.js"/);
+  assert.match(semantics, /from "\.\/judgment-input-types\.js"/);
+  assert.equal(normalized.includes("observation-semantics"), false);
+  assert.match(normalized, /export type Observation/);
 });
 
 test("trace, why, and policy surfaces consume projected observation contracts", () => {
@@ -204,7 +209,7 @@ test("trace, why, and policy surfaces consume projected observation contracts", 
 
   assert.match(traceCommon, /export type TraceObservationSummary/);
   assert.match(traceCommon, /observation\?: TraceObservationSummary/);
-  assert.equal(traceCommon.includes("NormalizedObservation"), false);
+  assert.equal(traceCommon.includes('from "./normalized-observation.js"'), false);
   assert.equal(traceCommon.includes("ObservationSemantics"), false);
   assert.equal(traceCommon.includes("evidenceCertainty"), false);
 
@@ -215,19 +220,19 @@ test("trace, why, and policy surfaces consume projected observation contracts", 
   assert.match(whyRenderer, /semantic\.observation/);
   assert.match(whyRenderer, /function renderObservationSummary/);
 
-  assert.match(judgmentInput, /projectObservationJudgmentContract/);
-  assert.match(judgmentInput, /readCandidateObservationJudgmentContract/);
+  assert.match(judgmentInput, /judgeObservation/);
+  assert.match(judgmentInput, /readCandidateObservationJudgment/);
   assert.match(judgmentInput, /recoveryPosture/);
   assert.match(judgmentInput, /baselineConsequence/);
   assert.equal(judgmentInput.includes("input.observation.evidenceLoss"), false);
-  assert.match(peripheralPolicy, /readCandidateObservationJudgmentContract/);
+  assert.match(peripheralPolicy, /readCandidateObservationJudgment/);
   assert.equal(peripheralPolicy.includes("hasStableStatusObservationSemantics"), false);
   assert.equal(peripheralPolicy.includes("readCandidateObservation,"), false);
   assert.equal(peripheralPolicy.includes("readCandidateObservation(candidate)"), false);
   assert.equal(peripheralPolicy.includes("observation.semanticAgreement"), false);
   assert.equal(peripheralPolicy.includes("observation.evidenceStrength"), false);
 
-  assert.match(uncertaintyPolicy, /readCandidateObservationJudgmentContract/);
+  assert.match(uncertaintyPolicy, /readCandidateObservationJudgment/);
   assert.equal(uncertaintyPolicy.includes("hasVisibleDiagnosticFailureStatusSemantics"), false);
   assert.equal(uncertaintyPolicy.includes('observation.kind === "diagnostic"'), false);
   assert.equal(uncertaintyPolicy.includes('observation.diagnosticClass === "runtime"'), false);
@@ -269,10 +274,6 @@ test("task-failure observation grammar stays document-first and source-internal"
     new URL("../src/task-failure-observation-grammar.ts", import.meta.url),
     "utf8",
   );
-  const payloadGrammar = readFileSync(
-    new URL("../src/task-failure-payload-observation-grammar.ts", import.meta.url),
-    "utf8",
-  );
   const core = readFileSync(
     new URL("../src/task-failure-observation-core.ts", import.meta.url),
     "utf8",
@@ -289,14 +290,13 @@ test("task-failure observation grammar stays document-first and source-internal"
 
   assert.match(grammar, /readTaskFailureObservationSyntax/);
   assert.match(grammar, /readTaskFailurePayloadObservationSyntax/);
-  assert.match(grammar, /ObservationSemantics/);
-  assert.match(payloadGrammar, /readTaskFailurePayloadObservationSyntax/);
-  assert.match(payloadGrammar, /ObservationSemantics/);
-  assert.match(core, /TASK_FAILURE_OBSERVATION_EXTRACTORS/);
-  assert.match(core, /satisfies Record<TaskFailureEvidenceKind, ObservationExtractor>/);
-  assert.match(core, /extractTaskFailureObservationCore/);
-  assert.match(core, /observationExtractorId/);
-  assert.match(core, /observationSyntax/);
+  assert.match(grammar, /createTaskFailureObservationSyntax/);
+  assert.match(core, /ObservationSemantics/);
+  assert.match(core, /createTaskFailureObservationSyntax/);
+  assert.match(core, /TASK_FAILURE_OBSERVATION_SYNTAX/);
+  assert.match(core, /satisfies Record<TaskFailureEvidenceKind, ObservationSyntaxCompiler>/);
+  assert.match(core, /projectTaskFailureObservationCore/);
+  assert.equal(core.includes("observationExtractorId"), false);
   assert.equal(evidence.includes("task-failure-observation-core"), false);
   assert.equal(evidence.includes("observationExtractorId"), false);
   assert.equal(evidence.includes("observationSemantics"), false);
@@ -304,22 +304,21 @@ test("task-failure observation grammar stays document-first and source-internal"
   assert.equal(evidence.includes("task-failure-observation-normalizer"), false);
   assert.equal(evidence.includes("observational-status-conflict"), false);
   assert.equal(evidence.includes("observation-semantic-read"), false);
+  const projection = core.slice(
+    core.indexOf("export function projectTaskFailureObservationCore"),
+    core.indexOf("function observationFromSyntax"),
+  );
   for (const rawEvidenceBranch of [
     "evidence.kind",
     "evidence.failureDetail",
     "evidence.readsAsObservation",
     "evidence.consequenceBaseline",
   ]) {
-    assert.equal(core.includes(rawEvidenceBranch), false, rawEvidenceBranch);
+    assert.equal(projection.includes(rawEvidenceBranch), false, rawEvidenceBranch);
   }
   assert.equal(grammar.includes("export type TaskFailureObservation ="), false);
   assert.equal(grammar.includes("export type TaskFailureObservationGrammarInput"), false);
-  assert.equal(
-    payloadGrammar.includes("export type TaskFailurePayloadObservationGrammarInput"),
-    false,
-  );
   assert.equal(/export\s+type\s+\w*(?:Match|Signals)\b/.test(grammar), false);
-  assert.equal(/export\s+type\s+\w*(?:Match|Signals)\b/.test(payloadGrammar), false);
   assert.equal(payloadShapes.includes("TaskFailureStructuredOutputEnvelope"), false);
   assert.equal(payloadShapes.includes("semantic-tool-family"), false);
   assert.equal(payloadShapes.includes("ObservationSemantics"), false);
@@ -339,7 +338,6 @@ test("task-failure observation grammar stays document-first and source-internal"
     "./index.js",
   ]) {
     assert.equal(grammar.includes(forbidden), false, forbidden);
-    assert.equal(payloadGrammar.includes(forbidden), false, forbidden);
   }
 
   for (const removedPayloadField of [
@@ -366,12 +364,11 @@ test("task-failure observation grammar stays document-first and source-internal"
   ]) {
     const source = readFileSync(new URL(leafModule, import.meta.url), "utf8");
     assert.equal(source.includes("task-failure-observation-grammar"), false, leafModule);
-    assert.equal(source.includes("task-failure-payload-observation-grammar"), false, leafModule);
     assert.equal(source.includes("ObservationSemantics"), false, leafModule);
   }
 });
 
-test("task-failure terminal profile owns terminal signal aggregation", () => {
+test("task-failure terminal profile owns outcome signal aggregation", () => {
   const evidence = readFileSync(new URL("../src/semantic-evidence.ts", import.meta.url), "utf8");
   const failureDetail = readFileSync(
     new URL("../src/semantic-failure-detail.ts", import.meta.url),

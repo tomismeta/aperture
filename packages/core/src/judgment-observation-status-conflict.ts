@@ -1,7 +1,6 @@
 import { resolveObservationStatusConflictKindFromShape } from "./judgment-observation-contract.js";
 import type { ObservationalStatusConflictEvidence } from "./observational-status-conflict.js";
 import type { ObservationSemantics } from "./observation-semantics.js";
-import { TRUNCATED_SOURCE_EVIDENCE_FACTOR } from "./semantic-source-quality.js";
 import type { SemanticInterpretation } from "./semantic-types.js";
 
 type ObservationStatusConflictEvent = {
@@ -22,7 +21,7 @@ export function buildObservationStatusConflictEvidenceFromCore(input: {
     core === null ||
     input.interpretation.intentFrame !== "status_update" ||
     input.interpretation.activityClass !== "status_update" ||
-    core.ownership.toolFamily !== input.interpretation.toolFamily ||
+    core.ownership.capabilityFamily !== input.interpretation.toolFamily ||
     input.interpretation.consequence !== core.consequenceBaseline ||
     !hasStableObservationStatusConflictConfidence(input.interpretation) ||
     input.abstained
@@ -35,8 +34,8 @@ export function buildObservationStatusConflictEvidenceFromCore(input: {
     ? null
     : {
         kind,
-        ...(core.ownership.toolFamily !== undefined
-          ? { toolFamily: core.ownership.toolFamily }
+        ...(core.ownership.capabilityFamily !== undefined
+          ? { toolFamily: core.ownership.capabilityFamily }
           : {}),
         baselineConsequence: core.consequenceBaseline,
       };
@@ -45,9 +44,5 @@ export function buildObservationStatusConflictEvidenceFromCore(input: {
 function hasStableObservationStatusConflictConfidence(
   interpretation: SemanticInterpretation,
 ): boolean {
-  return (
-    interpretation.confidence === "high" ||
-    (interpretation.confidence === "low" &&
-      interpretation.factors.includes(TRUNCATED_SOURCE_EVIDENCE_FACTOR))
-  );
+  return interpretation.confidence === "high";
 }

@@ -1,4 +1,4 @@
-import type { ApertureEvent, HumanInputRequest } from "./events.js";
+import type { ApertureEvent, HumanInputRequest, SourceEvidence } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
 import type { AttentionResponse } from "./frame-response.js";
 import type { AttentionSignal } from "./interaction-signal.js";
@@ -18,8 +18,14 @@ export function assertValidEvent(event: ApertureEvent): void {
 
   switch (event.type) {
     case "task.started":
+      assertNonEmpty("event.title", event.title);
+      break;
     case "task.updated":
       assertNonEmpty("event.title", event.title);
+      if (event.evidence !== undefined) {
+        if (event.status !== "failed") throw invalidSourceEvidence("event.evidence");
+        assertSourceEvidence("event.evidence", event.evidence);
+      }
       break;
     case "human.input.requested":
       assertNonEmpty("event.interactionId", event.interactionId);
@@ -53,6 +59,10 @@ export function assertValidSourceEvent(event: SourceEvent): void {
     case "task.updated":
       assertNonEmpty("event.title", event.title);
       assertTaskStatus("event.status", event.status);
+      if (event.evidence !== undefined) {
+        if (event.status !== "failed") throw invalidSourceEvidence("event.evidence");
+        assertSourceEvidence("event.evidence", event.evidence);
+      }
       return;
     case "task.completed":
       return;
@@ -76,27 +86,52 @@ export function assertValidSourceEvent(event: SourceEvent): void {
 }
 
 export function assertValidFrameResponse(response: AttentionResponse): void {
+  if (!isRecord(response)) {
+    throw invalidFrameResponse("response must be an object");
+  }
+  assertExactResponseKeys("response", response, ["taskId", "interactionId", "response"]);
   assertNonEmpty("response.taskId", response.taskId);
   assertNonEmpty("response.interactionId", response.interactionId);
 
+  if (!isRecord(response.response) || typeof response.response.kind !== "string") {
+    throw invalidFrameResponse("response.response must have a supported kind");
+  }
+
   switch (response.response.kind) {
+    case "dismissed":
     case "acknowledged":
+      assertExactResponseKeys("response.response", response.response, ["kind"]);
+      return;
     case "approved":
     case "rejected":
-    case "dismissed":
+      assertOneOfExactResponseKeys("response.response", response.response, [
+        ["kind"],
+        ["kind", "reason"],
+      ]);
+      if (response.response.reason !== undefined && typeof response.response.reason !== "string") {
+        throw new ApertureCoreValidationError("response.reason must be a string", {
+          field: "response.reason",
+        });
+      }
       return;
     case "option_selected":
-      if (response.response.optionIds.length === 0) {
+      assertExactResponseKeys("response.response", response.response, ["kind", "optionIds"]);
+      if (!Array.isArray(response.response.optionIds) || response.response.optionIds.length === 0) {
         throw new ApertureCoreValidationError(
           "response.optionIds must contain at least one option id",
           { field: "response.optionIds" },
         );
       }
+      for (const optionId of response.response.optionIds) {
+        assertNonEmpty("response.optionIds[]", optionId);
+      }
       return;
     case "text_submitted":
+      assertExactResponseKeys("response.response", response.response, ["kind", "text"]);
       assertNonEmpty("response.text", response.response.text);
       return;
     case "form_submitted":
+      assertExactResponseKeys("response.response", response.response, ["kind", "values"]);
       if (
         response.response.values === null ||
         typeof response.response.values !== "object" ||
@@ -107,6 +142,8 @@ export function assertValidFrameResponse(response: AttentionResponse): void {
         });
       }
       return;
+    default:
+      throw invalidFrameResponse("response.response must have a supported kind");
   }
 }
 
@@ -120,12 +157,40 @@ export function assertValidSignal(signal: AttentionSignal): void {
   }
 }
 
-function assertNonEmpty(label: string, value: string): void {
+function assertNonEmpty(label: string, value: unknown): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new ApertureCoreValidationError(`${label} must be a non-empty string`, {
       field: label,
     });
   }
+}
+
+function assertExactResponseKeys(
+  label: string,
+  value: Record<string, unknown>,
+  keys: string[],
+): void {
+  if (Object.keys(value).sort().join("\0") !== [...keys].sort().join("\0")) {
+    throw invalidFrameResponse(`${label} contains undeclared fields`);
+  }
+}
+
+function assertOneOfExactResponseKeys(
+  label: string,
+  value: Record<string, unknown>,
+  keySets: string[][],
+): void {
+  const actual = Object.keys(value).sort().join("\0");
+  if (!keySets.some((keys) => keys.slice().sort().join("\0") === actual)) {
+    throw invalidFrameResponse(`${label} contains undeclared fields`);
+  }
+}
+
+function invalidFrameResponse(message: string): ApertureCoreValidationError {
+  return new ApertureCoreValidationError(message, {
+    field: "response",
+    code: "invalid_response_variant",
+  });
 }
 
 function assertObject(label: string, value: unknown): void {
@@ -151,6 +216,109 @@ function assertTaskStatus(label: string, value: string): void {
       field: label,
     });
   }
+}
+
+function assertSourceEvidence(label: string, value: SourceEvidence): void {
+  if (!isRecord(value) || typeof value.kind !== "string") {
+    throw invalidSourceEvidence(label);
+  }
+
+  switch (value.kind) {
+    case "outcome":
+      assertExactKeys(label, value, ["kind", "outcome", "subject", "channel", "complete"]);
+      if (
+        !["success", "failure"].includes(value.outcome) ||
+        !isSourceEvidenceSubject(value.subject) ||
+        !isSourceEvidenceChannel(value.channel) ||
+        value.complete !== true
+      ) {
+        throw invalidSourceEvidence(label);
+      }
+      return;
+    case "diagnostic":
+      if (value.diagnostic === "source_limit") {
+        assertExactKeys(label, value, ["kind", "diagnostic", "channel", "window"]);
+        if (value.channel !== "read") throw invalidSourceEvidence(label);
+        assertSourceEvidenceWindow(`${label}.window`, value.window);
+        return;
+      }
+      assertExactKeys(label, value, ["kind", "diagnostic", "subject", "channel", "complete"]);
+      if (
+        !["runtime", "expected"].includes(value.diagnostic) ||
+        !isSourceEvidenceSubject(value.subject) ||
+        !isSourceEvidenceChannel(value.channel) ||
+        value.complete !== true
+      ) {
+        throw invalidSourceEvidence(label);
+      }
+      return;
+    case "payload":
+      assertExactKeys(label, value, ["kind", "subject", "channel", "complete"]);
+      if (
+        !["document", "search", "source", "tool"].includes(value.subject) ||
+        !isSourceEvidenceChannel(value.channel) ||
+        value.complete !== true
+      ) {
+        throw invalidSourceEvidence(label);
+      }
+      return;
+    case "authorization":
+      assertExactKeys(label, value, ["kind", "state", "execution", "result"]);
+      if (
+        value.state !== "required" ||
+        value.execution !== "not_started" ||
+        value.result !== "absent"
+      ) {
+        throw invalidSourceEvidence(label);
+      }
+      return;
+    default:
+      throw invalidSourceEvidence(label);
+  }
+}
+
+function assertSourceEvidenceWindow(
+  label: string,
+  value: Extract<SourceEvidence, { diagnostic: "source_limit" }>["window"],
+): void {
+  if (!isRecord(value)) throw invalidSourceEvidence(label);
+  assertExactKeys(label, value, ["unit", "offset", "length", "total"]);
+  if (
+    !["bytes", "lines"].includes(value.unit) ||
+    !Number.isSafeInteger(value.offset) ||
+    value.offset < 0 ||
+    !Number.isSafeInteger(value.length) ||
+    value.length <= 0 ||
+    !Number.isSafeInteger(value.total) ||
+    value.total <= 0 ||
+    value.offset + value.length >= value.total
+  ) {
+    throw invalidSourceEvidence(label);
+  }
+}
+
+function assertExactKeys(label: string, value: Record<string, unknown>, keys: string[]): void {
+  if (Object.keys(value).sort().join("\0") !== [...keys].sort().join("\0")) {
+    throw invalidSourceEvidence(label);
+  }
+}
+
+function isSourceEvidenceSubject(value: unknown): boolean {
+  return ["command", "document", "search", "source", "tool"].includes(String(value));
+}
+
+function isSourceEvidenceChannel(value: unknown): boolean {
+  return ["command", "read", "search", "structured", "transcript"].includes(String(value));
+}
+
+function invalidSourceEvidence(label: string): ApertureCoreValidationError {
+  return new ApertureCoreValidationError(`${label} must be valid bounded source evidence`, {
+    field: label,
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function assertConsequenceLevel(label: string, value: string): void {

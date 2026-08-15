@@ -20,13 +20,13 @@ export const SEMANTIC_KERNEL_SURFACE_PROFILE_ID = "semantic-kernel-surface" as c
 export const SEMANTIC_KERNEL_SURFACE_PROFILE_VERSION = 1 as const;
 
 export const SEMANTIC_KERNEL_SURFACE_THRESHOLDS = {
-  maximumModules: 108,
-  maximumTotalLines: 9590,
-  maximumMatcherSites: 586,
+  maximumModules: 106,
+  maximumTotalLines: 9200,
+  maximumMatcherSites: 594,
   maximumPhraseLiterals: 175,
-  maximumExportedDetectors: 179,
+  maximumExportedDetectors: 171,
   maximumFamilyModules: 29,
-  maximumNormalizedObservationDirectConsumers: 6,
+  maximumNormalizedObservationDirectConsumers: 5,
 } as const;
 
 export const OBSERVATION_PRIMITIVE_FILES = [
@@ -34,7 +34,6 @@ export const OBSERVATION_PRIMITIVE_FILES = [
   "packages/core/src/observation-semantic-read.ts",
   "packages/core/src/normalized-observation.ts",
   "packages/core/src/task-failure-observation-grammar.ts",
-  "packages/core/src/task-failure-payload-observation-grammar.ts",
   "packages/core/src/task-failure-observation-core.ts",
   "packages/core/src/task-failure-observation-normalizer.ts",
   "packages/core/src/task-failure-observation-reader.ts",
@@ -42,13 +41,12 @@ export const OBSERVATION_PRIMITIVE_FILES = [
 
 export const TASK_FAILURE_PARSING_FILES = [
   "packages/core/src/task-failure-observation-grammar.ts",
-  "packages/core/src/task-failure-payload-observation-grammar.ts",
   "packages/core/src/semantic-task-failure-signals.ts",
   "packages/core/src/semantic-evidence.ts",
   "packages/core/src/semantic-failure-detail.ts",
   "packages/core/src/semantic-edit-output-shapes.ts",
-  "packages/core/src/semantic-tool-use-rejection-shapes.ts",
-  "packages/core/src/semantic-task-failure-structured-output.ts",
+  "packages/core/src/semantic-task-failure-assertion-scope.ts",
+  "packages/core/src/semantic-task-failure-event-facts.ts",
 ] as const;
 
 export type SemanticKernelSurfaceFamily =
@@ -88,6 +86,13 @@ export type SemanticKernelSurfaceReport = {
     normalizedObservationDirectConsumers: string[];
   };
   families: SemanticKernelSurfaceFamilySummary[];
+};
+
+export type SemanticKernelSurfaceProtectedBaseApproval = {
+  baseRef: string;
+  baselineSurfaceDigest: string;
+  acceptedFailures: string[];
+  rationale: string;
 };
 
 export type SemanticKernelSurfaceMetrics = {
@@ -194,20 +199,19 @@ export const SEMANTIC_KERNEL_SURFACE_MANIFEST = [
       "packages/core/src/task-failure-observation-grammar.ts",
       "packages/core/src/task-failure-observation-normalizer.ts",
       "packages/core/src/task-failure-observation-reader.ts",
-      "packages/core/src/task-failure-payload-observation-grammar.ts",
     ],
   },
   {
     family: "task_failure_grammar",
     files: [
-      "packages/core/src/semantic-bare-nonzero-terminal-exit.ts",
       "packages/core/src/semantic-edit-output-shapes.ts",
       "packages/core/src/semantic-evidence.ts",
       "packages/core/src/semantic-failure-detail.ts",
+      "packages/core/src/semantic-task-failure-assertion-scope.ts",
+      "packages/core/src/semantic-task-failure-event-facts.ts",
       "packages/core/src/semantic-task-failure-signals.ts",
-      "packages/core/src/semantic-task-failure-structured-output.ts",
       "packages/core/src/semantic-terminal-evidence.ts",
-      "packages/core/src/semantic-tool-use-rejection-shapes.ts",
+      "packages/core/src/semantic-task-failure-structural-facts.ts",
     ],
   },
   {
@@ -271,7 +275,6 @@ export const SEMANTIC_KERNEL_SURFACE_MANIFEST = [
       "packages/core/src/semantic-path-qualified-failure-diagnostic-shapes.ts",
       "packages/core/src/semantic-python-diagnostic-shapes.ts",
       "packages/core/src/semantic-runtime-error-diagnostic-shapes.ts",
-      "packages/core/src/semantic-source-window-limit-shapes.ts",
       "packages/core/src/semantic-tool-output-diagnostic-shapes.ts",
     ],
   },
@@ -438,12 +441,7 @@ export async function collectCoreSemanticFiles(root = repoRoot): Promise<string[
 
 export async function collectSemanticMatcherGovernedFiles(root = repoRoot): Promise<string[]> {
   const files = new Set(await collectCoreSemanticFiles(root));
-  for (const file of [
-    "packages/core/src/task-failure-observation-grammar.ts",
-    "packages/core/src/task-failure-payload-observation-grammar.ts",
-  ]) {
-    files.add(resolve(root, file));
-  }
+  files.add(resolve(root, "packages/core/src/task-failure-observation-grammar.ts"));
   return [...files].sort();
 }
 
@@ -596,9 +594,26 @@ export function buildSemanticKernelSurfaceComparison(
   const baselineConcreteCrossFamilyImportEdges = new Set(
     baseline.imports.crossFamilyImportEdges.map(readConcreteCrossFamilyEdgeKey),
   );
-  for (const key of candidate.imports.crossFamilyImportEdges.map(readConcreteCrossFamilyEdgeKey)) {
+  const candidateSurfaceFiles = new Set(
+    candidate.families.flatMap((family) => family.files.map((file) => file.path)),
+  );
+  const isModuleConsolidation = candidate.summary.modules < baseline.summary.modules;
+  const consumedImportTransfers = new Set<string>();
+  for (const edge of candidate.imports.crossFamilyImportEdges) {
+    const key = readConcreteCrossFamilyEdgeKey(edge);
     if (!baselineConcreteCrossFamilyImportEdges.has(key)) {
-      failures.push(`surface_comparison:new_cross_family_import_edge:${key}`);
+      const transferKey = readConsolidatedConcreteImportTransfer({
+        baseline,
+        candidate,
+        candidateSurfaceFiles,
+        edge,
+        isModuleConsolidation,
+      });
+      if (transferKey === null || consumedImportTransfers.has(transferKey)) {
+        failures.push(`surface_comparison:new_cross_family_import_edge:${key}`);
+      } else {
+        consumedImportTransfers.add(transferKey);
+      }
     }
   }
   if (
@@ -619,11 +634,24 @@ export function buildSemanticKernelSurfaceComparison(
   const baselineDetectorConsumers = new Set(
     baseline.imports.detectorConsumersOutsideFamily.flatMap(readDetectorConsumerKeys),
   );
-  for (const key of candidate.imports.detectorConsumersOutsideFamily.flatMap(
-    readDetectorConsumerKeys,
-  )) {
-    if (!baselineDetectorConsumers.has(key)) {
-      failures.push(`surface_comparison:new_detector_consumer:${key}`);
+  const consumedDetectorTransfers = new Set<string>();
+  for (const consumer of candidate.imports.detectorConsumersOutsideFamily) {
+    for (const key of readDetectorConsumerKeys(consumer)) {
+      if (!baselineDetectorConsumers.has(key)) {
+        const transferKey = readConsolidatedDetectorConsumerTransfer({
+          baseline,
+          candidate,
+          candidateSurfaceFiles,
+          consumer,
+          key,
+          isModuleConsolidation,
+        });
+        if (transferKey === null || consumedDetectorTransfers.has(transferKey)) {
+          failures.push(`surface_comparison:new_detector_consumer:${key}`);
+        } else {
+          consumedDetectorTransfers.add(transferKey);
+        }
+      }
     }
   }
   if (
@@ -683,6 +711,119 @@ export function buildSemanticKernelSurfaceComparison(
   }
 
   return { passed: failures.length === 0, failures };
+}
+
+export function isSemanticKernelSurfaceProtectedBaseGrowthApproved(input: {
+  approval: SemanticKernelSurfaceProtectedBaseApproval | undefined;
+  baseRef: string;
+  protectedBaseline: SemanticKernelSurfaceReport | null;
+  comparison: { passed: boolean; failures: string[] };
+}): boolean {
+  const approval = input.approval;
+  return (
+    !input.comparison.passed &&
+    approval !== undefined &&
+    approval.baseRef === input.baseRef &&
+    input.protectedBaseline !== null &&
+    approval.baselineSurfaceDigest === input.protectedBaseline.profile.surfaceDigest &&
+    approval.rationale.length > 0 &&
+    sameStringList([...approval.acceptedFailures].sort(), [...input.comparison.failures].sort())
+  );
+}
+
+function readConsolidatedConcreteImportTransfer(input: {
+  baseline: SemanticKernelSurfaceReport;
+  candidate: SemanticKernelSurfaceReport;
+  candidateSurfaceFiles: ReadonlySet<string>;
+  edge: SemanticKernelSurfaceConcreteCrossFamilyEdge;
+  isModuleConsolidation: boolean;
+}): string | null {
+  if (
+    !input.isModuleConsolidation ||
+    input.candidate.imports.crossFamilyImportEdges.length >
+      input.baseline.imports.crossFamilyImportEdges.length ||
+    !hasSurfaceFile(input.baseline, input.edge.consumer)
+  ) {
+    return null;
+  }
+  const candidateNames = readSurfaceDependencyNames(
+    input.candidate,
+    input.edge.consumer,
+    input.edge.producer,
+  );
+  const matches = input.baseline.imports.crossFamilyImportEdges.filter(
+    (baselineEdge) =>
+      !input.candidateSurfaceFiles.has(baselineEdge.consumer) &&
+      baselineEdge.consumerFamily === input.edge.consumerFamily &&
+      baselineEdge.producer === input.edge.producer &&
+      baselineEdge.producerFamily === input.edge.producerFamily &&
+      sameStringList(
+        readSurfaceDependencyNames(input.baseline, baselineEdge.consumer, baselineEdge.producer),
+        candidateNames,
+      ),
+  );
+  return matches.length === 1 ? readConcreteCrossFamilyEdgeKey(matches[0]!) : null;
+}
+
+function readConsolidatedDetectorConsumerTransfer(input: {
+  baseline: SemanticKernelSurfaceReport;
+  candidate: SemanticKernelSurfaceReport;
+  candidateSurfaceFiles: ReadonlySet<string>;
+  consumer: SemanticKernelSurfaceDetectorConsumer;
+  key: string;
+  isModuleConsolidation: boolean;
+}): string | null {
+  if (
+    !input.isModuleConsolidation ||
+    input.candidate.imports.detectorConsumersOutsideFamily.length >
+      input.baseline.imports.detectorConsumersOutsideFamily.length ||
+    !hasSurfaceFile(input.baseline, input.consumer.consumer)
+  ) {
+    return null;
+  }
+  const name = input.consumer.names.find((candidateName) =>
+    input.key.endsWith(`:${candidateName}`),
+  );
+  if (name === undefined) return null;
+  const matches = input.baseline.imports.detectorConsumersOutsideFamily.filter(
+    (baselineConsumer) =>
+      !input.candidateSurfaceFiles.has(baselineConsumer.consumer) &&
+      baselineConsumer.consumerFamily === input.consumer.consumerFamily &&
+      baselineConsumer.producer === input.consumer.producer &&
+      baselineConsumer.producerFamily === input.consumer.producerFamily &&
+      baselineConsumer.names.includes(name),
+  );
+  return matches.length === 1
+    ? (readDetectorConsumerKeys(matches[0]!).find((key) => key.endsWith(`:${name}`)) ?? null)
+    : null;
+}
+
+function hasSurfaceFile(report: SemanticKernelSurfaceReport, path: string): boolean {
+  return report.families.some((family) => family.files.some((file) => file.path === path));
+}
+
+function readSurfaceDependencyNames(
+  report: SemanticKernelSurfaceReport,
+  consumer: string,
+  producer: string,
+): string[] {
+  const file = report.families
+    .flatMap((family) => family.files)
+    .find((candidate) => candidate.path === consumer);
+  if (file === undefined) return [];
+  const names = [
+    ...(file.namedImports.find((dependency) => dependency.path === producer)?.names ?? []),
+    ...(file.namedExports.find((dependency) => dependency.path === producer)?.names ?? []),
+  ];
+  return [...new Set(names)].sort(compareKernelCanonicalKey);
+}
+
+function sameStringList(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length > 0 &&
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }
 
 export async function readProtectedSemanticKernelSurfaceReport(
@@ -1158,8 +1299,7 @@ function isSemanticKernelSurfacePath(path: string): boolean {
     /^observation.*\.ts$/.test(basename) ||
     /^observational.*\.ts$/.test(basename) ||
     basename === "normalized-observation.ts" ||
-    /^task-failure-observation.*\.ts$/.test(basename) ||
-    basename === "task-failure-payload-observation-grammar.ts"
+    /^task-failure-observation.*\.ts$/.test(basename)
   );
 }
 

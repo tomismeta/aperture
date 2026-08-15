@@ -12,11 +12,11 @@ import {
   readSemanticEvidenceStrength,
   resolvePeripheralResolutionFloor,
 } from "../src/judgment-input.js";
-import { projectObservationJudgmentContract } from "../src/judgment-observation-contract.js";
+import { judgeObservation } from "../src/judgment-observation-contract.js";
 
 const timestamp = "2026-04-05T18:30:00.000Z";
-const rejectedToolUseMessage =
-  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+const structuralAuthorizationMessage =
+  "Authorization was declined before invocation. No tool call occurred and no result exists.";
 const successfulTestObservationTranscript =
   "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
 const abbreviatedFileViewObservationTranscript =
@@ -143,14 +143,14 @@ test("judgment input exposes outcome-only failed status as named semantic eviden
     kind: "outcome",
     polarity: "failure",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "exec_command" },
+    ownership: { owner: "tool", capabilityFamily: "exec_command" },
     evidenceStrength: "strong",
     subject: "tool",
     evidenceLoss: "none",
     provenance: { origin: "semantic_evidence", authority: "explicit" },
     consequenceBaseline: "medium",
   });
-  assert.deepEqual(input.observation && projectObservationJudgmentContract(input.observation), {
+  assert.deepEqual(input.observation && judgeObservation(input.observation), {
     statusEvidence: "limited_failure",
     statusConflictKind: null,
     recoveryPosture: "none",
@@ -213,7 +213,7 @@ test("judgment input treats empty failed payloads as weak limited failure eviden
     kind: "outcome",
     polarity: "failure",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "edit" },
+    ownership: { owner: "tool", capabilityFamily: "edit" },
     evidenceStrength: "weak",
     subject: "tool",
     evidenceLoss: "absent",
@@ -267,7 +267,7 @@ test("high-consequence empty failed payloads do not become limited failures", ()
   assert.equal(hasLimitedFailureStatusJudgmentInput(input), false);
 });
 
-test("judgment input keeps unclassified failure observations stable when semantic failure agrees", () => {
+test("judgment input keeps unclassified failure observations uncertain", () => {
   const base = {
     id: "evt:judgment-input:unclassified-failure",
     taskId: "task:judgment-input:unclassified-failure",
@@ -320,10 +320,10 @@ test("judgment input keeps unclassified failure observations stable when semanti
   assert.equal(input.observation?.polarity, "failure");
   assert.equal(input.observation?.evidenceLoss, "unknown");
   assert.equal(input.observation?.recoveryHint, "inspect_original_evidence");
-  assert.equal(input.observation?.semanticAgreement, "stable");
+  assert.equal(input.observation?.semanticAgreement, "uncertain");
   assert.equal(input.observation?.consequenceBaseline, "high");
   assert.equal(mismatchedInput.observation?.semanticAgreement, "uncertain");
-  assert.equal(overriddenInput.observation?.semanticAgreement, "overridden");
+  assert.equal(overriddenInput.observation?.semanticAgreement, "uncertain");
 });
 
 test("judgment input treats read source-window limits as strong limited failures", () => {
@@ -376,13 +376,13 @@ test("judgment input treats read source-window limits as strong limited failures
     kind: "diagnostic",
     polarity: "failure",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "read" },
+    ownership: { owner: "tool", capabilityFamily: "read" },
     evidenceStrength: "strong",
     subject: "source",
     evidenceLoss: "partial",
     diagnosticClass: "source_limit",
     recoveryHint: "narrow_evidence_scope",
-    provenance: { origin: "semantic_evidence", authority: "explicit" },
+    provenance: { origin: "read_output", authority: "explicit" },
     consequenceBaseline: "medium",
   });
   assert.equal(input.semanticEvidence?.confidence, "high");
@@ -460,7 +460,7 @@ test("judgment input keeps diagnostic and low-confidence failures out of outcome
   assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(diagnosticInput), false);
   assert.equal(Object.hasOwn(truncatedInput, "failureEvidence"), false);
   assert.equal(truncatedInput.observation?.kind, "outcome");
-  assert.equal(truncatedInput.observation?.semanticAgreement, "uncertain");
+  assert.equal(truncatedInput.observation?.semanticAgreement, "overridden");
   assert.equal(truncatedInput.observation?.evidenceStrength, "weak");
   assert.equal(hasOutcomeOnlyFailureStatusJudgmentInput(truncatedInput), false);
 });
@@ -517,7 +517,7 @@ test("judgment input marks routine observational failed-status conflicts", () =>
     kind: "outcome",
     polarity: "success",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "bash" },
+    ownership: { owner: "tool", capabilityFamily: "bash" },
     evidenceStrength: "qualified",
     subject: "command",
     evidenceLoss: "none",
@@ -607,7 +607,7 @@ test("judgment input marks engine-owned non-bash observations as status conflict
   assert.equal(input.observation?.kind, "payload");
   assert.equal(input.observation?.polarity, "neutral");
   assert.equal(input.observation?.semanticAgreement, "stable");
-  assert.equal(input.observation?.ownership.toolFamily, "read");
+  assert.equal(input.observation?.ownership.capabilityFamily, "read");
   assert.equal(input.observation?.consequenceBaseline, "low");
   assert.equal(input.semanticEvidence?.strength, "qualified");
 });
@@ -778,7 +778,7 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     timestamp,
     type: "task.updated",
     title: "bash failure",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
     toolFamily: "bash",
     semantic: {
@@ -798,7 +798,7 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     timestamp,
     type: "task.updated",
     title: "tool failure",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
     semantic: {
       intentFrame: "status_update",
@@ -816,7 +816,7 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     timestamp,
     type: "task.updated",
     title: "tool failure",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
     semantic: {
       intentFrame: "status_update",
@@ -835,7 +835,7 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     timestamp,
     type: "task.updated",
     title: "bash failure",
-    summary: rejectedToolUseMessage,
+    summary: structuralAuthorizationMessage,
     status: "failed",
     toolFamily: "bash",
     semantic: {
@@ -861,7 +861,7 @@ test("judgment input marks tool-use rejection outcomes as status conflicts only 
     kind: "control",
     polarity: "neutral",
     semanticAgreement: "stable",
-    ownership: { owner: "tool", toolFamily: "bash" },
+    ownership: { owner: "tool", capabilityFamily: "bash" },
     evidenceStrength: "qualified",
     subject: "tool",
     evidenceLoss: "none",

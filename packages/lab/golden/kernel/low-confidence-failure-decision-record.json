@@ -1,7 +1,7 @@
 {
   "id": "golden:kernel:low-confidence-failure-decision-record",
-  "title": "Decision record queues low-confidence failure ambiguity",
-  "description": "A low-confidence failed status can be important, but semantic uncertainty should keep the candidate in next while recording the ambiguity rule that prevented an interrupt.",
+  "title": "Decision record rejects forged failure uncertainty",
+  "description": "A generic confidence hint cannot make a failed status ambiguous, and the decision record preserves the authoritative route.",
   "doctrineTags": [
     "kernel_conformance",
     "deterministic_judgment",
@@ -11,12 +11,12 @@
   "semanticFamilies": ["confidence_too_high"],
   "expectations": {
     "finalNowInteractionId": "interaction:approval-anchor",
-    "nextInteractionIds": ["interaction:task:uncertain-failure:status"],
-    "ambientInteractionIds": [],
+    "nextInteractionIds": [],
+    "ambientInteractionIds": ["interaction:task:uncertain-failure:status"],
     "resultLaneCounts": {
       "now": 1,
-      "next": 1,
-      "ambient": 0
+      "next": 0,
+      "ambient": 1
     },
     "semanticReadings": [
       {
@@ -24,13 +24,13 @@
         "intentFrame": "failure",
         "activityClass": "tool_failure",
         "consequence": "high",
-        "confidence": "low",
+        "confidence": "high",
         "ontology": {
           "ask": "status",
           "activity": "failure",
           "blocking": "non_blocking",
           "episode": "unknown",
-          "source": "hinted"
+          "source": "explicit"
         },
         "whyNowIncludes": "failed and should be reviewed"
       }
@@ -40,14 +40,14 @@
         "stepLabel": "uncertain failure status",
         "evaluationKind": "candidate",
         "decisionRecordProjectionVersion": 2,
-        "decisionKind": "queue",
-        "decisionRecordRoute": "queue",
-        "plannedLane": "next",
-        "resultLane": "next",
-        "semanticConfidence": "low",
+        "decisionKind": "activate",
+        "decisionRecordRoute": "activate",
+        "plannedLane": "now",
+        "resultLane": "ambient",
+        "semanticConfidence": "high",
         "semanticAbstained": false,
-        "ambiguityReason": "low_signal",
-        "ambiguityResolution": "queue",
+        "ambiguityReason": null,
+        "ambiguityResolution": null,
         "decisionRecordCurrentFrameId": null,
         "decisionRecordCurrentEpisodeId": null,
         "decisionRecordOperatorPresence": "present",
@@ -58,20 +58,18 @@
           "blocking": 0
         },
         "decisionRecordReasonCodesInclude": [
-          "route:queue",
-          "lane:next",
+          "route:activate",
+          "lane:now",
           "policy:minimum_lane:next",
           "pressure:level:steady",
           "pressure:overload:low",
-          "criterion:peripheral_resolution:queue",
-          "criterion:ambiguity:low_signal",
           "policy_gate:interruptive_default:verdict",
-          "policy_criterion:semantic_uncertainty:verdict",
+          "policy_criterion:semantic_uncertainty:noop",
           "evidence:operator_presence:present",
           "evidence:current_frame:absent",
           "evidence:current_episode:absent"
         ],
-        "semanticImpactDecisionBearingIncludes": ["activity (canonical)", "confidence (ambiguity)"]
+        "semanticImpactDecisionBearingIncludes": ["activity (canonical)"]
       }
     ]
   },

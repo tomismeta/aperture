@@ -22,14 +22,24 @@ export {
   buildObservationKernelScorecard,
   OBSERVATION_KERNEL_SCORECARD_PROFILE_ID,
   OBSERVATION_KERNEL_SCORECARD_PROFILE_VERSION,
+  OBSERVATION_KERNEL_SCORECARD_PROOF,
   OBSERVATION_KERNEL_SCORECARD_SCHEMA_VERSION,
   OBSERVATION_KERNEL_SCORECARD_THRESHOLDS,
   type ObservationKernelCoverage,
+  type ObservationKernelDecisionFields,
   type ObservationKernelDistribution,
   type ObservationKernelFields,
   type ObservationKernelObservation,
   type ObservationKernelScorecard,
 } from "./observation-kernel-scorecard.js";
+export {
+  evaluateObservationKernelQuality,
+  OBSERVATION_KERNEL_QUALITY_THRESHOLDS,
+  type ObservationKernelAccuracy,
+  type ObservationKernelFieldAccuracy,
+  type ObservationKernelQuality,
+  type ObservationKernelQualityBreakdown,
+} from "./observation-kernel-quality.js";
 export { parseObservationKernelScorecard } from "./observation-kernel-scorecard-validation.js";
 export {
   assertKernelConformanceReportPassed,
@@ -47,6 +57,8 @@ export {
 export {
   assertKernelCorpusScorecardComparisonPassed,
   assertKernelCorpusScorecardPassed,
+  KERNEL_CORPUS_HISTORICAL_SCORECARD_PROOF,
+  KERNEL_CORPUS_SCORECARD_PROOF,
   buildKernelCorpusScorecardComparison,
   buildKernelCorpusScorecard,
   KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION,

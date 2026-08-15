@@ -31,17 +31,12 @@ function countMatches(text: string, patterns: readonly RegExp[]): number {
 
 function hasDiagnosticOrToolFailureText(text: string): boolean {
   return [
-    /\btraceback\b/,
-    /\b(?:syntaxerror|typeerror|assertionerror|exceptiongroup|exception)\b/,
-    /\b(?:segmentation fault|segfault|core dumped|crash(?:ed|es|ing)?)\b/,
-    /\bpermission\s+denied\b/,
-    /\b(?:timed?\s+out|timeout)\b/,
-    /\b(?:fail(?:ed|ing|s|ure)?|errors?|errored)\b/,
+    /\b(?:traceback|syntaxerror|typeerror|assertionerror|exceptiongroup|exception)\b/,
+    /\b(?:segmentation fault|segfault|core dumped|crash(?:ed|es|ing)?|permission\s+denied)\b/,
+    /\b(?:timed?\s+out|timeout|fail(?:ed|ing|s|ure)?|errors?|errored)\b/,
     /\b(?:unresolved|not\s+resolved|still\s+(?:broken|failing|does\s+not\s+work|doesn\s+t\s+work))\b/,
     /\b(?:does\s+not|did\s+not|doesn\s+t|didn\s+t)\s+pass\b/,
-    /\bexit\s+code\s+[1-9]\d*\b/,
-    /\b(?:exited|returned)\s+(?:with\s+)?(?:code\s+)?[1-9]\d*\b/,
-    /\b(?:returned|returning)\s+non[-\s]?zero\b/,
+    /\b(?:exit\s+code\s+[1-9]\d*|(?:exited|returned)\s+(?:with\s+)?(?:code\s+)?[1-9]\d*|(?:returned|returning)\s+non[-\s]?zero)\b/,
     /(?:^|\s)(?:fail|error):\s+\S/,
     /\b(?:failures|errors)=[1-9]\d*\b/,
     /\b[1-9]\d*\s+(?:failed|errors?)\b/,

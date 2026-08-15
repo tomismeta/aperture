@@ -1,6 +1,6 @@
 import type { AttentionOperatorPresence } from "./attention-evidence.js";
 import { JudgmentCoordinator } from "./judgment-coordinator.js";
-import { MARKDOWN_SCHEMA_VERSION } from "./judgment-defaults.js";
+import { APERTURE_STATE_SCHEMA_VERSION } from "./judgment-defaults.js";
 import type { PolicyConfig } from "./policy-config.js";
 import { AttentionPolicy } from "./attention-policy.js";
 import { AttentionPlanner } from "./attention-planner.js";
@@ -85,7 +85,7 @@ export function cloneSurfaceCapabilities(
 
 function defaultMemoryProfile(): MemoryProfile {
   return {
-    version: MARKDOWN_SCHEMA_VERSION,
+    version: APERTURE_STATE_SCHEMA_VERSION,
     operatorId: "default",
     updatedAt: formatTimestamp(0),
     sessionCount: 0,

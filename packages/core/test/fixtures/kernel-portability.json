@@ -1,5 +1,5 @@
 {
-  "id": "aperture.kernel.portability.v1",
+  "id": "aperture.kernel.portability",
   "description": "Host-agnostic fixture proving unrelated event shapes can feed the kernel through adapter-owned mapping without adding host vocabulary to core.",
   "cases": [
     {

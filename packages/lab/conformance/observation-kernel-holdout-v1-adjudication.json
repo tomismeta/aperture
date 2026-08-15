@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "sourceArtifact": "observation-kernel-holdout-v1.json",
+  "implementationFreeze": "73f85e8",
+  "oracleCommit": "4657811",
+  "harnessCommit": "3c7c250",
+  "firstSemanticExecutionAfterCommit": "c3b9b46",
+  "firstRunDigest": "sha256:4b6802549778bf83cde8a8d7a04492da4ac7a95e9b272546dda23b4a30d6b7fb",
+  "firstRun": {
+    "deterministic": true,
+    "fixtures": 10,
+    "fixturesWithObservation": 10,
+    "semanticFields": { "passed": 56, "total": 130, "score": 0.4307692307692308 },
+    "judgmentFields": { "passed": 43, "total": 80, "score": 0.5375 },
+    "decisionFields": { "passed": 4, "total": 20, "score": 0.2 },
+    "exactOutcomes": { "passed": 0, "total": 10, "score": 0 }
+  },
+  "disposition": {
+    "eligibleAsFutureHoldout": false,
+    "reason": "The first execution exposed both implementation gaps and oracle misunderstandings of the frozen public contract. Any subsequent implementation or oracle adjustment would make this evaluation calibration evidence.",
+    "oracleEditedAfterExecution": false,
+    "requiresFreshReplacementHoldout": true
+  },
+  "adjudication": {
+    "author": "gpt-5.6-sol",
+    "implementationInspected": false,
+    "basis": "Frozen first-run results and explicit canonical contract definitions.",
+    "cases": [
+      {
+        "id": "holdout-command-success-conflict",
+        "classification": "oracle_contract_mismatch",
+        "engineGaps": [],
+        "substantiveResult": "pass"
+      },
+      {
+        "id": "holdout-outcome-only-nonzero",
+        "classification": "mixed",
+        "engineGaps": ["outcome-only exit misclassified as runtime diagnostic"]
+      },
+      {
+        "id": "holdout-runtime-diagnostic",
+        "classification": "mixed",
+        "engineGaps": ["explicit runtime diagnostic not recognized"]
+      },
+      {
+        "id": "holdout-bounded-read-truncation",
+        "classification": "mixed",
+        "engineGaps": ["bounded source window not recognized"]
+      },
+      {
+        "id": "holdout-structured-source-payload",
+        "classification": "mixed",
+        "engineGaps": ["explicit source-data payload not recognized"]
+      },
+      {
+        "id": "holdout-search-results",
+        "classification": "mixed",
+        "engineGaps": ["positive search output not recognized"]
+      },
+      {
+        "id": "holdout-declined-authorization",
+        "classification": "mixed",
+        "engineGaps": ["pre-invocation decline not recognized as control"]
+      },
+      {
+        "id": "holdout-absent-evidence",
+        "classification": "oracle_contract_mismatch",
+        "engineGaps": [],
+        "substantiveResult": "pass"
+      },
+      {
+        "id": "holdout-expected-test-diagnostic",
+        "classification": "mixed",
+        "engineGaps": ["expected diagnostic evidence not recognized"]
+      },
+      {
+        "id": "holdout-title-summary-precedence",
+        "classification": "oracle_contract_mismatch",
+        "engineGaps": [],
+        "substantiveResult": "pass"
+      }
+    ]
+  },
+  "nextFreezeRequirements": [
+    "Harden only reusable structural grammar families with negative boundaries.",
+    "Freeze implementation and a normative public field and planner contract.",
+    "Author a fresh disjoint oracle without repository access or semantic execution.",
+    "Commit the replacement oracle before its first execution.",
+    "Never edit a scored oracle after execution."
+  ]
+}

@@ -43,11 +43,16 @@ export function enrichApertureEvent(
   event: ApertureEvent,
   options: ApertureEventSemanticDefaultsOptions = {},
 ): ApertureEvent {
-  if (options.skipSemanticDefaults) {
+  const typedEvidence =
+    event.type === "task.updated" && event.status === "failed" && event.evidence !== undefined;
+  if (options.skipSemanticDefaults && !typedEvidence) {
     return event;
   }
 
-  const semantic = event.semantic ?? interpretSourceEvent(asSourceEvent(event));
+  const semantic =
+    typedEvidence || event.semantic === undefined
+      ? interpretSourceEvent(asSourceEvent(event))
+      : event.semantic;
 
   return applySemanticDefaults(event, semantic);
 }
@@ -152,8 +157,8 @@ function prepareApertureEventFromSourceEvent(event: SourceEvent): ApertureEvent 
         title: event.title,
         ...(event.summary !== undefined ? { summary: event.summary } : {}),
       };
-    case "task.updated":
-      return {
+    case "task.updated": {
+      const update = {
         id: event.id,
         type: event.type,
         taskId: event.taskId,
@@ -164,10 +169,17 @@ function prepareApertureEventFromSourceEvent(event: SourceEvent): ApertureEvent 
         ...(event.activityClass !== undefined ? { activityClass: event.activityClass } : {}),
         title: event.title,
         ...(event.summary !== undefined ? { summary: event.summary } : {}),
-        status: event.status,
         ...(event.progress !== undefined ? { progress: event.progress } : {}),
         ...(event.context !== undefined ? { context: event.context } : {}),
       };
+      return event.status === "failed"
+        ? {
+            ...update,
+            status: "failed",
+            ...(event.evidence !== undefined ? { evidence: event.evidence } : {}),
+          }
+        : { ...update, status: event.status };
+    }
     case "task.completed":
       return {
         id: event.id,
@@ -223,8 +235,8 @@ function asSourceEvent(event: ApertureEvent): SourceEvent {
         title: event.title,
         ...(event.summary !== undefined ? { summary: event.summary } : {}),
       };
-    case "task.updated":
-      return {
+    case "task.updated": {
+      const update = {
         id: event.id,
         type: event.type,
         taskId: event.taskId,
@@ -235,10 +247,17 @@ function asSourceEvent(event: ApertureEvent): SourceEvent {
         ...(event.activityClass !== undefined ? { activityClass: event.activityClass } : {}),
         title: event.title,
         ...(event.summary !== undefined ? { summary: event.summary } : {}),
-        status: event.status,
         ...(event.progress !== undefined ? { progress: event.progress } : {}),
         ...(event.context !== undefined ? { context: event.context } : {}),
       };
+      return event.status === "failed"
+        ? {
+            ...update,
+            status: "failed",
+            ...(event.evidence !== undefined ? { evidence: event.evidence } : {}),
+          }
+        : { ...update, status: event.status };
+    }
     case "task.completed":
       return {
         id: event.id,

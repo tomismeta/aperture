@@ -60,10 +60,6 @@ export function isSemanticCommandExecutionToolFamily(toolFamily: string | undefi
 }
 
 function normalizeToolFamily(value: string | null | undefined): string | null {
-  if (!value) {
-    return null;
-  }
-
-  const normalized = value.trim().toLowerCase();
+  const normalized = value?.trim().toLowerCase() ?? "";
   return normalized.length > 0 ? normalized : null;
 }

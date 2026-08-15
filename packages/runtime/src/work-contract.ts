@@ -20,9 +20,11 @@ import {
 } from "./work-contract-shared.js";
 
 export const WORK_API_VERSION = "1.0";
-export const WORK_SCHEMA_ID = "urn:aperture:work-event:1.0";
-export const WORK_BATCH_SCHEMA_ID = "urn:aperture:work-event-batch:1.0";
-export const WORK_SCHEMA_URL = "https://schema.aperture.dev/work-event.v1.json";
+const WORK_API_MAJOR_VERSION = WORK_API_VERSION.split(".")[0] ?? WORK_API_VERSION;
+export const WORK_SCHEMA_ID = `urn:aperture:work-event:${WORK_API_VERSION}`;
+export const WORK_BATCH_SCHEMA_ID = `urn:aperture:work-event-batch:${WORK_API_VERSION}`;
+export const WORK_SCHEMA_URL =
+  "https://raw.githubusercontent.com/tomismeta/aperture/aperture-v0.5.0/schemas/work-event.schema.json";
 export const DEFAULT_WORK_EVENT_SOURCE = "urn:aperture:work";
 
 const WorkEventApprovalRequestSchema = Type.Object(
@@ -251,11 +253,11 @@ const workEventCompiler = TypeCompiler.Compile(WorkEventSchema);
 const workEventBatchCompiler = TypeCompiler.Compile(WorkEventBatchSchema);
 
 export function isSupportedWorkSpecVersion(value: string): boolean {
-  return /^1\.\d+$/.test(value);
+  return value === WORK_API_VERSION;
 }
 
 export function buildWorkEventType(kind: WorkEventKind): string {
-  return `io.agent.${kind}.v1`;
+  return `io.agent.${kind}.v${WORK_API_MAJOR_VERSION}`;
 }
 
 export function validateWorkEventShape(value: unknown): string[] {

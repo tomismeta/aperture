@@ -2,7 +2,11 @@ import { mkdir, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { ApertureCore } from "@tomismeta/aperture-core";
-import { ProfileStore, type MemoryProfile } from "@tomismeta/aperture-core/internal";
+import {
+  APERTURE_STATE_SCHEMA_VERSION,
+  ProfileStore,
+  type MemoryProfile,
+} from "@tomismeta/aperture-core/internal";
 
 export type LearningMode = "on" | "off";
 
@@ -14,9 +18,6 @@ export type LearningPersistenceState = {
   lastLoadedAt?: string;
   lastCheckpointAt?: string | null;
 };
-
-// Keep this in sync with the persisted profile schema expected by core.
-const PERSISTED_PROFILE_SCHEMA_VERSION = 1;
 
 export async function bootstrapLearningPersistence(cwd: string): Promise<{
   core: ApertureCore;
@@ -31,7 +32,7 @@ export async function bootstrapLearningPersistence(cwd: string): Promise<{
   await mkdir(rootDir, { recursive: true });
 
   const fallback: MemoryProfile = {
-    version: PERSISTED_PROFILE_SCHEMA_VERSION,
+    version: APERTURE_STATE_SCHEMA_VERSION,
     operatorId: "default",
     updatedAt: now,
     sessionCount: 0,
@@ -70,7 +71,7 @@ function buildApertureTemplate(now: string): string {
     "not rewrite your choices. Keep learned behavior in MEMORY.md.",
     "",
     "## Meta",
-    `- version: ${PERSISTED_PROFILE_SCHEMA_VERSION}`,
+    `- version: ${APERTURE_STATE_SCHEMA_VERSION}`,
     "- profile id: default",
     `- updated at: ${now}`,
     "",

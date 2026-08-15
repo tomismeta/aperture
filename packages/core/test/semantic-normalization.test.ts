@@ -10,7 +10,7 @@ import { readAttentionOntologyDiagnostic } from "../src/semantic-ontology.js";
 
 const timestamp = "2026-03-10T12:00:00.000Z";
 const rejectedToolUseMessage =
-  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+  "Authorization was declined before invocation. No tool call occurred and no result exists.";
 const successfulTestObservationTranscript =
   "OBSERVATION: === Testing quote formatting === All quote formatting tests passed!";
 const abbreviatedFileViewObservationTranscript =
@@ -1321,7 +1321,7 @@ test("public trajectory structured outcome-only exits match raw bare-exit semant
   assert.equal(interpretation.provenance?.consequence, "inferred");
 });
 
-test("truncated source evidence hints keep failed outcome-only exits high consequence", () => {
+test("truncated source markers cannot alter complete outcome-only exits", () => {
   const interpretation = interpretSourceEvent({
     id: "evt:public-truncated-outcome-only-exit",
     type: "task.updated",
@@ -1338,10 +1338,10 @@ test("truncated source evidence hints keep failed outcome-only exits high conseq
 
   assert.equal(interpretation.intentFrame, "failure");
   assert.equal(interpretation.activityClass, "tool_failure");
-  assert.equal(interpretation.consequence, "high");
-  assert.equal(interpretation.confidence, "low");
-  assert.equal(interpretation.provenance?.consequence, "hint");
-  assert.equal(interpretation.provenance?.confidence, "hint");
+  assert.equal(interpretation.consequence, "medium");
+  assert.equal(interpretation.confidence, "high");
+  assert.equal(interpretation.provenance?.consequence, "inferred");
+  assert.equal(interpretation.provenance?.confidence, "inferred");
 });
 
 test("public trajectory benign then real terminal wording stays high-consequence", () => {

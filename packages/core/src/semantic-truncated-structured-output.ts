@@ -12,18 +12,12 @@ import {
 export function readTruncatedStructuredToolOutputEnvelope(
   summary: string | undefined,
 ): StructuredToolOutputObservation | null {
-  if (summary === undefined) {
-    return null;
-  }
+  if (summary === undefined) return null;
 
   const marked = readMarkedTruncatedStructuredToolOutputObservation(summary);
-  if (marked !== null) {
-    return marked;
-  }
+  if (marked !== null) return marked;
 
-  if (parseJsonObject(summary) !== null) {
-    return null;
-  }
+  if (parseJsonObject(summary) !== null) return null;
 
   return readTruncatedStructuredToolOutputEnvelopePrefix(summary);
 }
@@ -66,9 +60,7 @@ function readTruncatedStructuredToolOutputEnvelopePrefix(
   }
 
   const outputOnly = /^\s*\{\s*"output"\s*:\s*"/.exec(summary);
-  if (!outputOnly) {
-    return null;
-  }
+  if (!outputOnly) return null;
 
   return readPartialEnvelopeOutput(summary.slice(outputOnly[0].length), {});
 }
@@ -90,9 +82,7 @@ function readMarkedTruncatedStructuredToolOutputObservation(
   }
 
   const exitCode = readOptionalIntegerExitCode(parsed);
-  if (exitCode === "invalid") {
-    return null;
-  }
+  if (exitCode === "invalid") return null;
 
   return {
     output: parsed.output,
@@ -101,7 +91,7 @@ function readMarkedTruncatedStructuredToolOutputObservation(
   };
 }
 
-function hasUnexpectedMarkedTruncatedKeys(value: Record<string, unknown>): boolean {
+const hasUnexpectedMarkedTruncatedKeys = (value: Record<string, unknown>) => {
   const allowedKeys = new Set(["exit_code", "output", "truncated", "wall_time"]);
   return Object.keys(value).some((key) => !allowedKeys.has(key));
-}
+};

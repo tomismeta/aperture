@@ -1,9 +1,6 @@
 import type { ApertureEvent } from "./events.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import {
-  projectObservationJudgmentContract,
-  type ObservationJudgmentContract,
-} from "./judgment-observation-contract.js";
+import { judgeObservation, type ObservationJudgment } from "./judgment-observation-contract.js";
 import { buildObservationStatusConflictEvidenceFromCore } from "./judgment-observation-status-conflict.js";
 import { projectAttentionOntologyDiagnosticWithStatusConflictEvidence } from "./attention-ontology-projector.js";
 import type { SemanticConfidence } from "./semantic-types.js";
@@ -15,9 +12,8 @@ import type {
 } from "./judgment-input-types.js";
 import {
   normalizeTaskFailureObservationFromCore,
-  readTaskFailureObservationCoreFromEvent,
+  projectTaskFailureObservationFromEvent,
 } from "./task-failure-observation-reader.js";
-import type { NormalizedObservation } from "./normalized-observation.js";
 import type {
   AttentionOntologyAuthority,
   AttentionOntologyDiagnostic,
@@ -25,7 +21,7 @@ import type {
 
 export type {
   AttentionJudgmentInput,
-  NormalizedObservation,
+  Observation,
   CandidateSemanticEvidence,
   SemanticEvidenceStrength,
 } from "./judgment-input-types.js";
@@ -60,7 +56,7 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
   const abstained = event.semantic.abstained === true;
   const failureObservationCore =
     event.type === "task.updated" && event.status === "failed"
-      ? readTaskFailureObservationCoreFromEvent(event)
+      ? projectTaskFailureObservationFromEvent(event)
       : null;
   const observationalStatusConflict = buildObservationStatusConflictEvidenceFromCore({
     event,
@@ -76,7 +72,7 @@ export function buildAttentionJudgmentInput(event: ApertureEvent): AttentionJudg
   const blockedLikeStatus =
     event.type === "task.updated" && ontology.blocking === "blocking" && event.status !== "blocked";
   const observation =
-    failureObservationCore !== null
+    event.type === "task.updated" && event.status === "failed" && failureObservationCore !== null
       ? normalizeTaskFailureObservationFromCore({
           event,
           core: failureObservationCore,
@@ -133,13 +129,13 @@ export function readCandidateSemanticRelationEvidence(
 
 export function readCandidateObservation(
   candidate: AttentionCandidate,
-): NormalizedObservation | null {
+): NonNullable<AttentionJudgmentInput["observation"]> | null {
   return candidate.judgmentInput.observation ?? null;
 }
 
-export function readCandidateObservationJudgmentContract(
+export function readCandidateObservationJudgment(
   candidate: AttentionCandidate,
-): ObservationJudgmentContract | null {
+): ObservationJudgment | null {
   return readJudgmentInputObservationContract(candidate.judgmentInput);
 }
 
@@ -282,12 +278,12 @@ function readSemanticEvidenceStrengthFromParts(
 
 function deriveCompiledSemanticEvidenceStrength(input: {
   ontology: AttentionOntologyDiagnostic;
-  observation: NormalizedObservation | null;
+  observation: NonNullable<AttentionJudgmentInput["observation"]> | null;
   blockedLikeStatus: boolean;
   abstained: boolean;
 }): SemanticEvidenceStrength {
   const observationContract =
-    input.observation !== null ? projectObservationJudgmentContract(input.observation) : null;
+    input.observation !== null ? judgeObservation(input.observation) : null;
   if (
     observationContract !== null &&
     observationContract.statusEvidence === "limited_failure" &&
@@ -308,9 +304,9 @@ function deriveCompiledSemanticEvidenceStrength(input: {
 
 function readJudgmentInputObservationContract(
   judgmentInput: AttentionJudgmentInput,
-): ObservationJudgmentContract | null {
+): ObservationJudgment | null {
   return judgmentInput.observation !== undefined
-    ? projectObservationJudgmentContract(judgmentInput.observation)
+    ? judgeObservation(judgmentInput.observation)
     : null;
 }
 

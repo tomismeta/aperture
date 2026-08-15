@@ -247,8 +247,6 @@ export class EventEvaluator {
           responseSpec: statusResponseSpec(event.status),
           includeFailureProvenance: false,
         };
-      default:
-        return unreachableTaskStatus(event.status);
     }
   }
 }

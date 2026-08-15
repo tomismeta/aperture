@@ -4,9 +4,9 @@ import test from "node:test";
 import {
   enrichTaskFailureObservation,
   normalizeTaskFailureObservation,
-  readTaskFailureObservationCore,
+  projectTaskFailureObservationCore,
 } from "../src/task-failure-observation-normalizer.js";
-import type { NormalizedObservation } from "../src/normalized-observation.js";
+import type { Observation } from "../src/normalized-observation.js";
 import { resolveObservationStatusConflictKind } from "../src/judgment-observation-contract.js";
 import type {
   SemanticTextEvidence,
@@ -14,11 +14,7 @@ import type {
 } from "../src/semantic-evidence.js";
 import type { ObservationSemantics } from "../src/observation-semantics.js";
 import type { AttentionOntologyDiagnostic } from "../src/semantic-ontology-types.js";
-import { extractTaskFailureObservationCore } from "../src/task-failure-observation-core.js";
 import type { TaskFailureObservationSyntax } from "../src/task-failure-observation-grammar.js";
-
-type EnrichedTaskFailureSemanticEvidence = TaskFailureSemanticEvidence &
-  ReturnType<typeof extractTaskFailureObservationCore>;
 
 const emptyText: SemanticTextEvidence = { shapes: [] };
 
@@ -43,20 +39,19 @@ function evidence(
         "consequenceBaseline" | "observationSyntax" | "readsAsObservation" | "text"
       >
     >,
-): EnrichedTaskFailureSemanticEvidence {
-  const candidate: TaskFailureSemanticEvidence = {
+): TaskFailureSemanticEvidence {
+  return {
     consequenceBaseline: "medium",
     readsAsObservation: false,
     text: emptyText,
     ...overrides,
   };
-  return { ...candidate, ...extractTaskFailureObservationCore(candidate) };
 }
 
 function compile(
   failureEvidence: TaskFailureSemanticEvidence,
   input: Partial<Parameters<typeof normalizeTaskFailureObservation>[0]> = {},
-): NormalizedObservation {
+): Observation {
   return normalizeTaskFailureObservation({
     failureEvidence,
     ontology: { ...ontology, consequence: failureEvidence.consequenceBaseline },
@@ -66,103 +61,14 @@ function compile(
   });
 }
 
-function observationSyntax(input: {
-  kind: "payload" | "outcome" | "control";
-  origin: ObservationSemantics["provenance"]["origin"];
-  subject: ObservationSemantics["subject"];
-  consequenceBaseline: ObservationSemantics["consequenceBaseline"];
-  toolFamily?: string;
-  recoveryHint?: NonNullable<ObservationSemantics["recoveryHint"]>;
-}): TaskFailureObservationSyntax {
-  if (input.kind === "control") {
-    return {
-      kind: "control",
-      origin: input.origin,
-      recoveryHint: input.recoveryHint ?? "await_authorization",
-      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
-    };
-  }
-  if (input.kind === "outcome") {
-    return {
-      kind: "outcome",
-      origin: input.origin,
-      subject: input.subject,
-      consequenceBaseline: input.consequenceBaseline,
-      ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
-    };
-  }
+function observationSyntax(
+  input: Omit<TaskFailureObservationSyntax, "evidenceLoss">,
+): TaskFailureObservationSyntax {
   return {
-    kind: "payload",
-    origin: input.origin,
-    fallbackSubject: input.subject,
-    payload: { source: input.subject === "source", consequenceBaseline: input.consequenceBaseline },
-    ...(input.toolFamily !== undefined ? { toolFamily: input.toolFamily } : {}),
+    ...input,
+    evidenceLoss: "none",
   };
 }
-
-test("task-failure observation extractors cover durable evidence families", () => {
-  assert.equal(
-    evidence({
-      kind: "routine_bash_success_observation",
-      toolFamily: "bash",
-      readsAsObservation: true,
-      consequenceBaseline: "low",
-    }).observationExtractorId,
-    "command_success",
-  );
-  assert.equal(
-    evidence({
-      kind: "terminal_failure",
-      failureDetail: "source_window_limit",
-      toolFamily: "read",
-    }).observationExtractorId,
-    "read_truncated_source",
-  );
-  assert.equal(
-    evidence({
-      kind: "routine_search_output",
-      toolFamily: "search",
-      readsAsObservation: true,
-      consequenceBaseline: "low",
-    }).observationExtractorId,
-    "search_output",
-  );
-  assert.equal(
-    evidence({
-      kind: "structured_tool_output_observation",
-      toolFamily: "bash",
-      observationSyntax: observationSyntax({
-        kind: "payload",
-        polarity: "neutral",
-        origin: "structured_output",
-        subject: "source",
-        consequenceBaseline: "high",
-        toolFamily: "bash",
-      }),
-      readsAsObservation: true,
-      consequenceBaseline: "high",
-    }).observationExtractorId,
-    "structured_output",
-  );
-  assert.equal(
-    evidence({
-      kind: "rejected_tool_use_observation",
-      toolFamily: "bash",
-      observationSyntax: observationSyntax({
-        kind: "control",
-        polarity: "neutral",
-        origin: "status_text",
-        subject: "tool",
-        consequenceBaseline: "low",
-        toolFamily: "bash",
-        recoveryHint: "await_authorization",
-      }),
-      readsAsObservation: true,
-      consequenceBaseline: "low",
-    }).observationExtractorId,
-    "rejected_tool_use",
-  );
-});
 
 test("task-failure observation core preserves ontology-independent semantic facts", () => {
   const failureEvidence = evidence({
@@ -171,12 +77,12 @@ test("task-failure observation core preserves ontology-independent semantic fact
     toolFamily: "bash",
     consequenceBaseline: "high",
   });
-  const core: ObservationSemantics = readTaskFailureObservationCore(failureEvidence);
+  const core: ObservationSemantics = projectTaskFailureObservationCore(failureEvidence);
 
   assert.deepEqual(core, {
     kind: "diagnostic",
     polarity: "failure",
-    ownership: { owner: "tool", toolFamily: "bash" },
+    ownership: { owner: "tool", capabilityFamily: "bash" },
     subject: "tool",
     evidenceLoss: "none",
     diagnosticClass: "runtime",
@@ -200,7 +106,7 @@ test("task-failure observation core preserves ontology-independent semantic fact
 });
 
 test("task-failure observation enrichment owns evidence-certainty constraints", () => {
-  const core = readTaskFailureObservationCore(
+  const core = projectTaskFailureObservationCore(
     evidence({
       kind: "terminal_failure",
       failureDetail: "indeterminate",
@@ -220,7 +126,7 @@ test("task-failure observation enrichment owns evidence-certainty constraints", 
     "uncertain",
   );
 
-  const unclassified = readTaskFailureObservationCore(
+  const unclassified = projectTaskFailureObservationCore(
     evidence({
       kind: "unclassified_failure",
       failureDetail: "indeterminate",
@@ -228,7 +134,7 @@ test("task-failure observation enrichment owns evidence-certainty constraints", 
     }),
   );
 
-  assert.equal(unclassified.evidenceCertainty, "determinate");
+  assert.equal(unclassified.evidenceCertainty, "indeterminate");
   assert.equal(
     enrichTaskFailureObservation({
       core: unclassified,
@@ -236,12 +142,12 @@ test("task-failure observation enrichment owns evidence-certainty constraints", 
       abstained: false,
       semanticAgreement: "stable",
     }).semanticAgreement,
-    "stable",
+    "uncertain",
   );
 });
 
 test("task-failure observation enrichment derives strength from ontology and evidence quality", () => {
-  const diagnosticCore = readTaskFailureObservationCore(
+  const diagnosticCore = projectTaskFailureObservationCore(
     evidence({
       kind: "terminal_failure",
       failureDetail: "diagnostic",
@@ -249,7 +155,7 @@ test("task-failure observation enrichment derives strength from ontology and evi
       consequenceBaseline: "high",
     }),
   );
-  const absentCore = readTaskFailureObservationCore(
+  const absentCore = projectTaskFailureObservationCore(
     evidence({
       kind: "empty_failure_payload",
       failureDetail: "absent_evidence",
@@ -262,8 +168,8 @@ test("task-failure observation enrichment derives strength from ontology and evi
     ontology: AttentionOntologyDiagnostic;
     abstained: boolean;
     semanticAgreement: Parameters<typeof enrichTaskFailureObservation>[0]["semanticAgreement"];
-    expectedStrength: NormalizedObservation["evidenceStrength"];
-    expectedAuthority: NormalizedObservation["provenance"]["authority"];
+    expectedStrength: Observation["evidenceStrength"];
+    expectedAuthority: Observation["provenance"]["authority"];
   }> = [
     {
       name: "high explicit stable",
@@ -356,9 +262,9 @@ test("task-failure observation normalizer maps every evidence kind into the norm
   const cases: Array<{
     name: string;
     evidence: TaskFailureSemanticEvidence;
-    expected: Partial<NormalizedObservation> & {
-      ownership?: Partial<NormalizedObservation["ownership"]>;
-      provenance?: Partial<NormalizedObservation["provenance"]>;
+    expected: Partial<Observation> & {
+      ownership?: Partial<Observation["ownership"]>;
+      provenance?: Partial<Observation["provenance"]>;
     };
   }> = [
     {
@@ -564,13 +470,14 @@ test("task-failure observation normalizer maps every evidence kind into the norm
         evidenceLoss: "unknown",
         recoveryHint: "inspect_original_evidence",
         evidenceStrength: "weak",
+        semanticAgreement: "uncertain",
       },
     },
   ];
 
   for (const testCase of cases) {
     const observation = compile(testCase.evidence);
-    const core = readTaskFailureObservationCore(testCase.evidence);
+    const core = projectTaskFailureObservationCore(testCase.evidence);
     const enriched = enrichTaskFailureObservation({
       core,
       ontology: { ...ontology, consequence: testCase.evidence.consequenceBaseline },
@@ -587,9 +494,13 @@ test("task-failure observation normalizer maps every evidence kind into the norm
       if (key === "ownership" || key === "provenance") {
         continue;
       }
-      assert.deepEqual(observation[key as keyof NormalizedObservation], value, testCase.name);
+      assert.deepEqual(observation[key as keyof Observation], value, testCase.name);
     }
-    assert.equal(observation.semanticAgreement, "stable", testCase.name);
+    assert.equal(
+      observation.semanticAgreement,
+      testCase.expected.semanticAgreement ?? "stable",
+      testCase.name,
+    );
     assert.equal(
       observation.consequenceBaseline,
       testCase.evidence.consequenceBaseline,
@@ -762,7 +673,7 @@ test("status-conflict kinds are derived from normalized observation fields", () 
       kind: "outcome",
       polarity: "success",
       semanticAgreement: "stable",
-      ownership: { owner: "tool", toolFamily: "edit" },
+      ownership: { owner: "tool", capabilityFamily: "edit" },
       evidenceStrength: "qualified",
       subject: "tool",
       evidenceLoss: "none",
@@ -798,10 +709,10 @@ test("task-failure observation normalizer lowers certainty for uncertainty and e
   });
 
   assert.equal(compile(absent).evidenceStrength, "weak");
-  assert.equal(compile(unclassified).semanticAgreement, "stable");
+  assert.equal(compile(unclassified).semanticAgreement, "uncertain");
   assert.equal(compile(unclassified).evidenceStrength, "weak");
   assert.equal(
-    compile(unclassified, { semanticAgreement: "uncertain" }).semanticAgreement,
+    compile(unclassified, { semanticAgreement: "overridden" }).semanticAgreement,
     "uncertain",
   );
   assert.equal(compile(terminalIndeterminate).semanticAgreement, "uncertain");

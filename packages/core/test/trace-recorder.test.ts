@@ -536,7 +536,7 @@ test("trace recorder projects normalized observations without leaking internal I
         semanticAgreement: "stable",
         diagnosticClass: "source_limit",
         recoveryHint: "narrow_evidence_scope",
-        provenanceOrigin: "semantic_evidence",
+        provenanceOrigin: "read_output",
         provenanceAuthority: "explicit",
         consequenceBaseline: "medium",
       },

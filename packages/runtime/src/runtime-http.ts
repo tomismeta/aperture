@@ -4,12 +4,20 @@ export class RuntimeHttpError extends Error {
   readonly statusCode: number;
   readonly code: string;
   readonly hint: string | undefined;
+  readonly details: Record<string, unknown> | undefined;
 
-  constructor(statusCode: number, code: string, message: string, hint?: string) {
+  constructor(
+    statusCode: number,
+    code: string,
+    message: string,
+    hint?: string,
+    details?: Record<string, unknown>,
+  ) {
     super(message);
     this.statusCode = statusCode;
     this.code = code;
     this.hint = hint;
+    this.details = details;
   }
 }
 
@@ -18,6 +26,7 @@ export type RuntimeErrorDescription = {
   code: string;
   message: string;
   hint?: string;
+  details?: Record<string, unknown>;
 };
 
 export async function readOptionalBody(
@@ -141,6 +150,7 @@ export function writeError(res: ServerResponse<IncomingMessage>, error: unknown)
       code: described.code,
       message: described.message,
       ...(described.hint !== undefined ? { hint: described.hint } : {}),
+      ...(described.details ?? {}),
     },
   });
 }
@@ -152,6 +162,7 @@ export function describeRuntimeError(error: unknown): RuntimeErrorDescription {
       code: error.code,
       message: error.message,
       ...(error.hint !== undefined ? { hint: error.hint } : {}),
+      ...(error.details !== undefined ? { details: error.details } : {}),
     };
   }
 

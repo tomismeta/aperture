@@ -120,7 +120,7 @@ the TUI, see [Architecture Overview](https://github.com/tomismeta/aperture/blob/
 If you want the replay, benchmark, and calibration direction for evaluating
 judgment changes, see [Aperture Lab](https://github.com/tomismeta/aperture/blob/main/docs/lab/aperture-lab.md).
 
-For the current npm release summary, see [Aperture Core SDK v0.8.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.8.0.md).
+For the current workspace hardening tranche, see [Aperture Core SDK v0.9.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.9.0.md).
 The source workspace may occasionally be ahead of npm between release commits;
 compare the package version you installed with npm when in doubt.
 
@@ -130,6 +130,7 @@ Runnable repo examples live in:
 - [examples/core-attention-evaluator/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-attention-evaluator/index.ts)
 - [examples/core-judgment-primitives/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-judgment-primitives/index.ts)
 - [examples/core-kernel-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-kernel-entrypoint/index.ts)
+- [examples/core-kernel-host-embedder/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-kernel-host-embedder/index.ts)
 - [examples/core-semantic-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-semantic-entrypoint/index.ts)
 - [examples/core-trace-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-trace-entrypoint/index.ts)
 
@@ -147,7 +148,36 @@ npm install -g @tomismeta/aperture
 
 ## Start Here
 
-If you are new to the SDK, start with:
+For a host-neutral integration, start with the `./kernel` entrypoint:
+
+- `ApertureKernelEvent`
+- `SourceEvidence`
+- `Observation`
+- `ObservationJudgment`
+- `evaluateApertureKernelEvent(...)`
+
+Map your host's native event shape into `ApertureKernelEvent` outside this
+package. The kernel then owns normalization, observation, and deterministic
+judgment. Use `runApertureKernelConformance(...)` to prove that the adapter
+preserves the canonical result.
+
+The kernel's text fallback is a bounded structural grammar, not a general
+stderr parser. It may conservatively abstain on native diagnostic text when
+the host cannot provide reliable typed facts. When the host does know the
+result, use typed evidence instead:
+
+```ts
+const evidence = {
+  kind: "diagnostic",
+  diagnostic: "runtime",
+  subject: "tool",
+  channel: "transcript",
+  complete: true,
+} as const satisfies SourceEvidence;
+```
+
+For the stateful Aperture product loop, use the product facade when you need
+frames, continuity, and responses:
 
 - `ApertureCore`
 - `ApertureEvent`
@@ -156,13 +186,13 @@ If you are new to the SDK, start with:
 - `AttentionView`
 - `AttentionResponse`
 
-If you only want the happy path, stop there.
+If you only want the stateful product happy path, stop there.
 
 The root package intentionally stays small. It does **not** expose the lower-level
 judgment primitives or semantic helper internals that Aperture uses inside the
 repo itself.
 
-The recommended loop is:
+The stateful product loop is:
 
 1. create `ApertureCore`
 2. publish an `ApertureEvent` with `core.publish(...)`
@@ -208,25 +238,38 @@ events, mutate state, accept human responses, replay sessions, or report a
 realized lane. Use `ApertureCore` when you need those stateful engine behaviors.
 
 If you want Aperture's embeddable semantic judgment contract without Core's
-stateful surface loop, use the kernel subpath:
+stateful surface loop, use the kernel subpath described above. New host
+integrations should not build a second judgment path from `./semantic`.
 
 ```ts
 import {
   evaluateApertureKernelEvent,
+  runApertureKernelConformance,
   type ApertureKernelEvent,
+  type Observation,
+  type ObservationJudgment,
+  type SourceEvidence,
 } from "@tomismeta/aperture-core/kernel";
+
+const evidence = {
+  kind: "payload",
+  subject: "search",
+  channel: "search",
+  complete: true,
+} as const satisfies SourceEvidence;
 
 const event: ApertureKernelEvent = {
   id: "evt:command",
   workId: "work:command",
   occurredAt: new Date().toISOString(),
   kind: "work.updated",
-  title: "Command observation",
-  summary: "Your command ran successfully and did not produce any output.",
+  title: "Search observation",
+  summary: "Host prose is descriptive and does not override the typed result.",
   status: "failed",
   facts: {
-    capabilityFamily: "exec_command",
+    capabilityFamily: "catalog",
   },
+  evidence,
 };
 
 const result = evaluateApertureKernelEvent(event);
@@ -241,9 +284,9 @@ console.log(result.explanation.reasonCodes);
 `neutral host event -> normalize -> observe -> judge`
 
 It accepts the kernel-owned neutral event DTO, finalizes it through Aperture's
-internal source seam, returns a bounded finalized-event projection, and returns
-the observation document, deterministic judgment contract, and stable
-explanation reason codes when the event shape has one.
+internal source seam, and returns the canonical `Observation` object consumed by
+the pure `ObservationJudgment` function. There is no second kernel DTO or
+projection layer.
 
 If your host has its own event shape, keep that mapping outside core. The host
 adapter should return an `ApertureKernelEvent | null`; pass accepted kernel
@@ -253,7 +296,18 @@ observation, and judgment after that boundary.
 Use `facts.capabilityFamily` for explicit source-known capability facts.
 `context.items` and `metadata` remain descriptive host payload fields; they do
 not promote capability authority. Capability values are trimmed and lowercased
-before judgment.
+before judgment, but remain opaque identity: a capability name never implies
+command, read, search, or authorization semantics.
+
+Failed work updates may also carry `evidence`, a small typed `SourceEvidence`
+fact supplied only when the host reliably knows what its native result means.
+It can represent a complete outcome, diagnostic, payload, measured partial read
+window, or authorization requirement. When present, typed evidence is
+authoritative and Core derives the Observation, provenance, strength, semantic
+agreement, recovery, consequence, and judgment. Title and summary text cannot
+override it. When it is absent, Aperture retains its bounded structural text
+grammar. Runtime validation rejects evidence on non-failed updates and rejects
+malformed or incomplete variants.
 
 Observation documents currently exist for failed work updates that carry
 classifiable observational evidence, such as command success output, read
@@ -261,6 +315,21 @@ payloads, search output, structured execution output, source-limit diagnostics,
 or rejected tool-use observations. Other candidate events can legitimately
 return `observation: null` and `observationJudgment: null`; use the returned
 `evaluation` and finalized `event` for those cases.
+
+For host adapters, use the framework-neutral conformance runner in the same
+subpath. It compares canonical observation, judgment, and reason codes through
+the public evaluator, repeats each case to verify deterministic output, and
+reports adapter or validation failures without importing the Lab:
+
+```ts
+const report = runApertureKernelConformance(adapter, cases);
+if (!report.passed) throw new Error("kernel conformance failed");
+```
+
+The host adapter owns translation from its native event shape to
+`ApertureKernelEvent | null`. `SourceEvent.toolFamily` is not part of the
+canonical Observation; explicit capability ownership is represented only as
+`observation.ownership.capabilityFamily`.
 
 This subpath does not install adapters, open sockets, persist state, render UI,
 or make the package live inside another product. It runs only when the host
@@ -283,8 +352,20 @@ the advanced semantic entrypoint:
 import { interpretSourceEvent, normalizeSourceEvent } from "@tomismeta/aperture-core/semantic";
 ```
 
-Adapters that know source output was clipped before it reached Aperture can pass
-a bounded semantic hint instead of encoding that fact into title or summary text:
+For a measured partial read, prefer a typed `SourceEvidence` diagnostic:
+
+```ts
+const evidence: SourceEvidence = {
+  kind: "diagnostic",
+  diagnostic: "source_limit",
+  channel: "read",
+  window: { unit: "lines", offset: 200, length: 100, total: 640 },
+};
+```
+
+Adapters that know source output was clipped but cannot provide a measured read
+window can pass a bounded semantic hint instead of encoding that fact into title
+or summary text:
 
 ```ts
 import type { SourceEvent } from "@tomismeta/aperture-core";
@@ -302,11 +383,13 @@ const event: SourceEvent = {
 };
 ```
 
-Use this only for adapter-known source-quality facts, such as clipped stderr,
-paginated logs, or a transcript window that omitted earlier evidence. The helper
-lowers semantic confidence and, for failed status by default, preserves high
-consequence. It cannot lower failed evidence to medium or low consequence. It
-does not parse logs, recover missing evidence, or make unrelated failures severe.
+Use the hint only for adapter-known source-quality facts that do not satisfy a
+typed evidence variant, such as clipped stderr or a transcript window that
+omitted earlier evidence. It lowers semantic confidence without changing the
+inferred consequence. It does not parse logs, recover missing evidence, or make
+unrelated failures severe. Failed task updates are status-authoritative:
+Core also accepts relation hints, but ignores every other generic semantic hint
+field rather than allowing adapter claims to override observed failure facts.
 
 If you want to type `onTrace(...)` callbacks directly or inspect why a route
 happened through the public explanation contract, use the trace entrypoint:
@@ -488,6 +571,10 @@ If you need a fully manual direct-event path, opt out:
 ```ts
 const frame = core.publish(event, { applySemanticDefaults: false });
 ```
+
+This option does not bypass `SourceEvidence` on a failed update. Typed evidence
+is an authoritative source fact, so Aperture still derives its canonical
+semantic and judgment document.
 
 You can also publish task lifecycle events like:
 

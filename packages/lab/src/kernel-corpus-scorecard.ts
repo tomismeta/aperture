@@ -10,6 +10,24 @@ import type { ReplayScenario, ReplayScenarioExpectations } from "./scenario.js";
 
 export const KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION = 6 as const;
 export const KERNEL_CORPUS_SCORECARD_COMPARISON_SCHEMA_VERSION = 3 as const;
+export const KERNEL_CORPUS_SCORECARD_PROOF = {
+  retiredRegressionOracle: true,
+  releaseEligible: false,
+  independentPostFreezeHoldoutRequired: true,
+  protectedRegressionBaseline: false,
+} as const;
+export const KERNEL_CORPUS_HISTORICAL_SCORECARD_PROOF = {
+  retiredRegressionOracle: true,
+  releaseEligible: false,
+  independentPostFreezeHoldoutRequired: true,
+  protectedRegressionBaseline: true,
+} as const;
+type KernelCorpusScorecardProof = {
+  retiredRegressionOracle: true;
+  releaseEligible: false;
+  independentPostFreezeHoldoutRequired: true;
+  protectedRegressionBaseline?: boolean;
+};
 
 export const KERNEL_CORPUS_SCORECARD_THRESHOLDS = {
   minimumScenarios: 49,
@@ -33,6 +51,7 @@ export type KernelCorpusScorecard = {
   passed: boolean;
   failures: string[];
   thresholds: typeof KERNEL_CORPUS_SCORECARD_THRESHOLDS;
+  proof: KernelCorpusScorecardProof;
   summary: {
     scenarios: {
       total: number;
@@ -205,6 +224,13 @@ export function parseHistoricalKernelCorpusScorecard(source: string): KernelCorp
     return parseKernelCorpusScorecardValue(source, KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION, null);
   } catch (error) {
     const value = JSON.parse(source) as unknown;
+    if (isHistoricalV6Scorecard(value)) {
+      return parseKernelCorpusScorecardValue(
+        JSON.stringify(migrateHistoricalV6Scorecard(value)),
+        KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION,
+        null,
+      );
+    }
     if (isHistoricalV4Scorecard(value)) {
       return parseKernelCorpusScorecardValue(
         JSON.stringify(migrateHistoricalV5Scorecard(migrateHistoricalV4Scorecard(value))),
@@ -244,6 +270,7 @@ export function buildKernelCorpusScorecard(
     passed: failures.length === 0,
     failures,
     thresholds: KERNEL_CORPUS_SCORECARD_THRESHOLDS,
+    proof: KERNEL_CORPUS_SCORECARD_PROOF,
     summary: metrics,
     dimensions: report.dimensionCoverage.dimensions
       .map((dimension) => ({
@@ -1493,9 +1520,20 @@ function isHistoricalV5Scorecard(value: unknown): value is Record<string, unknow
   return isRecord(value) && value.schemaVersion === 5 && isRecord(value.outcomeCoverage);
 }
 
+function isHistoricalV6Scorecard(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) && value.schemaVersion === 6 && isRecord(value.outcomeCoverage);
+}
+
+function migrateHistoricalV6Scorecard(value: Record<string, unknown>): Record<string, unknown> {
+  const migrated = structuredClone(value) as Record<string, unknown>;
+  ensureHistoricalProof(migrated);
+  return migrated;
+}
+
 function migrateHistoricalV5Scorecard(value: Record<string, unknown>): Record<string, unknown> {
   const migrated = structuredClone(value) as Record<string, unknown>;
   migrated.schemaVersion = KERNEL_CORPUS_SCORECARD_SCHEMA_VERSION;
+  ensureHistoricalProof(migrated);
 
   const thresholds = ensureRecord(migrated.thresholds);
   moveRecordField(
@@ -1514,6 +1552,12 @@ function migrateHistoricalV5Scorecard(value: Record<string, unknown>): Record<st
   }
 
   return migrated;
+}
+
+function ensureHistoricalProof(migrated: Record<string, unknown>): void {
+  if (!Object.prototype.hasOwnProperty.call(migrated, "proof")) {
+    migrated.proof = KERNEL_CORPUS_HISTORICAL_SCORECARD_PROOF;
+  }
 }
 
 function ensureRecord(value: unknown): Record<string, unknown> {

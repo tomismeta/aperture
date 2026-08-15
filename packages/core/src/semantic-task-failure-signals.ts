@@ -3,7 +3,7 @@ import {
   hasToolOutputFailureDiagnosticEvidence,
   looksLikeSearchFailureDiagnostic,
 } from "./semantic-diagnostic-shapes.js";
-import { readEditOutputOutcome, type EditOutputOutcome } from "./semantic-edit-output-shapes.js";
+import { readEditOutputOutcome } from "./semantic-edit-output-shapes.js";
 import {
   readExplicitObservationTranscript,
   looksLikeExplicitDiagnosticObservationTranscript,
@@ -14,51 +14,27 @@ import {
   looksLikeExplicitDiagnosticReferenceObservationTranscript,
 } from "./semantic-observation-transcript-reference-shapes.js";
 import { hasOwnedReadTerminalDiagnosticEvidence } from "./semantic-owned-read-observation-shapes.js";
-import type { StructuredToolOutputObservation } from "./semantic-structured-output.js";
-import { readSemanticStructuredOutputOwnership } from "./semantic-structured-output-ownership.js";
 import {
-  readTaskFailureStructuredOutputEnvelope,
-  type TaskFailureStructuredOutputEnvelope,
-} from "./semantic-task-failure-structured-output.js";
+  resolveSemanticStructuredOutputEnvelope,
+  readSemanticStructuredOutputOwnership,
+} from "./semantic-structured-output-ownership.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
-import { looksLikeToolUseRejectionOutcome } from "./semantic-tool-use-rejection-shapes.js";
-import {
-  looksLikeSourceWindowLimitFailure,
-  looksLikeSourceWindowLimitMixedDiagnostic,
-} from "./semantic-source-window-limit-shapes.js";
+import { parseTaskFailureEventFact } from "./semantic-task-failure-event-facts.js";
+import { isTaskFailureTextFallbackSuppressed } from "./semantic-task-failure-assertion-scope.js";
+import { removeTerminalExitCodeObservations } from "./semantic-terminal-evidence.js";
 import {
   readTaskFailureObservationSyntax,
   type TaskFailureObservationSyntax,
 } from "./task-failure-observation-grammar.js";
-
-export type TaskFailureSemanticSignals = {
-  structuredOutputEnvelope: TaskFailureStructuredOutputEnvelope;
-  unsafeStructuredToolOutputEnvelope: boolean;
-  diagnosticStructuredToolOutput: StructuredToolOutputObservation | null;
-  structuredOutputExitFailure: boolean;
-  structuredOutputZeroExitSuccess: boolean;
-  editOutputOutcome: EditOutputOutcome | null;
-  searchFailureDiagnostic: boolean;
-  readFailureDiagnostic: boolean;
-  sourceWindowLimitFailure: boolean;
-  structuredOutputFailureDiagnostic: boolean;
-  rawToolOutputFailureDiagnostic: boolean;
-  strongSourceRuntimeDiagnostic: boolean;
-  diagnosticObservationTranscript: boolean;
-  commandDiagnosticObservationTranscript: boolean;
-  commandActualDiagnosticObservationTranscript: boolean;
-  commandDiagnosticReferenceObservationTranscript: boolean;
-  observationSyntax: TaskFailureObservationSyntax | null;
-};
-
-export function readTaskFailureSemanticSignals(input: {
-  summary?: string | undefined;
-  toolFamily?: string | undefined;
-}): TaskFailureSemanticSignals {
+export type TaskFailureSemanticSignals = ReturnType<typeof readTaskFailureSemanticSignals>;
+type SemanticSignalInput = Partial<Record<"title" | "summary" | "toolFamily", string | undefined>>;
+export function readTaskFailureSemanticSignals(input: SemanticSignalInput) {
+  const { toolFamily } = input;
   const summary = input.summary ?? "";
-  const commandExecutionToolFamily = isSemanticCommandExecutionToolFamily(input.toolFamily);
-  const structuredOutputOwnership = readSemanticStructuredOutputOwnership(input.toolFamily);
-  const structuredOutputEnvelope = readTaskFailureStructuredOutputEnvelope(
+  const eventFields = [input.title ?? "", summary];
+  const commandExecutionToolFamily = isSemanticCommandExecutionToolFamily(toolFamily);
+  const structuredOutputOwnership = readSemanticStructuredOutputOwnership(toolFamily);
+  const structuredOutputEnvelope = resolveSemanticStructuredOutputEnvelope(
     input.summary,
     structuredOutputOwnership,
   );
@@ -67,7 +43,7 @@ export function readTaskFailureSemanticSignals(input: {
       ? structuredOutputEnvelope.output
       : null;
   const editOutputOutcome =
-    input.toolFamily !== "edit" || structuredOutputEnvelope.kind === "invalid"
+    toolFamily !== "edit" || structuredOutputEnvelope.kind === "invalid"
       ? null
       : readEditOutputOutcome(
           structuredOutputEnvelope.kind === "raw" ? summary : undefined,
@@ -77,7 +53,7 @@ export function readTaskFailureSemanticSignals(input: {
     diagnosticStructuredToolOutput !== null &&
     hasToolOutputFailureDiagnosticEvidence(diagnosticStructuredToolOutput.output);
   const readObservationTranscript =
-    input.toolFamily === "read" && diagnosticStructuredToolOutput === null
+    toolFamily === "read" && diagnosticStructuredToolOutput === null
       ? readExplicitObservationTranscript(summary)
       : null;
   const structuredOutputExitFailure =
@@ -85,74 +61,68 @@ export function readTaskFailureSemanticSignals(input: {
     diagnosticStructuredToolOutput.exitCode !== 0;
   const structuredOutputZeroExitSuccess =
     diagnosticStructuredToolOutput?.exitCode === 0 && structuredOutputOwnership === "exact";
-  const commandObservationTranscript = commandExecutionToolFamily
-    ? readExplicitNonDiagnosticObservationTranscript(summary)
-    : null;
-  const readAbbreviatedFileViewObservation =
-    readObservationTranscript?.shape === "abbreviated_file_view" ? readObservationTranscript : null;
-  const missingToolObservationTranscript =
-    input.toolFamily === undefined ? readExplicitObservationTranscript(summary) : null;
-  const rejectedToolUseOutcome = looksLikeToolUseRejectionOutcome(summary);
+  const observationTranscript =
+    (readObservationTranscript?.shape === "abbreviated_file_view"
+      ? readObservationTranscript
+      : null) ??
+    (commandExecutionToolFamily ? readExplicitNonDiagnosticObservationTranscript(summary) : null) ??
+    (toolFamily === undefined ? readExplicitObservationTranscript(summary) : null);
+  const strongDiagnostic = hasStrongRuntimeDiagnosticEvidence(
+    removeTerminalExitCodeObservations(summary),
+  );
+  const controlDiagnostic = hasToolOutputFailureDiagnosticEvidence(summary, true);
+  const eventFact = parseTaskFailureEventFact(eventFields, controlDiagnostic);
+  const controlContext = parseTaskFailureEventFact(eventFields) === "authorization_control";
+  const textFallbackSuppressed =
+    eventFact === null && eventFields.some(isTaskFailureTextFallbackSuppressed);
   const observationSyntax = readTaskFailureObservationSyntax({
-    commandObservationTranscript,
     editOutputOutcome,
-    missingToolObservationTranscript,
-    readAbbreviatedFileViewObservation,
-    rejectedToolUseOutcome,
-    commandExecutionToolFamily,
+    eventFact,
+    observationTranscript,
     structuredOutputEnvelope,
     structuredOutputZeroExitSuccess,
     summary,
-    toolFamily: input.toolFamily,
+    toolFamily,
   });
-  const strongDiagnostic = hasStrongRuntimeDiagnosticEvidence(summary);
   const readPayloadObservation = isPayloadObservationOrigin(observationSyntax, "read_output");
   const readSourcePayloadObservation =
-    readPayloadObservation && readObservationSyntaxSubject(observationSyntax) === "source";
+    readPayloadObservation && observationSyntax?.subject === "source";
+  const protectedPayload = observationSyntax?.completeBoundary === true;
   const structuredSourcePayloadObservation =
     isPayloadObservationOrigin(observationSyntax, "structured_output") &&
-    readObservationSyntaxSubject(observationSyntax) === "source";
-  const sourceWindowLimitFailure =
-    input.toolFamily === "read" &&
-    !readPayloadObservation &&
-    !strongDiagnostic &&
-    looksLikeSourceWindowLimitFailure(summary);
-  const sourceWindowLimitMixedDiagnostic =
-    input.toolFamily === "read" &&
-    !readPayloadObservation &&
-    looksLikeSourceWindowLimitMixedDiagnostic(summary);
+    observationSyntax?.subject === "source";
   const readFailureDiagnostic =
-    input.toolFamily === "read" &&
+    toolFamily === "read" &&
+    !textFallbackSuppressed &&
+    !protectedPayload &&
     (hasOwnedReadTerminalDiagnosticEvidence(summary) ||
-      sourceWindowLimitFailure ||
-      sourceWindowLimitMixedDiagnostic ||
       (strongDiagnostic && !readSourcePayloadObservation));
-
   return {
     structuredOutputEnvelope,
     unsafeStructuredToolOutputEnvelope:
       structuredOutputEnvelope.kind === "recovered" || structuredOutputEnvelope.kind === "invalid",
     diagnosticStructuredToolOutput,
     structuredOutputExitFailure,
-    structuredOutputZeroExitSuccess,
     editOutputOutcome,
-    searchFailureDiagnostic:
-      input.toolFamily === "search" && looksLikeSearchFailureDiagnostic(summary),
+    searchFailureDiagnostic: toolFamily === "search" && looksLikeSearchFailureDiagnostic(summary),
     readFailureDiagnostic,
-    sourceWindowLimitFailure,
     structuredOutputFailureDiagnostic,
     rawToolOutputFailureDiagnostic:
-      structuredOutputOwnership === "native" &&
+      toolFamily !== undefined &&
+      structuredOutputOwnership !== "unsupported" &&
       diagnosticStructuredToolOutput === null &&
       structuredOutputEnvelope.kind === "raw" &&
-      hasToolOutputFailureDiagnosticEvidence(summary),
+      observationSyntax?.kind !== "control" &&
+      !textFallbackSuppressed &&
+      !protectedPayload &&
+      hasToolOutputFailureDiagnosticEvidence(summary, controlContext),
     strongSourceRuntimeDiagnostic:
       (structuredOutputEnvelope.kind === "valid" &&
         structuredSourcePayloadObservation &&
         hasStrongRuntimeDiagnosticEvidence(structuredOutputEnvelope.output.output)) ||
-      (readPayloadObservation && strongDiagnostic),
+      (readPayloadObservation && strongDiagnostic && !protectedPayload && !textFallbackSuppressed),
     diagnosticObservationTranscript:
-      input.toolFamily === undefined && looksLikeExplicitDiagnosticObservationTranscript(summary),
+      toolFamily === undefined && looksLikeExplicitDiagnosticObservationTranscript(summary),
     commandDiagnosticObservationTranscript:
       commandExecutionToolFamily && looksLikeExplicitDiagnosticObservationTranscript(summary),
     commandActualDiagnosticObservationTranscript:
@@ -161,20 +131,15 @@ export function readTaskFailureSemanticSignals(input: {
       commandExecutionToolFamily &&
       looksLikeExplicitDiagnosticReferenceObservationTranscript(summary),
     observationSyntax,
+    textFallbackSuppressed:
+      structuredOutputEnvelope.kind === "valid" || structuredOutputEnvelope.kind === "recovered"
+        ? false
+        : textFallbackSuppressed,
   };
 }
-
 function isPayloadObservationOrigin(
   observation: TaskFailureObservationSyntax | null,
   origin: TaskFailureObservationSyntax["origin"],
 ): boolean {
   return observation?.kind === "payload" && observation.origin === origin;
-}
-
-function readObservationSyntaxSubject(
-  observation: TaskFailureObservationSyntax | null,
-): string | null {
-  if (observation?.kind !== "payload")
-    return observation?.kind === "outcome" ? observation.subject : null;
-  return observation.payload.source ? "source" : observation.fallbackSubject;
 }

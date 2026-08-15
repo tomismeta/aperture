@@ -1,11 +1,12 @@
 import type { SourceEvent } from "./source-event.js";
-import type {
-  SemanticConsequenceLevel,
-  SemanticConfidence,
-  SemanticFieldProvenance,
-  SemanticInterpretation,
-  SemanticInterpretationHints,
-  SemanticRelationHint,
+import {
+  TRUNCATED_SOURCE_EVIDENCE_FACTOR,
+  type SemanticConsequenceLevel,
+  type SemanticConfidence,
+  type SemanticFieldProvenance,
+  type SemanticInterpretation,
+  type SemanticInterpretationHints,
+  type SemanticRelationHint,
 } from "./semantic-types.js";
 import {
   detectSemanticBlockingSignal,
@@ -29,14 +30,34 @@ import {
   semanticWhyNowForTaskStatus,
 } from "./semantic-language.js";
 import { observationReadsAsStatusUpdate } from "./observation-semantic-read.js";
-import { readTaskFailureObservationCoreFromEvent } from "./task-failure-observation-reader.js";
+import { projectTaskFailureObservationFromEvent } from "./task-failure-observation-reader.js";
 
-export type SemanticInterpreter = (event: SourceEvent) => SemanticInterpretation;
 type SemanticProvenanceField = keyof SemanticFieldProvenance;
 
 export function interpretSourceEvent(event: SourceEvent): SemanticInterpretation {
-  const inferred = inferSemanticInterpretation(event);
-  return applySemanticHints(inferred, event.semanticHints);
+  return applySemanticHints(inferSemanticInterpretation(event), readApplicableSemanticHints(event));
+}
+
+function readApplicableSemanticHints(event: SourceEvent): SemanticInterpretationHints | undefined {
+  const hints = event.semanticHints;
+  if (event.type !== "task.updated" || event.status !== "failed" || hints === undefined)
+    return hints;
+  const relationOnly = hints.relationHints && { relationHints: hints.relationHints };
+  const observation = projectTaskFailureObservationFromEvent(event);
+  if (
+    event.evidence === undefined &&
+    observation !== null &&
+    observation.evidenceLoss === "partial" &&
+    hints.confidence === "low" &&
+    hints.factors?.includes(TRUNCATED_SOURCE_EVIDENCE_FACTOR) === true
+  )
+    return {
+      ...relationOnly,
+      confidence: "low",
+      factors: [TRUNCATED_SOURCE_EVIDENCE_FACTOR],
+      ...(hints.reasons === undefined ? {} : { reasons: hints.reasons }),
+    };
+  return relationOnly;
 }
 
 function inferSemanticInterpretation(event: SourceEvent): SemanticInterpretation {
@@ -116,13 +137,14 @@ function inferTaskUpdateSemantics(
   const impliedAsk = detectImpliedOperatorAsk(text);
   const blockingSignal = detectSemanticBlockingSignal(text);
   const relationHints = detectSemanticRelationHints(rawText);
+  const evidenceAuthority = event.status === "failed" && event.evidence !== undefined;
   const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily);
   const failureObservationCore =
-    event.status === "failed" ? readTaskFailureObservationCoreFromEvent(event) : null;
+    event.status === "failed" ? projectTaskFailureObservationFromEvent(event) : null;
   const awaitsAuthorization = failureObservationCore?.recoveryHint === "await_authorization";
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(
     taxonomyInput,
-    !awaitsAuthorization,
+    !awaitsAuthorization && !evidenceAuthority && failureObservationCore === null,
   );
   const relationProvenance =
     relationHints.length > 0 ? inferredSemanticProvenance(["relationHints"]) : {};
@@ -141,12 +163,20 @@ function inferTaskUpdateSemantics(
           ...(toolFamily ? { toolFamily } : {}),
           consequence,
           ...(whyNow !== undefined ? { whyNow } : {}),
-          factors: ["task.updated", "failed", "observational_failure"],
+          factors: [
+            "task.updated",
+            "failed",
+            evidenceAuthority ? "source_evidence" : "observational_failure",
+          ],
           relationHints,
           confidence: "high",
-          reasons: ["task status indicates failure but the update reads like observational output"],
+          reasons: [
+            evidenceAuthority
+              ? "typed source evidence determines the failed update meaning"
+              : "task status indicates failure but the update reads like observational output",
+          ],
           provenance: {
-            ...inferredSemanticProvenance([
+            ...(evidenceAuthority ? sourceSemanticProvenance : inferredSemanticProvenance)([
               "intentFrame",
               "activityClass",
               "consequence",
@@ -163,23 +193,27 @@ function inferTaskUpdateSemantics(
         intentFrame: "failure",
         activityClass: "tool_failure",
         ...(toolFamily ? { toolFamily } : {}),
-        consequence: inferConsequenceFromSemanticText(
-          text,
-          failureObservationCore?.consequenceBaseline ?? "high",
-          toolFamily,
-        ),
+        consequence: evidenceAuthority
+          ? (failureObservationCore?.consequenceBaseline ?? "high")
+          : inferConsequenceFromSemanticText(
+              text,
+              failureObservationCore?.consequenceBaseline ?? "high",
+              toolFamily,
+            ),
         whyNow: semanticWhyNowForTaskStatus("failed") ?? "Work has failed and should be reviewed.",
-        factors: ["task.updated", "failed"],
+        factors: ["task.updated", "failed", ...(evidenceAuthority ? ["source_evidence"] : [])],
         relationHints,
-        confidence: impliedAsk ? "medium" : "high",
-        reasons: hasExpectedDiagnosticClass
-          ? [
-              ...semanticReasonsForTaskStatus("failed", { impliedAsk }),
-              "failure content looks like expected diagnostic output from repro work",
-            ]
-          : semanticReasonsForTaskStatus("failed", { impliedAsk }),
+        confidence: evidenceAuthority ? "high" : impliedAsk ? "medium" : "high",
+        reasons: evidenceAuthority
+          ? ["typed source evidence determines the failed update meaning"]
+          : hasExpectedDiagnosticClass
+            ? [
+                ...semanticReasonsForTaskStatus("failed", { impliedAsk }),
+                "failure content looks like expected diagnostic output from repro work",
+              ]
+            : semanticReasonsForTaskStatus("failed", { impliedAsk }),
         provenance: {
-          ...inferredSemanticProvenance([
+          ...(evidenceAuthority ? sourceSemanticProvenance : inferredSemanticProvenance)([
             "intentFrame",
             "activityClass",
             "consequence",
@@ -293,8 +327,6 @@ function inferTaskUpdateSemantics(
           ...relationProvenance,
         },
       };
-    default:
-      return unreachableTaskStatus(event.status);
   }
 }
 
@@ -489,25 +521,10 @@ function mergeSemanticConfidence(
   inferred: SemanticConfidence,
   hinted: SemanticConfidence | undefined,
 ): SemanticConfidence {
-  if (!hinted) {
-    return inferred;
-  }
-
-  return semanticConfidenceWeight(hinted) < semanticConfidenceWeight(inferred) ? hinted : inferred;
+  if (hinted === undefined) return inferred;
+  return CONFIDENCE_WEIGHT[hinted] < CONFIDENCE_WEIGHT[inferred] ? hinted : inferred;
 }
-
-function semanticConfidenceWeight(confidence: SemanticConfidence): number {
-  switch (confidence) {
-    case "low":
-      return 1;
-    case "medium":
-      return 2;
-    case "high":
-      return 3;
-    default:
-      return unreachableSemanticConfidence(confidence);
-  }
-}
+const CONFIDENCE_WEIGHT: Record<SemanticConfidence, number> = { high: 3, low: 1, medium: 2 };
 
 function mergeSemanticRelationHints(
   inferred: SemanticRelationHint[],
@@ -617,18 +634,10 @@ function unreachableSourceEvent(event: never): never {
   throw new Error(`Unhandled source event in semantic interpreter: ${JSON.stringify(event)}`);
 }
 
-function unreachableTaskStatus(status: never): never {
-  throw new Error(`Unhandled task status in semantic interpreter: ${status}`);
-}
-
 function unreachableRequestKind(kind: never): never {
   throw new Error(`Unhandled human input request kind in semantic interpreter: ${kind}`);
 }
 
 function unreachableToolFamilySource(source: never): never {
   throw new Error(`Unhandled tool family provenance source in semantic interpreter: ${source}`);
-}
-
-function unreachableSemanticConfidence(confidence: never): never {
-  throw new Error(`Unhandled semantic confidence in semantic interpreter: ${confidence}`);
 }

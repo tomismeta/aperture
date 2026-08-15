@@ -180,6 +180,10 @@ function readOntologySource(
 ): AttentionOntologyAuthority {
   const provenanceKinds = Object.values(interpretation.provenance ?? {});
 
+  if (event.type === "task.updated" && event.evidence !== undefined) {
+    return "explicit";
+  }
+
   if (hasOntologyAuthorityHint(interpretation)) {
     return "hinted";
   }
@@ -219,9 +223,7 @@ function hasOntologyAuthorityHint(interpretation: SemanticInterpretation): boole
     provenance.intentFrame === "hint" ||
     provenance.activityClass === "hint" ||
     provenance.consequence === "hint" ||
-    provenance.relationHints === "hint" ||
-    provenance.confidence === "hint" ||
-    interpretation.relationHints.some((hint) => hint.target !== undefined)
+    provenance.confidence === "hint"
   );
 }
 

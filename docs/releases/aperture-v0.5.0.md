@@ -31,10 +31,11 @@ The public package remains independent of the private `@aperture/runtime`
 package. Runtime and Core internals are not published as package dependencies or
 new public entry points by this release.
 
-The product bundle includes the current Core semantic and judgment behavior,
-but this product cut does not independently publish the Core SDK candidate.
-Consumers embedding Core should continue to treat the Core `0.9.0` notes as
-pre-release until its separate release gate is complete.
+The product bundle includes the current Core semantic and judgment behavior.
+This coordinated release publishes the product and Core SDK as separate npm
+packages: `@tomismeta/aperture@0.5.0` and
+`@tomismeta/aperture-core@0.9.0`. The product bundles the engine at build time
+and does not add Core as a runtime package dependency.
 
 ## Bundled Engine Behavior
 

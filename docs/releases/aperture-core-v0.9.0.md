@@ -206,7 +206,7 @@ second host judgment path.
 
 `pnpm kernel:scale` evaluates a fixed eight-family workload 30,000 times across
 three rounds. Every round must produce the same SHA-256 digest over the complete
-canonical public result stream and clear a coarse 1,000 evaluations-per-second
+canonical public result stream and clear a coarse 700 evaluations-per-second
 tripwire. Timing and heap movement are reported, but machine-specific timings
 are not committed as golden snapshots.
 

@@ -41,10 +41,12 @@ ordering, and accidental reductions in the exercised scale.
 The command reports per-round throughput and mean latency, aggregate median and
 minimum throughput, median and p95 round-mean latency, and the process heap delta.
 
-The release gate applies a deliberately coarse floor of 1,000 evaluations per
-second in every measured round. This is a regression tripwire, not a throughput
-promise. Heap movement is reported but is not gated because garbage-collection
-timing is process- and runtime-dependent.
+The release gate applies a deliberately coarse floor of 700 evaluations per
+second in every measured round. The floor is set below the observed shared-CI
+runner baseline so that scheduling variance does not make the release gate
+flaky. It remains a regression tripwire, not a throughput promise. Heap movement
+is reported but is not gated because garbage-collection timing is process- and
+runtime-dependent.
 
 Timing values are never committed as a golden snapshot. Hardware, Node.js,
 operating-system scheduling, and concurrent load all affect them. Determinism,

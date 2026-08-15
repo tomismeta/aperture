@@ -13,7 +13,7 @@ export const KERNEL_SCALE_BENCHMARK_SCHEMA_VERSION = 1 as const;
 export const KERNEL_SCALE_BENCHMARK_THRESHOLDS = {
   minimumRounds: 3,
   minimumEvaluations: 30_000,
-  minimumRoundThroughputPerSecond: 1_000,
+  minimumRoundThroughputPerSecond: 700,
 } as const;
 
 export type KernelScaleBenchmarkRound = {

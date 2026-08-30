@@ -8,6 +8,12 @@ import { readRuntimeAuthToken } from "./runtime-auth.js";
 import { discoverLocalRuntimes } from "./runtime-discovery.js";
 
 export const DEFAULT_RUNTIME_POLL_INTERVAL_MS = 250;
+export const DEFAULT_RUNTIME_REQUEST_TIMEOUT_MS = 10_000;
+
+export type RuntimeRequestOptions = {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+};
 
 type RuntimeErrorEnvelope = {
   error?:
@@ -77,6 +83,7 @@ export function createEmptyRuntimeSnapshot(): ApertureRuntimeSnapshot {
     attentionState: "monitoring",
     adapters: [],
     surfaceCount: 0,
+    responseSurfaceCount: 0,
     surfaceCapabilities: {
       topology: {
         supportsAmbient: baseAttentionSurfaceCapabilities.topology.supportsAmbient,
@@ -238,10 +245,18 @@ export async function resolveRuntimeAuthToken(
   return readRuntimeAuthToken(runtime.tokenPath);
 }
 
-export async function getJson<T>(url: string, authToken: string): Promise<T> {
-  return requestJson<T>(url, {
-    headers: buildHeaders(authToken),
-  });
+export async function getJson<T>(
+  url: string,
+  authToken: string,
+  options: RuntimeRequestOptions = {},
+): Promise<T> {
+  return requestJson<T>(
+    url,
+    {
+      headers: buildHeaders(authToken),
+    },
+    options,
+  );
 }
 
 export async function postJson<T = Record<string, never>>(
@@ -249,22 +264,32 @@ export async function postJson<T = Record<string, never>>(
   body: unknown,
   authToken: string,
   contentType = "application/json",
+  options: RuntimeRequestOptions = {},
 ): Promise<T> {
-  return requestJson<T>(url, {
-    method: "POST",
-    headers: buildHeaders(authToken, contentType),
-    body: typeof body === "string" ? body : JSON.stringify(body),
-  });
+  return requestJson<T>(
+    url,
+    {
+      method: "POST",
+      headers: buildHeaders(authToken, contentType),
+      body: typeof body === "string" ? body : JSON.stringify(body),
+    },
+    options,
+  );
 }
 
 export async function deleteJson<T = Record<string, never>>(
   url: string,
   authToken: string,
+  options: RuntimeRequestOptions = {},
 ): Promise<T> {
-  return requestJson<T>(url, {
-    method: "DELETE",
-    headers: buildHeaders(authToken),
-  });
+  return requestJson<T>(
+    url,
+    {
+      method: "DELETE",
+      headers: buildHeaders(authToken),
+    },
+    options,
+  );
 }
 
 function buildHeaders(authToken: string, contentType?: string): Record<string, string> {
@@ -287,18 +312,72 @@ function emptyListenerHealth() {
   };
 }
 
-async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
-  const payload = await readResponsePayload(response);
-  if (!response.ok) {
-    throw buildRequestError(response, payload);
+async function requestJson<T>(
+  url: string,
+  init: RequestInit,
+  options: RuntimeRequestOptions,
+): Promise<T> {
+  const request = createRequestSignal(options);
+  try {
+    const response = await fetch(url, { ...init, signal: request.signal });
+    const payload = await readResponsePayload(response);
+    if (!response.ok) {
+      throw buildRequestError(response, payload);
+    }
+
+    if (payload.body === undefined) {
+      return undefined as T;
+    }
+
+    return payload.body as T;
+  } catch (error) {
+    if (request.didTimeOut()) {
+      throw new Error(`Aperture runtime request timed out after ${request.timeoutMs}ms.`, {
+        cause: error,
+      });
+    }
+    throw error;
+  } finally {
+    request.cleanup();
+  }
+}
+
+function createRequestSignal(options: RuntimeRequestOptions): {
+  signal: AbortSignal;
+  timeoutMs: number;
+  didTimeOut(): boolean;
+  cleanup(): void;
+} {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_RUNTIME_REQUEST_TIMEOUT_MS;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new RangeError("Runtime request timeout must be a positive finite number.");
   }
 
-  if (payload.body === undefined) {
-    return undefined as T;
+  const controller = new AbortController();
+  let timedOut = false;
+  const abort = () => controller.abort(options.signal?.reason);
+  if (options.signal?.aborted) {
+    abort();
+  } else {
+    options.signal?.addEventListener("abort", abort, { once: true });
   }
 
-  return payload.body as T;
+  const timeout = setTimeout(() => {
+    if (controller.signal.aborted) return;
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  timeout.unref();
+
+  return {
+    signal: controller.signal,
+    timeoutMs,
+    didTimeOut: () => timedOut,
+    cleanup: () => {
+      clearTimeout(timeout);
+      options.signal?.removeEventListener("abort", abort);
+    },
+  };
 }
 
 function buildRequestError(

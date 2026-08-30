@@ -30,7 +30,7 @@ export type AperturePiExtensionOptions = {
 
 export type PiRuntimeClient = Pick<
   ApertureRuntimeAdapterClient,
-  "publishSourceEventBatch" | "getSurfaceCount" | "onResponse" | "onError" | "close"
+  "publishSourceEventBatch" | "getResponseSurfaceCount" | "onResponse" | "onError" | "close"
 >;
 
 const PI_EXTENSION_EVENTS = [
@@ -99,7 +99,7 @@ export function bindAperturePiExtension(
       return undefined;
     }
 
-    if (policy === "hold-if-surface" && client.getSurfaceCount() === 0) {
+    if (policy === "hold-if-surface" && client.getResponseSurfaceCount() === 0) {
       return undefined;
     }
 

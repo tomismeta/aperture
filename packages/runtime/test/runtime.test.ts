@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,6 +8,7 @@ import { join } from "node:path";
 import { ApertureCore, type SourceEvent } from "@tomismeta/aperture-core";
 
 import { bootstrapLearningPersistence } from "../src/learning-persistence.js";
+import { getJson } from "../src/runtime-client-shared.js";
 import { createApertureRuntime } from "../src/runtime.js";
 import { ApertureRuntimeAdapterClient } from "../src/adapter-client.js";
 import { ApertureRuntimeClient } from "../src/runtime-client.js";
@@ -412,6 +414,8 @@ test("runtime adapter client observes attached surfaces through snapshot state",
 
   try {
     assert.equal(client.getSurfaceCount(), 0);
+    assert.equal(client.getResponseSurfaceCount(), 0);
+    assert.equal(runtime.hasAttachedSurface(), false);
 
     const attach = await authorizedRuntimeFetch(controlUrl, authToken, "/surfaces/attach", {
       method: "POST",
@@ -441,9 +445,12 @@ test("runtime adapter client observes attached surfaces through snapshot state",
       { timeoutMs: 750 },
     );
     assert.equal(surfaceCount, 1);
+    assert.equal(client.getResponseSurfaceCount(), 1);
+    assert.equal(runtime.hasAttachedSurface(), true);
 
     const state = await authorizedRuntimeFetch(controlUrl, authToken, "/state");
     const snapshot = (await state.json()) as ApertureRuntimeSnapshot;
+    assert.equal(snapshot.responseSurfaceCount, 1);
     assert.equal(snapshot.surfaceCapabilities.topology.supportsAmbient, false);
     assert.equal(snapshot.surfaceCapabilities.responses.supportsForm, true);
     assert.equal(runtime.getCore().getSurfaceCapabilities().topology.supportsAmbient, false);
@@ -470,6 +477,47 @@ test("companion surfaces do not constrain aggregate capabilities", async () => {
     assert.ok(invalidError && typeof invalidError === "object" && "code" in invalidError);
     assert.equal(invalidError.code, "invalid_surface_role");
 
+    const invalidCapabilities = await authorizedRuntimeFetch(
+      controlUrl,
+      authToken,
+      "/surfaces/attach",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          capabilities: { topology: { supportsAmbient: "false" } },
+        }),
+      },
+    );
+    assert.equal(invalidCapabilities.status, 400);
+    const invalidCapabilitiesBody = (await invalidCapabilities.json()) as {
+      error?: { code?: string };
+    };
+    assert.equal(invalidCapabilitiesBody.error?.code, "invalid_surface_capabilities");
+
+    const defaultCompanion = await authorizedRuntimeFetch(
+      controlUrl,
+      authToken,
+      "/surfaces/attach",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "companion" }),
+      },
+    );
+    assert.equal(defaultCompanion.status, 200);
+    const defaultCompanionBody = (await defaultCompanion.json()) as { surfaceId: string };
+    const defaultCompanionState = await authorizedRuntimeFetch(controlUrl, authToken, "/state");
+    const defaultCompanionSnapshot =
+      (await defaultCompanionState.json()) as ApertureRuntimeSnapshot;
+    assert.equal(defaultCompanionSnapshot.responseSurfaceCount, 0);
+    await authorizedRuntimeFetch(
+      controlUrl,
+      authToken,
+      `/surfaces/${encodeURIComponent(defaultCompanionBody.surfaceId)}`,
+      { method: "DELETE" },
+    );
+
     const companion = await ApertureRuntimeClient.connect({
       baseUrl: controlUrl,
       label: "desktop attention",
@@ -488,6 +536,8 @@ test("companion surfaces do not constrain aggregate capabilities", async () => {
     try {
       const snapshot = companion.getSnapshot();
       assert.equal(snapshot.surfaceCount, 1);
+      assert.equal(snapshot.responseSurfaceCount, 0);
+      assert.equal(runtime.hasAttachedSurface(), true);
       assert.equal(snapshot.surfaceCapabilities.topology.supportsAmbient, true);
       assert.equal(snapshot.surfaceCapabilities.responses.supportsForm, true);
       assert.equal(runtime.getCore().getSurfaceCapabilities().topology.supportsAmbient, true);
@@ -497,6 +547,32 @@ test("companion surfaces do not constrain aggregate capabilities", async () => {
     }
   } finally {
     await runtime.close();
+  }
+});
+
+test("runtime JSON requests time out instead of hanging indefinitely", async () => {
+  const server = createServer(() => {});
+  await new Promise<void>((resolve, reject) => {
+    const fail = (error: Error) => reject(error);
+    server.once("error", fail);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", fail);
+      resolve();
+    });
+  });
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+
+  try {
+    await assert.rejects(
+      getJson(`http://127.0.0.1:${address.port}/never`, "test-token", {
+        timeoutMs: 25,
+      }),
+      /timed out after 25ms/,
+    );
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
 

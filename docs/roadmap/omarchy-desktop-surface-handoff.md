@@ -26,7 +26,7 @@ The reference client is an Omarchy bar plugin. The durable product asset is the 
 - Concept source: <https://gist.github.com/tomismeta/d926469e3693dc55ffea45a536eddc89>
 - Plugin handoff: `/Users/tom/dev/omarchy-aperture/HANDOFF.md`
 - Coordination log: `/Users/tom/dev/omarchy-aperture/COORDINATION.md`
-- Draft protocol fixtures: `/Users/tom/dev/omarchy-aperture/fixtures/surface-protocol-draft`
+- Canonical renderer fixtures: `/Users/tom/dev/omarchy-aperture/fixtures/surface-protocol`
 
 ## Ownership
 
@@ -50,7 +50,7 @@ Own:
 
 - manifest and QML
 - process spawning and missing-binary state
-- JSONL parsing and protocol-version checks
+- JSONL parsing and package-version/capability checks
 - bar posture and panel rendering
 - Omarchy theme, keyboard, mouse, scaling, and overflow behavior
 - Open Aperture shell handoff
@@ -106,7 +106,7 @@ Do not let the Omarchy bar process accidentally own this host lifecycle.
 
 ## Surface protocol
 
-The canonical protocol will be owned here. The plugin repository's current files are provisional fixtures for parallel renderer work.
+The canonical protocol is owned here. The plugin repository mirrors generated fixtures from the pinned Aperture commit.
 
 Output messages:
 
@@ -123,13 +123,13 @@ The surface protocol must:
 - keep stdout machine-clean
 - emit diagnostics on stderr
 - send complete snapshots, not patches
-- include a protocol version
+- identify compatibility through the package version and advertised capabilities
 - use monotonic snapshot sequence within one process generation
 - publish bounded source summaries
 - publish a bounded surface frame DTO
 - omit arbitrary metadata, private paths, control URLs, and secrets
 - recover from malformed internal data without emitting false calm
-- reconnect after runtime replacement and token rotation
+- after a lost or authentication-failed runtime, rediscover and reread the current URL and token before reconnecting
 
 ## Surface projection
 
@@ -217,7 +217,7 @@ The process does not start a second runtime automatically in the initial surface
 
 ### Packet D: tests and package proof
 
-- protocol ordering and version
+- protocol ordering and package compatibility
 - disconnected startup
 - unchanged-view suppression
 - runtime replacement and token change
@@ -241,9 +241,9 @@ When the Omarchy agent requests a change:
 1. Read `/Users/tom/dev/omarchy-aperture/COORDINATION.md`.
 2. Accept or reject the smallest requested contract addition.
 3. Update schema and canonical fixtures here.
-4. Record protocol-version impact.
+4. Record package-compatibility impact.
 5. Give the plugin agent the Aperture commit.
-6. The plugin agent updates `PROTOCOL_BASELINE` and replaces draft fixtures.
+6. The plugin agent updates `PROTOCOL_BASELINE` and replaces its canonical fixture mirror.
 
 Never support drift with renderer-local aliases.
 
@@ -267,7 +267,7 @@ Never support drift with renderer-local aliases.
 - snapshots are complete, bounded, ordered, and schema-valid
 - source summary is sufficient for the panel header
 - unchanged views are not emitted repeatedly without reconnect/refresh cause
-- runtime replacement rediscovery refreshes token and URL internally
+- reconnect rediscovery uses the current runtime URL and token after loss or authentication failure
 - stdout is JSONL only
 - stderr and messages contain no token or private control path
 - internal metadata never crosses the surface DTO

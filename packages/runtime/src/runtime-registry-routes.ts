@@ -79,19 +79,33 @@ export function createRuntimeRegistryRoutes(options: BuildRuntimeRoutesOptions):
       mutating: true,
       rateLimitKey: "control",
       handler: async ({ req, res }) => {
-        const payload = (await readJson(req, options.bodyLimits.general)) as {
-          label?: string;
+        const rawPayload = await readJson(req, options.bodyLimits.general);
+        if (!isRecord(rawPayload)) {
+          throw new RuntimeHttpError(
+            400,
+            "invalid_surface_payload",
+            "surface attachment payload must be an object",
+          );
+        }
+        const payload = rawPayload as {
+          label?: unknown;
           role?: unknown;
-          capabilities?: {
-            topology?: { supportsAmbient?: boolean };
-            responses?: {
-              supportsSingleChoice?: boolean;
-              supportsMultipleChoice?: boolean;
-              supportsForm?: boolean;
-              supportsTextResponse?: boolean;
-            };
-          };
+          acceptsResponses?: unknown;
+          capabilities?: unknown;
         };
+        assertSurfaceCapabilities(payload.capabilities);
+        if (
+          payload.label !== undefined &&
+          (typeof payload.label !== "string" ||
+            payload.label.trim().length === 0 ||
+            payload.label.length > 120)
+        ) {
+          throw new RuntimeHttpError(
+            400,
+            "invalid_surface_label",
+            "surface label must contain 1 to 120 visible characters",
+          );
+        }
         if (
           payload.role !== undefined &&
           payload.role !== "participant" &&
@@ -103,11 +117,24 @@ export function createRuntimeRegistryRoutes(options: BuildRuntimeRoutesOptions):
             "surface role must be participant or companion",
           );
         }
+        if (
+          payload.acceptsResponses !== undefined &&
+          typeof payload.acceptsResponses !== "boolean"
+        ) {
+          throw new RuntimeHttpError(
+            400,
+            "invalid_surface_response_capability",
+            "surface acceptsResponses must be a boolean",
+          );
+        }
         const surfaceId = randomUUID();
         const attached = options.state.attachSurface({
           id: surfaceId,
-          ...(payload.label ? { label: payload.label } : {}),
+          ...(typeof payload.label === "string" ? { label: payload.label.trim() } : {}),
           ...(payload.role ? { role: payload.role } : {}),
+          ...(typeof payload.acceptsResponses === "boolean"
+            ? { acceptsResponses: payload.acceptsResponses }
+            : {}),
           capabilities: payload.capabilities,
         });
         options.syncSurfaceCapabilities();
@@ -150,4 +177,54 @@ export function createRuntimeRegistryRoutes(options: BuildRuntimeRoutesOptions):
       },
     },
   ];
+}
+
+type SurfaceCapabilitiesPayload = {
+  topology?: { supportsAmbient?: boolean };
+  responses?: {
+    supportsSingleChoice?: boolean;
+    supportsMultipleChoice?: boolean;
+    supportsForm?: boolean;
+    supportsTextResponse?: boolean;
+  };
+};
+
+function assertSurfaceCapabilities(
+  capabilities: unknown,
+): asserts capabilities is SurfaceCapabilitiesPayload | undefined {
+  if (capabilities === undefined) return;
+  if (!isRecord(capabilities)) {
+    throw invalidSurfaceCapabilities();
+  }
+
+  if (capabilities.topology !== undefined) {
+    if (!isRecord(capabilities.topology)) throw invalidSurfaceCapabilities();
+    assertOptionalBoolean(capabilities.topology, "supportsAmbient");
+  }
+
+  if (capabilities.responses !== undefined) {
+    if (!isRecord(capabilities.responses)) throw invalidSurfaceCapabilities();
+    assertOptionalBoolean(capabilities.responses, "supportsSingleChoice");
+    assertOptionalBoolean(capabilities.responses, "supportsMultipleChoice");
+    assertOptionalBoolean(capabilities.responses, "supportsForm");
+    assertOptionalBoolean(capabilities.responses, "supportsTextResponse");
+  }
+}
+
+function assertOptionalBoolean(value: Record<string, unknown>, key: string): void {
+  if (value[key] !== undefined && typeof value[key] !== "boolean") {
+    throw invalidSurfaceCapabilities();
+  }
+}
+
+function invalidSurfaceCapabilities(): RuntimeHttpError {
+  return new RuntimeHttpError(
+    400,
+    "invalid_surface_capabilities",
+    "surface capabilities must contain boolean values",
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

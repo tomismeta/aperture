@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/tomismeta/aperture/main/packages/aperture/src/surface-protocol.schema.json",
+  "$id": "urn:tomismeta:aperture:surface-protocol",
   "title": "Aperture Surface Protocol",
   "oneOf": [
     { "$ref": "#/$defs/hello" },
@@ -64,7 +64,6 @@
             "reason": {
               "enum": [
                 "runtime_unavailable",
-                "runtime_replaced",
                 "authentication_failed",
                 "connection_failed"
               ]
@@ -76,9 +75,8 @@
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "kind", "label"],
+      "required": ["kind", "label"],
       "properties": {
-        "id": { "$ref": "#/$defs/shortId" },
         "kind": { "$ref": "#/$defs/kind" },
         "label": { "$ref": "#/$defs/label" }
       }
@@ -178,10 +176,21 @@
         }
       }
     },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["now", "next", "ambient", "sources"],
+      "properties": {
+        "now": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "next": { "type": "integer", "minimum": 0 },
+        "ambient": { "type": "integer", "minimum": 0 },
+        "sources": { "type": "integer", "minimum": 0 }
+      }
+    },
     "snapshot": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "sequence", "sources", "view"],
+      "required": ["type", "sequence", "sources", "totals", "view"],
       "properties": {
         "type": { "const": "snapshot" },
         "sequence": { "type": "integer", "minimum": 1 },
@@ -190,6 +199,7 @@
           "maxItems": 32,
           "items": { "$ref": "#/$defs/source" }
         },
+        "totals": { "$ref": "#/$defs/totals" },
         "view": { "$ref": "#/$defs/view" }
       }
     },

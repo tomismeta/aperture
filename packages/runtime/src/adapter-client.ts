@@ -84,6 +84,10 @@ export class ApertureRuntimeAdapterClient {
     return this.snapshotState.surfaceCount;
   }
 
+  getResponseSurfaceCount(): number {
+    return this.snapshotState.responseSurfaceCount;
+  }
+
   getLastError(): Error | null {
     return this.lastError;
   }

@@ -314,7 +314,7 @@ class FakeRuntimeClient implements PiRuntimeClient {
     this.published.push(...events);
   }
 
-  getSurfaceCount(): number {
+  getResponseSurfaceCount(): number {
     return 1;
   }
 

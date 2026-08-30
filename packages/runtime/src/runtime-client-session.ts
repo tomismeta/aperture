@@ -30,10 +30,14 @@ export class RuntimeAttachmentSession {
   private readonly onPoll: RuntimeAttachmentSessionOptions["onPoll"];
   private readonly onError: RuntimeAttachmentSessionOptions["onError"];
   private attachedId: string | null = null;
-  private heartbeatIntervalId: NodeJS.Timeout | null = null;
-  private pollIntervalId: NodeJS.Timeout | null = null;
+  private heartbeatIntervalMs = 0;
+  private heartbeatTimeoutId: NodeJS.Timeout | null = null;
+  private pollTimeoutId: NodeJS.Timeout | null = null;
+  private heartbeatTask: Promise<void> | null = null;
+  private pollTask: Promise<void> | null = null;
+  private closePromise: Promise<void> | null = null;
   private nextSequence = 0;
-  private closed = false;
+  private closed = true;
 
   constructor(options: RuntimeAttachmentSessionOptions) {
     this.pollIntervalMs = options.pollIntervalMs;
@@ -50,43 +54,57 @@ export class RuntimeAttachmentSession {
   }
 
   async start(): Promise<void> {
-    if (this.attachedId) {
+    if (!this.closed || this.attachedId) {
       throw new Error("Runtime attachment session is already running.");
     }
 
-    const attachment = await this.attachFn();
-    this.attachedId = attachment.attachedId;
     this.closed = false;
-
-    this.heartbeatIntervalId = setInterval(() => {
-      const attachedId = this.attachedId;
-      if (!attachedId || this.closed) {
+    this.nextSequence = 0;
+    try {
+      const attachment = await this.attachFn();
+      if (this.closed) {
+        await this.detachFn(attachment.attachedId);
         return;
       }
-      void this.heartbeatFn(attachedId).catch((error) => this.reportError(error));
-    }, attachment.heartbeatIntervalMs);
-
-    this.pollIntervalId = setInterval(() => {
-      void this.pollOnce().catch((error) => this.reportError(error));
-    }, this.pollIntervalMs);
+      this.attachedId = attachment.attachedId;
+      this.heartbeatIntervalMs = attachment.heartbeatIntervalMs;
+      this.scheduleHeartbeat();
+      this.schedulePoll();
+    } catch (error) {
+      this.closed = true;
+      throw error;
+    }
   }
 
-  async close(): Promise<void> {
+  close(): Promise<void> {
+    if (this.closePromise) return this.closePromise;
+
+    const closing = this.closeInternal().finally(() => {
+      if (this.closePromise === closing) this.closePromise = null;
+    });
+    this.closePromise = closing;
+    return closing;
+  }
+
+  private async closeInternal(): Promise<void> {
     this.closed = true;
-    if (this.pollIntervalId) {
-      clearInterval(this.pollIntervalId);
-      this.pollIntervalId = null;
+    if (this.pollTimeoutId) {
+      clearTimeout(this.pollTimeoutId);
+      this.pollTimeoutId = null;
     }
-    if (this.heartbeatIntervalId) {
-      clearInterval(this.heartbeatIntervalId);
-      this.heartbeatIntervalId = null;
+    if (this.heartbeatTimeoutId) {
+      clearTimeout(this.heartbeatTimeoutId);
+      this.heartbeatTimeoutId = null;
     }
+
+    const activeTasks = [this.pollTask, this.heartbeatTask].filter(
+      (task): task is Promise<void> => task !== null,
+    );
+    await Promise.allSettled(activeTasks);
 
     const attachedId = this.attachedId;
     this.attachedId = null;
-    if (!attachedId) {
-      return;
-    }
+    if (!attachedId) return;
 
     try {
       await this.detachFn(attachedId);
@@ -95,13 +113,46 @@ export class RuntimeAttachmentSession {
     }
   }
 
-  private async pollOnce(): Promise<void> {
-    if (this.closed) {
-      return;
-    }
-    const feed = await this.pollFn(this.nextSequence);
-    this.nextSequence = feed.nextSequence;
-    await this.onPoll(feed);
+  private scheduleHeartbeat(): void {
+    if (this.closed || !this.attachedId) return;
+    this.heartbeatTimeoutId = setTimeout(() => {
+      this.heartbeatTimeoutId = null;
+      const attachedId = this.attachedId;
+      if (this.closed || !attachedId) return;
+
+      const task = this.heartbeatFn(attachedId)
+        .catch((error) => {
+          if (!this.closed) this.reportError(error);
+        })
+        .finally(() => {
+          if (this.heartbeatTask === task) this.heartbeatTask = null;
+          this.scheduleHeartbeat();
+        });
+      this.heartbeatTask = task;
+    }, this.heartbeatIntervalMs);
+  }
+
+  private schedulePoll(): void {
+    if (this.closed || !this.attachedId) return;
+    this.pollTimeoutId = setTimeout(() => {
+      this.pollTimeoutId = null;
+      if (this.closed) return;
+
+      const task = this.pollFn(this.nextSequence)
+        .then(async (feed) => {
+          if (this.closed) return;
+          this.nextSequence = feed.nextSequence;
+          await this.onPoll(feed);
+        })
+        .catch((error) => {
+          if (!this.closed) this.reportError(error);
+        })
+        .finally(() => {
+          if (this.pollTask === task) this.pollTask = null;
+          this.schedulePoll();
+        });
+      this.pollTask = task;
+    }, this.pollIntervalMs);
   }
 
   private reportError(error: unknown): void {

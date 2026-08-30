@@ -15,7 +15,6 @@ export const APERTURE_SURFACE_LIMITS = {
 } as const;
 
 export type ApertureSurfaceSource = {
-  id: string;
   kind: string;
   label: string;
 };
@@ -63,11 +62,23 @@ export type ApertureSurfaceView = {
   ambient: ApertureSurfaceFrame[];
 };
 
+export type ApertureSurfaceTotals = {
+  now: 0 | 1;
+  next: number;
+  ambient: number;
+  sources: number;
+};
+
 export type ApertureSurfaceCapabilities = {
   snapshots: boolean;
   responses: boolean;
   engagement: boolean;
 };
+export const APERTURE_STDIO_CAPABILITIES: Readonly<ApertureSurfaceCapabilities> = Object.freeze({
+  snapshots: true,
+  responses: false,
+  engagement: false,
+});
 
 export type ApertureSurfaceHelloMessage = {
   type: "hello";
@@ -90,17 +101,14 @@ export type ApertureSurfaceConnectionMessage =
   | {
       type: "connection";
       state: "disconnected";
-      reason:
-        | "runtime_unavailable"
-        | "runtime_replaced"
-        | "authentication_failed"
-        | "connection_failed";
+      reason: "runtime_unavailable" | "authentication_failed" | "connection_failed";
     };
 
 export type ApertureSurfaceSnapshotMessage = {
   type: "snapshot";
   sequence: number;
   sources: ApertureSurfaceSource[];
+  totals: ApertureSurfaceTotals;
   view: ApertureSurfaceView;
 };
 
@@ -119,20 +127,20 @@ export type ApertureSurfaceMessage =
 
 export function apertureSurfaceHello(
   packageVersion: string,
-  capabilities: ApertureSurfaceCapabilities = {
-    snapshots: true,
-    responses: false,
-    engagement: false,
-  },
+  capabilities: Readonly<ApertureSurfaceCapabilities> = APERTURE_STDIO_CAPABILITIES,
 ): ApertureSurfaceHelloMessage {
   const normalizedVersion = packageVersion.trim();
-  if (!normalizedVersion || normalizedVersion.length > APERTURE_SURFACE_LIMITS.kind) {
-    throw new Error("Aperture package version must contain at most 80 visible characters.");
+  if (
+    !normalizedVersion ||
+    Array.from(normalizedVersion).length > APERTURE_SURFACE_LIMITS.kind ||
+    /[\u0000-\u001f\u007f]/.test(normalizedVersion)
+  ) {
+    throw new Error("Aperture package version must contain 1 to 80 visible characters.");
   }
   return {
     type: "hello",
     packageVersion: normalizedVersion,
     surface: "aperture-stdio",
-    capabilities,
+    capabilities: { ...capabilities },
   };
 }

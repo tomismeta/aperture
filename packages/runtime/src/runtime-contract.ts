@@ -64,6 +64,7 @@ export type ApertureRuntimeSnapshot = {
   attentionState: AttentionState;
   adapters: ApertureRuntimeAdapter[];
   surfaceCount: number;
+  responseSurfaceCount: number;
   surfaceCapabilities: AttentionSurfaceCapabilities;
   health: ApertureRuntimeHealthSnapshot;
   learningPersistence?: LearningPersistenceState;

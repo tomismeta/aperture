@@ -1,6 +1,6 @@
 {
   "type": "error",
   "code": "surface_projection_failed",
-  "message": "A bounded surface snapshot could not be produced.",
+  "message": "Aperture could not produce a bounded surface snapshot.",
   "recoverable": true
 }

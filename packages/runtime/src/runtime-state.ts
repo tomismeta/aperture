@@ -39,6 +39,7 @@ type SurfaceSession = {
   lastSeenAt: number;
   label?: string;
   role: ApertureRuntimeSurfaceRole;
+  acceptsResponses: boolean;
   capabilities: AttentionSurfaceCapabilities;
 };
 
@@ -155,12 +156,15 @@ export class RuntimeState {
     id: string;
     label?: string;
     role?: ApertureRuntimeSurfaceRole;
+    acceptsResponses?: boolean;
     capabilities: PartialSurfaceCapabilities | undefined;
   }): { heartbeatIntervalMs: number; expiresAt: string } {
+    const role = surface.role ?? "participant";
     this.surfaces.set(surface.id, {
       id: surface.id,
       lastSeenAt: Date.now(),
-      role: surface.role ?? "participant",
+      role,
+      acceptsResponses: surface.acceptsResponses ?? role === "participant",
       capabilities: normalizeSurfaceCapabilities(surface.capabilities),
       ...(surface.label ? { label: surface.label } : {}),
     });
@@ -275,6 +279,9 @@ export class RuntimeState {
       attentionState: core.getAttentionState(),
       adapters: this.listAdapters(),
       surfaceCount: this.surfaces.size,
+      responseSurfaceCount: [...this.surfaces.values()].filter(
+        (surface) => surface.acceptsResponses,
+      ).length,
       surfaceCapabilities: this.aggregateSurfaceCapabilities(),
       health: this.health(core),
       ...(this.learningPersistence ? { learningPersistence: this.learningPersistence } : {}),

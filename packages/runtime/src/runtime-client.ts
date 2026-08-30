@@ -24,6 +24,7 @@ import {
   normalizeRuntimeUrls,
   postJson,
   resolveRuntimeAuthToken,
+  type RuntimeRequestOptions,
 } from "./runtime-client-shared.js";
 
 export type ApertureRuntimeClientOptions = {
@@ -32,6 +33,8 @@ export type ApertureRuntimeClientOptions = {
   pollIntervalMs?: number;
   label?: string;
   surfaceRole?: ApertureRuntimeSurfaceRole;
+  acceptsResponses?: boolean;
+  signal?: AbortSignal;
   surfaceCapabilities?: PartialSurfaceCapabilities;
 };
 
@@ -41,6 +44,7 @@ type PartialSurfaceCapabilities = {
   topology?: Partial<AttentionSurfaceCapabilities["topology"]>;
   responses?: Partial<AttentionSurfaceCapabilities["responses"]>;
 };
+const RUNTIME_DETACH_TIMEOUT_MS = 1_000;
 
 type AttentionViewListener = (attentionView: AttentionView) => void;
 export type ApertureRuntimeSnapshotListener = (snapshot: ApertureRuntimeSnapshot) => void;
@@ -52,8 +56,10 @@ export class ApertureRuntimeClient {
   private readonly pollIntervalMs: number;
   private readonly label: string;
   private readonly surfaceRole: ApertureRuntimeSurfaceRole;
+  private readonly acceptsResponses: boolean;
   private readonly surfaceCapabilities: PartialSurfaceCapabilities | undefined;
   private readonly explicitAuthToken: string | undefined;
+  private readonly requestOptions: RuntimeRequestOptions;
   private readonly attentionListeners = new Set<AttentionViewListener>();
   private readonly snapshotListeners = new Set<ApertureRuntimeSnapshotListener>();
   private readonly responseListeners = new Set<ResponseListener>();
@@ -72,13 +78,20 @@ export class ApertureRuntimeClient {
     this.label = options.label ?? "tui";
     this.surfaceCapabilities = options.surfaceCapabilities;
     this.surfaceRole = options.surfaceRole ?? "participant";
+    this.acceptsResponses = options.acceptsResponses ?? this.surfaceRole === "participant";
     this.explicitAuthToken = options.authToken;
+    this.requestOptions = options.signal ? { signal: options.signal } : {};
   }
 
   static async connect(options: ApertureRuntimeClientOptions): Promise<ApertureRuntimeClient> {
     const client = new ApertureRuntimeClient(options);
-    await client.initialize();
-    return client;
+    try {
+      await client.initialize();
+      return client;
+    } catch (error) {
+      await client.close();
+      throw error;
+    }
   }
 
   getAttentionView(): AttentionView {
@@ -161,13 +174,24 @@ export class ApertureRuntimeClient {
   }
 
   async close(): Promise<void> {
-    await this.session?.close();
+    const session = this.session;
     this.session = null;
-    this.surfaceId = null;
+    await session?.close();
+
+    const surfaceId = this.surfaceId;
+    if (surfaceId) {
+      try {
+        await this.detachSurface(surfaceId);
+      } catch (error) {
+        this.reportError(error);
+      }
+    }
   }
 
   private async initialize(): Promise<void> {
+    this.throwIfAborted();
     this.authToken = await resolveRuntimeAuthToken(this.controlUrl, this.explicitAuthToken);
+    this.throwIfAborted();
     this.session = new RuntimeAttachmentSession({
       pollIntervalMs: this.pollIntervalMs,
       attach: async () => {
@@ -176,6 +200,7 @@ export class ApertureRuntimeClient {
           {
             label: this.label,
             role: this.surfaceRole,
+            acceptsResponses: this.acceptsResponses,
             ...(this.surfaceCapabilities ? { capabilities: this.surfaceCapabilities } : {}),
           },
         );
@@ -189,16 +214,7 @@ export class ApertureRuntimeClient {
       heartbeat: async (surfaceId) => {
         await this.post(`/surfaces/${encodeURIComponent(surfaceId)}/heartbeat`, {});
       },
-      detach: async (surfaceId) => {
-        try {
-          await deleteJson(
-            `${this.controlUrl}/surfaces/${encodeURIComponent(surfaceId)}`,
-            this.authToken,
-          );
-        } finally {
-          this.surfaceId = null;
-        }
-      },
+      detach: (surfaceId) => this.detachSurface(surfaceId),
       poll: (since) =>
         this.get<{
           events: ApertureRuntimeEvent[];
@@ -242,11 +258,39 @@ export class ApertureRuntimeClient {
   }
 
   private async get<T>(path: string): Promise<T> {
-    return getJson<T>(`${this.controlUrl}${path}`, this.authToken);
+    return getJson<T>(`${this.controlUrl}${path}`, this.authToken, this.requestOptions);
   }
 
   private async post<T = Record<string, never>>(path: string, body: unknown): Promise<T> {
-    return postJson<T>(`${this.controlUrl}${path}`, body, this.authToken);
+    return postJson<T>(
+      `${this.controlUrl}${path}`,
+      body,
+      this.authToken,
+      "application/json",
+      this.requestOptions,
+    );
+  }
+
+  private async detachSurface(surfaceId: string): Promise<void> {
+    try {
+      await deleteJson(
+        `${this.controlUrl}/surfaces/${encodeURIComponent(surfaceId)}`,
+        this.authToken,
+        { timeoutMs: RUNTIME_DETACH_TIMEOUT_MS },
+      );
+    } finally {
+      if (this.surfaceId === surfaceId) {
+        this.surfaceId = null;
+      }
+    }
+  }
+
+  private throwIfAborted(): void {
+    const signal = this.requestOptions.signal;
+    if (!signal?.aborted) return;
+    throw signal.reason instanceof Error
+      ? signal.reason
+      : new Error("Aperture runtime client connection was aborted.");
   }
 
   private runInBackground(task: () => Promise<void>): void {

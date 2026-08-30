@@ -63,8 +63,8 @@ export async function runCodexHookAdapter(runtimeBaseUrl: string): Promise<void>
     ...(process.env.APERTURE_CODEX_SOURCE_LABEL
       ? { sourceLabel: process.env.APERTURE_CODEX_SOURCE_LABEL }
       : {}),
-    preToolUsePolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "allow"),
-    permissionRequestPolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "allow"),
+    preToolUsePolicy: () => (adapterClient.getResponseSurfaceCount() > 0 ? "hold" : "allow"),
+    permissionRequestPolicy: () => (adapterClient.getResponseSurfaceCount() > 0 ? "hold" : "allow"),
     onPreToolUseFallback: (event, reason) => {
       publishCodexFallback(adapterClient, event, reason);
     },
@@ -103,8 +103,8 @@ export async function startLauncherCodexHookAdapter(runtimeBaseUrl: string) {
     ...(process.env.APERTURE_CODEX_SOURCE_LABEL
       ? { sourceLabel: process.env.APERTURE_CODEX_SOURCE_LABEL }
       : {}),
-    preToolUsePolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "allow"),
-    permissionRequestPolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "allow"),
+    preToolUsePolicy: () => (adapterClient.getResponseSurfaceCount() > 0 ? "hold" : "allow"),
+    permissionRequestPolicy: () => (adapterClient.getResponseSurfaceCount() > 0 ? "hold" : "allow"),
     onPreToolUseFallback: (event, reason) => {
       publishCodexFallback(adapterClient, event, reason);
     },

@@ -69,9 +69,10 @@ export async function runClaudeAdapter(runtimeBaseUrl: string): Promise<void> {
     port,
     path: requestPath,
     includePostToolUse: true,
-    preToolUsePolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "ask"),
-    permissionRequestPolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "native"),
-    elicitationPolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "native"),
+    preToolUsePolicy: () => (adapterClient.getResponseSurfaceCount() > 0 ? "hold" : "ask"),
+    permissionRequestPolicy: () =>
+      adapterClient.getResponseSurfaceCount() > 0 ? "hold" : "native",
+    elicitationPolicy: () => (adapterClient.getResponseSurfaceCount() > 0 ? "hold" : "native"),
     onPreToolUseFallback: (event, reason) => {
       if (reason === "timed_out" || reason === "not_held") {
         void adapterClient.publishSourceEvent(claudeApprovalFallbackEvent(event, reason));
@@ -172,9 +173,10 @@ export async function startLauncherClaudeAdapter(runtimeBaseUrl: string) {
     port: readNumber(process.env.APERTURE_CLAUDE_PORT) ?? 4545,
     path: process.env.APERTURE_CLAUDE_PATH ?? "/hook",
     includePostToolUse: true,
-    preToolUsePolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "ask"),
-    permissionRequestPolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "native"),
-    elicitationPolicy: () => (adapterClient.getSurfaceCount() > 0 ? "hold" : "native"),
+    preToolUsePolicy: () => (adapterClient.getResponseSurfaceCount() > 0 ? "hold" : "ask"),
+    permissionRequestPolicy: () =>
+      adapterClient.getResponseSurfaceCount() > 0 ? "hold" : "native",
+    elicitationPolicy: () => (adapterClient.getResponseSurfaceCount() > 0 ? "hold" : "native"),
     onPreToolUseFallback: (event, reason) => {
       if (reason === "timed_out" || reason === "not_held") {
         void adapterClient.publishSourceEvent(claudeApprovalFallbackEvent(event, reason));

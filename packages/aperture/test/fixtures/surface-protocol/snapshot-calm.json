@@ -2,25 +2,46 @@
   "type": "snapshot",
   "sequence": 1,
   "sources": [
-    { "id": "adapter-claude", "kind": "claude-code", "label": "Claude Code" },
-    { "id": "adapter-opencode", "kind": "opencode", "label": "OpenCode" }
+    {
+      "kind": "claude-code",
+      "label": "Claude Code"
+    },
+    {
+      "kind": "opencode",
+      "label": "OpenCode"
+    }
   ],
+  "totals": {
+    "now": 0,
+    "next": 1,
+    "ambient": 1,
+    "sources": 2
+  },
   "view": {
     "now": null,
     "next": [
       {
         "id": "frame-review-plan",
-        "version": 1,
         "taskId": "task-review-plan",
         "interactionId": "interaction-review-plan",
+        "version": 1,
         "mode": "status",
         "tone": "ambient",
         "consequence": "low",
         "title": "Review generated migration plan",
         "summary": "The migration plan is ready for later review.",
-        "source": { "kind": "claude-code", "label": "Claude Code" },
+        "source": {
+          "kind": "claude-code",
+          "label": "Claude Code"
+        },
         "context": {
-          "items": [{ "id": "project", "label": "Project", "value": "aperture" }]
+          "items": [
+            {
+              "id": "project",
+              "label": "Project",
+              "value": "aperture"
+            }
+          ]
         },
         "timing": {
           "createdAt": "2026-08-30T16:00:00.000Z",
@@ -31,17 +52,26 @@
     "ambient": [
       {
         "id": "frame-background-status",
-        "version": 1,
         "taskId": "task-background-status",
         "interactionId": "interaction-background-status",
+        "version": 1,
         "mode": "status",
         "tone": "ambient",
         "consequence": "low",
         "title": "Adapter fixture completed",
         "summary": "Background work completed without requiring attention.",
-        "source": { "kind": "opencode", "label": "OpenCode" },
+        "source": {
+          "kind": "opencode",
+          "label": "OpenCode"
+        },
         "context": {
-          "items": [{ "id": "project", "label": "Project", "value": "codex-adapter" }]
+          "items": [
+            {
+              "id": "project",
+              "label": "Project",
+              "value": "codex-adapter"
+            }
+          ]
         },
         "timing": {
           "createdAt": "2026-08-30T15:55:00.000Z",

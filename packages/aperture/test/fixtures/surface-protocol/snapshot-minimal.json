@@ -1,0 +1,29 @@
+{
+  "type": "snapshot",
+  "sequence": 3,
+  "sources": [],
+  "totals": {
+    "now": 1,
+    "next": 0,
+    "ambient": 0,
+    "sources": 0
+  },
+  "view": {
+    "now": {
+      "id": "frame-minimal",
+      "taskId": "task-minimal",
+      "interactionId": "interaction-minimal",
+      "version": 1,
+      "mode": "status",
+      "tone": "ambient",
+      "consequence": "low",
+      "title": "Minimal projected frame",
+      "timing": {
+        "createdAt": "2026-08-30T16:10:00.000Z",
+        "updatedAt": "2026-08-30T16:10:00.000Z"
+      }
+    },
+    "next": [],
+    "ambient": []
+  }
+}

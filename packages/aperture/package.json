@@ -39,7 +39,8 @@
     "./work": {
       "types": "./dist/work.d.ts",
       "default": "./dist/work.js"
-    }
+    },
+    "./surface-protocol.schema.json": "./dist/surface-protocol.schema.json"
   },
   "files": [
     "dist",
@@ -49,6 +50,8 @@
   "scripts": {
     "build": "tsx ./scripts/build.ts && tsc --project ../../tsconfig.work-public.json --emitDeclarationOnly --pretty false",
     "smoke": "tsx ./scripts/smoke.ts",
+    "surface:fixtures:check": "tsx ./scripts/generate-surface-fixtures.ts",
+    "surface:fixtures:write": "tsx ./scripts/generate-surface-fixtures.ts --write",
     "prepack": "pnpm run build"
   },
   "devDependencies": {

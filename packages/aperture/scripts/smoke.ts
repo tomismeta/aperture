@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { access, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
 import { execFileSync, spawn, type ChildProcessByStdio } from "node:child_process";
+import { assertApertureSurfaceMessage } from "../src/surface/protocol-validator.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(scriptDir, "..");
@@ -279,6 +282,7 @@ async function assertPackagedSurface(
               continue;
             }
             const value: unknown = JSON.parse(line);
+            assertApertureSurfaceMessage(value);
             const message = asRecord(value, "surface protocol message");
             messages.push(message);
             if (message.type === "snapshot") {
@@ -328,7 +332,25 @@ async function assertPackagedSurface(
       child.kill("SIGTERM");
     }
     await waitForRuntimeExit(child, 5_000);
+    await waitForRuntimeSurfaceCount(runtime, 0);
   }
+}
+
+async function waitForRuntimeSurfaceCount(
+  runtime: RuntimeLaunch,
+  expectedCount: number,
+): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  let lastState: Record<string, unknown> | null = null;
+  while (Date.now() < deadline) {
+    const state = asRecord(await runtimeFetchJson(runtime, "/state"), "surface runtime state");
+    lastState = state;
+    if (state.surfaceCount === expectedCount) return;
+    await delay(50);
+  }
+  throw new Error(
+    `Timed out waiting for runtime surface count ${expectedCount}: ${JSON.stringify(lastState)}`,
+  );
 }
 
 async function runtimeFetchJson(
@@ -607,19 +629,14 @@ async function main(): Promise<void> {
     assert.match(help, /surface/);
     const surfaceHelp = run(binPath, ["surface", "--help"], installDir, isolatedEnv);
     assert.match(surfaceHelp, /JSONL surface protocol/i);
+    const requireFromInstall = createRequire(path.join(installDir, "package.json"));
+    const surfaceSchemaPath = requireFromInstall.resolve(
+      "@tomismeta/aperture/surface-protocol.schema.json",
+    );
     assert.equal(
-      await pathExists(
-        path.join(
-          installDir,
-          "node_modules",
-          "@tomismeta",
-          "aperture",
-          "dist",
-          "surface-protocol.schema.json",
-        ),
-      ),
+      await pathExists(surfaceSchemaPath),
       true,
-      "expected installed package to include the surface protocol schema",
+      "expected installed package to export the surface protocol schema",
     );
 
     run(binPath, ["claude", "connect", "--global"], installDir, isolatedEnv);

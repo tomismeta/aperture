@@ -19,7 +19,7 @@ The reference client is an Omarchy bar plugin. The durable product asset is the 
 
 ## Current baseline
 
-- Aperture commit: `6739749789b12d56d4a1f46c87520f5e44758b93`
+- Aperture commit: `92a14f40f40776bd49ad9a15a3768af7e85db0ce`
 - `@tomismeta/aperture@0.5.0`
 - `@tomismeta/aperture-core@0.9.0`
 - Omarchy branch inspected: `omacom/omarchy@quattro`

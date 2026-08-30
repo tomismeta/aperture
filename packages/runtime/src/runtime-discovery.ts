@@ -65,8 +65,8 @@ export async function discoverLocalRuntimes(
       .filter((entry) => entry.endsWith(".json"))
       .map(async (entry) => {
         try {
-          const raw = await readFile(resolve(registryDir, entry), "utf8");
-          return JSON.parse(raw) as ApertureLocalRuntimeRegistration;
+          const parsed: unknown = JSON.parse(await readFile(resolve(registryDir, entry), "utf8"));
+          return isRuntimeRegistration(parsed) ? parsed : null;
         } catch {
           return null;
         }
@@ -88,6 +88,33 @@ export async function discoverLocalRuntimes(
 
 function registrationPath(id: string, registryDir: string): string {
   return resolve(registryDir, `${encodeURIComponent(id)}.json`);
+}
+
+function isRuntimeRegistration(value: unknown): value is ApertureLocalRuntimeRegistration {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  const metadata = candidate.metadata;
+  return typeof candidate.id === "string" &&
+    candidate.id.length > 0 &&
+    typeof candidate.kind === "string" &&
+    candidate.kind.length > 0 &&
+    typeof candidate.controlUrl === "string" &&
+    candidate.controlUrl.length > 0 &&
+    (candidate.baseUrl === undefined || typeof candidate.baseUrl === "string") &&
+    typeof candidate.tokenPath === "string" &&
+    candidate.tokenPath.length > 0 &&
+    typeof candidate.pid === "number" &&
+    Number.isSafeInteger(candidate.pid) &&
+    candidate.pid > 0 &&
+    typeof candidate.startedAt === "string" &&
+    !Number.isNaN(Date.parse(candidate.startedAt)) &&
+    typeof candidate.updatedAt === "string" &&
+    !Number.isNaN(Date.parse(candidate.updatedAt)) &&
+    (metadata === undefined ||
+      (metadata !== null &&
+        typeof metadata === "object" &&
+        !Array.isArray(metadata) &&
+        Object.values(metadata).every((entry) => typeof entry === "string")));
 }
 
 function isMissingFile(error: unknown): boolean {

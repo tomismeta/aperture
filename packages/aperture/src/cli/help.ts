@@ -1,5 +1,7 @@
 import { stdout } from "node:process";
 
+import { printSurfaceHelp } from "./surface.js";
+
 export function printVersion(version: string): void {
   stdout.write(`${version}\n`);
 }
@@ -37,6 +39,9 @@ export function printRequestedHelp(args: string[]): void {
       return;
     case "opencode":
       printOpencodeHelp();
+      return;
+    case "surface":
+      printSurfaceHelp();
       return;
     case "internal":
       printInternalHelp();
@@ -105,6 +110,7 @@ export function printRootHelp(): void {
       "  claude                Manage Claude Code setup",
       "  codex                 Manage experimental Codex setup",
       "  opencode              Show the OpenCode setup flow Aperture expects",
+      "  surface               Stream an external attention surface over JSONL",
       "  internal              Advanced runtime, TUI, adapter, and hook plumbing",
       "  version               Print the installed Aperture version",
       "",
@@ -128,6 +134,7 @@ export function printRootHelp(): void {
       "  aperture help claude",
       "  aperture help codex",
       "  aperture help opencode",
+      "  aperture help surface",
       "  aperture help internal",
     ].join("\n"),
   );
@@ -375,8 +382,8 @@ _aperture_completion() {
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
   command="\${COMP_WORDS[1]}"
 
-  local root_commands="help doctor config debug completion uninstall claude codex opencode internal version"
-  local help_topics="launch doctor config debug completion uninstall claude codex opencode internal"
+  local root_commands="help doctor config debug completion uninstall claude codex opencode surface internal version"
+  local help_topics="launch doctor config debug completion uninstall claude codex opencode surface internal"
   local claude_commands="connect disconnect"
   local codex_commands="connect disconnect"
   local debug_topics="runtime claude opencode state capture all"
@@ -437,10 +444,11 @@ root_commands=(
   'claude:manage Claude Code setup'
   'codex:manage experimental Codex setup'
   'opencode:show the OpenCode setup flow Aperture expects'
+  'surface:stream an external attention surface over JSONL'
   'internal:advanced runtime, TUI, adapter, and hook plumbing'
   'version:print the installed Aperture version'
 )
-help_topics=(launch doctor config debug completion uninstall claude codex opencode internal)
+help_topics=(launch doctor config debug completion uninstall claude codex opencode surface internal)
 claude_commands=(connect disconnect)
 codex_commands=(connect disconnect)
 debug_topics=(runtime claude opencode state capture all)
@@ -500,10 +508,11 @@ complete -c aperture -n '__fish_use_subcommand' -a 'uninstall' -d 'Remove Apertu
 complete -c aperture -n '__fish_use_subcommand' -a 'claude' -d 'Manage Claude Code setup'
 complete -c aperture -n '__fish_use_subcommand' -a 'codex' -d 'Manage experimental Codex setup'
 complete -c aperture -n '__fish_use_subcommand' -a 'opencode' -d 'Show the OpenCode setup flow Aperture expects'
+complete -c aperture -n '__fish_use_subcommand' -a 'surface' -d 'Stream an external attention surface over JSONL'
 complete -c aperture -n '__fish_use_subcommand' -a 'internal' -d 'Advanced runtime, TUI, adapter, and hook plumbing'
 complete -c aperture -n '__fish_use_subcommand' -a 'version' -d 'Print the installed Aperture version'
 
-complete -c aperture -n '__fish_seen_subcommand_from help' -a 'launch doctor config debug completion uninstall claude codex opencode internal'
+complete -c aperture -n '__fish_seen_subcommand_from help' -a 'launch doctor config debug completion uninstall claude codex opencode surface internal'
 complete -c aperture -n '__fish_seen_subcommand_from claude' -a 'connect disconnect'
 complete -c aperture -n '__fish_seen_subcommand_from codex' -a 'connect disconnect'
 complete -c aperture -n '__fish_seen_subcommand_from debug' -a 'runtime claude opencode state capture all'

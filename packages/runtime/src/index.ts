@@ -13,6 +13,7 @@ export {
   type ApertureRuntimeEvent,
   type ApertureRuntimeOptions,
   type ApertureRuntimeSessionCapture,
+  type ApertureRuntimeSurfaceRole,
   type ApertureRuntimeSnapshot,
   type WorkReceipt,
   type WorkReceiptItem,
@@ -22,7 +23,11 @@ export {
   type WorkResponseState,
 } from "./runtime-contract.js";
 export { createApertureRuntime } from "./runtime.js";
-export { ApertureRuntimeClient, type ApertureRuntimeClientOptions } from "./runtime-client.js";
+export {
+  ApertureRuntimeClient,
+  type ApertureRuntimeClientOptions,
+  type ApertureRuntimeSnapshotListener,
+} from "./runtime-client.js";
 export {
   ApertureRuntimeAdapterClient,
   type ApertureRuntimeAdapterClientOptions,

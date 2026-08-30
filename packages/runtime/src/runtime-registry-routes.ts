@@ -81,6 +81,7 @@ export function createRuntimeRegistryRoutes(options: BuildRuntimeRoutesOptions):
       handler: async ({ req, res }) => {
         const payload = (await readJson(req, options.bodyLimits.general)) as {
           label?: string;
+          role?: unknown;
           capabilities?: {
             topology?: { supportsAmbient?: boolean };
             responses?: {
@@ -91,11 +92,23 @@ export function createRuntimeRegistryRoutes(options: BuildRuntimeRoutesOptions):
             };
           };
         };
+        if (
+          payload.role !== undefined &&
+          payload.role !== "participant" &&
+          payload.role !== "companion"
+        ) {
+          throw new RuntimeHttpError(
+            400,
+            "invalid_surface_role",
+            "surface role must be participant or companion",
+          );
+        }
         const surfaceId = randomUUID();
         const attached = options.state.attachSurface({
           id: surfaceId,
-          ...(payload?.label ? { label: payload.label } : {}),
-          capabilities: payload?.capabilities,
+          ...(payload.label ? { label: payload.label } : {}),
+          ...(payload.role ? { role: payload.role } : {}),
+          capabilities: payload.capabilities,
         });
         options.syncSurfaceCapabilities();
         writeJson(res, 200, {

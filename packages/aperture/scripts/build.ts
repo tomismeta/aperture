@@ -11,7 +11,11 @@ const ENTRY_POINT = path.join(PACKAGE_ROOT, "src", "cli.ts");
 const WORK_ENTRY_POINT = path.join(PACKAGE_ROOT, "src", "work.ts");
 const OUTFILE = path.join(DIST_DIR, "cli.js");
 const WORK_OUTFILE = path.join(DIST_DIR, "work.js");
-const SCHEMA_FILES = ["work-event.schema.json", "work-event-batch.schema.json"] as const;
+const SCHEMA_FILES = [
+  "work-event.schema.json",
+  "work-event-batch.schema.json",
+  "surface-protocol.schema.json",
+] as const;
 
 await rm(DIST_DIR, { recursive: true, force: true });
 

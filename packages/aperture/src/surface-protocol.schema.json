@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/tomismeta/aperture/main/packages/aperture/src/surface-protocol.schema.json",
+  "title": "Aperture Surface Protocol",
+  "oneOf": [
+    { "$ref": "#/$defs/hello" },
+    { "$ref": "#/$defs/connection" },
+    { "$ref": "#/$defs/snapshot" },
+    { "$ref": "#/$defs/error" }
+  ],
+  "$defs": {
+    "shortId": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "kind": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "label": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "hello": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "packageVersion", "surface", "capabilities"],
+      "properties": {
+        "type": { "const": "hello" },
+        "packageVersion": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "surface": { "const": "aperture-stdio" },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["snapshots", "responses", "engagement"],
+          "properties": {
+            "snapshots": { "type": "boolean" },
+            "responses": { "type": "boolean" },
+            "engagement": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "connection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "state"],
+          "properties": {
+            "type": { "const": "connection" },
+            "state": { "const": "connecting" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "state", "runtimeId", "runtimeKind"],
+          "properties": {
+            "type": { "const": "connection" },
+            "state": { "const": "connected" },
+            "runtimeId": { "$ref": "#/$defs/shortId" },
+            "runtimeKind": { "$ref": "#/$defs/kind" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "state", "reason"],
+          "properties": {
+            "type": { "const": "connection" },
+            "state": { "const": "disconnected" },
+            "reason": {
+              "enum": [
+                "runtime_unavailable",
+                "runtime_replaced",
+                "authentication_failed",
+                "connection_failed"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/shortId" },
+        "kind": { "$ref": "#/$defs/kind" },
+        "label": { "$ref": "#/$defs/label" }
+      }
+    },
+    "frameSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "label"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/kind" },
+        "label": { "$ref": "#/$defs/label" }
+      }
+    },
+    "contextItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/shortId" },
+        "label": { "$ref": "#/$defs/label" },
+        "value": { "type": "string", "maxLength": 240 }
+      }
+    },
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "taskId",
+        "interactionId",
+        "version",
+        "mode",
+        "tone",
+        "consequence",
+        "title",
+        "timing"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/shortId" },
+        "taskId": { "$ref": "#/$defs/shortId" },
+        "interactionId": { "$ref": "#/$defs/shortId" },
+        "version": { "type": "integer", "minimum": 0 },
+        "mode": { "enum": ["status", "approval", "choice", "form"] },
+        "tone": { "enum": ["ambient", "focused", "critical"] },
+        "consequence": { "enum": ["low", "medium", "high"] },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "summary": { "type": "string", "maxLength": 600 },
+        "source": { "$ref": "#/$defs/frameSource" },
+        "context": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "stage": { "type": "string", "maxLength": 120 },
+            "progress": { "type": "number" },
+            "items": {
+              "type": "array",
+              "maxItems": 8,
+              "items": { "$ref": "#/$defs/contextItem" }
+            }
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["whyNow"],
+          "properties": {
+            "whyNow": { "type": "string", "minLength": 1, "maxLength": 400 }
+          }
+        },
+        "timing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["createdAt", "updatedAt"],
+          "properties": {
+            "createdAt": { "type": "string", "format": "date-time" },
+            "updatedAt": { "type": "string", "format": "date-time" },
+            "expiresAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["now", "next", "ambient"],
+      "properties": {
+        "now": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/frame" }] },
+        "next": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/frame" }
+        },
+        "ambient": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/frame" }
+        }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "sequence", "sources", "view"],
+      "properties": {
+        "type": { "const": "snapshot" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "sources": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/source" }
+        },
+        "view": { "$ref": "#/$defs/view" }
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "code", "message", "recoverable"],
+      "properties": {
+        "type": { "const": "error" },
+        "code": { "$ref": "#/$defs/kind" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "recoverable": { "type": "boolean" }
+      }
+    }
+  }
+}

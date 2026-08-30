@@ -1,0 +1,6 @@
+{
+  "type": "error",
+  "code": "surface_projection_failed",
+  "message": "A bounded surface snapshot could not be produced.",
+  "recoverable": true
+}

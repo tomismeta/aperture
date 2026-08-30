@@ -154,12 +154,35 @@ aperture doctor
 aperture config
 aperture debug
 aperture completion zsh
+aperture surface --stdio --label desktop-attention
 aperture --version
 aperture help
 aperture help opencode
 aperture help codex
 aperture help uninstall
 ```
+
+## External Surfaces
+
+`aperture surface --stdio` exposes a bounded JSONL surface protocol for local
+companion renderers such as desktop bars. Aperture owns runtime discovery,
+authentication, companion attachment, reconnection, and the projection from its
+internal `AttentionView`.
+
+The hello message reports the installed Aperture package version and supported
+surface capabilities. The initial capability set emits snapshots and does not
+accept responses or engagement; later package releases can extend those
+capabilities without renaming the command or protocol. Arbitrary frame metadata,
+runtime URLs, token paths, and bearer tokens never cross the boundary.
+
+Start an Aperture runtime first, then run:
+
+```bash
+aperture surface --stdio --label omarchy-attention
+```
+
+The process stays alive and reports an honest disconnected state while no local
+runtime is available.
 
 ## Product State
 

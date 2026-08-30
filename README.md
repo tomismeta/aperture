@@ -164,6 +164,7 @@ aperture doctor
 aperture config
 aperture debug
 aperture completion zsh
+aperture surface --stdio --label desktop-attention
 aperture --version
 aperture help
 aperture help opencode

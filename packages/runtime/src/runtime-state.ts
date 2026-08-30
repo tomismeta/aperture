@@ -17,6 +17,7 @@ import type {
   ApertureRuntimeHealthSnapshot,
   ApertureRuntimeSessionCapture,
   ApertureRuntimeSnapshot,
+  ApertureRuntimeSurfaceRole,
   RuntimeWorkResponseRecord,
 } from "./runtime-contract.js";
 import { RuntimeCaptureStore } from "./runtime-capture-store.js";
@@ -37,6 +38,7 @@ type SurfaceSession = {
   id: string;
   lastSeenAt: number;
   label?: string;
+  role: ApertureRuntimeSurfaceRole;
   capabilities: AttentionSurfaceCapabilities;
 };
 
@@ -152,11 +154,13 @@ export class RuntimeState {
   attachSurface(surface: {
     id: string;
     label?: string;
+    role?: ApertureRuntimeSurfaceRole;
     capabilities: PartialSurfaceCapabilities | undefined;
   }): { heartbeatIntervalMs: number; expiresAt: string } {
     this.surfaces.set(surface.id, {
       id: surface.id,
       lastSeenAt: Date.now(),
+      role: surface.role ?? "participant",
       capabilities: normalizeSurfaceCapabilities(surface.capabilities),
       ...(surface.label ? { label: surface.label } : {}),
     });
@@ -187,7 +191,9 @@ export class RuntimeState {
   aggregateSurfaceCapabilities(): AttentionSurfaceCapabilities {
     this.pruneSurfaces();
     return mergeAttentionSurfaceCapabilities(
-      [...this.surfaces.values()].map((surface) => surface.capabilities),
+      [...this.surfaces.values()]
+        .filter((surface) => surface.role === "participant")
+        .map((surface) => surface.capabilities),
     );
   }
 

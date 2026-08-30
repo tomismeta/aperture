@@ -9,6 +9,7 @@ import { ApertureCore, type SourceEvent } from "@tomismeta/aperture-core";
 import { bootstrapLearningPersistence } from "../src/learning-persistence.js";
 import { createApertureRuntime } from "../src/runtime.js";
 import { ApertureRuntimeAdapterClient } from "../src/adapter-client.js";
+import { ApertureRuntimeClient } from "../src/runtime-client.js";
 import type { ApertureRuntimeSnapshot } from "../src/index.js";
 
 test("runtime adapter client publishes source events into the shared core", async () => {
@@ -448,6 +449,53 @@ test("runtime adapter client observes attached surfaces through snapshot state",
     assert.equal(runtime.getCore().getSurfaceCapabilities().topology.supportsAmbient, false);
   } finally {
     await client.close();
+    await runtime.close();
+  }
+});
+
+test("companion surfaces do not constrain aggregate capabilities", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { controlUrl, authToken } = await runtime.listen();
+
+  try {
+    const invalid = await authorizedRuntimeFetch(controlUrl, authToken, "/surfaces/attach", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "secondary" }),
+    });
+    assert.equal(invalid.status, 400);
+    const invalidBody: unknown = await invalid.json();
+    assert.ok(invalidBody && typeof invalidBody === "object" && "error" in invalidBody);
+    const invalidError = invalidBody.error;
+    assert.ok(invalidError && typeof invalidError === "object" && "code" in invalidError);
+    assert.equal(invalidError.code, "invalid_surface_role");
+
+    const companion = await ApertureRuntimeClient.connect({
+      baseUrl: controlUrl,
+      label: "desktop attention",
+      surfaceRole: "companion",
+      surfaceCapabilities: {
+        topology: { supportsAmbient: false },
+        responses: {
+          supportsSingleChoice: false,
+          supportsMultipleChoice: false,
+          supportsForm: false,
+          supportsTextResponse: false,
+        },
+      },
+    });
+
+    try {
+      const snapshot = companion.getSnapshot();
+      assert.equal(snapshot.surfaceCount, 1);
+      assert.equal(snapshot.surfaceCapabilities.topology.supportsAmbient, true);
+      assert.equal(snapshot.surfaceCapabilities.responses.supportsForm, true);
+      assert.equal(runtime.getCore().getSurfaceCapabilities().topology.supportsAmbient, true);
+      assert.equal(runtime.getCore().getSurfaceCapabilities().responses.supportsForm, true);
+    } finally {
+      await companion.close();
+    }
+  } finally {
     await runtime.close();
   }
 });

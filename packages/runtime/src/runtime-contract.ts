@@ -43,6 +43,8 @@ export type ApertureRuntimeOptions = {
   learningPersistence?: LearningPersistenceState;
 };
 
+export type ApertureRuntimeSurfaceRole = "participant" | "companion";
+
 export type ApertureRuntimeEvent =
   | {
       sequence: number;

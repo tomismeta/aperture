@@ -1,0 +1,10 @@
+{
+  "type": "hello",
+  "packageVersion": "0.5.0",
+  "surface": "aperture-stdio",
+  "capabilities": {
+    "snapshots": true,
+    "responses": false,
+    "engagement": false
+  }
+}

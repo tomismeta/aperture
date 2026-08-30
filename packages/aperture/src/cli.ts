@@ -24,6 +24,7 @@ import {
 import { runLauncher } from "./cli/launcher.js";
 import { runOpencodeAdapter } from "./cli/opencode-support.js";
 import { resolveRuntimeUrl, runRuntimeServer, runTui } from "./cli/runtime-support.js";
+import { runSurfaceCommand } from "./cli/surface.js";
 import { runUninstall } from "./cli/uninstall.js";
 
 const CLI_ENTRY_PATH = fileURLToPath(import.meta.url);
@@ -78,6 +79,9 @@ async function main(): Promise<void> {
       return;
     case "opencode":
       await runOpencodeCommand(args.slice(1));
+      return;
+    case "surface":
+      await runSurfaceCommand(args.slice(1), packageMetadata.version);
       return;
     case "doctor":
       await runDoctor(buildClaudeHookCommand(CLI_ENTRY_PATH, CLI_REPO_ROOT));

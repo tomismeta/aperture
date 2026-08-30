@@ -1,0 +1,57 @@
+{
+  "type": "snapshot",
+  "sequence": 2,
+  "sources": [
+    { "id": "adapter-codex", "kind": "codex", "label": "Codex" },
+    { "id": "adapter-claude", "kind": "claude-code", "label": "Claude Code" }
+  ],
+  "view": {
+    "now": {
+      "id": "frame-database-migration",
+      "version": 2,
+      "taskId": "task-database-migration",
+      "interactionId": "interaction-database-migration",
+      "mode": "approval",
+      "tone": "focused",
+      "consequence": "medium",
+      "title": "Run the local database migration?",
+      "summary": "The agent prepared two migration files and is blocked before applying them to the development database.",
+      "source": { "kind": "codex", "label": "Codex" },
+      "context": {
+        "items": [
+          { "id": "project", "label": "Project", "value": "aperture" },
+          { "id": "branch", "label": "Branch", "value": "main" }
+        ]
+      },
+      "provenance": {
+        "whyNow": "Implementation cannot continue until execution is reviewed."
+      },
+      "timing": {
+        "createdAt": "2026-08-30T16:05:00.000Z",
+        "updatedAt": "2026-08-30T16:07:00.000Z"
+      }
+    },
+    "next": [
+      {
+        "id": "frame-retry-behavior",
+        "version": 1,
+        "taskId": "task-retry-behavior",
+        "interactionId": "interaction-retry-behavior",
+        "mode": "status",
+        "tone": "ambient",
+        "consequence": "low",
+        "title": "Confirm retry behavior",
+        "summary": "A retry decision is queued behind the current interaction.",
+        "source": { "kind": "claude-code", "label": "Claude Code" },
+        "context": {
+          "items": [{ "id": "project", "label": "Project", "value": "runtime" }]
+        },
+        "timing": {
+          "createdAt": "2026-08-30T16:01:00.000Z",
+          "updatedAt": "2026-08-30T16:06:00.000Z"
+        }
+      }
+    ],
+    "ambient": []
+  }
+}

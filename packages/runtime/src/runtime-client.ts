@@ -13,6 +13,7 @@ import type {
   ApertureRuntimeEvent,
   ApertureRuntimeSessionCapture,
   ApertureRuntimeSnapshot,
+  ApertureRuntimeSurfaceRole,
 } from "./runtime-contract.js";
 import { RuntimeAttachmentSession } from "./runtime-client-session.js";
 import {
@@ -30,6 +31,7 @@ export type ApertureRuntimeClientOptions = {
   authToken?: string;
   pollIntervalMs?: number;
   label?: string;
+  surfaceRole?: ApertureRuntimeSurfaceRole;
   surfaceCapabilities?: PartialSurfaceCapabilities;
 };
 
@@ -41,6 +43,7 @@ type PartialSurfaceCapabilities = {
 };
 
 type AttentionViewListener = (attentionView: AttentionView) => void;
+export type ApertureRuntimeSnapshotListener = (snapshot: ApertureRuntimeSnapshot) => void;
 type ResponseListener = (response: AttentionResponse) => void;
 type TraceListener = (trace: ApertureTrace) => void;
 
@@ -48,9 +51,11 @@ export class ApertureRuntimeClient {
   private readonly controlUrl: string;
   private readonly pollIntervalMs: number;
   private readonly label: string;
+  private readonly surfaceRole: ApertureRuntimeSurfaceRole;
   private readonly surfaceCapabilities: PartialSurfaceCapabilities | undefined;
   private readonly explicitAuthToken: string | undefined;
   private readonly attentionListeners = new Set<AttentionViewListener>();
+  private readonly snapshotListeners = new Set<ApertureRuntimeSnapshotListener>();
   private readonly responseListeners = new Set<ResponseListener>();
   private readonly traceListeners = new Set<TraceListener>();
   private readonly errorListeners = new Set<ApertureRuntimeClientErrorListener>();
@@ -66,6 +71,7 @@ export class ApertureRuntimeClient {
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_RUNTIME_POLL_INTERVAL_MS;
     this.label = options.label ?? "tui";
     this.surfaceCapabilities = options.surfaceCapabilities;
+    this.surfaceRole = options.surfaceRole ?? "participant";
     this.explicitAuthToken = options.authToken;
   }
 
@@ -77,6 +83,10 @@ export class ApertureRuntimeClient {
 
   getAttentionView(): AttentionView {
     return this.snapshotState.attentionView;
+  }
+
+  getSnapshot(): ApertureRuntimeSnapshot {
+    return structuredClone(this.snapshotState);
   }
 
   getSignalSummary(): AttentionSignalSummary {
@@ -96,6 +106,14 @@ export class ApertureRuntimeClient {
     listener(this.snapshotState.attentionView);
     return () => {
       this.attentionListeners.delete(listener);
+    };
+  }
+
+  subscribeSnapshot(listener: ApertureRuntimeSnapshotListener): () => void {
+    this.snapshotListeners.add(listener);
+    listener(this.getSnapshot());
+    return () => {
+      this.snapshotListeners.delete(listener);
     };
   }
 
@@ -157,6 +175,7 @@ export class ApertureRuntimeClient {
           "/surfaces/attach",
           {
             label: this.label,
+            role: this.surfaceRole,
             ...(this.surfaceCapabilities ? { capabilities: this.surfaceCapabilities } : {}),
           },
         );
@@ -215,6 +234,9 @@ export class ApertureRuntimeClient {
     if (versionChanged) {
       for (const listener of this.attentionListeners) {
         listener(snapshot.attentionView);
+      }
+      for (const listener of this.snapshotListeners) {
+        listener(this.getSnapshot());
       }
     }
   }

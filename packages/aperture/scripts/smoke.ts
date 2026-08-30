@@ -202,6 +202,135 @@ async function waitForRuntimeExit(
   });
 }
 
+async function assertPackagedSurface(
+  binPath: string,
+  installDir: string,
+  homeDir: string,
+  runtime: RuntimeLaunch,
+): Promise<void> {
+  const child: PackagedRuntimeProcess = spawn(
+    binPath,
+    ["surface", "--stdio", "--label", "product-smoke"],
+    {
+      cwd: installDir,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...commandEnv(),
+        HOME: homeDir,
+      },
+    },
+  );
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+
+  const messages: Array<Record<string, unknown>> = [];
+  let pending = "";
+  let stderrText = "";
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const timeout = setTimeout(() => {
+        fail(
+          new Error(
+            `Timed out waiting for packaged surface snapshot.\nmessages:\n${JSON.stringify(
+              messages,
+              null,
+              2,
+            )}\nstderr:\n${stderrText}`,
+          ),
+        );
+      }, 10_000);
+
+      function cleanup(): void {
+        clearTimeout(timeout);
+        child.stdout.off("data", onStdout);
+        child.stderr.off("data", onStderr);
+        child.off("exit", onExit);
+        child.off("error", fail);
+      }
+
+      function finish(): void {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        resolve();
+      }
+
+      function fail(error: Error): void {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        reject(error);
+      }
+
+      function onStdout(chunk: string): void {
+        try {
+          pending += chunk;
+          while (pending.includes("\n")) {
+            const newline = pending.indexOf("\n");
+            const line = pending.slice(0, newline);
+            pending = pending.slice(newline + 1);
+            if (!line) {
+              continue;
+            }
+            const value: unknown = JSON.parse(line);
+            const message = asRecord(value, "surface protocol message");
+            messages.push(message);
+            if (message.type === "snapshot") {
+              finish();
+            }
+          }
+        } catch (error) {
+          fail(error instanceof Error ? error : new Error(String(error)));
+        }
+      }
+
+      function onStderr(chunk: string): void {
+        stderrText += chunk;
+      }
+
+      function onExit(code: number | null, signal: NodeJS.Signals | null): void {
+        fail(
+          new Error(
+            `Packaged surface exited before a snapshot (code=${code ?? "null"}, signal=${
+              signal ?? "null"
+            }).\nstderr:\n${stderrText}`,
+          ),
+        );
+      }
+
+      child.stdout.on("data", onStdout);
+      child.stderr.on("data", onStderr);
+      child.once("exit", onExit);
+      child.once("error", fail);
+    });
+
+    assert.equal(messages[0]?.type, "hello");
+    assert.equal(
+      messages.some((message) => message.type === "connection"),
+      true,
+    );
+    assert.equal(messages.at(-1)?.type, "snapshot");
+    assert.doesNotMatch(JSON.stringify(messages), /tokenPath|controlUrl|authToken/);
+
+    const state = asRecord(await runtimeFetchJson(runtime, "/state"), "surface runtime state");
+    assert.equal(state.surfaceCount, 1);
+    const capabilities = asRecord(state.surfaceCapabilities, "surface capabilities");
+    const topology = asRecord(capabilities.topology, "surface topology capabilities");
+    assert.equal(topology.supportsAmbient, true);
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill("SIGTERM");
+    }
+    await waitForRuntimeExit(child, 5_000);
+  }
+}
+
 async function runtimeFetchJson(
   runtime: RuntimeLaunch,
   routePath: string,
@@ -405,6 +534,7 @@ async function assertPackagedRuntimeUsesCurrentCore(
     assert.equal(readbackConflict.kind, "payload_observation");
     assert.equal(readbackConflict.toolFamily, "edit");
     assert.equal(readbackConflict.baselineConsequence, "high");
+    await assertPackagedSurface(binPath, installDir, homeDir, runtime);
   } finally {
     await stopPackagedRuntime(runtime.child);
   }
@@ -474,6 +604,23 @@ async function main(): Promise<void> {
     assert.match(help, /debug \[topic\]/);
     assert.match(help, /completion <shell>/);
     assert.match(help, /codex/);
+    assert.match(help, /surface/);
+    const surfaceHelp = run(binPath, ["surface", "--help"], installDir, isolatedEnv);
+    assert.match(surfaceHelp, /JSONL surface protocol/i);
+    assert.equal(
+      await pathExists(
+        path.join(
+          installDir,
+          "node_modules",
+          "@tomismeta",
+          "aperture",
+          "dist",
+          "surface-protocol.schema.json",
+        ),
+      ),
+      true,
+      "expected installed package to include the surface protocol schema",
+    );
 
     run(binPath, ["claude", "connect", "--global"], installDir, isolatedEnv);
     run(binPath, ["claude", "connect", projectDir], installDir, isolatedEnv);

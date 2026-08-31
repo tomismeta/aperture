@@ -88,6 +88,15 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/omp:
+    dependencies:
+      '@aperture/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@tomismeta/aperture-core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/opencode:
     dependencies:
       '@aperture/runtime':

@@ -55,6 +55,7 @@
     "finalize:attention-worker": "tsx ./scripts/finalize-attention-worker-buildinfo.ts",
     "smoke": "tsx ./scripts/smoke.ts",
     "smoke:attention-worker": "tsx ./scripts/smoke-attention-worker.ts",
+    "smoke:omp-extension": "tsx ./scripts/smoke-omp-extension.ts",
     "surface:fixtures:check": "tsx ./scripts/generate-surface-fixtures.ts",
     "surface:fixtures:write": "tsx ./scripts/generate-surface-fixtures.ts --write",
     "prepack": "pnpm run build"

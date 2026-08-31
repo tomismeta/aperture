@@ -662,6 +662,14 @@ async function main(): Promise<void> {
       path.dirname(surfaceSchemaPath),
       "aperture-attention-engine.runtime-imports.json",
     );
+    const ompExtensionPath = path.join(
+      path.dirname(surfaceSchemaPath),
+      "aperture-omp-extension.mjs",
+    );
+    const ompImportReportPath = path.join(
+      path.dirname(surfaceSchemaPath),
+      "aperture-omp-extension.runtime-imports.json",
+    );
     assert.equal(
       await pathExists(workerBundlePath),
       true,
@@ -675,6 +683,23 @@ async function main(): Promise<void> {
     assert.equal(
       Array.isArray(workerImportReport.imports) &&
         workerImportReport.imports.every(
+          (entry) => typeof entry === "string" && entry.startsWith("node:"),
+        ),
+      true,
+    );
+    assert.equal(
+      await pathExists(ompExtensionPath),
+      true,
+      "expected installed package to include the bundled OMP extension",
+    );
+    const ompImportReport = JSON.parse(await readFile(ompImportReportPath, "utf8")) as {
+      status?: unknown;
+      imports?: unknown;
+    };
+    assert.equal(ompImportReport.status, "passed");
+    assert.equal(
+      Array.isArray(ompImportReport.imports) &&
+        ompImportReport.imports.every(
           (entry) => typeof entry === "string" && entry.startsWith("node:"),
         ),
       true,

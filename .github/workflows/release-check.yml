@@ -96,9 +96,13 @@ jobs:
 
       - name: Run attention worker contract tests
         run: pnpm exec tsx --test packages/aperture/test/notification-worker.test.ts
+      - name: Run OMP adapter contract tests
+        run: pnpm --dir packages/omp test
 
       - name: Smoke clean-room attention worker
         run: pnpm --dir packages/aperture smoke:attention-worker
+      - name: Smoke bundled OMP extension
+        run: pnpm --dir packages/aperture smoke:omp-extension
 
       - name: Stage unsigned artifact contract
         if: matrix.node-version == 22
@@ -132,6 +136,14 @@ jobs:
           --worker "$RUNNER_TEMP/aperture-attention-worker/lib/aperture-attention-engine.cjs"
           --report "$RUNNER_TEMP/reports/node-current.json"
 
+      - name: Validate staged OMP extension
+        if: matrix.node-version == 22
+        run: >-
+          pnpm --dir packages/aperture smoke:omp-extension --
+          --extension "$RUNNER_TEMP/aperture-attention-worker/integrations/omp/aperture-omp-extension.mjs"
+          --manifest "$RUNNER_TEMP/aperture-attention-worker/integrations/omp/package.json"
+          --report "$RUNNER_TEMP/reports/omp-adapter.json"
+
       - name: Finalize unsigned candidate evidence
         if: matrix.node-version == 22
         run: >-
@@ -140,6 +152,7 @@ jobs:
           --node-report "$RUNNER_TEMP/reports/node-22.json"
           --node-report "$RUNNER_TEMP/reports/node-24.json"
           --node-report "$RUNNER_TEMP/reports/node-current.json"
+          --omp-report "$RUNNER_TEMP/reports/omp-adapter.json"
 
       - name: Verify staged artifact metadata
         if: matrix.node-version == 22
@@ -151,5 +164,7 @@ jobs:
             .runtimeDependencies.status == "passed" and
             .validation.status == "passed" and
             (.validation.nodeCompatibility | length) == 3 and
+            .integrations.omp.validation.status == "passed" and
+            .integrations.omp.bytes <= 1048576 and
             .workerBundle.bytes <= 8388608
           ' "$RUNNER_TEMP/aperture-attention-worker/BUILDINFO.json"

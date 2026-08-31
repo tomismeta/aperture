@@ -35,6 +35,7 @@
       "@aperture/lab": ["packages/lab/src/index.ts"],
       "@aperture/lab/capture": ["packages/lab/src/capture.ts"],
       "@aperture/opencode": ["packages/opencode/src/index.ts"],
+      "@aperture/omp": ["packages/omp/src/index.ts"],
       "@aperture/tui": ["packages/tui/src/index.ts"]
     }
   }

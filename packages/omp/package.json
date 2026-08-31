@@ -1,0 +1,43 @@
+{
+  "name": "@aperture/omp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./extension": {
+      "types": "./dist/src/extension.d.ts",
+      "default": "./dist/src/extension.js"
+    },
+    "./omarchy-extension": {
+      "types": "./dist/src/omarchy-extension.d.ts",
+      "default": "./dist/src/omarchy-extension.js"
+    }
+  },
+  "omp": {
+    "extensions": [
+      "./dist/src/extension.js"
+    ]
+  },
+  "dependencies": {
+    "@aperture/runtime": "workspace:*",
+    "@tomismeta/aperture-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@oh-my-pi/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@oh-my-pi/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "tsx --test test/*.test.ts"
+  }
+}

@@ -1,12 +1,18 @@
 import path from "node:path";
 import { stderr } from "node:process";
-import packageMetadata from "../package.json" with { type: "json" };
 
 import {
   loadNotificationWorkerConfig,
   notificationWorkerPaths,
 } from "./notification-worker/config.js";
 import { runNotificationWorkerStdio } from "./notification-worker/stdio.js";
+
+declare const APERTURE_PACKAGE_VERSION: string;
+
+const packageVersion =
+  typeof APERTURE_PACKAGE_VERSION === "string"
+    ? APERTURE_PACKAGE_VERSION
+    : (process.env.npm_package_version ?? "0.0.0-development");
 
 async function main(): Promise<void> {
   const defaults = notificationWorkerPaths();
@@ -15,7 +21,7 @@ async function main(): Promise<void> {
   const stateDir = path.resolve(options.stateDir ?? defaults.stateDir);
   const config = await loadNotificationWorkerConfig(configPath);
   await runNotificationWorkerStdio({
-    packageVersion: packageMetadata.version,
+    packageVersion,
     identities: config.identities,
     stateDir,
   });

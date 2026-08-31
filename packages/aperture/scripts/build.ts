@@ -6,6 +6,7 @@ import { build } from "esbuild";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(SCRIPT_DIR, "..");
+const WORKSPACE_ROOT = path.resolve(PACKAGE_ROOT, "..", "..");
 const DIST_DIR = path.join(PACKAGE_ROOT, "dist");
 const ENTRY_POINT = path.join(PACKAGE_ROOT, "src", "cli.ts");
 const WORK_ENTRY_POINT = path.join(PACKAGE_ROOT, "src", "work.ts");
@@ -17,6 +18,18 @@ const ATTENTION_WORKER_IMPORT_REPORT = path.join(
   DIST_DIR,
   "aperture-attention-engine.runtime-imports.json",
 );
+const OMP_EXTENSION_ENTRY_POINT = path.join(
+  WORKSPACE_ROOT,
+  "packages",
+  "omp",
+  "src",
+  "omarchy-extension.ts",
+);
+const OMP_EXTENSION_OUTFILE = path.join(DIST_DIR, "aperture-omp-extension.mjs");
+const OMP_EXTENSION_IMPORT_REPORT = path.join(
+  DIST_DIR,
+  "aperture-omp-extension.runtime-imports.json",
+);
 const SCHEMA_FILES = [
   "work-event.schema.json",
   "work-event-batch.schema.json",
@@ -26,6 +39,12 @@ const SCHEMA_FILES = [
 ] as const;
 
 await rm(DIST_DIR, { recursive: true, force: true });
+const packageMetadata = JSON.parse(
+  await readFile(path.join(PACKAGE_ROOT, "package.json"), "utf8"),
+) as { version?: unknown };
+if (typeof packageMetadata.version !== "string" || !packageMetadata.version) {
+  throw new Error("Aperture package version is invalid");
+}
 
 const sharedBuildOptions = {
   bundle: true,
@@ -58,6 +77,9 @@ const attentionWorkerBuild = await build({
   target: "node22",
   packages: "bundle",
   legalComments: "none",
+  define: {
+    APERTURE_PACKAGE_VERSION: JSON.stringify(packageMetadata.version),
+  },
   metafile: true,
   entryPoints: [ATTENTION_WORKER_ENTRY_POINT],
   outfile: ATTENTION_WORKER_OUTFILE,
@@ -80,6 +102,41 @@ await writeFile(
       status: "passed",
       policy: "node-builtins-only",
       imports: [...runtimeImports].sort(),
+    },
+    null,
+    2,
+  )}\n`,
+  "utf8",
+);
+const ompExtensionBuild = await build({
+  bundle: true,
+  format: "esm",
+  platform: "node",
+  target: "node22",
+  packages: "bundle",
+  legalComments: "none",
+  metafile: true,
+  entryPoints: [OMP_EXTENSION_ENTRY_POINT],
+  outfile: OMP_EXTENSION_OUTFILE,
+});
+const ompRuntimeImports = new Set<string>();
+for (const output of Object.values(ompExtensionBuild.metafile.outputs)) {
+  for (const imported of output.imports) {
+    if (!imported.external) continue;
+    if (!imported.path.startsWith("node:")) {
+      throw new Error(`OMP extension retained a non-builtin runtime import: ${imported.path}`);
+    }
+    ompRuntimeImports.add(imported.path);
+  }
+}
+await writeFile(
+  OMP_EXTENSION_IMPORT_REPORT,
+  `${JSON.stringify(
+    {
+      schemaVersion: 1,
+      status: "passed",
+      policy: "node-builtins-only",
+      imports: [...ompRuntimeImports].sort(),
     },
     null,
     2,

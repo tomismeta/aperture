@@ -13,6 +13,14 @@ type BuildInfoShape = {
   artifactType?: unknown;
   minimumNodeMajor?: unknown;
   workerBundle?: { sha256?: unknown; bytes?: unknown };
+  integrations?: {
+    omp?: {
+      sha256?: unknown;
+      bytes?: unknown;
+      proofId?: unknown;
+      validation?: unknown;
+    };
+  };
   files?: ArtifactFile[];
   validation?: unknown;
   provenanceAttestationReference?: string | null;
@@ -31,22 +39,40 @@ type CompatibilityReport = {
   checks?: unknown;
 };
 
+type OmpCompatibilityReport = {
+  schemaVersion?: unknown;
+  proofId?: unknown;
+  passed?: unknown;
+  runtime?: unknown;
+  bundle?: { sha256?: unknown; bytes?: unknown };
+  cleanDirectoryWithoutNodeModules?: unknown;
+  registeredEvents?: unknown;
+};
+
 const options = parseOptions(process.argv.slice(2));
 const artifactRoot = path.resolve(options.artifactDir);
 const buildInfoPath = path.join(artifactRoot, "BUILDINFO.json");
 const buildInfo = JSON.parse(await readFile(buildInfoPath, "utf8")) as BuildInfoShape;
 const workerBundle = buildInfo.workerBundle;
+const ompIntegration = buildInfo.integrations?.omp;
 if (
   buildInfo.artifactType !== "node-commonjs-bundle" ||
   buildInfo.minimumNodeMajor !== 22 ||
   !workerBundle ||
   typeof workerBundle.sha256 !== "string" ||
-  typeof workerBundle.bytes !== "number"
+  typeof workerBundle.bytes !== "number" ||
+  !ompIntegration ||
+  ompIntegration.proofId !== "aperture-omp-adapter-conformance-v1" ||
+  typeof ompIntegration.sha256 !== "string" ||
+  typeof ompIntegration.bytes !== "number"
 ) {
   throw new Error("attention worker BUILDINFO is not finalizable");
 }
 if (options.nodeReports.length < 3) {
   throw new Error("attention worker finalization requires Node 22, Node 24, and current reports");
+}
+if (!options.ompReport) {
+  throw new Error("attention worker finalization requires an OMP adapter report");
 }
 
 const reports = await Promise.all(
@@ -79,6 +105,22 @@ if (!nodeMajors.has(22) || !nodeMajors.has(24) || ![...nodeMajors].some((major) 
   throw new Error(
     "attention worker compatibility reports do not cover Node 22, Node 24, and current",
   );
+}
+const ompReportPath = path.resolve(options.ompReport);
+const ompReportContent = await readFile(ompReportPath);
+const ompReport = JSON.parse(ompReportContent.toString("utf8")) as OmpCompatibilityReport;
+if (
+  ompReport.schemaVersion !== 1 ||
+  ompReport.proofId !== "aperture-omp-adapter-conformance-v1" ||
+  ompReport.passed !== true ||
+  ompReport.runtime !== "omp-extension-module" ||
+  !ompReport.bundle ||
+  ompReport.bundle.sha256 !== ompIntegration.sha256 ||
+  ompReport.bundle.bytes !== ompIntegration.bytes ||
+  ompReport.cleanDirectoryWithoutNodeModules !== true ||
+  !Array.isArray(ompReport.registeredEvents)
+) {
+  throw new Error("invalid OMP adapter compatibility report");
 }
 
 const evidenceRoot = path.join(artifactRoot, "evidence");
@@ -121,11 +163,13 @@ const ambientEvidence = {
 };
 const ambientEvidencePath = path.join(evidenceRoot, "ambient-ceiling.json");
 await writeFile(ambientEvidencePath, `${JSON.stringify(ambientEvidence, null, 2)}\n`, "utf8");
+const stagedOmpReportPath = path.join(evidenceRoot, "omp-adapter.json");
+await writeFile(stagedOmpReportPath, ompReportContent);
 const existingFiles = Array.isArray(buildInfo.files)
   ? buildInfo.files.filter(
       (entry) =>
         typeof entry.path === "string" &&
-        !/^evidence\/(?:node-|ambient-ceiling\.json$)/.test(entry.path),
+        !/^evidence\/(?:node-|ambient-ceiling\.json$|omp-adapter\.json$)/.test(entry.path),
     )
   : [];
 const evidenceFiles = await Promise.all([
@@ -133,6 +177,7 @@ const evidenceFiles = await Promise.all([
     artifactFile(artifactRoot, path.join(artifactRoot, entry.reportPath)),
   ),
   artifactFile(artifactRoot, ambientEvidencePath),
+  artifactFile(artifactRoot, stagedOmpReportPath),
 ]);
 buildInfo.files = [...existingFiles, ...evidenceFiles];
 buildInfo.validation = {
@@ -141,6 +186,13 @@ buildInfo.validation = {
   ambientCeilingProofId: "notification-worker-ambient-ceiling-v1",
   ambientCeilingReport: "evidence/ambient-ceiling.json",
   nodeCompatibility: compatibility,
+  ompAdapterProofId: "aperture-omp-adapter-conformance-v1",
+};
+ompIntegration.validation = {
+  status: "passed",
+  proofId: "aperture-omp-adapter-conformance-v1",
+  reportPath: "evidence/omp-adapter.json",
+  reportSha256: createHash("sha256").update(ompReportContent).digest("hex"),
 };
 buildInfo.provenanceAttestationReference = options.attestationReference ?? null;
 if (buildInfo.trustedCi === true && !options.attestationReference) {
@@ -152,12 +204,14 @@ process.stdout.write(`${buildInfoPath}\n`);
 type FinalizeOptions = {
   artifactDir: string;
   nodeReports: string[];
+  ompReport: string;
   attestationReference?: string;
 };
 
 function parseOptions(args: string[]): FinalizeOptions {
   let artifactDir = "";
   const nodeReports: string[] = [];
+  let parsedOmpReport = "";
   let attestationReference: string | undefined;
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -165,12 +219,14 @@ function parseOptions(args: string[]): FinalizeOptions {
     if (
       argument === "--artifact-dir" ||
       argument === "--node-report" ||
+      argument === "--omp-report" ||
       argument === "--attestation-reference"
     ) {
       const value = args[index + 1];
       if (!value) throw new Error(`${argument} requires a value`);
       if (argument === "--artifact-dir") artifactDir = value;
       else if (argument === "--node-report") nodeReports.push(value);
+      else if (argument === "--omp-report") parsedOmpReport = value;
       else attestationReference = value;
       index += 1;
       continue;
@@ -178,9 +234,11 @@ function parseOptions(args: string[]): FinalizeOptions {
     throw new Error(`unknown BUILDINFO finalization option: ${argument ?? "(missing)"}`);
   }
   if (!artifactDir) throw new Error("--artifact-dir is required");
+  if (!parsedOmpReport) throw new Error("--omp-report is required");
   return {
     artifactDir,
     nodeReports,
+    ompReport: parsedOmpReport,
     ...(attestationReference ? { attestationReference } : {}),
   };
 }

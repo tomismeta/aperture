@@ -197,6 +197,12 @@ stages the bundle, schemas, hashes, and BUILDINFO for a host integration. The
 worker is integration build input, not a user-facing Aperture command, and
 requires no npm install or `node_modules` on the target machine.
 
+The staged payload also includes
+`integrations/omp/aperture-omp-extension.mjs`, a first-class OMP extension that
+can publish typed OMP events to a normal Aperture runtime or emit bounded
+adapter-owned Omarchy notifications for the self-contained desktop plugin.
+Shipping the extension does not automatically activate it in OMP.
+
 ## Product State
 
 Aperture stores product-owned local state under:

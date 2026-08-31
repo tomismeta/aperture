@@ -375,9 +375,20 @@ Stop rather than weaken the boundary if:
 
 ## Current status — 2026-08-31
 
-- Host-Node notification worker: implemented and reviewed at `bb23e6e`.
-- OMP adapter package: planned, not implemented.
-- OMP extension bundle: absent.
+- Host-Node notification worker: implemented and previously reviewed at `bb23e6e`.
+- OMP adapter package: implemented locally under `packages/omp`.
+- Normal Aperture runtime transport: implemented and unit tested.
+- Omarchy notification transport: implemented with fixed `aperture-omp` identity,
+  replacement IDs, sender-owned close, bounded fixed bodies, and fail-open delivery.
+- OMP extension artifact: `integrations/omp/aperture-omp-extension.mjs`.
+- Local extension bytes: `9818`.
+- Local extension SHA-256:
+  `1cb5b1ceea16303aeb4337aac841d6ae12eda71024042ff1afb3b91ced2cd003`.
+- Adapter proof identity: `aperture-omp-adapter-conformance-v1`.
+- Clean-directory module load: passed with 17 registered OMP events.
+- Runtime import policy: passed; only `node:child_process`, `node:crypto`, and
+  `node:util` remain external.
+- Combined artifact staging and BUILDINFO integration: passed locally.
+- Combined trusted artifact: not committed, tagged, attested, or vendored.
 - Omarchy activation mechanism: unresolved production gate.
-- OMP interactive notification corpus: pending.
-- Combined trusted artifact: not built or tagged.
+- Real OMP plus Omarchy observer end-to-end proof: pending.

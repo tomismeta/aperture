@@ -18,6 +18,15 @@ const runtimeImportReport = path.join(
   "dist",
   "aperture-attention-engine.runtime-imports.json",
 );
+const ompExtensionName = "aperture-omp-extension.mjs";
+const ompExtension = path.join(packageRoot, "dist", ompExtensionName);
+const ompExtensionManifest = path.join(workspaceRoot, "packages", "omp", "omarchy-package.json");
+const ompRuntimeImportReport = path.join(
+  packageRoot,
+  "dist",
+  "aperture-omp-extension.runtime-imports.json",
+);
+const maximumOmpExtensionBytes = 1024 * 1024;
 const maximumBundleBytes = 2 * 1024 * 1024;
 const minimumNodeVersion = "22.0.0";
 const schemaNames = [
@@ -46,17 +55,31 @@ const bundle = await readFile(workerBundle);
 if (bundle.byteLength > maximumBundleBytes) {
   throw new Error(`attention worker bundle exceeds the ${maximumBundleBytes}-byte artifact limit`);
 }
+const ompBundle = await readFile(ompExtension);
+if (ompBundle.byteLength > maximumOmpExtensionBytes) {
+  throw new Error(
+    `OMP extension bundle exceeds the ${maximumOmpExtensionBytes}-byte artifact limit`,
+  );
+}
 
 await rm(outputRoot, { recursive: true, force: true });
 const libraryRoot = path.join(outputRoot, "lib");
 const schemaRoot = path.join(outputRoot, "schemas");
 const evidenceRoot = path.join(outputRoot, "evidence");
+const ompIntegrationRoot = path.join(outputRoot, "integrations", "omp");
 await mkdir(libraryRoot, { recursive: true });
 await mkdir(schemaRoot, { recursive: true });
 await mkdir(evidenceRoot, { recursive: true });
+await mkdir(ompIntegrationRoot, { recursive: true });
 const stagedBundle = path.join(libraryRoot, workerBundleName);
 await copyFile(workerBundle, stagedBundle);
 await chmod(stagedBundle, 0o644);
+const stagedOmpExtension = path.join(ompIntegrationRoot, ompExtensionName);
+const stagedOmpManifest = path.join(ompIntegrationRoot, "package.json");
+await copyFile(ompExtension, stagedOmpExtension);
+await copyFile(ompExtensionManifest, stagedOmpManifest);
+await chmod(stagedOmpExtension, 0o644);
+await chmod(stagedOmpManifest, 0o644);
 for (const schemaName of schemaNames) {
   await copyFile(path.join(packageRoot, "dist", schemaName), path.join(schemaRoot, schemaName));
 }
@@ -79,6 +102,25 @@ if (
 ) {
   throw new Error("attention worker runtime import audit is invalid");
 }
+const stagedOmpImportReport = path.join(evidenceRoot, "omp-runtime-imports.json");
+await copyFile(ompRuntimeImportReport, stagedOmpImportReport);
+const ompImportReport = JSON.parse(await readFile(stagedOmpImportReport, "utf8")) as {
+  schemaVersion?: unknown;
+  status?: unknown;
+  policy?: unknown;
+  imports?: unknown;
+};
+if (
+  ompImportReport.schemaVersion !== 1 ||
+  ompImportReport.status !== "passed" ||
+  ompImportReport.policy !== "node-builtins-only" ||
+  !Array.isArray(ompImportReport.imports) ||
+  !ompImportReport.imports.every(
+    (entry): entry is string => typeof entry === "string" && entry.startsWith("node:"),
+  )
+) {
+  throw new Error("OMP extension runtime import audit is invalid");
+}
 
 const repositoryCommit = await gitValue(["rev-parse", "HEAD"]);
 const sourceDirty = (await gitValue(["status", "--porcelain"])).length > 0;
@@ -92,6 +134,22 @@ if (trustedCi && sourceDirty) {
 const packageMetadata = JSON.parse(
   await readFile(path.join(packageRoot, "package.json"), "utf8"),
 ) as { version?: unknown };
+const ompManifestMetadata = JSON.parse(await readFile(stagedOmpManifest, "utf8")) as {
+  name?: unknown;
+  version?: unknown;
+  type?: unknown;
+  omp?: { extensions?: unknown };
+};
+if (
+  ompManifestMetadata.name !== "@tomismeta/aperture-omp" ||
+  ompManifestMetadata.version !== packageMetadata.version ||
+  ompManifestMetadata.type !== "module" ||
+  !Array.isArray(ompManifestMetadata.omp?.extensions) ||
+  ompManifestMetadata.omp.extensions.length !== 1 ||
+  ompManifestMetadata.omp.extensions[0] !== `./${ompExtensionName}`
+) {
+  throw new Error("vendored OMP extension manifest is invalid");
+}
 const coreMetadata = JSON.parse(
   await readFile(path.join(workspaceRoot, "packages", "core", "package.json"), "utf8"),
 ) as { version?: unknown };
@@ -104,6 +162,9 @@ const files = await Promise.all([
     artifactFile(outputRoot, path.join(schemaRoot, schemaName), "0644"),
   ),
   artifactFile(outputRoot, stagedImportReport, "0644"),
+  artifactFile(outputRoot, stagedOmpExtension, "0644"),
+  artifactFile(outputRoot, stagedOmpManifest, "0644"),
+  artifactFile(outputRoot, stagedOmpImportReport, "0644"),
 ]);
 const workerFile = files[0]!;
 const buildInfo = {
@@ -156,6 +217,24 @@ const buildInfo = {
     imports: importReport.imports,
     evidencePath: files[4]!.path,
     evidenceSha256: files[4]!.sha256,
+  },
+  integrations: {
+    omp: {
+      artifactType: "omp-extension-module",
+      path: files[5]!.path,
+      manifestPath: files[6]!.path,
+      sha256: files[5]!.sha256,
+      bytes: files[5]!.bytes,
+      minimumOmpVersion: "18.0.0",
+      proofId: "aperture-omp-adapter-conformance-v1",
+      runtimeDependencies: {
+        policy: "node-builtins-only",
+        status: "passed",
+        imports: ompImportReport.imports,
+        evidencePath: files[7]!.path,
+        evidenceSha256: files[7]!.sha256,
+      },
+    },
   },
   builtAt: new Date().toISOString(),
   ci: {

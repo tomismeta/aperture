@@ -322,10 +322,12 @@ Landed in this repository:
 - atomic artifact staging with schema hashes and BUILDINFO
 - signed-tag trusted-CI artifact workflow with build-provenance attestation
 - package export and packed-install smoke coverage
+- first-class OMP adapter with runtime and Omarchy notification transports
+- dependency-free OMP extension bundle and artifact provenance fields
 
 Observed locally:
 
-- a 911,161-byte bundle ran outside the repository without `node_modules`
+- a 909,269-byte worker bundle ran outside the repository without `node_modules`
 - the exact bundle passed on Node 22.23.2, Node 24.13.0, and Node 26.4.0
 - eight adversarial failure/approval/blocking/permission/urgency cases stayed Ambient and low
 - observed and replacement-update history replayed byte-for-byte equivalent public views
@@ -333,6 +335,7 @@ Observed locally:
 - body/credential/private-path canaries did not reach state
 - staged BUILDINFO SHA-256 matched the bundle and schemas
 - state directory/file modes were `0700`/`0600`
+- a 9,818-byte OMP extension loaded from a clean directory and registered 17 events
 
 This is not a releasable Omarchy artifact yet. The generic observer, real corpus,
 reviewed identities, an actual signed CI artifact run, and QML integration proof

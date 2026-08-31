@@ -407,6 +407,22 @@ Stop rather than weakening boundaries if:
 - a downloader or separately installed runtime becomes necessary
 - typed approval responses become a V1 requirement
 
+## OMP adapter workstream
+
+Reliable OMP events require a first-class OMP extension adapter rather than
+depending on terminal notifications. The adapter follows the Claude Code,
+OpenCode, and Pi boundary pattern while keeping OMP-specific behavior out of
+Core.
+
+The canonical architecture, event mapping, artifact layout, activation gate,
+ownership, and acceptance plan are defined in
+[`omp-adapter-handoff.md`](./omp-adapter-handoff.md).
+
+The worker and OMP extension are separate runtime entry points shipped in one
+trusted payload. Shipping the extension does not automatically activate it in
+OMP; production must either gain an upstream discovery path or explicitly
+approve a second OMP activation step. Hidden mutation of `~/.omp` is prohibited.
+
 ## Coordination
 
 The Omarchy agent may prepare and test the generic upstream observer patch in an

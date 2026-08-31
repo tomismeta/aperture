@@ -1,0 +1,125 @@
+name: Attention Worker Artifact
+
+on:
+  push:
+    tags:
+      - "aperture-attention-worker-v*"
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout signed source tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify annotated tag signature
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.sha')
+          gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq -e '.verification.verified == true'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build trusted attention worker artifact
+        env:
+          APERTURE_TRUSTED_CI: "1"
+          APERTURE_SOURCE_TAG: ${{ github.ref_name }}
+          APERTURE_SOURCE_COMMIT: ${{ github.sha }}
+        run: >-
+          pnpm --dir packages/aperture build:attention-worker --
+          --output-dir "$RUNNER_TEMP/aperture-attention-worker"
+
+      - name: Run worker contract tests
+        run: pnpm exec tsx --test packages/aperture/test/notification-worker.test.ts
+
+      - name: Smoke exact artifact on Node 22
+        run: >-
+          pnpm --dir packages/aperture smoke:attention-worker --
+          --worker "$RUNNER_TEMP/aperture-attention-worker/lib/aperture-attention-engine.cjs"
+          --report "$RUNNER_TEMP/reports/node-22.json"
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+
+      - name: Smoke exact artifact on Node 24
+        run: >-
+          pnpm --dir packages/aperture smoke:attention-worker --
+          --worker "$RUNNER_TEMP/aperture-attention-worker/lib/aperture-attention-engine.cjs"
+          --report "$RUNNER_TEMP/reports/node-24.json"
+
+      - name: Setup current Omarchy Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26.4.0
+          cache: pnpm
+
+      - name: Smoke exact artifact on current Node
+        run: >-
+          pnpm --dir packages/aperture smoke:attention-worker --
+          --worker "$RUNNER_TEMP/aperture-attention-worker/lib/aperture-attention-engine.cjs"
+          --report "$RUNNER_TEMP/reports/node-current.json"
+
+      - name: Attest worker bundle provenance
+        id: provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ runner.temp }}/aperture-attention-worker/lib/aperture-attention-engine.cjs
+
+      - name: Finalize validation evidence and BUILDINFO
+        run: >-
+          pnpm --dir packages/aperture finalize:attention-worker --
+          --artifact-dir "$RUNNER_TEMP/aperture-attention-worker"
+          --node-report "$RUNNER_TEMP/reports/node-22.json"
+          --node-report "$RUNNER_TEMP/reports/node-24.json"
+          --node-report "$RUNNER_TEMP/reports/node-current.json"
+          --attestation-reference "${{ steps.provenance.outputs.attestation-url }}"
+
+      - name: Verify trusted BUILDINFO
+        run: |
+          jq -e --arg commit "$GITHUB_SHA" --arg tag "$GITHUB_REF_NAME" '
+            .artifactType == "node-commonjs-bundle" and
+            .minimumNodeMajor == 22 and
+            .apertureCommit == $commit and
+            .apertureSourceTag == $tag and
+            .trustedCi == true and
+            .sourceDirty == false and
+            .workerBundle.bytes <= 8388608 and
+            .validation.status == "passed" and
+            .runtimeDependencies.status == "passed" and
+            (.runtimeDependencies.imports | all(startswith("node:"))) and
+            (.validation.nodeCompatibility | length) == 3 and
+            (.provenanceAttestationReference | type) == "string" and
+            (.provenanceAttestationReference | length) > 0
+          ' "$RUNNER_TEMP/aperture-attention-worker/BUILDINFO.json"
+      - name: Upload atomic plugin payload
+        uses: actions/upload-artifact@v4
+        with:
+          name: aperture-attention-worker-${{ github.ref_name }}
+          path: ${{ runner.temp }}/aperture-attention-worker
+          if-no-files-found: error
+          compression-level: 9

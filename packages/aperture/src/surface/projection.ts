@@ -1,4 +1,4 @@
-import type { AttentionFrame } from "@tomismeta/aperture-core";
+import type { AttentionFrame, AttentionView } from "@tomismeta/aperture-core";
 import type { ApertureRuntimeSnapshot } from "@aperture/runtime";
 
 import {
@@ -18,8 +18,31 @@ export class ApertureSurfaceProjectionError extends Error {
   }
 }
 
+export type ApertureSurfaceProjectionSource = {
+  kind: string;
+  label?: string;
+};
+
+export type ApertureSurfaceProjectionInput = {
+  sources: ApertureSurfaceProjectionSource[];
+  attentionView: AttentionView;
+};
+
 export function projectSurfaceSnapshot(
   snapshot: ApertureRuntimeSnapshot,
+  sequence: number,
+): ApertureSurfaceSnapshotMessage {
+  return projectAttentionSurfaceView(
+    {
+      sources: snapshot.adapters,
+      attentionView: snapshot.attentionView,
+    },
+    sequence,
+  );
+}
+
+export function projectAttentionSurfaceView(
+  input: ApertureSurfaceProjectionInput,
   sequence: number,
 ): ApertureSurfaceSnapshotMessage {
   if (!Number.isSafeInteger(sequence) || sequence < 1) {
@@ -31,19 +54,17 @@ export function projectSurfaceSnapshot(
   const projected: ApertureSurfaceSnapshotMessage = {
     type: "snapshot",
     sequence,
-    sources: snapshot.adapters.slice(0, APERTURE_SURFACE_LIMITS.sources).map(projectSource),
+    sources: input.sources.slice(0, APERTURE_SURFACE_LIMITS.sources).map(projectSource),
     totals: {
-      now: snapshot.attentionView.now ? 1 : 0,
-      next: snapshot.attentionView.next.length,
-      ambient: snapshot.attentionView.ambient.length,
-      sources: snapshot.adapters.length,
+      now: input.attentionView.now ? 1 : 0,
+      next: input.attentionView.next.length,
+      ambient: input.attentionView.ambient.length,
+      sources: input.sources.length,
     },
     view: {
-      now: snapshot.attentionView.now ? projectFrame(snapshot.attentionView.now) : null,
-      next: snapshot.attentionView.next
-        .slice(0, APERTURE_SURFACE_LIMITS.nextFrames)
-        .map(projectFrame),
-      ambient: snapshot.attentionView.ambient
+      now: input.attentionView.now ? projectFrame(input.attentionView.now) : null,
+      next: input.attentionView.next.slice(0, APERTURE_SURFACE_LIMITS.nextFrames).map(projectFrame),
+      ambient: input.attentionView.ambient
         .slice(0, APERTURE_SURFACE_LIMITS.ambientFrames)
         .map(projectFrame),
     },
@@ -59,7 +80,7 @@ export function projectSurfaceSnapshot(
   return fitted;
 }
 
-function projectSource(source: ApertureRuntimeSnapshot["adapters"][number]): ApertureSurfaceSource {
+function projectSource(source: ApertureSurfaceProjectionSource): ApertureSurfaceSource {
   return {
     kind: projectSurfaceIdentifier(source.kind, APERTURE_SURFACE_LIMITS.kind, "adapter kind"),
     label:

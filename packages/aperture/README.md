@@ -184,6 +184,19 @@ aperture surface --stdio --label omarchy-attention
 The process stays alive and reports an honest disconnected state while no local
 runtime is available.
 
+Desktop-shell integrations that own `ApertureCore` state use a separate
+bidirectional notification-worker contract rather than attach to an existing
+runtime. The dependency-free `dist/aperture-attention-engine.cjs` bundle targets
+Node 22 and is intended to run on the Node runtime supplied by the host
+platform. Its canonical schemas are exported as
+`@tomismeta/aperture/notification-worker-input.schema.json` and
+`@tomismeta/aperture/notification-worker-output.schema.json`.
+
+`pnpm --dir packages/aperture build:attention-worker -- --output-dir <path>`
+stages the bundle, schemas, hashes, and BUILDINFO for a host integration. The
+worker is integration build input, not a user-facing Aperture command, and
+requires no npm install or `node_modules` on the target machine.
+
 ## Product State
 
 Aperture stores product-owned local state under:

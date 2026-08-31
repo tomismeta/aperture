@@ -63,3 +63,93 @@ jobs:
 
       - name: Run kernel gates
         run: pnpm kernel:conformance && pnpm kernel:corpus
+
+  attention-worker-bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        node-version: [22, 24, 26]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build attention worker bundle
+        run: pnpm --dir packages/aperture build
+
+      - name: Run attention worker contract tests
+        run: pnpm exec tsx --test packages/aperture/test/notification-worker.test.ts
+
+      - name: Smoke clean-room attention worker
+        run: pnpm --dir packages/aperture smoke:attention-worker
+
+      - name: Stage unsigned artifact contract
+        if: matrix.node-version == 22
+        run: >-
+          pnpm --dir packages/aperture build:attention-worker --
+          --output-dir "$RUNNER_TEMP/aperture-attention-worker"
+          --allow-unsigned-local
+
+      - name: Validate staged candidate on Node 22
+        if: matrix.node-version == 22
+        run: >-
+          pnpm --dir packages/aperture smoke:attention-worker --
+          --worker "$RUNNER_TEMP/aperture-attention-worker/lib/aperture-attention-engine.cjs"
+          --report "$RUNNER_TEMP/reports/node-22.json"
+
+      - name: Validate staged candidate on Node 24
+        if: matrix.node-version == 22
+        run: >-
+          pnpm dlx node@24.13.0
+          packages/aperture/node_modules/tsx/dist/cli.mjs
+          packages/aperture/scripts/smoke-attention-worker.ts
+          --worker "$RUNNER_TEMP/aperture-attention-worker/lib/aperture-attention-engine.cjs"
+          --report "$RUNNER_TEMP/reports/node-24.json"
+
+      - name: Validate staged candidate on current Node
+        if: matrix.node-version == 22
+        run: >-
+          pnpm dlx node@26.4.0
+          packages/aperture/node_modules/tsx/dist/cli.mjs
+          packages/aperture/scripts/smoke-attention-worker.ts
+          --worker "$RUNNER_TEMP/aperture-attention-worker/lib/aperture-attention-engine.cjs"
+          --report "$RUNNER_TEMP/reports/node-current.json"
+
+      - name: Finalize unsigned candidate evidence
+        if: matrix.node-version == 22
+        run: >-
+          pnpm --dir packages/aperture finalize:attention-worker --
+          --artifact-dir "$RUNNER_TEMP/aperture-attention-worker"
+          --node-report "$RUNNER_TEMP/reports/node-22.json"
+          --node-report "$RUNNER_TEMP/reports/node-24.json"
+          --node-report "$RUNNER_TEMP/reports/node-current.json"
+
+      - name: Verify staged artifact metadata
+        if: matrix.node-version == 22
+        run: |
+          jq -e '
+            .artifactType == "node-commonjs-bundle" and
+            .minimumNodeMajor == 22 and
+            .trustedCi == false and
+            .runtimeDependencies.status == "passed" and
+            .validation.status == "passed" and
+            (.validation.nodeCompatibility | length) == 3 and
+            .workerBundle.bytes <= 8388608
+          ' "$RUNNER_TEMP/aperture-attention-worker/BUILDINFO.json"

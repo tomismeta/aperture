@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tomismeta:aperture:notification-worker-input",
+  "title": "Aperture Notification Worker Input",
+  "oneOf": [
+    { "$ref": "#/$defs/upsert" },
+    { "$ref": "#/$defs/closed" },
+    { "$ref": "#/$defs/shutdown" }
+  ],
+  "$defs": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "applicationText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "application": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/applicationText" },
+        "desktopEntry": { "$ref": "#/$defs/applicationText" },
+        "category": { "$ref": "#/$defs/applicationText" }
+      }
+    },
+    "upsert": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "key", "occurredAt", "application", "summary", "urgency"],
+      "properties": {
+        "type": {
+          "enum": ["notification.observed", "notification.updated"]
+        },
+        "key": { "$ref": "#/$defs/key" },
+        "occurredAt": { "$ref": "#/$defs/timestamp" },
+        "application": { "$ref": "#/$defs/application" },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(?=.*\\S)[^\\u0000-\\u001f\\u007f]+$"
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "urgency": {
+          "enum": ["low", "normal", "critical"]
+        }
+      }
+    },
+    "closed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "key", "occurredAt", "reason"],
+      "properties": {
+        "type": { "const": "notification.closed" },
+        "key": { "$ref": "#/$defs/key" },
+        "occurredAt": { "$ref": "#/$defs/timestamp" },
+        "reason": {
+          "enum": ["expired", "dismissed", "actioned", "closed", "unknown"]
+        }
+      }
+    },
+    "shutdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "shutdown" }
+      }
+    }
+  }
+}

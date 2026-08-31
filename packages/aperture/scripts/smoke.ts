@@ -638,6 +638,51 @@ async function main(): Promise<void> {
       true,
       "expected installed package to export the surface protocol schema",
     );
+    const workerInputSchemaPath = requireFromInstall.resolve(
+      "@tomismeta/aperture/notification-worker-input.schema.json",
+    );
+    const workerOutputSchemaPath = requireFromInstall.resolve(
+      "@tomismeta/aperture/notification-worker-output.schema.json",
+    );
+    assert.equal(
+      await pathExists(workerInputSchemaPath),
+      true,
+      "expected installed package to export the notification worker input schema",
+    );
+    assert.equal(
+      await pathExists(workerOutputSchemaPath),
+      true,
+      "expected installed package to export the notification worker output schema",
+    );
+    const workerBundlePath = path.join(
+      path.dirname(surfaceSchemaPath),
+      "aperture-attention-engine.cjs",
+    );
+    const workerImportReportPath = path.join(
+      path.dirname(surfaceSchemaPath),
+      "aperture-attention-engine.runtime-imports.json",
+    );
+    assert.equal(
+      await pathExists(workerBundlePath),
+      true,
+      "expected installed package to include the bundled notification worker",
+    );
+    const workerImportReport = JSON.parse(await readFile(workerImportReportPath, "utf8")) as {
+      status?: unknown;
+      imports?: unknown;
+    };
+    assert.equal(workerImportReport.status, "passed");
+    assert.equal(
+      Array.isArray(workerImportReport.imports) &&
+        workerImportReport.imports.every(
+          (entry) => typeof entry === "string" && entry.startsWith("node:"),
+        ),
+      true,
+    );
+    assert.match(
+      run(process.execPath, [workerBundlePath, "--help"], installDir, isolatedEnv),
+      /aperture-attention-engine/,
+    );
 
     run(binPath, ["claude", "connect", "--global"], installDir, isolatedEnv);
     run(binPath, ["claude", "connect", projectDir], installDir, isolatedEnv);

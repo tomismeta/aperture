@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tomismeta:aperture:notification-worker-output",
+  "title": "Aperture Notification Worker Output",
+  "oneOf": [
+    { "$ref": "#/$defs/hello" },
+    { "$ref": "#/$defs/engine" },
+    { "$ref": "#/$defs/error" },
+    {
+      "allOf": [
+        { "$ref": "urn:tomismeta:aperture:surface-protocol" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "snapshot" }
+          }
+        }
+      ]
+    }
+  ],
+  "$defs": {
+    "hello": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "packageVersion", "worker", "capabilities"],
+      "properties": {
+        "type": { "const": "hello" },
+        "packageVersion": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "worker": { "const": "aperture-attention-engine" },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["notificationInput", "snapshots", "responses"],
+          "properties": {
+            "notificationInput": { "const": true },
+            "snapshots": { "const": true },
+            "responses": { "const": false }
+          }
+        }
+      }
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "state", "acceptedSources"],
+      "properties": {
+        "type": { "const": "engine" },
+        "state": { "enum": ["restoring", "ready", "degraded"] },
+        "acceptedSources": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "code", "message", "recoverable"],
+      "properties": {
+        "type": { "const": "error" },
+        "code": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "recoverable": { "type": "boolean" }
+      }
+    }
+  }
+}

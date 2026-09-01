@@ -148,8 +148,9 @@ jobs:
           OMP_COMPAT_MARKER: ${{ runner.temp }}/omp-18-loaded
           PI_CODING_AGENT_DIR: ${{ runner.temp }}/omp-agent
         run: |
-          omp_version=$(bunx @oh-my-pi/pi-coding-agent@18.0.11 --version | sed -n 's/^omp v//p')
-          test "$omp_version" = "18.0.11"
+          bunx @oh-my-pi/pi-coding-agent@18.0.11 --version > "$RUNNER_TEMP/omp-18-version.txt" 2>&1
+          grep -q '^omp v18\.0\.11$' "$RUNNER_TEMP/omp-18-version.txt"
+          omp_version=18.0.11
           extension_url="file://$PAYLOAD_DIR/integrations/omp/aperture-omp-extension.mjs"
           cat > "$RUNNER_TEMP/omp-18-wrapper.mjs" <<EOF
           import { writeFileSync } from "node:fs";

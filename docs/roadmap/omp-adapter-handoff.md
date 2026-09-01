@@ -439,11 +439,14 @@ Stop rather than weaken the boundary if:
 - Bun-free explicit link/removal/reinstall passed, including refusal of a
   deliberately mismatched symlink. The production packaging contract above is
   approved; its Omarchy production implementation remains pending.
-- The first worker release follows the repository's component-tag convention:
-  `aperture-worker-v0.1.0`.
-- Trusted CI must reproduce the privately proven worker and OMP byte
-  identities, finalize all three Node reports plus OMP evidence, and record
-  `trustedCi: true` from a clean source checkout before Omarchy vendoring.
+- Trusted combined artifact: signed component tag `aperture-worker-v0.1.0` at
+  `bd74057`, CI run `33504485643`, artifact `9799041922`, and provenance
+  attestation `44397221`.
+- Trusted CI reproduced the privately proven worker and OMP byte identities,
+  finalized all three Node reports plus OMP evidence, and recorded
+  `trustedCi: true` from a clean source checkout.
+- The artifact is ready for Omarchy provenance verification but is not yet
+  vendored.
 - Production activation mechanism: decided; explicit user-initiated OMP link
   plus verified Bun-free pre-removal.
 - Private OMP and observer end-to-end proof: accepted.

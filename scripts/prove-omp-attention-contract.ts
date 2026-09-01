@@ -33,7 +33,6 @@ async function main(): Promise<void> {
         private: true,
         type: "module",
         dependencies: { "@tomismeta/aperture": `file:${tarballPath}` },
-        devDependencies: { typescript: "5.9.3" },
       })}\n`,
       "utf8",
     );
@@ -63,7 +62,7 @@ async function main(): Promise<void> {
       "utf8",
     );
     run("pnpm", ["install", "--offline"], consumerDir);
-    run("pnpm", ["exec", "tsc", "--noEmit"], consumerDir);
+    run(join(repoRoot, "node_modules", ".bin", "tsc"), ["--noEmit"], consumerDir);
     run("node", ["index.mjs"], consumerDir);
     process.stdout.write("OMP attention contract consumer proof passed\n");
   } finally {

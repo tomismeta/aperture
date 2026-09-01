@@ -274,32 +274,38 @@ production vendoring source.
 
 Shipping the extension file does not make OMP load it.
 
-The immediate explicit activation path is equivalent to:
+The approved production activation path is the explicit, user-initiated
+equivalent of:
 
 ```bash
 omp plugin link ~/.config/omarchy/plugins/aperture.attention/integrations/omp
 ```
 
-or an explicit OMP `extensions:` configuration entry.
-
-The Omarchy plugin must not silently edit `~/.omp`, invoke `omp plugin install`,
-or copy files into OMP's extension directory during startup.
+Do not run this from the shell launcher or worker startup. The activation action
+must identify that it is registering the released Aperture integration with OMP
+and must operate on the trusted, attested payload.
 
 Standard Omarchy may not expose `bun` on `PATH`, while `omp plugin uninstall`
-currently delegates to Bun. Production rollback must therefore use an
-Omarchy-owned Bun-free unlink path: disable the extension, verify the link
-target belongs to this plugin, remove only that symlink/config entry, and update
-OMP's lock state atomically. Never run a package installer during plugin
-removal.
+currently delegates to Bun. Production pre-removal must therefore:
 
-Strict one-command installation therefore requires one of:
+1. disable `@tomismeta/aperture-omp`
+2. resolve exactly one active user plugin root
+3. verify that the package path is a symlink to the installed Aperture payload
+4. refuse a missing or mismatched owned target unless both link and lock state
+   are already absent
+5. remove only that verified symlink
+6. atomically delete only the plugin and settings entries from
+   `omp-plugins.lock.json`
+7. verify that a fresh `omp plugin list --json` no longer reports the package
 
-1. OMP upstream discovers integrations from enabled Omarchy plugins.
-2. The generic desktop notifier/adapter is upstreamed into OMP.
-3. Product scope explicitly accepts the second OMP activation command.
+Run pre-removal before deleting the payload. Never invoke a package installer,
+mutate `package.json`, or depend on Bun. The private Omarchy proof at `cf63e1a`
+validated link, removal, mismatch refusal, absence, and reinstall with Bun
+absent.
 
-This activation decision is a product/release gate, not something to hide in a
-launcher.
+This selects the explicit second OMP activation action. Automatic one-command
+discovery remains future upstream work; it must not be approximated through
+hidden `~/.omp` mutation.
 
 ## Ownership
 
@@ -346,8 +352,9 @@ make activation automatic without mutating user configuration.
     end-to-end proof.
 11. Produce a new signed combined artifact only after that proof.
 
-The reviewed worker commit remains independently usable. OMP adapter work lands
-in a later commit and requires a new combined artifact identity.
+The reviewed worker commit remains independently usable. The OMP adapter landed
+at `b1c92de`; proof-blocker fixes landed at `00e150a`. A production payload
+still requires a signed combined artifact built from the reviewed tag.
 
 ## Omarchy implementation sequence after delivery
 
@@ -405,26 +412,30 @@ Stop rather than weaken the boundary if:
 ## Current status — 2026-08-31
 
 - Host-Node notification worker: implemented and previously reviewed at `bb23e6e`.
-- OMP adapter package: implemented locally under `packages/omp`.
+- OMP adapter and proof fixes: implemented at `b1c92de` and `00e150a`.
 - Normal Aperture runtime transport: implemented and unit tested.
 - Omarchy notification transport: implemented with fixed `aperture-omp` identity,
   replacement IDs, sender-owned close, bounded fixed bodies, and fail-open delivery.
 - OMP extension artifact: `integrations/omp/aperture-omp-extension.mjs`.
-- Local extension bytes: `12712`.
-- Local extension SHA-256:
+- Clean extension bytes: `12712`.
+- Clean extension SHA-256:
   `4ed0828ece31c1d82c521c304b2670b6b6224359472dd9d2090cd01818c70268`.
 - Adapter proof identity: `aperture-omp-adapter-conformance-v1`.
 - Clean-directory module load: passed with 17 registered OMP events.
 - Runtime import policy: passed; only `node:child_process`, `node:crypto`,
   `node:fs`, `node:fs/promises`, `node:path`, and `node:util` remain external.
-- Combined artifact staging and BUILDINFO integration: passed locally.
-- Private OMP 18.0.11 proof: passed event capture, notification lifecycle, worker
-  projection, fail-open delivery, and OMP session continuity.
-- Proof follow-up implemented: transport-gated process-local built-in
-  notification suppression with failure restoration, persistent-only shutdown
-  close, identical-replacement acceptance, provider error mapping, and
-  deterministic credential-failure simulation.
-- Bun-free unlink/removal remains Omarchy-owned integration work.
+- Omarchy private proof: passed at `cf63e1a` on OMP 18.0.11, Arch Linux
+  x86_64, and Node 26.7.0 against Aperture `00e150a`.
+- The proof passed exact identity, healthy-sender built-in suppression,
+  unavailable-sender built-in fallback, approval/input resolution, interactive
+  and noninteractive completion expiry, terminal failure survival, replacement,
+  credential/provider privacy, deterministic replay, and Ambient projection.
+- Omarchy observer `8e13ddaf` passed DND `Unknown`, normal close, and changed
+  replacement with exactly-once stable-key observations.
+- Bun-free explicit link/removal/reinstall passed, including refusal of a
+  deliberately mismatched symlink. The production packaging contract above is
+  approved; its Omarchy production implementation remains pending.
 - Combined trusted artifact: not tagged, attested, or vendored.
-- Production activation mechanism: unresolved release gate.
-- Updated OMP plus Omarchy observer end-to-end rerun: pending.
+- Production activation mechanism: decided; explicit user-initiated OMP link
+  plus verified Bun-free pre-removal.
+- Private OMP and observer end-to-end proof: accepted.

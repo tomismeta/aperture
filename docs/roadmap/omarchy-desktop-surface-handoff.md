@@ -335,11 +335,14 @@ Observed locally:
 - body/credential/private-path canaries did not reach state
 - staged BUILDINFO SHA-256 matched the bundle and schemas
 - state directory/file modes were `0700`/`0600`
-- an 11,391-byte OMP extension loaded from a clean directory and registered 17 events
+- a 12,712-byte OMP extension loaded from a clean directory and registered 17
+  events
+- private OMP 18.0.11 proof on Omarchy passed exact identity, lifecycle,
+  fail-open fallback, replacement, privacy, replay, and Bun-free removal
 
-This is not a releasable Omarchy artifact yet. The generic observer, real corpus,
-reviewed identities, an actual signed CI artifact run, and QML integration proof
-remain gated.
+This is not a releasable Omarchy artifact yet. The upstream observer, supported
+identity corpus, signed CI artifact, target QML singleton lifecycle, and final
+vendored visual proof remain gated.
 
 ## Work packets
 
@@ -379,7 +382,7 @@ remain gated.
 
 ### F. Release proof
 
-- clean one-command installation
+- clean installation with explicit OMP activation and verified pre-removal
 - native notifications unchanged under DND/replacement/close
 - deterministic Now/Next/Ambient
 - privacy and retention tests
@@ -395,7 +398,8 @@ Do not release until:
 - worker schemas and conformance fixtures are canonical
 - attested host-Node bundle from a signed source tag exists
 - QML and worker are tested together
-- no separately installed runtime, toolchain, or adapter step remains
+- no separately installed runtime or toolchain; the approved explicit OMP
+  registration is the only additional activation action
 - persistence/replay and removal are proven
 - actual Omarchy dogfood is quiet and useful
 
@@ -422,9 +426,10 @@ ownership, and acceptance plan are defined in
 [`omp-adapter-handoff.md`](./omp-adapter-handoff.md).
 
 The worker and OMP extension are separate runtime entry points shipped in one
-trusted payload. Shipping the extension does not automatically activate it in
-OMP; production must either gain an upstream discovery path or explicitly
-approve a second OMP activation step. Hidden mutation of `~/.omp` is prohibited.
+trusted payload. Production activation is an explicit, user-initiated
+`omp plugin link` of that payload, paired with verified Bun-free pre-removal.
+Never perform the link from shell startup or mutate OMP state without the
+activation action.
 
 ## Coordination
 

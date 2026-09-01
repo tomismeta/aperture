@@ -1,9 +1,9 @@
-name: Attention Worker Artifact
+name: Aperture Worker Artifact
 
 on:
   push:
     tags:
-      - "aperture-attention-worker-v*"
+      - "aperture-worker-v*"
 
 permissions:
   contents: read
@@ -42,14 +42,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build trusted attention worker artifact
+      - name: Build trusted Aperture worker artifact
         env:
           APERTURE_TRUSTED_CI: "1"
           APERTURE_SOURCE_TAG: ${{ github.ref_name }}
           APERTURE_SOURCE_COMMIT: ${{ github.sha }}
         run: >-
           pnpm --dir packages/aperture build:attention-worker --
-          --output-dir "$RUNNER_TEMP/aperture-attention-worker"
+          --output-dir "$RUNNER_TEMP/aperture-worker"
 
       - name: Run worker contract tests
         run: pnpm exec tsx --test packages/aperture/test/notification-worker.test.ts
@@ -59,7 +59,7 @@ jobs:
       - name: Smoke exact artifact on Node 22
         run: >-
           pnpm --dir packages/aperture smoke:attention-worker --
-          --worker "$RUNNER_TEMP/aperture-attention-worker/lib/aperture-attention-engine.cjs"
+          --worker "$RUNNER_TEMP/aperture-worker/lib/aperture-attention-engine.cjs"
           --report "$RUNNER_TEMP/reports/node-22.json"
 
       - name: Setup Node.js 24
@@ -71,7 +71,7 @@ jobs:
       - name: Smoke exact artifact on Node 24
         run: >-
           pnpm --dir packages/aperture smoke:attention-worker --
-          --worker "$RUNNER_TEMP/aperture-attention-worker/lib/aperture-attention-engine.cjs"
+          --worker "$RUNNER_TEMP/aperture-worker/lib/aperture-attention-engine.cjs"
           --report "$RUNNER_TEMP/reports/node-24.json"
 
       - name: Setup current Omarchy Node
@@ -83,13 +83,13 @@ jobs:
       - name: Smoke exact artifact on current Node
         run: >-
           pnpm --dir packages/aperture smoke:attention-worker --
-          --worker "$RUNNER_TEMP/aperture-attention-worker/lib/aperture-attention-engine.cjs"
+          --worker "$RUNNER_TEMP/aperture-worker/lib/aperture-attention-engine.cjs"
           --report "$RUNNER_TEMP/reports/node-current.json"
       - name: Smoke exact OMP extension artifact
         run: >-
           pnpm --dir packages/aperture smoke:omp-extension --
-          --extension "$RUNNER_TEMP/aperture-attention-worker/integrations/omp/aperture-omp-extension.mjs"
-          --manifest "$RUNNER_TEMP/aperture-attention-worker/integrations/omp/package.json"
+          --extension "$RUNNER_TEMP/aperture-worker/integrations/omp/aperture-omp-extension.mjs"
+          --manifest "$RUNNER_TEMP/aperture-worker/integrations/omp/package.json"
           --report "$RUNNER_TEMP/reports/omp-adapter.json"
 
       - name: Attest worker and OMP extension provenance
@@ -97,13 +97,13 @@ jobs:
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
-            ${{ runner.temp }}/aperture-attention-worker/lib/aperture-attention-engine.cjs
-            ${{ runner.temp }}/aperture-attention-worker/integrations/omp/aperture-omp-extension.mjs
+            ${{ runner.temp }}/aperture-worker/lib/aperture-attention-engine.cjs
+            ${{ runner.temp }}/aperture-worker/integrations/omp/aperture-omp-extension.mjs
 
       - name: Finalize validation evidence and BUILDINFO
         run: >-
           pnpm --dir packages/aperture finalize:attention-worker --
-          --artifact-dir "$RUNNER_TEMP/aperture-attention-worker"
+          --artifact-dir "$RUNNER_TEMP/aperture-worker"
           --node-report "$RUNNER_TEMP/reports/node-22.json"
           --node-report "$RUNNER_TEMP/reports/node-24.json"
           --node-report "$RUNNER_TEMP/reports/node-current.json"
@@ -129,11 +129,11 @@ jobs:
             (.integrations.omp.runtimeDependencies.imports | all(startswith("node:"))) and
             (.provenanceAttestationReference | type) == "string" and
             (.provenanceAttestationReference | length) > 0
-          ' "$RUNNER_TEMP/aperture-attention-worker/BUILDINFO.json"
+          ' "$RUNNER_TEMP/aperture-worker/BUILDINFO.json"
       - name: Upload atomic plugin payload
         uses: actions/upload-artifact@v4
         with:
-          name: aperture-attention-worker-${{ github.ref_name }}
-          path: ${{ runner.temp }}/aperture-attention-worker
+          name: ${{ github.ref_name }}
+          path: ${{ runner.temp }}/aperture-worker
           if-no-files-found: error
           compression-level: 9

@@ -270,6 +270,10 @@ The provenance attestation covers both the worker bundle and OMP extension
 bundle. A local extension build may support private proof but is never a
 production vendoring source.
 
+The public release tag and uploaded artifact use the concise
+`aperture-worker-v*` name. “Attention worker” remains an internal description
+of the runtime role, not the release product name.
+
 ## Extension activation
 
 Shipping the extension file does not make OMP load it.

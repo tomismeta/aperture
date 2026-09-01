@@ -288,6 +288,10 @@ source tag. No local/manual production artifact, runtime compilation, downloader
 Git LFS, `node_modules`, source map, or first-use mutation of the plugin checkout
 is permitted.
 
+Signed releases use the `aperture-worker-v*` tag and artifact name. Internal
+source and package scripts may continue to call the runtime the attention
+worker; that implementation term is not part of the public release identity.
+
 Artifact review limits:
 
 - maximum worker bundle: 2 MiB

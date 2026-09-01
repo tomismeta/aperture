@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -59,14 +59,43 @@ try {
   };
   assert.equal(typeof loaded.default, "function");
   const registered: string[] = [];
-  const factory = loaded.default as (api: { on(event: string, handler: unknown): void }) => void;
-  factory({
-    on(event, handler) {
-      assert.equal(typeof handler, "function");
-      registered.push(event);
-    },
-  });
-  assert.deepEqual(registered.sort(), expectedEvents);
+  const handlers = new Map<
+    string,
+    (event: { type: string }, context: Record<string, unknown>) => Promise<void> | void
+  >();
+  const factory = loaded.default as (api: {
+    on(
+      event: string,
+      handler: (event: { type: string }, context: Record<string, unknown>) => Promise<void> | void,
+    ): void;
+  }) => Promise<void>;
+  const senderDirectory = path.join(temporaryRoot, "bin");
+  const senderPath = path.join(senderDirectory, "omarchy-notification-send");
+  await mkdir(senderDirectory, { recursive: true });
+  await writeFile(senderPath, "#!/bin/sh\nexit 0\n", "utf8");
+  await chmod(senderPath, 0o755);
+  const previousNotifications = process.env.PI_NOTIFICATIONS;
+  const previousPath = process.env.PATH;
+  process.env.PATH = [senderDirectory, previousPath].filter(Boolean).join(path.delimiter);
+  process.env.PI_NOTIFICATIONS = "on";
+  try {
+    await factory({
+      on(event, handler) {
+        assert.equal(typeof handler, "function");
+        registered.push(event);
+        handlers.set(event, handler);
+      },
+    });
+    assert.equal(process.env.PI_NOTIFICATIONS, "off");
+    assert.deepEqual(registered.sort(), expectedEvents);
+    await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, {});
+    assert.equal(process.env.PI_NOTIFICATIONS, "on");
+  } finally {
+    if (previousNotifications === undefined) delete process.env.PI_NOTIFICATIONS;
+    else process.env.PI_NOTIFICATIONS = previousNotifications;
+    if (previousPath === undefined) delete process.env.PATH;
+    else process.env.PATH = previousPath;
+  }
   const content = await readFile(extensionPath);
   const report = {
     schemaVersion: 1,
@@ -85,6 +114,12 @@ try {
     },
     registeredEvents: registered,
     sourceTest: "packages/omp/test/omp-adapter.test.ts",
+    decisions: {
+      builtInNotifications: "suppressed-process-locally-when-transport-available",
+      identicalReplacement: "native-id-reuse-without-artificial-update",
+      sessionShutdown: "close-persistent-approval-and-input-only",
+      credentialDisabled: "deterministic-typed-event-proof",
+    },
   };
   if (options.report) {
     const reportPath = path.resolve(options.report);

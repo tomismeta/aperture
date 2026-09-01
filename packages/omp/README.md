@@ -16,6 +16,12 @@ The Omarchy extension emits only approval, input, terminal failure, completion,
 and resolution transitions. It never includes prompt transcripts, tool results,
 credentials, private paths, or executable notification actions.
 
+When `omarchy-notification-send` is executable, the Omarchy extension disables
+OMP's built-in notifications process-locally to avoid duplicates. It restores
+the prior setting and disables adapter delivery for the rest of the session on
+delivery failure; shutdown also restores it. If the sender is unavailable,
+built-in notifications remain enabled.
+
 The trusted Omarchy payload vendors the compiled extension as:
 
 ```text

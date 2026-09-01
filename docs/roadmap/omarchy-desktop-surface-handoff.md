@@ -335,7 +335,7 @@ Observed locally:
 - body/credential/private-path canaries did not reach state
 - staged BUILDINFO SHA-256 matched the bundle and schemas
 - state directory/file modes were `0700`/`0600`
-- a 9,818-byte OMP extension loaded from a clean directory and registered 17 events
+- an 11,391-byte OMP extension loaded from a clean directory and registered 17 events
 
 This is not a releasable Omarchy artifact yet. The generic observer, real corpus,
 reviewed identities, an actual signed CI artifact run, and QML integration proof

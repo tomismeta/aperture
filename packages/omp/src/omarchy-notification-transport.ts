@@ -1,3 +1,6 @@
+import { constants } from "node:fs";
+import { access, stat } from "node:fs/promises";
+import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -21,26 +24,36 @@ export type OmarchyNotificationTransportOptions = {
   commandRunner?: OmpCommandRunner;
   senderCommand?: string;
   appName?: string;
+  availabilityCheck?: () => Promise<boolean>;
 };
 
 type ActiveNotification = {
   id: string;
   notificationClass: OmpNotificationClass;
+  expiresAt: number | null;
 };
 
 export class OmarchyNotificationTransport implements OmpEventSink {
   private readonly commandRunner: OmpCommandRunner;
   private readonly senderCommand: string;
   private readonly appName: string;
+  private readonly availabilityCheck: () => Promise<boolean>;
   private readonly active = new Map<string, ActiveNotification>();
 
   constructor(options: OmarchyNotificationTransportOptions = {}) {
     this.commandRunner = options.commandRunner ?? runCommand;
     this.senderCommand = options.senderCommand ?? "omarchy-notification-send";
     this.appName = options.appName ?? "aperture-omp";
+    this.availabilityCheck =
+      options.availabilityCheck ?? (() => commandIsExecutable(this.senderCommand));
+  }
+
+  isAvailable(): Promise<boolean> {
+    return this.availabilityCheck();
   }
 
   async handle(event: OmpEvent, context: OmpMappingContext): Promise<void> {
+    this.pruneExpired();
     const transitions = mapOmpNotificationTransitions(event, context);
     for (const transition of transitions) {
       switch (transition.kind) {
@@ -69,7 +82,12 @@ export class OmarchyNotificationTransport implements OmpEventSink {
           this.active.set(transition.key, {
             id,
             notificationClass: transition.notificationClass,
+            expiresAt: transition.expireTimeMs > 0 ? Date.now() + transition.expireTimeMs : null,
           });
+          if (this.active.size > 128) {
+            const oldestKey = this.active.keys().next().value;
+            if (typeof oldestKey === "string") await this.closeKey(oldestKey);
+          }
           break;
         }
         case "close":
@@ -78,20 +96,28 @@ export class OmarchyNotificationTransport implements OmpEventSink {
         case "close-class":
           await this.closeClass(transition.notificationClass);
           break;
-        case "close-all":
-          await this.close();
-          break;
       }
     }
   }
 
   async close(): Promise<void> {
-    for (const key of [...this.active.keys()]) await this.closeKey(key);
+    await this.closeClass("approval");
+    await this.closeClass("input");
+    this.active.clear();
   }
 
   private async closeClass(notificationClass: OmpNotificationClass): Promise<void> {
     for (const [key, notification] of [...this.active.entries()]) {
       if (notification.notificationClass === notificationClass) await this.closeKey(key);
+    }
+  }
+
+  private pruneExpired(): void {
+    const now = Date.now();
+    for (const [key, notification] of this.active) {
+      if (notification.expiresAt !== null && notification.expiresAt <= now) {
+        this.active.delete(key);
+      }
     }
   }
 
@@ -127,4 +153,25 @@ async function runCommand(
     maxBuffer: options.maximumOutputBytes,
   });
   return { stdout: result.stdout, stderr: result.stderr };
+}
+
+async function commandIsExecutable(command: string): Promise<boolean> {
+  const candidates =
+    path.isAbsolute(command) || command.includes(path.sep)
+      ? [path.resolve(command)]
+      : (process.env.PATH ?? "")
+          .split(path.delimiter)
+          .filter(Boolean)
+          .map((directory) => path.join(directory, command));
+  for (const candidate of candidates) {
+    try {
+      const metadata = await stat(candidate);
+      if (!metadata.isFile()) continue;
+      await access(candidate, constants.X_OK);
+      return true;
+    } catch {
+      // Keep searching PATH; an unavailable optional transport is not an OMP failure.
+    }
+  }
+  return false;
 }

@@ -32,21 +32,32 @@ export function mapOmpEvent(event: OmpEvent, context: OmpMappingContext = {}): S
         },
       ];
     case "session_stop":
-      return [
-        {
-          id: id(`session_stop:${event.turn_id}`),
-          type: "task.completed",
-          taskId,
-          timestamp,
-          source,
-          metadata: ompMetadata({
-            lifecycle: "session_stop",
-            turnId: event.turn_id,
-            sessionId: event.session_id,
-          }),
-          summary: "OMP settled the main agent turn.",
-        },
-      ];
+      return readStopReason(event.last_assistant_message) === "error"
+        ? [
+            failedUpdate(
+              id(`session_stop:${event.turn_id}:failed`),
+              taskId,
+              timestamp,
+              source,
+              "agent turn",
+              "OMP stopped after a provider or model error.",
+            ),
+          ]
+        : [
+            {
+              id: id(`session_stop:${event.turn_id}`),
+              type: "task.completed",
+              taskId,
+              timestamp,
+              source,
+              metadata: ompMetadata({
+                lifecycle: "session_stop",
+                turnId: event.turn_id,
+                sessionId: event.session_id,
+              }),
+              summary: "OMP settled the main agent turn.",
+            },
+          ];
     case "session_shutdown":
       return [
         {
@@ -451,4 +462,9 @@ function readSessionId(value: unknown): string | undefined {
 
 function readNonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function readStopReason(value: unknown): string | undefined {
+  if (!value || typeof value !== "object" || !("stopReason" in value)) return undefined;
+  return typeof value.stopReason === "string" ? value.stopReason : undefined;
 }

@@ -11,6 +11,7 @@ import {
   OmarchyNotificationTransport,
   type OmpCommandRunner,
 } from "../src/omarchy-notification-transport.js";
+import { createApertureOmarchyOmpExtension } from "../src/omarchy-extension.js";
 import { OmpRuntimeTransport, type OmpRuntimeClient } from "../src/runtime-transport.js";
 import type {
   OmpEvent,
@@ -64,6 +65,21 @@ test("OMP lifecycle mapping keeps continuations active until session_stop", () =
   );
   assert.ok(completed);
   assert.equal(completed.taskId, started.taskId);
+  const failedStop = eventOfType(
+    mapOmpEvent(
+      {
+        type: "session_stop",
+        messages: [],
+        turn_id: 5,
+        session_id: "session-1",
+        last_assistant_message: { stopReason: "error" },
+      },
+      context,
+    ),
+    "task.updated",
+  );
+  assert.ok(failedStop);
+  assert.equal(failedStop.status, "failed");
 });
 
 test("OMP mapping uses explicit approvals ask lifecycle and typed failures", () => {
@@ -174,6 +190,30 @@ test("OMP notification mapping emits only attention-worthy bounded facts", () =>
     resolved[0]?.kind === "close" && approval[0]?.kind === "upsert" ? resolved[0].key : undefined,
     approval[0]?.kind === "upsert" ? approval[0].key : undefined,
   );
+  const credential = mapOmpNotificationTransitions(
+    {
+      type: "credential_disabled",
+      provider: "anthropic",
+      disabledCause: "token=secret /Users/private/key",
+    },
+    context,
+  );
+  assert.equal(credential[0]?.kind, "upsert");
+  assert.doesNotMatch(JSON.stringify(credential), /token=secret|Users\/private/);
+  const failedStop = mapOmpNotificationTransitions(
+    {
+      type: "session_stop",
+      messages: [],
+      turn_id: 2,
+      session_id: "session-1",
+      last_assistant_message: { stopReason: "error" },
+    },
+    context,
+  );
+  assert.equal(
+    failedStop[0]?.kind === "upsert" ? failedStop[0].notificationClass : undefined,
+    "failure",
+  );
 });
 
 test("Omarchy notification transport preserves argv replacement and close semantics", async () => {
@@ -212,6 +252,117 @@ test("Omarchy notification transport preserves argv replacement and close semant
   const close = calls.at(-1);
   assert.equal(close?.command, "busctl");
   assert.deepEqual(close?.args.slice(-3), ["CloseNotification", "u", "42"]);
+});
+
+test("OMP shutdown preserves expiring completion and failure notifications", async () => {
+  const calls: Array<{ command: string; args: string[] }> = [];
+  let nextId = 50;
+  const transport = new OmarchyNotificationTransport({
+    commandRunner: async (command, args) => {
+      calls.push({ command, args });
+      return {
+        stdout: command === "omarchy-notification-send" ? `${nextId++}\n` : "",
+        stderr: "",
+      };
+    },
+  });
+  await transport.handle(
+    {
+      type: "session_stop",
+      messages: [],
+      turn_id: 1,
+      session_id: "session-1",
+    },
+    context,
+  );
+  await transport.handle(
+    {
+      type: "tool_approval_requested",
+      sessionId: "session-1",
+      toolCallId: "approval-shutdown",
+      toolName: "bash",
+      approvalMode: "write",
+    },
+    context,
+  );
+  await transport.handle(
+    { type: "tool_call", toolCallId: "ask-shutdown", toolName: "ask", input: {} },
+    context,
+  );
+  await transport.handle({ type: "session_shutdown" }, context);
+  await transport.close();
+  const closedIds = calls
+    .filter((call) => call.command === "busctl")
+    .map((call) => call.args.at(-1));
+  assert.deepEqual(closedIds.sort(), ["51", "52"]);
+  assert.equal(closedIds.includes("50"), false);
+});
+
+test("Omarchy OMP extension suppresses duplicate built-in notifications only while active", async () => {
+  const handlers = new Map<
+    string,
+    (event: OmpEvent, context: OmpExtensionContext) => Promise<void> | void
+  >();
+  const previous = process.env.PI_NOTIFICATIONS;
+  process.env.PI_NOTIFICATIONS = "on";
+  try {
+    const extension = createApertureOmarchyOmpExtension({
+      commandRunner: async () => ({ stdout: "", stderr: "" }),
+      availabilityCheck: async () => true,
+    });
+    await extension({ on: (event, handler) => handlers.set(event, handler) });
+    assert.equal(process.env.PI_NOTIFICATIONS, "off");
+    await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, {});
+    assert.equal(process.env.PI_NOTIFICATIONS, "on");
+  } finally {
+    if (previous === undefined) delete process.env.PI_NOTIFICATIONS;
+    else process.env.PI_NOTIFICATIONS = previous;
+  }
+});
+
+test("Omarchy OMP extension preserves built-ins when its sender is unavailable", async () => {
+  const handlers = new Map<
+    string,
+    (event: OmpEvent, context: OmpExtensionContext) => Promise<void> | void
+  >();
+  const previous = process.env.PI_NOTIFICATIONS;
+  process.env.PI_NOTIFICATIONS = "on";
+  try {
+    const unavailableExtension = createApertureOmarchyOmpExtension({
+      availabilityCheck: async () => false,
+      commandRunner: async () => {
+        throw new Error("sender unavailable");
+      },
+    });
+    await unavailableExtension({ on: (event, handler) => handlers.set(event, handler) });
+    assert.equal(process.env.PI_NOTIFICATIONS, "on");
+
+    handlers.clear();
+    let commandAttempts = 0;
+    const failingExtension = createApertureOmarchyOmpExtension({
+      availabilityCheck: async () => true,
+      commandRunner: async () => {
+        commandAttempts += 1;
+        throw new Error("sender failed");
+      },
+    });
+    await failingExtension({ on: (event, handler) => handlers.set(event, handler) });
+    assert.equal(process.env.PI_NOTIFICATIONS, "off");
+    await handlers.get("session_stop")?.(
+      { type: "session_stop", session_id: "session-1", turn_id: 1 },
+      {},
+    );
+    assert.equal(commandAttempts, 1);
+    await handlers.get("session_stop")?.(
+      { type: "session_stop", session_id: "session-1", turn_id: 2 },
+      {},
+    );
+    assert.equal(commandAttempts, 1);
+    assert.equal(process.env.PI_NOTIFICATIONS, "on");
+  } finally {
+    if (previous === undefined) delete process.env.PI_NOTIFICATIONS;
+    else process.env.PI_NOTIFICATIONS = previous;
+  }
 });
 
 test("OMP runtime transport publishes canonical events and closes", async () => {

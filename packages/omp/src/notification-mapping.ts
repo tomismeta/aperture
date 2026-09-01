@@ -16,8 +16,7 @@ export type OmpNotificationTransition =
       expireTimeMs: number;
     }
   | { kind: "close"; key: string }
-  | { kind: "close-class"; notificationClass: OmpNotificationClass }
-  | { kind: "close-all" };
+  | { kind: "close-class"; notificationClass: OmpNotificationClass };
 
 export function mapOmpNotificationTransitions(
   event: OmpEvent,
@@ -67,19 +66,24 @@ export function mapOmpNotificationTransitions(
         },
       ];
     case "session_stop":
-      return [
-        {
-          kind: "upsert",
-          key: key("completion", String(event.turn_id)),
-          notificationClass: "completion",
-          summary: "OMP completed a turn",
-          body: "OMP settled the main agent session.",
-          urgency: "low",
-          expireTimeMs: 8_000,
-        },
-      ];
+      return readStopReason(event.last_assistant_message) === "error"
+        ? [failureTransition(key("failure", `turn:${event.turn_id}`), "agent turn")]
+        : [
+            {
+              kind: "upsert",
+              key: key("completion", String(event.turn_id)),
+              notificationClass: "completion",
+              summary: "OMP completed a turn",
+              body: "OMP settled the main agent session.",
+              urgency: "low",
+              expireTimeMs: 8_000,
+            },
+          ];
     case "session_shutdown":
-      return [{ kind: "close-all" }];
+      return [
+        { kind: "close-class", notificationClass: "approval" },
+        { kind: "close-class", notificationClass: "input" },
+      ];
     case "agent_end":
       return [];
     case "session_start":
@@ -132,4 +136,9 @@ function boundedText(value: string, maximum: number): string {
   return characters.length <= maximum
     ? characters.join("")
     : `${characters.slice(0, Math.max(0, maximum - 1)).join("")}…`;
+}
+
+function readStopReason(value: unknown): string | undefined {
+  if (!value || typeof value !== "object" || !("stopReason" in value)) return undefined;
+  return typeof value.stopReason === "string" ? value.stopReason : undefined;
 }

@@ -25,8 +25,8 @@ export type OmpSessionStopEvent = {
   turn_id: number;
   session_id: string;
   session_file?: string;
+  last_assistant_message?: unknown;
 };
-
 export type OmpSessionShutdownEvent = { type: "session_shutdown" };
 
 export type OmpBeforeAgentStartEvent = {

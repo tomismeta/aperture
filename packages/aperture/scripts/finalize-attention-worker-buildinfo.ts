@@ -47,6 +47,12 @@ type OmpCompatibilityReport = {
   bundle?: { sha256?: unknown; bytes?: unknown };
   cleanDirectoryWithoutNodeModules?: unknown;
   registeredEvents?: unknown;
+  decisions?: {
+    builtInNotifications?: unknown;
+    identicalReplacement?: unknown;
+    sessionShutdown?: unknown;
+    credentialDisabled?: unknown;
+  };
 };
 
 const options = parseOptions(process.argv.slice(2));
@@ -118,7 +124,12 @@ if (
   ompReport.bundle.sha256 !== ompIntegration.sha256 ||
   ompReport.bundle.bytes !== ompIntegration.bytes ||
   ompReport.cleanDirectoryWithoutNodeModules !== true ||
-  !Array.isArray(ompReport.registeredEvents)
+  !Array.isArray(ompReport.registeredEvents) ||
+  ompReport.decisions?.builtInNotifications !==
+    "suppressed-process-locally-when-transport-available" ||
+  ompReport.decisions.identicalReplacement !== "native-id-reuse-without-artificial-update" ||
+  ompReport.decisions.sessionShutdown !== "close-persistent-approval-and-input-only" ||
+  ompReport.decisions.credentialDisabled !== "deterministic-typed-event-proof"
 ) {
   throw new Error("invalid OMP adapter compatibility report");
 }

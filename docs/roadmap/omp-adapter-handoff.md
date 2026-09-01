@@ -191,6 +191,28 @@ Required behavior:
 - no credential, prompt transcript, raw tool result, private path, or secret in
   notification content
 
+Repeated identical upserts are accepted when they reuse the sender-owned native
+notification ID. Quickshell is not required to emit `notificationUpdated` when
+no observable property changed. A replacement-update assertion is required only
+when summary, body, urgency, or another forwarded display field changes.
+
+The Omarchy extension sets process-local `PI_NOTIFICATIONS=off` only after the
+configured notification sender resolves to an executable. OMP's built-in
+waiting/completion notices therefore do not duplicate adapter-owned
+notifications on a healthy transport, while an unavailable sender leaves the
+built-ins enabled. Delivery failure restores the prior value and disables
+adapter delivery for the rest of that OMP session so the two paths cannot mix;
+session shutdown also restores it. The extension never mutates OMP
+configuration.
+
+Session shutdown closes persistent approval/input notifications only. Expiring
+failure and completion notifications remain owned by the native notification
+server and expire normally.
+
+`credential_disabled` is proven with deterministic typed-event injection through
+the compiled extension and transport. Real-host acceptance must not invalidate a
+working credential merely to trigger this event.
+
 Emit only attention-relevant transitions:
 
 - approval requested
@@ -262,6 +284,13 @@ or an explicit OMP `extensions:` configuration entry.
 
 The Omarchy plugin must not silently edit `~/.omp`, invoke `omp plugin install`,
 or copy files into OMP's extension directory during startup.
+
+Standard Omarchy may not expose `bun` on `PATH`, while `omp plugin uninstall`
+currently delegates to Bun. Production rollback must therefore use an
+Omarchy-owned Bun-free unlink path: disable the extension, verify the link
+target belongs to this plugin, remove only that symlink/config entry, and update
+OMP's lock state atomically. Never run a package installer during plugin
+removal.
 
 Strict one-command installation therefore requires one of:
 
@@ -381,14 +410,21 @@ Stop rather than weaken the boundary if:
 - Omarchy notification transport: implemented with fixed `aperture-omp` identity,
   replacement IDs, sender-owned close, bounded fixed bodies, and fail-open delivery.
 - OMP extension artifact: `integrations/omp/aperture-omp-extension.mjs`.
-- Local extension bytes: `9818`.
+- Local extension bytes: `12712`.
 - Local extension SHA-256:
-  `1cb5b1ceea16303aeb4337aac841d6ae12eda71024042ff1afb3b91ced2cd003`.
+  `4ed0828ece31c1d82c521c304b2670b6b6224359472dd9d2090cd01818c70268`.
 - Adapter proof identity: `aperture-omp-adapter-conformance-v1`.
 - Clean-directory module load: passed with 17 registered OMP events.
-- Runtime import policy: passed; only `node:child_process`, `node:crypto`, and
-  `node:util` remain external.
+- Runtime import policy: passed; only `node:child_process`, `node:crypto`,
+  `node:fs`, `node:fs/promises`, `node:path`, and `node:util` remain external.
 - Combined artifact staging and BUILDINFO integration: passed locally.
-- Combined trusted artifact: not committed, tagged, attested, or vendored.
-- Omarchy activation mechanism: unresolved production gate.
-- Real OMP plus Omarchy observer end-to-end proof: pending.
+- Private OMP 18.0.11 proof: passed event capture, notification lifecycle, worker
+  projection, fail-open delivery, and OMP session continuity.
+- Proof follow-up implemented: transport-gated process-local built-in
+  notification suppression with failure restoration, persistent-only shutdown
+  close, identical-replacement acceptance, provider error mapping, and
+  deterministic credential-failure simulation.
+- Bun-free unlink/removal remains Omarchy-owned integration work.
+- Combined trusted artifact: not tagged, attested, or vendored.
+- Production activation mechanism: unresolved release gate.
+- Updated OMP plus Omarchy observer end-to-end rerun: pending.

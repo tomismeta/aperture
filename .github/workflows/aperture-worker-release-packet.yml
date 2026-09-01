@@ -26,9 +26,6 @@ jobs:
       EXPECTED_SOURCE_COMMIT: 00e150a6dd099607f328f276ef48c2e9938a4a29
       SOURCE_TAG: ${{ inputs.sourceTag }}
       SOURCE_COMMIT: ${{ inputs.sourceCommit }}
-      PAYLOAD_DIR: ${{ runner.temp }}/aperture-worker
-      REPORT_DIR: ${{ runner.temp }}/reports
-      PACKET_DIR: ${{ runner.temp }}/release-packet
       ARCHIVE_NAME: aperture-worker-v0.1.1.tar.gz
       RELEASE_URL: https://github.com/${{ github.repository }}/releases/download/aperture-worker-v0.1.1/aperture-worker-v0.1.1.tar.gz
 
@@ -37,6 +34,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Initialize trusted packet paths
+        run: |
+          printf 'PAYLOAD_DIR=%s/aperture-worker\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'REPORT_DIR=%s/reports\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'PACKET_DIR=%s/release-packet\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
 
       - name: Verify signed source tag contract
         env:

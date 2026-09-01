@@ -121,6 +121,15 @@ test("notification worker schemas validate canonical input and output", async ()
     JSON.stringify(validateInput.errors),
   );
   assert.equal(validateInput({ type: "shutdown" }), true, JSON.stringify(validateInput.errors));
+  assert.equal(
+    validateInput({
+      type: "focus.activate",
+      requestId: "focus-request-1",
+      handle: "A23456789_-bcdefghijklmnopqrstuv",
+    }),
+    true,
+    JSON.stringify(validateInput.errors),
+  );
   assert.equal(validateInput({ ...notificationInput(), unexpected: true }), false);
   assert.equal(
     validateOutput({
@@ -132,6 +141,7 @@ test("notification worker schemas validate canonical input and output", async ()
         ompDirectInput: true,
         snapshots: true,
         responses: false,
+        focusActivation: true,
       },
     }),
     true,
@@ -147,10 +157,19 @@ test("notification worker schemas validate canonical input and output", async ()
     true,
     JSON.stringify(validateOutput.errors),
   );
+  assert.equal(
+    validateOutput({
+      type: "focus.result",
+      requestId: "focus-request-1",
+      result: "focused",
+    }),
+    true,
+    JSON.stringify(validateOutput.errors),
+  );
   assert.equal(validateOutput(snapshot), true, JSON.stringify(validateOutput.errors));
   assert.equal(
     validateOmpAttention({
-      schemaVersion: 1,
+      schemaVersion: 2,
       type: "omp.attention-event",
       eventId: "event-1",
       occurredAt: observedAt,
@@ -166,7 +185,7 @@ test("notification worker schemas validate canonical input and output", async ()
   );
   assert.equal(
     validateOmpAttention({
-      schemaVersion: 1,
+      schemaVersion: 2,
       type: "omp.attention-event",
       eventId: "event-1",
       occurredAt: observedAt,
@@ -493,6 +512,11 @@ test("stdio worker emits hello state snapshots and bounded errors", async () => 
     JSON.stringify(notificationInput()),
     "x".repeat(APERTURE_NOTIFICATION_WORKER_LIMITS.inputLineBytes),
     "{malformed",
+    JSON.stringify({
+      type: "focus.activate",
+      requestId: "missing-focus",
+      handle: "A23456789_-bcdefghijklmnopqrstuv",
+    }),
     JSON.stringify({ type: "shutdown" }),
   ];
   let output = "";
@@ -514,7 +538,15 @@ test("stdio worker emits hello state snapshots and bounded errors", async () => 
   const messages = output
     .split("\n")
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as { type?: string; code?: string });
+    .map(
+      (line) =>
+        JSON.parse(line) as {
+          type?: string;
+          code?: string;
+          requestId?: string;
+          result?: string;
+        },
+    );
   assert.equal(messages[0]?.type, "hello");
   assert.equal(
     messages.some((message) => message.type === "engine"),
@@ -522,4 +554,12 @@ test("stdio worker emits hello state snapshots and bounded errors", async () => 
   );
   assert.equal(messages.filter((message) => message.type === "snapshot").length, 2);
   assert.equal(messages.filter((message) => message.code === "invalid_input").length, 2);
+  assert.deepEqual(
+    messages.find((message) => message.type === "focus.result"),
+    {
+      type: "focus.result",
+      requestId: "missing-focus",
+      result: "missing",
+    },
+  );
 });

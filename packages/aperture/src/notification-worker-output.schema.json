@@ -1,14 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tomismeta:aperture:notification-worker-output",
+  "$id": "urn:tomismeta:aperture:notification-worker-output:v3",
   "title": "Aperture Notification Worker Output",
   "oneOf": [
     { "$ref": "#/$defs/hello" },
     { "$ref": "#/$defs/engine" },
     { "$ref": "#/$defs/error" },
+    { "$ref": "#/$defs/focusResult" },
     {
       "allOf": [
-        { "$ref": "urn:tomismeta:aperture:surface-protocol" },
+        { "$ref": "urn:tomismeta:aperture:surface-protocol:v3" },
         {
           "type": "object",
           "properties": {
@@ -30,12 +31,19 @@
         "capabilities": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["notificationInput", "ompDirectInput", "snapshots", "responses"],
+          "required": [
+            "notificationInput",
+            "ompDirectInput",
+            "snapshots",
+            "responses",
+            "focusActivation"
+          ],
           "properties": {
             "notificationInput": { "const": true },
             "ompDirectInput": { "const": true },
             "snapshots": { "const": true },
-            "responses": { "const": false }
+            "responses": { "const": false },
+            "focusActivation": { "const": true }
           }
         }
       }
@@ -48,6 +56,21 @@
         "type": { "const": "engine" },
         "state": { "enum": ["restoring", "ready", "degraded"] },
         "acceptedSources": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "focusResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "requestId", "result"],
+      "properties": {
+        "type": { "const": "focus.result" },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^(?=.*\\S)[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "result": { "enum": ["focused", "stale", "missing"] }
       }
     },
     "error": {

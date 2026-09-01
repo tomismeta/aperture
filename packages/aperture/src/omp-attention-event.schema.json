@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tomismeta:aperture:omp-attention-event:v1",
+  "$id": "urn:tomismeta:aperture:omp-attention-event:v2",
   "title": "Aperture OMP Attention Event",
   "type": "object",
   "additionalProperties": false,
@@ -16,7 +16,7 @@
     "transition"
   ],
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "type": { "const": "omp.attention-event" },
     "eventId": { "$ref": "#/$defs/opaqueId" },
     "occurredAt": { "type": "string", "format": "date-time" },
@@ -52,7 +52,8 @@
     "transition": {
       "enum": ["requested", "resolved", "failed", "completed", "stopped", "shutdown", "updated"]
     },
-    "status": { "enum": ["running", "waiting", "blocked", "completed", "failed"] }
+    "status": { "enum": ["running", "waiting", "blocked", "completed", "failed"] },
+    "focus": { "$ref": "#/$defs/focus" }
   },
   "allOf": [
     {
@@ -151,6 +152,20 @@
       "minLength": 1,
       "maxLength": 160,
       "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "focus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "handle"],
+      "properties": {
+        "kind": { "const": "opaque-focus" },
+        "handle": {
+          "type": "string",
+          "minLength": 32,
+          "maxLength": 32,
+          "pattern": "^[A-Za-z0-9_-]{32}$"
+        }
+      }
     },
     "sessionId": {
       "type": "string",

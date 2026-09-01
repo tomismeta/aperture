@@ -133,6 +133,7 @@ export type OmpMappingContext = {
   sessionFile?: string;
   sourceLabel?: string;
   now?: () => string;
+  focusHandle?: string;
 };
 
 export type OmpExtensionContext = {

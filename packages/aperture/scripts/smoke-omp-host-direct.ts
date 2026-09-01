@@ -45,7 +45,6 @@ try {
       PI_CODING_AGENT_DIR: path.join(temporaryRoot, `agent-help-${version}`),
     });
     assert.equal(help.code, 0, help.stderr);
-    assert.match(`${help.stdout}\n${help.stderr}`, /--resume=<value>/);
 
     const marker = path.join(temporaryRoot, `loaded-${version}`);
     const sessionId = `01a0-omp-${version.replaceAll(".", "-")}`;
@@ -83,18 +82,16 @@ try {
       before,
       (message) =>
         message.type === "snapshot" &&
-        message.view?.now?.title === "OMP needs approval for bash" &&
-        message.view.now.navigation?.sessionId === sessionId,
+        message.view?.now?.title === "OMP needs approval for bash",
     );
-    assert.equal(projected.view?.now?.navigation?.kind, "omp-session");
+    assert.equal(projected.view?.now?.navigation, undefined);
     matrix.push({
       ompVersion: version,
       status: "passed",
       actualExtensionLoader: true,
       rpcReady: true,
       directSocketDelivered: true,
-      resumeArgv: ["omp", "--resume", "<full-sessionId>"],
-      resumeIdentity: "full native OMP session-manager ID",
+      navigation: "absent-rpc-headless",
       modelRequestSent: false,
     });
   }

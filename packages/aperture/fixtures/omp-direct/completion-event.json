@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "type": "omp.attention-event",
   "eventId": "fixture:completion:1",
   "occurredAt": "2026-09-01T16:00:04.000Z",
@@ -9,5 +9,9 @@
   "classification": "turn_completed",
   "title": "OMP completed a turn",
   "summary": "OMP settled the main agent session.",
-  "transition": "completed"
+  "transition": "completed",
+  "focus": {
+    "kind": "opaque-focus",
+    "handle": "A23456789_-bcdefghijklmnopqrstuv"
+  }
 }

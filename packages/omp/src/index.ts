@@ -6,6 +6,12 @@ export {
   type OmpDirectWorkerTransportOptions,
 } from "./direct-worker-transport.js";
 export {
+  HerdrFocusHost,
+  resolveHerdrFocusContext,
+  type HerdrFocusContext,
+  type HerdrFocusHostOptions,
+} from "./herdr-focus.js";
+export {
   contextFromOmpExtension,
   createOmpInstanceKey,
   mapOmpEvent,

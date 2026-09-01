@@ -194,11 +194,17 @@ platform. Its canonical schemas are exported as:
 - `@tomismeta/aperture/notification-worker-output.schema.json`
 - `@tomismeta/aperture/surface-protocol.schema.json`
 - `@tomismeta/aperture/omp-attention-event.schema.json`
+- `@tomismeta/aperture/omp-direct-message.schema.json`
 
 `pnpm --dir packages/aperture build:attention-worker -- --output-dir <path>`
 stages the bundle, schemas, hashes, and BUILDINFO for a host integration. The
 worker is integration build input, not a user-facing Aperture command, and
 requires no npm install or `node_modules` on the target machine.
+For an unsigned local development payload, use
+`pnpm --dir packages/aperture build:attention-worker:development -- --output-dir <path>`.
+Its BUILDINFO records `payloadProfile: "development"` and the exact volatile
+focus-broker contract.
+
 
 The staged payload also includes
 `integrations/omp/aperture-omp-extension.mjs`, a first-class OMP extension. When
@@ -207,16 +213,15 @@ sends bounded typed session events directly and suppresses the duplicate native
 notification only after worker acknowledgement. The worker alone feeds those
 facts into `ApertureCore`; Core remains the lane authority. If the socket is
 unavailable, the extension fails open to the existing `aperture-omp`
-notification transport, whose projection remains Ambient-only and has no
-session navigation. Shipping the extension does not automatically activate it
-in OMP.
+notification transport, whose projection remains Ambient-only and non-navigable.
+Shipping the extension does not automatically activate it in OMP.
 
-Direct-session releases use notification input schema `1`, notification output
-schema `2`, surface protocol `2`, and OMP attention event schema `1`. Hosts must
-install the schema-2 output validator before switching to the new worker.
-`navigation` is optional, so non-OMP and notification-fallback frames remain
-valid without it. The frozen `aperture-worker-v0.1.1` packet remains the
-notification-native fail-open fallback.
+The direct cutover uses notification input schema `2`, notification output
+schema `3`, surface protocol `3`, OMP attention event schema `2`, and private
+OMP direct protocol `2`. Navigable frames carry only
+`{ "kind": "opaque-focus", "handle": "…" }`; activation returns only
+`focused`, `stale`, or `missing`. Session identity remains a private event fact
+and is never executable navigation.
 
 ## Product State
 

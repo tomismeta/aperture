@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tomismeta:aperture:omp-direct-message:v2",
+  "title": "Aperture OMP Private Direct Message",
+  "oneOf": [
+    { "$ref": "omp-attention-event.schema.json" },
+    { "$ref": "#/$defs/focusRegistration" },
+    { "$ref": "#/$defs/focusRevocation" }
+  ],
+  "$defs": {
+    "token": {
+      "type": "string",
+      "minLength": 32,
+      "maxLength": 32,
+      "pattern": "^[A-Za-z0-9_-]{32}$"
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^(?=.*\\S)[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "focusRegistration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "type",
+        "requestId",
+        "publicHandle",
+        "hostGeneration",
+        "herdrSocketPath",
+        "paneId",
+        "compositorAddress"
+      ],
+      "properties": {
+        "schemaVersion": { "const": 2 },
+        "type": { "const": "omp.focus.register" },
+        "requestId": { "$ref": "#/$defs/requestId" },
+        "publicHandle": { "$ref": "#/$defs/token" },
+        "hostGeneration": { "$ref": "#/$defs/token" },
+        "herdrSocketPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^/[^\\u0000]*$"
+        },
+        "paneId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^w[1-9][0-9]*:p[1-9][0-9]*$"
+        },
+        "compositorAddress": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        }
+      }
+    },
+    "focusRevocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "type", "requestId", "publicHandle", "hostGeneration"],
+      "properties": {
+        "schemaVersion": { "const": 2 },
+        "type": { "const": "omp.focus.revoke" },
+        "requestId": { "$ref": "#/$defs/requestId" },
+        "publicHandle": { "$ref": "#/$defs/token" },
+        "hostGeneration": { "$ref": "#/$defs/token" }
+      }
+    }
+  }
+}

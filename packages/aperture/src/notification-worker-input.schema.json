@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tomismeta:aperture:notification-worker-input",
+  "$id": "urn:tomismeta:aperture:notification-worker-input:v2",
   "title": "Aperture Notification Worker Input",
   "oneOf": [
     { "$ref": "#/$defs/upsert" },
     { "$ref": "#/$defs/closed" },
+    { "$ref": "#/$defs/focusActivate" },
     { "$ref": "#/$defs/shutdown" }
   ],
   "$defs": {
@@ -71,6 +72,21 @@
         "occurredAt": { "$ref": "#/$defs/timestamp" },
         "reason": {
           "enum": ["expired", "dismissed", "actioned", "closed", "unknown"]
+        }
+      }
+    },
+    "focusActivate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "requestId", "handle"],
+      "properties": {
+        "type": { "const": "focus.activate" },
+        "requestId": { "$ref": "#/$defs/key" },
+        "handle": {
+          "type": "string",
+          "minLength": 32,
+          "maxLength": 32,
+          "pattern": "^[A-Za-z0-9_-]{32}$"
         }
       }
     },

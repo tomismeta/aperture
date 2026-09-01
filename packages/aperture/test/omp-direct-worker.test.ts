@@ -34,6 +34,7 @@ import { OmpDirectWorkerTransport } from "../../omp/src/direct-worker-transport.
 
 const sessionId = "01a0123456789abcdef";
 const occurredAt = "2026-09-01T16:00:00.000Z";
+const focusHandle = "A23456789_-bcdefghijklmnopqrstuv";
 const identity: NotificationWorkerIdentity = {
   id: "omp",
   kind: "omp",
@@ -43,11 +44,12 @@ const identity: NotificationWorkerIdentity = {
 
 function directEvent(overrides: Partial<OmpAttentionEvent> = {}): OmpAttentionEvent {
   return assertOmpAttentionEvent({
-    schemaVersion: 1,
+    schemaVersion: 2,
     type: "omp.attention-event",
     eventId: "event:approval:1",
     occurredAt,
     sessionId,
+    focus: { kind: "opaque-focus", handle: focusHandle },
     interactionId: "tool-call-1",
     classification: "approval_requested",
     title: "OMP needs approval for bash",
@@ -81,7 +83,7 @@ test("direct OMP contract rejects private or malformed payloads and preserves op
     /classification/,
   );
   assert.throws(() => parseOmpAttentionEvent("{"), OmpAttentionEventError);
-  assert.throws(() => directEvent({ schemaVersion: 2 as 1 }), /schema version/);
+  assert.throws(() => directEvent({ schemaVersion: 1 as 2 }), /schema version/);
   assert.throws(() => directEvent({ type: "unknown" as "omp.attention-event" }), /type/);
   assert.throws(() => directEvent({ sessionId: "" }), /sessionId/);
   assert.throws(() => directEvent({ sessionId: "bad\nsession" }), /sessionId/);
@@ -125,16 +127,17 @@ test("surface navigation is closed, bounded, and absent without a worker route",
     sources: [{ kind: "omp", label: "OMP" }],
     totals: { now: 1, next: 0, ambient: 0, sources: 1 },
     view: {
-      now: { ...frame, navigation: { kind: "omp-session", sessionId } },
+      now: { ...frame, navigation: { kind: "opaque-focus", handle: focusHandle } },
       next: [],
       ambient: [],
     },
   });
   for (const navigation of [
-    { kind: "unknown", sessionId },
-    { kind: "omp-session", sessionId: "" },
-    { kind: "omp-session", sessionId: "bad\nsession" },
-    { kind: "omp-session", sessionId: "x".repeat(161) },
+    { kind: "unknown", handle: focusHandle },
+    { kind: "opaque-focus", handle: "" },
+    { kind: "opaque-focus", handle: "bad\nhandle" },
+    { kind: "opaque-focus", handle: "x".repeat(31) },
+    { kind: "opaque-focus", handle: "x".repeat(33) },
   ]) {
     assert.throws(() =>
       assertApertureSurfaceMessage({
@@ -158,10 +161,13 @@ test("direct OMP events produce canonical NOW and NEXT with replayable navigatio
   });
 
   const approval = directEvent();
-  await restored.engine.handleOmpAttention(approval);
+  await restored.engine.handleOmpAttention(approval, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
   const first = restored.engine.snapshot();
   assert.equal(first.view.now?.title, approval.title);
-  assert.deepEqual(first.view.now?.navigation, { kind: "omp-session", sessionId });
+  assert.deepEqual(first.view.now?.navigation, { kind: "opaque-focus", handle: focusHandle });
   assert.deepEqual(first.view.next, []);
 
   const input = directEvent({
@@ -173,12 +179,18 @@ test("direct OMP events produce canonical NOW and NEXT with replayable navigatio
     summary: "OMP is waiting for an operator response.",
   });
   now = Date.parse(input.occurredAt);
-  await restored.engine.handleOmpAttention(input);
+  await restored.engine.handleOmpAttention(input, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
   const queued = restored.engine.snapshot();
   assert.equal(queued.view.now?.title, approval.title);
   assert.equal(queued.view.next.length, 1);
   assert.equal(queued.view.next[0]?.title, input.title);
-  assert.deepEqual(queued.view.next[0]?.navigation, { kind: "omp-session", sessionId });
+  assert.deepEqual(queued.view.next[0]?.navigation, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
 
   await restored.engine.handleOmpAttention(input);
   assert.equal(restored.engine.snapshot().view.next.length, 1);
@@ -197,7 +209,15 @@ test("direct OMP events produce canonical NOW and NEXT with replayable navigatio
     stateDir: root,
     now: () => now,
   });
-  assert.deepEqual(replayed.engine.snapshot().view, updated.view);
+  assert.equal(replayed.engine.snapshot().view.now?.navigation, undefined);
+  await replayed.engine.handleOmpAttention(changed, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
+  assert.deepEqual(replayed.engine.snapshot().view.next[0]?.navigation, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
 
   await replayed.engine.handleOmpAttention(
     directEvent({
@@ -211,7 +231,10 @@ test("direct OMP events produce canonical NOW and NEXT with replayable navigatio
   );
   const resolved = replayed.engine.snapshot();
   assert.equal(resolved.view.now?.title, "OMP needs a decision");
-  assert.deepEqual(resolved.view.now?.navigation, { kind: "omp-session", sessionId });
+  assert.deepEqual(resolved.view.now?.navigation, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
 
   await replayed.engine.handleOmpAttention(
     directEvent({
@@ -243,6 +266,9 @@ test("direct navigation expires with bounded private persisted state", async () 
   const persisted = await readFile(statePath, "utf8");
   assert.equal(persisted.includes("prompt"), false);
   assert.equal(persisted.includes("rawTool"), false);
+  assert.equal(persisted.includes(focusHandle), false);
+  assert.equal(persisted.includes("markerTitle"), false);
+  assert.equal(persisted.includes("herdrSocketPath"), false);
 
   now += 25 * 60 * 60 * 1000;
   const expired = await NotificationWorkerEngine.restore({
@@ -323,9 +349,11 @@ test("worker-owned socket validates ownership, bounds input, and removes itself"
   const received: OmpAttentionEvent[] = [];
   const server = await startOmpAttentionSocketServer({
     socketPath,
-    handle: async (event) => {
+    handleAttention: async (event) => {
       received.push(event);
     },
+    registerFocus: async () => undefined,
+    revokeFocus: () => undefined,
   });
   const socketMetadata = await lstat(socketPath);
   assert.equal(socketMetadata.isSocket(), true);

@@ -17,6 +17,28 @@ export function mapOmpDirectAttentionEvents(
   const sessionId = sessionIdForEvent(event, context);
   if (!sessionId) return [];
   const occurredAt = eventTimestamp(event, context);
+  const directEvent = (facts: DirectEventFacts): OmpAttentionEvent => {
+    const identity = JSON.stringify({
+      sessionId: facts.sessionId,
+      turnId: facts.turnId ?? null,
+      interactionId: facts.interactionId ?? null,
+      classification: facts.classification,
+      title: facts.title,
+      summary: facts.summary,
+      transition: facts.transition,
+      status: facts.status ?? null,
+    });
+    return assertOmpAttentionEvent({
+      schemaVersion: 2,
+      type: "omp.attention-event",
+      eventId: `omp:${createHash("sha256").update(identity).digest("hex")}`,
+      ...facts,
+      ...(context.focusHandle
+        ? { focus: { kind: "opaque-focus", handle: context.focusHandle } }
+        : {}),
+    });
+  };
+
 
   switch (event.type) {
     case "tool_approval_requested":
@@ -176,24 +198,6 @@ type DirectEventFacts = {
   status?: OmpAttentionStatus;
 };
 
-function directEvent(facts: DirectEventFacts): OmpAttentionEvent {
-  const identity = JSON.stringify({
-    sessionId: facts.sessionId,
-    turnId: facts.turnId ?? null,
-    interactionId: facts.interactionId ?? null,
-    classification: facts.classification,
-    title: facts.title,
-    summary: facts.summary,
-    transition: facts.transition,
-    status: facts.status ?? null,
-  });
-  return assertOmpAttentionEvent({
-    schemaVersion: 1,
-    type: "omp.attention-event",
-    eventId: `omp:${createHash("sha256").update(identity).digest("hex")}`,
-    ...facts,
-  });
-}
 
 function sessionIdForEvent(event: OmpEvent, context: OmpMappingContext): string | undefined {
   if (event.type === "session_stop") return event.session_id;

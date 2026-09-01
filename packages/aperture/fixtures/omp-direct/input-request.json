@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "type": "omp.attention-event",
   "eventId": "fixture:input:1",
   "occurredAt": "2026-09-01T16:00:01.000Z",
@@ -8,5 +8,9 @@
   "classification": "input_requested",
   "title": "OMP needs your input",
   "summary": "OMP is waiting for an operator response.",
-  "transition": "requested"
+  "transition": "requested",
+  "focus": {
+    "kind": "opaque-focus",
+    "handle": "A23456789_-bcdefghijklmnopqrstuv"
+  }
 }

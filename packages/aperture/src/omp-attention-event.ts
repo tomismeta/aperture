@@ -1,10 +1,11 @@
 import path from "node:path";
 
-export const OMP_ATTENTION_EVENT_SCHEMA_VERSION = 1;
+export const OMP_ATTENTION_EVENT_SCHEMA_VERSION = 2;
 export const OMP_ATTENTION_SOCKET_RELATIVE_PATH = "omarchy/aperture/attention.sock";
 export const OMP_ATTENTION_LIMITS = {
   jsonLineBytes: 64 * 1024,
   opaqueIdCodePoints: 160,
+  focusHandleCharacters: 32,
   titleCodePoints: 160,
   summaryCodePoints: 320,
 } as const;
@@ -31,9 +32,14 @@ export type OmpAttentionTransition =
   | "updated";
 
 export type OmpAttentionStatus = "running" | "waiting" | "blocked" | "completed" | "failed";
+export type OmpAttentionFocus = {
+  kind: "opaque-focus";
+  handle: string;
+};
+
 
 export type OmpAttentionEvent = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   type: "omp.attention-event";
   eventId: string;
   occurredAt: string;
@@ -45,6 +51,7 @@ export type OmpAttentionEvent = {
   summary: string;
   transition: OmpAttentionTransition;
   status?: OmpAttentionStatus;
+  focus?: OmpAttentionFocus;
 };
 
 export class OmpAttentionEventError extends Error {
@@ -147,8 +154,9 @@ export function assertOmpAttentionEvent(value: unknown): OmpAttentionEvent {
     throw new OmpAttentionEventError("OMP status is valid only for status_updated events");
   }
 
+  const focus = optionalFocus(record.focus);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     type: "omp.attention-event",
     eventId: opaqueId(record.eventId, "eventId"),
     occurredAt: timestamp(record.occurredAt),
@@ -160,6 +168,7 @@ export function assertOmpAttentionEvent(value: unknown): OmpAttentionEvent {
     summary: safeDisplayText(record.summary, OMP_ATTENTION_LIMITS.summaryCodePoints, "summary"),
     transition,
     ...(status === undefined ? {} : { status }),
+    ...(focus === undefined ? {} : { focus }),
   };
 }
 
@@ -215,7 +224,7 @@ function assertExactKeys(record: Record<string, unknown>): void {
     "summary",
     "transition",
   ];
-  const optional = ["turnId", "interactionId", "status"];
+  const optional = ["turnId", "interactionId", "status", "focus"];
   const allowed = new Set([...required, ...optional]);
   for (const key of Object.keys(record)) {
     if (!allowed.has(key)) {
@@ -250,6 +259,23 @@ function optionalStatus(value: unknown): OmpAttentionStatus | undefined {
   }
   return value as OmpAttentionStatus;
 }
+function optionalFocus(value: unknown): OmpAttentionFocus | undefined {
+  if (value === undefined) return undefined;
+  const record = asRecord(value);
+  const keys = Object.keys(record).sort();
+  if (
+    JSON.stringify(keys) !== JSON.stringify(["handle", "kind"]) ||
+    record.kind !== "opaque-focus" ||
+    typeof record.handle !== "string" ||
+    !new RegExp(`^[A-Za-z0-9_-]{${OMP_ATTENTION_LIMITS.focusHandleCharacters}}$`).test(
+      record.handle,
+    )
+  ) {
+    throw new OmpAttentionEventError("OMP attention focus is invalid");
+  }
+  return { kind: "opaque-focus", handle: record.handle };
+}
+
 
 function timestamp(value: unknown): string {
   if (typeof value !== "string") {

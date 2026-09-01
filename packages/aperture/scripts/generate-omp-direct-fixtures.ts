@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { assertOmpAttentionEvent, type OmpAttentionEvent } from "../src/omp-attention-event.js";
+import { assertOmpDirectMessage } from "../src/omp-direct-message.js";
 import type { NotificationWorkerIdentity } from "../src/notification-worker/adapter.js";
 import { NotificationWorkerEngine } from "../src/notification-worker/engine.js";
 
@@ -14,6 +15,7 @@ const fixtureRoot = path.join(packageRoot, "fixtures", "omp-direct");
 const writeMode = process.argv.slice(2).includes("--write");
 const occurredAt = "2026-09-01T16:00:00.000Z";
 const sessionId = "01a0123456789abcdef";
+const focusHandle = "A23456789_-bcdefghijklmnopqrstuv";
 const identity: NotificationWorkerIdentity = {
   id: "omp",
   kind: "omp",
@@ -75,6 +77,27 @@ const status = event({
   transition: "updated",
   status: "waiting",
 });
+const focusRegistration = assertOmpDirectMessage({
+  schemaVersion: 2,
+  type: "omp.focus.register",
+  requestId: "fixture-focus-register-1",
+  publicHandle: focusHandle,
+  hostGeneration: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+  herdrSocketPath: "/run/user/1000/herdr.sock",
+  paneId: "w2:p1",
+  compositorAddress: "instance_1",
+});
+const focusActivation = {
+  type: "focus.activate",
+  requestId: "fixture-focus-activate-1",
+  handle: focusHandle,
+} as const;
+const focusResult = {
+  type: "focus.result",
+  requestId: "fixture-focus-activate-1",
+  result: "focused",
+} as const;
+
 
 const stateRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-fixtures-"));
 try {
@@ -83,8 +106,14 @@ try {
     stateDir: path.join(stateRoot, "direct"),
     now: () => Date.parse(input.occurredAt),
   });
-  await restored.engine.handleOmpAttention(approval);
-  await restored.engine.handleOmpAttention(input);
+  await restored.engine.handleOmpAttention(approval, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
+  await restored.engine.handleOmpAttention(input, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
   const nowNext = restored.engine.snapshot();
   await restored.engine.handleOmpAttention(approvalResolved);
   const resolved = restored.engine.snapshot();
@@ -100,7 +129,10 @@ try {
       stateDir: path.join(stateRoot, name),
       now: () => Date.parse(directEvent.occurredAt),
     });
-    await instance.engine.handleOmpAttention(directEvent);
+    await instance.engine.handleOmpAttention(directEvent, {
+      kind: "opaque-focus",
+      handle: focusHandle,
+    });
     return instance.engine.snapshot();
   };
   const failureSnapshot = await snapshotFor("failure", failure);
@@ -137,6 +169,9 @@ try {
     ["snapshot-resolved.json", resolved],
     ["snapshot-failure.json", failureSnapshot],
     ["snapshot-completion.json", completionSnapshot],
+    ["focus-registration.json", focusRegistration],
+    ["focus-activation.json", focusActivation],
+    ["focus-result.json", focusResult],
     ["snapshot-status.json", statusSnapshot],
     ["notification-fallback-ambient.json", fallbackSnapshot],
   ]);
@@ -165,11 +200,14 @@ function event(
     occurredAt?: string;
   },
 ): OmpAttentionEvent {
+  const { eventId, occurredAt: eventOccurredAt, ...rest } = facts;
   return assertOmpAttentionEvent({
-    schemaVersion: 1,
+    schemaVersion: 2,
     type: "omp.attention-event",
-    occurredAt: facts.occurredAt ?? occurredAt,
+    eventId,
+    occurredAt: eventOccurredAt ?? occurredAt,
     sessionId,
-    ...facts,
+    focus: { kind: "opaque-focus", handle: focusHandle },
+    ...rest,
   });
 }

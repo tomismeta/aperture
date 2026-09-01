@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "type": "omp.attention-event",
   "eventId": "fixture:status:1",
   "occurredAt": "2026-09-01T16:00:05.000Z",
@@ -8,5 +8,9 @@
   "title": "OMP is waiting",
   "summary": "OMP is waiting for the authoritative session stop event.",
   "transition": "updated",
-  "status": "waiting"
+  "status": "waiting",
+  "focus": {
+    "kind": "opaque-focus",
+    "handle": "A23456789_-bcdefghijklmnopqrstuv"
+  }
 }

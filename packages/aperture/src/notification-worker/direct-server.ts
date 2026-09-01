@@ -5,10 +5,13 @@ import path from "node:path";
 import type { Writable } from "node:stream";
 
 import {
-  OMP_ATTENTION_LIMITS,
-  parseOmpAttentionEvent,
-  type OmpAttentionEvent,
-} from "../omp-attention-event.js";
+  OMP_DIRECT_LIMITS,
+  directMessageRequestId,
+  parseOmpDirectMessage,
+  type OmpFocusRegistration,
+  type OmpFocusRevocation,
+} from "../omp-direct-message.js";
+import type { OmpAttentionEvent } from "../omp-attention-event.js";
 
 const SOCKET_MODE = 0o600;
 const DIRECTORY_MODE = 0o700;
@@ -17,7 +20,9 @@ const STALE_PROBE_TIMEOUT_MS = 75;
 
 export type OmpAttentionSocketServerOptions = {
   socketPath: string;
-  handle: (event: OmpAttentionEvent) => Promise<void>;
+  handleAttention: (event: OmpAttentionEvent) => Promise<void>;
+  registerFocus: (registration: OmpFocusRegistration) => Promise<void>;
+  revokeFocus: (revocation: OmpFocusRevocation) => Promise<void> | void;
   diagnostic?: Writable;
   uid?: number;
   probe?: (socketPath: string) => Promise<boolean>;
@@ -43,7 +48,7 @@ export async function startOmpAttentionSocketServer(
       return;
     }
     clients.add(socket);
-    void handleConnection(socket, options.handle, diagnostic).finally(() => {
+    void handleConnection(socket, options, diagnostic).finally(() => {
       clients.delete(socket);
     });
   });
@@ -136,7 +141,10 @@ async function validateSocketFile(socketPath: string, uid: number): Promise<Stat
 
 async function handleConnection(
   socket: Socket,
-  handle: (event: OmpAttentionEvent) => Promise<void>,
+  options: Pick<
+    OmpAttentionSocketServerOptions,
+    "handleAttention" | "registerFocus" | "revokeFocus"
+  >,
   diagnostic: Writable,
 ): Promise<void> {
   socket.setTimeout(CONNECTION_TIMEOUT_MS);
@@ -144,14 +152,14 @@ async function handleConnection(
   let handled = false;
   const reject = (): void => {
     if (socket.destroyed) return;
-    socket.end(`${JSON.stringify({ schemaVersion: 1, status: "rejected" })}\n`);
+    socket.end(`${JSON.stringify({ schemaVersion: 2, status: "rejected" })}\n`);
   };
 
   socket.once("timeout", reject);
   socket.once("error", () => undefined);
   socket.on("data", (chunk: Buffer) => {
     if (handled) return;
-    if (buffer.byteLength + chunk.byteLength > OMP_ATTENTION_LIMITS.jsonLineBytes) {
+    if (buffer.byteLength + chunk.byteLength > OMP_DIRECT_LIMITS.jsonLineBytes) {
       handled = true;
       reject();
       return;
@@ -178,11 +186,21 @@ async function handleConnection(
 
   const processLine = async (line: string): Promise<void> => {
     try {
-      const event = parseOmpAttentionEvent(line);
-      await handle(event);
+      const message = parseOmpDirectMessage(line);
+      if (message.type === "omp.attention-event") {
+        await options.handleAttention(message);
+      } else if (message.type === "omp.focus.register") {
+        await options.registerFocus(message);
+      } else {
+        await options.revokeFocus(message);
+      }
       if (!socket.destroyed) {
         socket.end(
-          `${JSON.stringify({ schemaVersion: 1, status: "accepted", eventId: event.eventId })}\n`,
+          `${JSON.stringify({
+            schemaVersion: 2,
+            status: "accepted",
+            requestId: directMessageRequestId(message),
+          })}\n`,
         );
       }
     } catch {

@@ -29,8 +29,8 @@
         "label": "OMP"
       },
       "navigation": {
-        "kind": "omp-session",
-        "sessionId": "01a0123456789abcdef"
+        "kind": "opaque-focus",
+        "handle": "A23456789_-bcdefghijklmnopqrstuv"
       },
       "provenance": {
         "whyNow": "Work has failed and should be reviewed."

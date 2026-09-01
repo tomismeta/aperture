@@ -34,11 +34,15 @@ const schemaNames = [
   "notification-worker-output.schema.json",
   "surface-protocol.schema.json",
   "omp-attention-event.schema.json",
+  "omp-direct-message.schema.json",
 ] as const;
 const ompFixtureNames = [
   "approval-request.json",
   "input-request.json",
   "failure-event.json",
+  "focus-registration.json",
+  "focus-activation.json",
+  "focus-result.json",
   "completion-event.json",
   "status-event.json",
   "snapshot-failure.json",
@@ -201,6 +205,7 @@ const workerFile = requiredFile(`lib/${workerBundleName}`);
 const notificationInputSchema = requiredFile("schemas/notification-worker-input.schema.json");
 const notificationOutputSchema = requiredFile("schemas/notification-worker-output.schema.json");
 const surfaceSchema = requiredFile("schemas/surface-protocol.schema.json");
+const ompDirectSchema = requiredFile("schemas/omp-direct-message.schema.json");
 const ompAttentionSchema = requiredFile("schemas/omp-attention-event.schema.json");
 const workerImportEvidence = requiredFile("evidence/runtime-imports.json");
 const ompExtensionFile = requiredFile(`integrations/omp/${ompExtensionName}`);
@@ -215,6 +220,7 @@ const buildInfo = {
   apertureCommit: commit,
   apertureSourceTag: process.env.APERTURE_SOURCE_TAG || null,
   sourceDirty,
+  payloadProfile: options.allowUnsignedLocal ? "development" : "release",
   aperturePackageVersion: String(packageMetadata.version || ""),
   apertureCoreVersion: String(coreMetadata.version || ""),
   builder: {
@@ -223,36 +229,53 @@ const buildInfo = {
     nodeVersion: process.versions.node,
   },
   workerContract: {
-    notificationInputSchemaVersion: 1,
-    notificationOutputSchemaVersion: 2,
-    surfaceProtocolVersion: 2,
-    ompAttentionEventSchemaVersion: 1,
+    notificationInputSchemaVersion: 2,
+    notificationOutputSchemaVersion: 3,
+    surfaceProtocolVersion: 3,
+    ompAttentionEventSchemaVersion: 2,
+    ompDirectProtocolVersion: 2,
+  },
+  focusBroker: {
+    registrationTtlMs: 15_000,
+    heartbeatIntervalMs: 5_000,
+    herdrProtocol: "raw-ndjson-0.8.2",
+    compositorExecutable: "/usr/bin/hyprctl",
+    compositorDispatchTemplate: 'dispatch hl.dsp.focus({ window = "address:<validated>" })',
+    activationResults: ["focused", "stale", "missing"],
+    titleOwnership: "worker-central-epoch-fenced-lease",
+    clientPolicy: "one-foot-client-per-herdr-socket-and-hypr-instance",
+    persistence: "volatile-only",
   },
   schemas: {
     input: {
-      version: 1,
+      version: 2,
       path: notificationInputSchema.path,
       sha256: notificationInputSchema.sha256,
     },
     output: {
-      version: 2,
+      version: 3,
       path: notificationOutputSchema.path,
       sha256: notificationOutputSchema.sha256,
     },
     surface: {
-      version: 2,
+      version: 3,
       path: surfaceSchema.path,
       sha256: surfaceSchema.sha256,
     },
     ompAttentionEvent: {
-      version: 1,
+      version: 2,
       path: ompAttentionSchema.path,
       sha256: ompAttentionSchema.sha256,
+    },
+    ompDirectMessage: {
+      version: 2,
+      path: ompDirectSchema.path,
+      sha256: ompDirectSchema.sha256,
     },
   },
   fixtures: {
     ompDirect: {
-      version: 1,
+      version: 2,
       paths: ompFixtureNames.map((fixtureName) => `fixtures/omp-direct/${fixtureName}`),
     },
   },
@@ -299,7 +322,7 @@ const buildInfo = {
     ambientCeilingProofId: "notification-worker-ambient-ceiling-v1",
     directTransportProofId: "aperture-omp-direct-transport-conformance-v1",
     directPrivacyProofId: "aperture-omp-direct-privacy-v1",
-    navigationProofId: "aperture-omp-session-navigation-v1",
+    navigationProofId: "aperture-opaque-focus-navigation-v2",
     requiredNodeMajors: [22, 24, "current"],
     nodeCompatibility: [],
   },

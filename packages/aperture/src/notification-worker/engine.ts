@@ -125,6 +125,9 @@ export class NotificationWorkerEngine {
 
   async handle(input: NotificationWorkerInput): Promise<boolean> {
     if (input.type === "shutdown") return false;
+    if (input.type === "focus.activate") {
+      throw new Error("focus activation must be handled by the volatile broker");
+    }
     if (input.type === "notification.closed") {
       await this.closeNotification(input);
       return true;
@@ -161,11 +164,14 @@ export class NotificationWorkerEngine {
     return true;
   }
 
-  async handleOmpAttention(event: OmpAttentionEvent): Promise<void> {
+  async handleOmpAttention(
+    event: OmpAttentionEvent,
+    navigation?: ApertureSurfaceNavigation,
+  ): Promise<void> {
     const mapped = mapOmpDirectEvent(event);
     if (mapped.kind === "shutdown") {
       const active = this.directState.active.filter(
-        (entry) => entry.navigation.sessionId === mapped.sessionId,
+        (entry) => entry.sessionId === mapped.sessionId,
       );
       for (const entry of active) {
         this.cancelDirect(entry, mapped.eventId, mapped.occurredAt, "OMP session shut down");
@@ -188,6 +194,7 @@ export class NotificationWorkerEngine {
       previousRevision.displayTitle === mapped.displayTitle &&
       JSON.stringify(previousRevision.sourceEvent) === JSON.stringify(mapped.sourceEvent)
     ) {
+      this.setDirectNavigation(mapped.taskId, navigation);
       return;
     }
 
@@ -198,6 +205,7 @@ export class NotificationWorkerEngine {
     if (index === -1) this.directState.active.push(active);
     else this.directState.active[index] = active;
     await this.persistDirect();
+    this.setDirectNavigation(mapped.taskId, navigation);
   }
 
   private async closeNotification(input: NotificationClosedInput): Promise<void> {
@@ -248,6 +256,7 @@ export class NotificationWorkerEngine {
       reason,
     });
     this.directState.active = this.directState.active.filter((entry) => entry.key !== active.key);
+    this.navigationByTaskId.delete(active.taskId);
   }
 
   private createCore(): ApertureCore {
@@ -286,7 +295,7 @@ export class NotificationWorkerEngine {
             if (index === entry.revisions.length - 1) {
               this.directByKey.set(entry.key, entry);
               this.displayTitleByTaskId.set(entry.taskId, revision.displayTitle);
-              this.navigationByTaskId.set(entry.taskId, entry.navigation);
+
             }
           },
         })),
@@ -330,6 +339,7 @@ export class NotificationWorkerEngine {
   }
 
   private rebuildIndexes(): void {
+    const volatileNavigation = new Map(this.navigationByTaskId);
     this.activeByKey.clear();
     this.directByKey.clear();
     this.displayTitleByTaskId.clear();
@@ -343,8 +353,28 @@ export class NotificationWorkerEngine {
     for (const active of this.directState.active) {
       this.directByKey.set(active.key, active);
       this.displayTitleByTaskId.set(active.taskId, latestDirectRevision(active).displayTitle);
-      this.navigationByTaskId.set(active.taskId, active.navigation);
+      const navigation = volatileNavigation.get(active.taskId);
+      if (navigation) this.navigationByTaskId.set(active.taskId, navigation);
     }
+  }
+
+  removeFocusHandle(handle: string): boolean {
+    let changed = false;
+    for (const [taskId, navigation] of this.navigationByTaskId) {
+      if (navigation.kind === "opaque-focus" && navigation.handle === handle) {
+        this.navigationByTaskId.delete(taskId);
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  private setDirectNavigation(
+    taskId: string,
+    navigation: ApertureSurfaceNavigation | undefined,
+  ): void {
+    if (navigation) this.navigationByTaskId.set(taskId, navigation);
+    else this.navigationByTaskId.delete(taskId);
   }
 }
 
@@ -373,7 +403,7 @@ function persistedDirect(
     key: mapped.key,
     taskId: mapped.taskId,
     interactionId: mapped.interactionId,
-    navigation: mapped.navigation,
+    sessionId: mapped.sessionId,
     revisions: [
       ...(previous?.revisions ?? []),
       {

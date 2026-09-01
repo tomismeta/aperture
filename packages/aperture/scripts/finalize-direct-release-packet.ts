@@ -11,7 +11,7 @@ const AMBIENT_PROOF = "notification-worker-ambient-ceiling-v1";
 const OMP_PROOF = "aperture-omp-adapter-conformance-v1";
 const DIRECT_PROOF = "aperture-omp-direct-transport-conformance-v1";
 const PRIVACY_PROOF = "aperture-omp-direct-privacy-v1";
-const NAVIGATION_PROOF = "aperture-omp-session-navigation-v1";
+const NAVIGATION_PROOF = "aperture-opaque-focus-navigation-v2";
 const OMP_HOST_PROOF = "aperture-omp-host-direct-compatibility-v1";
 const ROOT_ENTRIES = new Set([
   "BUILDINFO.json",
@@ -34,6 +34,9 @@ const FIXED_FILES = new Set([
   "fixtures/omp-direct/approval-request.json",
   "fixtures/omp-direct/completion-event.json",
   "fixtures/omp-direct/failure-event.json",
+  "fixtures/omp-direct/focus-activation.json",
+  "fixtures/omp-direct/focus-registration.json",
+  "fixtures/omp-direct/focus-result.json",
   "fixtures/omp-direct/input-request.json",
   "fixtures/omp-direct/notification-fallback-ambient.json",
   "fixtures/omp-direct/snapshot-completion.json",
@@ -48,6 +51,7 @@ const FIXED_FILES = new Set([
   "schemas/notification-worker-input.schema.json",
   "schemas/notification-worker-output.schema.json",
   "schemas/omp-attention-event.schema.json",
+  "schemas/omp-direct-message.schema.json",
   "schemas/surface-protocol.schema.json",
 ]);
 const IDENTITY_CONFIG = {
@@ -130,13 +134,14 @@ async function validateMetadata(
   assertNonempty(builder.version, "missing esbuild version");
   assertNonempty(builder.nodeVersion, "missing build Node version");
   const workerContract = record(buildInfo.workerContract, "missing worker contract");
-  assert(workerContract.notificationInputSchemaVersion === 1, "invalid notification input schema");
+  assert(workerContract.notificationInputSchemaVersion === 2, "invalid notification input schema");
   assert(
-    workerContract.notificationOutputSchemaVersion === 2,
+    workerContract.notificationOutputSchemaVersion === 3,
     "invalid notification output schema",
   );
-  assert(workerContract.surfaceProtocolVersion === 2, "invalid surface protocol version");
-  assert(workerContract.ompAttentionEventSchemaVersion === 1, "invalid OMP event schema");
+  assert(workerContract.surfaceProtocolVersion === 3, "invalid surface protocol version");
+  assert(workerContract.ompAttentionEventSchemaVersion === 2, "invalid OMP event schema");
+  assert(workerContract.ompDirectProtocolVersion === 2, "invalid OMP direct protocol");
 
   const ci = record(buildInfo.ci, "missing CI metadata");
   assertNonempty(ci.workflowRef, "missing CI workflowRef");
@@ -209,13 +214,14 @@ async function validateMetadata(
   assert(hostVersions.includes("18.1.1"), "current OMP compatibility is missing");
 
   const schemas = record(buildInfo.schemas, "missing schemas");
-  assertSchema(schemas.input, "schemas/notification-worker-input.schema.json", 1);
-  assertSchema(schemas.output, "schemas/notification-worker-output.schema.json", 2);
-  assertSchema(schemas.surface, "schemas/surface-protocol.schema.json", 2);
-  assertSchema(schemas.ompAttentionEvent, "schemas/omp-attention-event.schema.json", 1);
+  assertSchema(schemas.input, "schemas/notification-worker-input.schema.json", 2);
+  assertSchema(schemas.output, "schemas/notification-worker-output.schema.json", 3);
+  assertSchema(schemas.surface, "schemas/surface-protocol.schema.json", 3);
+  assertSchema(schemas.ompAttentionEvent, "schemas/omp-attention-event.schema.json", 2);
+  assertSchema(schemas.ompDirectMessage, "schemas/omp-direct-message.schema.json", 2);
   const fixtureMetadata = record(buildInfo.fixtures, "missing fixture metadata");
   const ompFixtures = record(fixtureMetadata.ompDirect, "missing OMP direct fixtures");
-  assert(ompFixtures.version === 1, "invalid OMP fixture version");
+  assert(ompFixtures.version === 2, "invalid OMP fixture version");
   const declaredFixturePaths = array(ompFixtures.paths, "missing OMP fixture paths");
   const requiredFixturePaths = [...FIXED_FILES]
     .filter((entry) => entry.startsWith("fixtures/"))
@@ -302,10 +308,10 @@ async function validateMetadata(
     assert(matrixEntry.actualExtensionLoader === true, `OMP ${version} loader was not exercised`);
     assert(matrixEntry.directSocketDelivered === true, `OMP ${version} direct delivery failed`);
     assert(
-      JSON.stringify(matrixEntry.resumeArgv) ===
-        JSON.stringify(["omp", "--resume", "<full-sessionId>"]),
-      `OMP ${version} resume argv is invalid`,
+      matrixEntry.navigation === "absent-rpc-headless",
+      `OMP ${version} RPC navigation was not fail-closed`,
     );
+    assert(!("resumeArgv" in matrixEntry), `OMP ${version} retained executable navigation`);
   }
 }
 
@@ -407,13 +413,14 @@ function assertRuntimeImports(value: unknown, label: string): void {
 function assertNavigation(value: unknown, label: string): void {
   const navigation = record(value, `${label} navigation is missing`);
   assert(
-    JSON.stringify(Object.keys(navigation).sort()) === JSON.stringify(["kind", "sessionId"]),
+    JSON.stringify(Object.keys(navigation).sort()) === JSON.stringify(["handle", "kind"]),
     `${label} navigation fields are invalid`,
   );
-  assert(navigation.kind === "omp-session", `${label} navigation kind is invalid`);
-  assertNonempty(navigation.sessionId, `${label} sessionId is missing`);
-  assert(Array.from(navigation.sessionId).length <= 160, `${label} sessionId is too long`);
-  assert(!/[\u0000-\u001f\u007f]/.test(navigation.sessionId), `${label} sessionId has controls`);
+  assert(navigation.kind === "opaque-focus", `${label} navigation kind is invalid`);
+  assert(
+    typeof navigation.handle === "string" && /^[A-Za-z0-9_-]{32}$/.test(navigation.handle),
+    `${label} focus handle is invalid`,
+  );
 }
 
 function assertSchema(value: unknown, expectedPath: string, expectedVersion: number): void {

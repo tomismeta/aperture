@@ -1,6 +1,5 @@
 import type { AttentionFrame, AttentionView } from "@tomismeta/aperture-core";
 import type { ApertureRuntimeSnapshot } from "@aperture/runtime";
-import { assertOmpSessionId } from "../omp-attention-event.js";
 
 import {
   APERTURE_SURFACE_LIMITS,
@@ -156,13 +155,14 @@ function projectNavigation(
 ): ApertureSurfaceNavigation | undefined {
   const navigation = navigationByTaskId?.get(frame.taskId);
   if (!navigation) return undefined;
-  if (frame.source?.kind !== "omp" || navigation.kind !== "omp-session") {
+  if (
+    frame.source?.kind !== "omp" ||
+    navigation.kind !== "opaque-focus" ||
+    !/^[A-Za-z0-9_-]{32}$/.test(navigation.handle)
+  ) {
     throw new ApertureSurfaceProjectionError("surface navigation source is invalid");
   }
-  return {
-    kind: "omp-session",
-    sessionId: assertOmpSessionId(navigation.sessionId),
-  };
+  return { kind: "opaque-focus", handle: navigation.handle };
 }
 
 function projectContext(frame: AttentionFrame): ApertureSurfaceFrame["context"] | undefined {

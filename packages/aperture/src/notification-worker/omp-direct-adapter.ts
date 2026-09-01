@@ -3,7 +3,6 @@ import { createHash } from "node:crypto";
 import type { SourceEvent, SourceHumanInputRequestedEvent } from "@tomismeta/aperture-core";
 
 import type { OmpAttentionEvent } from "../omp-attention-event.js";
-import type { ApertureSurfaceNavigation } from "../surface/protocol.js";
 
 export type MappedOmpDirectEvent =
   | {
@@ -11,9 +10,9 @@ export type MappedOmpDirectEvent =
       key: string;
       taskId: string;
       interactionId: string;
+      sessionId: string;
       occurredAt: string;
       displayTitle: string;
-      navigation: ApertureSurfaceNavigation;
       sourceEvent: SourceEvent;
     }
   | {
@@ -125,8 +124,8 @@ export function mapOmpDirectEvent(event: OmpAttentionEvent): MappedOmpDirectEven
     taskId,
     interactionId,
     occurredAt: event.occurredAt,
+    sessionId: event.sessionId,
     displayTitle: event.title,
-    navigation: { kind: "omp-session", sessionId: event.sessionId },
     sourceEvent,
   };
 }

@@ -6,7 +6,6 @@ import { type SourceEvent } from "@tomismeta/aperture-core";
 import { assertValidSourceEvent } from "@tomismeta/aperture-core/internal";
 
 import { assertOmpAttentionDisplayText, assertOmpSessionId } from "../omp-attention-event.js";
-import type { ApertureSurfaceNavigation } from "../surface/protocol.js";
 
 const STATE_FILE_NAME = "omp-direct-state.json";
 const MAXIMUM_AGE_MS = 24 * 60 * 60 * 1000;
@@ -23,12 +22,12 @@ export type PersistedOmpDirectEntry = {
   key: string;
   taskId: string;
   interactionId: string;
-  navigation: ApertureSurfaceNavigation;
+  sessionId: string;
   revisions: PersistedOmpDirectRevision[];
 };
 
 export type OmpDirectPersistedState = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   active: PersistedOmpDirectEntry[];
 };
 
@@ -38,7 +37,7 @@ export type OmpDirectStateLoad = {
 };
 
 export function emptyOmpDirectState(): OmpDirectPersistedState {
-  return { schemaVersion: 1, active: [] };
+  return { schemaVersion: 2, active: [] };
 }
 
 export async function loadOmpDirectState(
@@ -119,17 +118,17 @@ export function pruneOmpDirectState(
   while (active.reduce((total, entry) => total + entry.revisions.length, 0) > MAXIMUM_RECORDS) {
     removeOldest(active);
   }
-  return { schemaVersion: 1, active };
+  return { schemaVersion: 2, active };
 }
 
 function fitStateToBounds(state: OmpDirectPersistedState): OmpDirectPersistedState {
   const active = state.active.map((entry) => ({ ...entry, revisions: [...entry.revisions] }));
   while (
-    Buffer.byteLength(`${JSON.stringify({ schemaVersion: 1, active })}\n`, "utf8") > MAXIMUM_BYTES
+    Buffer.byteLength(`${JSON.stringify({ schemaVersion: 2, active })}\n`, "utf8") > MAXIMUM_BYTES
   ) {
     if (!removeOldest(active)) throw new Error("OMP direct state cannot fit within the byte limit");
   }
-  return { schemaVersion: 1, active };
+  return { schemaVersion: 2, active };
 }
 
 function removeOldest(active: PersistedOmpDirectEntry[]): boolean {
@@ -152,7 +151,7 @@ function removeOldest(active: PersistedOmpDirectEntry[]): boolean {
 function assertOmpDirectState(value: unknown): OmpDirectPersistedState {
   const state = asRecord(value, "OMP direct state");
   assertExactKeys(state, ["schemaVersion", "active"], "OMP direct state");
-  if (state.schemaVersion !== 1 || !Array.isArray(state.active)) {
+  if (state.schemaVersion !== 2 || !Array.isArray(state.active)) {
     throw new Error("OMP direct state schema is unsupported");
   }
   for (const entry of state.active) assertOmpDirectEntry(entry);
@@ -163,16 +162,13 @@ function assertOmpDirectEntry(value: unknown): void {
   const entry = asRecord(value, "OMP direct active entry");
   assertExactKeys(
     entry,
-    ["key", "taskId", "interactionId", "navigation", "revisions"],
+    ["key", "taskId", "interactionId", "sessionId", "revisions"],
     "OMP direct active entry",
   );
   storedText(entry.key, 160, "OMP direct key");
   const taskId = storedText(entry.taskId, 160, "OMP direct taskId");
   const interactionId = storedText(entry.interactionId, 160, "OMP direct interactionId");
-  const navigation = asRecord(entry.navigation, "OMP direct navigation");
-  assertExactKeys(navigation, ["kind", "sessionId"], "OMP direct navigation");
-  if (navigation.kind !== "omp-session") throw new Error("OMP direct navigation kind is invalid");
-  const sessionId = assertOmpSessionId(navigation.sessionId);
+  const sessionId = assertOmpSessionId(entry.sessionId);
   if (!Array.isArray(entry.revisions) || entry.revisions.length === 0) {
     throw new Error("OMP direct revisions are invalid");
   }

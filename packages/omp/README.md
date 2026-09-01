@@ -24,22 +24,20 @@ panel chooses a lane. Acknowledged direct delivery suppresses the corresponding
 native `aperture-omp` notification. Socket failure falls back to the existing
 Ambient-only native notification path without blocking OMP.
 
-Navigable worker frames expose only:
+Navigable worker frames expose only a bounded opaque focus capability:
 
 ```json
-{ "navigation": { "kind": "omp-session", "sessionId": "<opaque-native-id>" } }
+{ "navigation": { "kind": "opaque-focus", "handle": "<32-character opaque handle>" } }
 ```
 
-The downstream argv-only resume contract is exactly:
-
-```text
-["omp", "--resume", "<full sessionId>"]
-```
-
-`sessionId` is the full native OMP session-manager ID, not a file path or text
-inferred from a prompt, title, working directory, or notification. It is passed
-as one argv value with no shell interpolation. Navigation does not approve,
-dismiss, complete, engage, or otherwise mutate the Aperture frame.
+The handle is available only for an interactive OMP pane inside Herdr with an
+exact worker-validated Foot toplevel marker. Activation is focus-only and
+returns `focused`, `stale`, or `missing`; it never approves, answers, dismisses,
+completes, engages, resumes, or attaches a session. Native notification
+fallbacks and unsupported tmux, screen, zellij, RPC, headless, and direct Foot
+contexts remain non-navigable. Herdr socket, pane, marker, host-generation,
+compositor, and toplevel address facts are volatile worker-private state and are
+never projected or persisted.
 
 When `omarchy-notification-send` is executable, the Omarchy extension disables
 OMP's built-in notifications process-locally to avoid duplicates. It restores

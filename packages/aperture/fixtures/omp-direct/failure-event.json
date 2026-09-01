@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "type": "omp.attention-event",
   "eventId": "fixture:failure:1",
   "occurredAt": "2026-09-01T16:00:03.000Z",
@@ -8,5 +8,9 @@
   "classification": "tool_failure",
   "title": "OMP bash failed",
   "summary": "OMP reported a terminal tool execution failure.",
-  "transition": "failed"
+  "transition": "failed",
+  "focus": {
+    "kind": "opaque-focus",
+    "handle": "A23456789_-bcdefghijklmnopqrstuv"
+  }
 }

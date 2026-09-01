@@ -1,6 +1,6 @@
 import type { ApertureSurfaceSnapshotMessage } from "../surface/protocol.js";
-export const NOTIFICATION_WORKER_INPUT_SCHEMA_VERSION = 1;
-export const NOTIFICATION_WORKER_OUTPUT_SCHEMA_VERSION = 2;
+export const NOTIFICATION_WORKER_INPUT_SCHEMA_VERSION = 2;
+export const NOTIFICATION_WORKER_OUTPUT_SCHEMA_VERSION = 3;
 
 export const APERTURE_NOTIFICATION_WORKER_LIMITS = {
   inputLineBytes: 64 * 1024,
@@ -12,6 +12,7 @@ export const APERTURE_NOTIFICATION_WORKER_LIMITS = {
   bodyBytes: 8 * 1024,
   errorCodeCharacters: 80,
   errorMessageCharacters: 400,
+  focusHandleCharacters: 32,
 } as const;
 
 export type NotificationUrgency = "low" | "normal" | "critical";
@@ -40,9 +41,16 @@ export type NotificationClosedInput = {
   reason: NotificationCloseReason;
 };
 
+export type FocusActivateInput = {
+  type: "focus.activate";
+  requestId: string;
+  handle: string;
+};
+
 export type NotificationWorkerInput =
   | NotificationUpsertInput
   | NotificationClosedInput
+  | FocusActivateInput
   | { type: "shutdown" };
 
 export type NotificationWorkerHello = {
@@ -54,6 +62,7 @@ export type NotificationWorkerHello = {
     ompDirectInput: true;
     snapshots: true;
     responses: false;
+    focusActivation: true;
   };
 };
 
@@ -69,11 +78,18 @@ export type NotificationWorkerError = {
   message: string;
   recoverable: boolean;
 };
+export type NotificationWorkerFocusResult = {
+  type: "focus.result";
+  requestId: string;
+  result: "focused" | "stale" | "missing";
+};
+
 
 export type NotificationWorkerOutput =
   | NotificationWorkerHello
   | NotificationWorkerState
   | ApertureSurfaceSnapshotMessage
+  | NotificationWorkerFocusResult
   | NotificationWorkerError;
 
 export class NotificationWorkerProtocolError extends Error {
@@ -98,6 +114,7 @@ export function notificationWorkerHello(packageVersion: string): NotificationWor
       ompDirectInput: true,
       snapshots: true,
       responses: false,
+      focusActivation: true,
     },
   };
 }
@@ -125,6 +142,28 @@ export function assertNotificationWorkerInput(value: unknown): NotificationWorke
     assertExactKeys(record, ["type"], "shutdown input");
     return { type };
   }
+  if (type === "focus.activate") {
+    assertExactKeys(record, ["type", "requestId", "handle"], "focus activation input");
+    const handle = record.handle;
+    if (
+      typeof handle !== "string" ||
+      !new RegExp(
+        `^[A-Za-z0-9_-]{${APERTURE_NOTIFICATION_WORKER_LIMITS.focusHandleCharacters}}$`,
+      ).test(handle)
+    ) {
+      throw new NotificationWorkerProtocolError("focus activation handle is invalid");
+    }
+    return {
+      type,
+      requestId: requiredText(
+        record.requestId,
+        APERTURE_NOTIFICATION_WORKER_LIMITS.keyCharacters,
+        "focus activation request id",
+      ),
+      handle,
+    };
+  }
+
 
   if (type === "notification.closed") {
     assertExactKeys(record, ["type", "key", "occurredAt", "reason"], "notification closed input");

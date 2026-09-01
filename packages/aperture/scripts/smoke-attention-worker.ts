@@ -83,6 +83,7 @@ try {
     ompDirectInput: true,
     snapshots: true,
     responses: false,
+    focusActivation: true,
   });
   assert.equal(
     first.messages.some((message) => message.type === "engine" && message.state === "restoring"),
@@ -219,6 +220,7 @@ type SmokeWorkerMessage = {
     ompDirectInput?: boolean;
     snapshots?: boolean;
     responses?: boolean;
+    focusActivation?: boolean;
   };
   totals?: { ambient?: number; now?: number; next?: number };
   view?: {

@@ -3,6 +3,7 @@ import type { Writable } from "node:stream";
 import type { NotificationWorkerIdentity } from "./adapter.js";
 import { NotificationWorkerEngine } from "./engine.js";
 import { startOmpAttentionSocketServer, type OmpAttentionSocketServer } from "./direct-server.js";
+import { FocusBroker } from "./focus-broker.js";
 import {
   APERTURE_NOTIFICATION_WORKER_LIMITS,
   NotificationWorkerProtocolError,
@@ -89,16 +90,28 @@ export async function runNotificationWorkerStdio(
     lastProjection = fingerprint;
     await write(snapshot);
   };
+  const focusBroker = new FocusBroker({
+    ...(options.now ? { now: options.now } : {}),
+    onInvalidated: (publicHandle) => {
+      void serialize(async () => {
+        if (restored.engine.removeFocusHandle(publicHandle)) await emitSnapshot();
+      });
+    },
+  });
+
 
   if (options.socketPath) {
     try {
       socketServer = await startOmpAttentionSocketServer({
         socketPath: options.socketPath,
         diagnostic,
-        handle: (event) =>
+        registerFocus: (registration) => focusBroker.register(registration),
+        revokeFocus: (revocation) => focusBroker.revoke(revocation),
+        handleAttention: (event) =>
           serialize(async () => {
             if (stopping) throw new Error("Aperture worker is stopping");
-            await restored.engine.handleOmpAttention(event);
+            const navigation = focusBroker.navigationFor(event.focus?.handle);
+            await restored.engine.handleOmpAttention(event, navigation);
             await emitSnapshot();
           }),
       });
@@ -137,6 +150,11 @@ export async function runNotificationWorkerStdio(
       try {
         const shouldContinue = await serialize(async () => {
           const event = parseNotificationWorkerInput(decoded.line);
+          if (event.type === "focus.activate") {
+            const result = await focusBroker.activate(event.handle);
+            await write({ type: "focus.result", requestId: event.requestId, result });
+            return true;
+          }
           const keepRunning = await restored.engine.handle(event);
           if (keepRunning) await emitSnapshot();
           return keepRunning;
@@ -163,6 +181,7 @@ export async function runNotificationWorkerStdio(
   } finally {
     stopping = true;
     await socketServer?.close();
+    await focusBroker.close();
     await operationQueue;
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);

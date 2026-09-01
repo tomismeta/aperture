@@ -1,10 +1,14 @@
 import { createConnection } from "node:net";
 
 import {
-  resolveOmpAttentionSocketPath,
-  serializeOmpAttentionEvent,
-  type OmpAttentionEvent,
-} from "@tomismeta/aperture/omp-attention-event";
+  directMessageRequestId,
+  parseOmpDirectAcknowledgement,
+  serializeOmpDirectMessage,
+  type OmpDirectMessage,
+  type OmpFocusRegistration,
+  type OmpFocusRevocation,
+} from "@tomismeta/aperture/omp-direct-message";
+import { resolveOmpAttentionSocketPath } from "@tomismeta/aperture/omp-attention-event";
 
 const CONNECT_TIMEOUT_MS = 75;
 const RESPONSE_TIMEOUT_MS = 200;
@@ -48,9 +52,10 @@ export class OmpDirectWorkerTransport {
     });
   }
 
-  async send(event: OmpAttentionEvent): Promise<void> {
+  async send(message: OmpDirectMessage): Promise<void> {
     if (!this.socketPath) throw new Error("Aperture worker socket is unavailable");
-    const line = serializeOmpAttentionEvent(event);
+    const line = serializeOmpDirectMessage(message);
+    const requestId = directMessageRequestId(message);
     await new Promise<void>((resolve, reject) => {
       const socket = this.connect({ path: this.socketPath! });
       let settled = false;
@@ -91,10 +96,10 @@ export class OmpDirectWorkerTransport {
         const newline = response.indexOf(0x0a);
         if (newline === -1) return;
         try {
-          const acknowledgement = parseAcknowledgement(
+          const acknowledgement = parseOmpDirectAcknowledgement(
             response.subarray(0, newline).toString("utf8"),
           );
-          if (acknowledgement.eventId !== event.eventId) {
+          if (acknowledgement.requestId !== requestId) {
             finish(new Error("Aperture worker acknowledgement identity mismatch"));
             return;
           }
@@ -109,31 +114,13 @@ export class OmpDirectWorkerTransport {
       });
     });
   }
+  async registerFocus(registration: OmpFocusRegistration): Promise<void> {
+    await this.send(registration);
+  }
+
+  async revokeFocus(revocation: OmpFocusRevocation): Promise<void> {
+    await this.send(revocation);
+  }
 
   async close(): Promise<void> {}
-}
-
-type OmpDirectAcknowledgement = {
-  schemaVersion: 1;
-  status: "accepted";
-  eventId: string;
-};
-
-function parseAcknowledgement(line: string): OmpDirectAcknowledgement {
-  const value: unknown = JSON.parse(line);
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("invalid acknowledgement");
-  }
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  if (
-    JSON.stringify(keys) !== JSON.stringify(["eventId", "schemaVersion", "status"]) ||
-    record.schemaVersion !== 1 ||
-    record.status !== "accepted" ||
-    typeof record.eventId !== "string" ||
-    !record.eventId
-  ) {
-    throw new Error("invalid acknowledgement");
-  }
-  return record as OmpDirectAcknowledgement;
 }

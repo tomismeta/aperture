@@ -3,8 +3,10 @@ import { EventEmitter, once } from "node:events";
 import test from "node:test";
 
 import type { OmpAttentionEvent } from "@tomismeta/aperture/omp-attention-event";
+import type { OmpDirectMessage } from "@tomismeta/aperture/omp-direct-message";
 
 import { mapOmpDirectAttentionEvents } from "../src/direct-event-mapping.js";
+import { resolveHerdrFocusContext } from "../src/herdr-focus.js";
 import { OmpDirectWorkerTransport } from "../src/direct-worker-transport.js";
 import { OmarchyAttentionTransport } from "../src/omarchy-attention-transport.js";
 import {
@@ -32,12 +34,45 @@ class FakeDirectTransport extends OmpDirectWorkerTransport {
     return this.available;
   }
 
-  override async send(event: OmpAttentionEvent): Promise<void> {
-    this.sent.push(event);
+  override async send(message: OmpDirectMessage): Promise<void> {
+    if (message.type === "omp.attention-event") this.sent.push(message);
     if (this.gate) await once(this.gate, "open");
     if (this.failure) throw this.failure;
   }
 }
+test("Herdr focus context is exact and rejects unsupported terminal modes", () => {
+  const valid = {
+    HERDR_ENV: "1",
+    HERDR_SOCKET_PATH: "/run/user/1000/herdr.sock",
+    HERDR_PANE_ID: "w2:p1",
+    HYPRLAND_INSTANCE_SIGNATURE: "instance_1",
+  };
+  assert.deepEqual(resolveHerdrFocusContext(valid, true), {
+    herdrSocketPath: valid.HERDR_SOCKET_PATH,
+    paneId: valid.HERDR_PANE_ID,
+    compositorAddress: valid.HYPRLAND_INSTANCE_SIGNATURE,
+  });
+  assert.equal(resolveHerdrFocusContext(valid, false), undefined);
+  for (const unsupported of [
+    { TMUX: "1" },
+    { STY: "screen" },
+    { ZELLIJ: "1" },
+    { OMP_RPC: "1" },
+    { PI_HEADLESS: "1" },
+  ]) {
+    assert.equal(resolveHerdrFocusContext({ ...valid, ...unsupported }, true), undefined);
+  }
+  assert.equal(
+    resolveHerdrFocusContext({ ...valid, HERDR_SOCKET_PATH: "relative.sock" }, true),
+    undefined,
+  );
+  assert.equal(resolveHerdrFocusContext({ ...valid, HERDR_PANE_ID: "pane-1" }, true), undefined);
+  assert.equal(
+    resolveHerdrFocusContext({ ...valid, HYPRLAND_INSTANCE_SIGNATURE: "bad address" }, true),
+    undefined,
+  );
+});
+
 
 test("direct mapping emits bounded typed facts without private OMP payloads", () => {
   const approval = mapOmpDirectAttentionEvents(

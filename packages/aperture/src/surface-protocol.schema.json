@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tomismeta:aperture:surface-protocol",
+  "$id": "urn:tomismeta:aperture:surface-protocol:v3",
   "title": "Aperture Surface Protocol",
   "oneOf": [
     { "$ref": "#/$defs/hello" },
@@ -89,14 +89,14 @@
     "navigation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "sessionId"],
+      "required": ["kind", "handle"],
       "properties": {
-        "kind": { "enum": ["omp-session"] },
-        "sessionId": {
+        "kind": { "const": "opaque-focus" },
+        "handle": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 160,
-          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+          "minLength": 32,
+          "maxLength": 32,
+          "pattern": "^[A-Za-z0-9_-]{32}$"
         }
       }
     },

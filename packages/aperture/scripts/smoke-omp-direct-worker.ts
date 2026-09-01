@@ -7,11 +7,8 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import {
-  assertOmpAttentionEvent,
-  serializeOmpAttentionEvent,
-  type OmpAttentionEvent,
-} from "../src/omp-attention-event.js";
+import { assertOmpAttentionEvent, type OmpAttentionEvent } from "../src/omp-attention-event.js";
+import { serializeOmpDirectMessage } from "../src/omp-direct-message.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(scriptDir, "..");
@@ -70,11 +67,8 @@ try {
   const approvalSnapshot = await first.waitFor(
     (message) => message.type === "snapshot" && message.totals?.now === 1,
   );
-  assert.deepEqual(approvalSnapshot.view?.now?.navigation, {
-    kind: "omp-session",
-    sessionId,
-  });
-  checks.push("canonical-now-navigation");
+  assert.equal(approvalSnapshot.view?.now?.navigation, undefined);
+  checks.push("unregistered-now-is-nonnavigable");
 
   const input = event({
     eventId: "smoke:input:1",
@@ -90,11 +84,8 @@ try {
     (message) => message.type === "snapshot" && message.totals?.next === 1,
   );
   assert.equal(queued.view?.next?.[0]?.title, input.title);
-  assert.deepEqual(queued.view?.next?.[0]?.navigation, {
-    kind: "omp-session",
-    sessionId,
-  });
-  checks.push("canonical-next-navigation");
+  assert.equal(queued.view?.next?.[0]?.navigation, undefined);
+  checks.push("unregistered-next-is-nonnavigable");
 
   await sendDirect(socketPath, input);
   const changed = event({ ...input, eventId: "smoke:input:2", title: "OMP needs a decision" });
@@ -128,8 +119,8 @@ try {
   const replayed = await second.waitFor(
     (message) => message.type === "snapshot" && message.view?.now?.title === changed.title,
   );
-  assert.deepEqual(replayed.view?.now?.navigation, { kind: "omp-session", sessionId });
-  checks.push("deterministic-navigation-replay");
+  assert.equal(replayed.view?.now?.navigation, undefined);
+  checks.push("volatile-navigation-is-not-replayed");
 
   await sendDirect(
     socketPath,
@@ -182,7 +173,7 @@ try {
     privacyProofId: "aperture-omp-direct-privacy-v1",
     passed: true,
     nodeVersion: process.versions.node,
-    navigationProofId: "aperture-omp-session-navigation-v1",
+    navigationProofId: "aperture-opaque-focus-navigation-v2",
     bundle: {
       sha256: createHash("sha256").update(bundle).digest("hex"),
       bytes: bundle.byteLength,
@@ -296,7 +287,7 @@ async function sendDirect(socketPath: string, directEvent: OmpAttentionEvent): P
   const socket = createConnection({ path: socketPath });
   let response = "";
   socket.setEncoding("utf8");
-  socket.once("connect", () => socket.write(serializeOmpAttentionEvent(directEvent)));
+  socket.once("connect", () => socket.write(serializeOmpDirectMessage(directEvent)));
   socket.on("data", (chunk: string) => {
     response += chunk;
   });
@@ -304,12 +295,12 @@ async function sendDirect(socketPath: string, directEvent: OmpAttentionEvent): P
   const acknowledgement = JSON.parse(response) as {
     schemaVersion?: number;
     status?: string;
-    eventId?: string;
+    requestId?: string;
   };
   assert.deepEqual(acknowledgement, {
-    schemaVersion: 1,
+    schemaVersion: 2,
     status: "accepted",
-    eventId: directEvent.eventId,
+    requestId: directEvent.eventId,
   });
 }
 
@@ -323,7 +314,7 @@ function event(
   },
 ): OmpAttentionEvent {
   return assertOmpAttentionEvent({
-    schemaVersion: 1,
+    schemaVersion: 2,
     type: "omp.attention-event",
     occurredAt: facts.occurredAt ?? occurredAt,
     sessionId,

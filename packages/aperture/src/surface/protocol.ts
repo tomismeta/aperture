@@ -1,4 +1,4 @@
-export const APERTURE_SURFACE_PROTOCOL_VERSION = 2;
+export const APERTURE_SURFACE_PROTOCOL_VERSION = 3;
 export const APERTURE_SURFACE_LIMITS = {
   sources: 32,
   nextFrames: 32,
@@ -26,8 +26,8 @@ export type ApertureSurfaceFrameSource = {
 };
 
 export type ApertureSurfaceNavigation = {
-  kind: "omp-session";
-  sessionId: string;
+  kind: "opaque-focus";
+  handle: string;
 };
 
 export type ApertureSurfaceContextItem = {

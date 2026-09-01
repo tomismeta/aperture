@@ -44,7 +44,12 @@
       "types": "./dist/omp-attention-event.d.ts",
       "default": "./dist/omp-attention-event.js"
     },
+    "./omp-direct-message": {
+      "types": "./dist/omp-direct-message.d.ts",
+      "default": "./dist/omp-direct-message.js"
+    },
     "./omp-attention-event.schema.json": "./dist/omp-attention-event.schema.json",
+    "./omp-direct-message.schema.json": "./dist/omp-direct-message.schema.json",
     "./surface-protocol.schema.json": "./dist/surface-protocol.schema.json",
     "./notification-worker-input.schema.json": "./dist/notification-worker-input.schema.json",
     "./notification-worker-output.schema.json": "./dist/notification-worker-output.schema.json"
@@ -57,6 +62,7 @@
   "scripts": {
     "build": "tsx ./scripts/build.ts && tsc --project ../../tsconfig.work-public.json --emitDeclarationOnly --pretty false",
     "build:attention-worker": "pnpm run build && tsx ./scripts/build-attention-worker-artifact.ts",
+    "build:attention-worker:development": "pnpm run build && tsx ./scripts/build-attention-worker-artifact.ts --allow-unsigned-local",
     "finalize:attention-worker": "tsx ./scripts/finalize-attention-worker-buildinfo.ts",
     "smoke": "tsx ./scripts/smoke.ts",
     "smoke:attention-worker": "tsx ./scripts/smoke-attention-worker.ts",

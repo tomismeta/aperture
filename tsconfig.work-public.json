@@ -11,6 +11,8 @@
     "packages/aperture/src/work.ts",
     "packages/aperture/src/omp-attention-event.ts",
     "packages/aperture/src/omp-attention-event.schema.json",
+    "packages/aperture/src/omp-direct-message.ts",
+    "packages/aperture/src/omp-direct-message.schema.json",
     "packages/aperture/src/work-event.schema.json",
     "packages/aperture/src/work-event-batch.schema.json"
   ]

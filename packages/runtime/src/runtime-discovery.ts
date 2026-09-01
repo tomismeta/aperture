@@ -94,7 +94,8 @@ function isRuntimeRegistration(value: unknown): value is ApertureLocalRuntimeReg
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   const metadata = candidate.metadata;
-  return typeof candidate.id === "string" &&
+  return (
+    typeof candidate.id === "string" &&
     candidate.id.length > 0 &&
     typeof candidate.kind === "string" &&
     candidate.kind.length > 0 &&
@@ -114,7 +115,8 @@ function isRuntimeRegistration(value: unknown): value is ApertureLocalRuntimeReg
       (metadata !== null &&
         typeof metadata === "object" &&
         !Array.isArray(metadata) &&
-        Object.values(metadata).every((entry) => typeof entry === "string")));
+        Object.values(metadata).every((entry) => typeof entry === "string")))
+  );
 }
 
 function isMissingFile(error: unknown): boolean {

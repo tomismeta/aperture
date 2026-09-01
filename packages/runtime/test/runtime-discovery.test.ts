@@ -4,10 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import {
-  discoverLocalRuntimes,
-  writeLocalRuntimeRegistration,
-} from "../src/runtime-discovery.js";
+import { discoverLocalRuntimes, writeLocalRuntimeRegistration } from "../src/runtime-discovery.js";
 
 test("runtime discovery ignores parseable registrations with invalid shapes", async () => {
   const registryDir = await mkdtemp(join(tmpdir(), "aperture-runtime-discovery-"));
@@ -36,7 +33,10 @@ test("runtime discovery ignores parseable registrations with invalid shapes", as
       maxStalenessMs: 60_000,
       registryDir,
     });
-    assert.deepEqual(registrations.map((registration) => registration.id), ["runtime-valid"]);
+    assert.deepEqual(
+      registrations.map((registration) => registration.id),
+      ["runtime-valid"],
+    );
   } finally {
     await rm(registryDir, { recursive: true, force: true });
   }

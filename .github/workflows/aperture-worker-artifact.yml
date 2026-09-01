@@ -26,7 +26,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.sha')
-          gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq -e '.verification.verified == true'
+          tag_verified=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '.verification.verified')
+          test "$tag_verified" = "true"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4

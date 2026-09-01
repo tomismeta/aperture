@@ -56,8 +56,20 @@ try {
 
   const loaded = (await import(`${pathToFileURL(extensionPath).href}?smoke=${Date.now()}`)) as {
     default?: unknown;
+    createApertureOmarchyOmpExtension?: (
+      options: Record<string, unknown>,
+    ) => (api: {
+      on(
+        event: string,
+        handler: (
+          event: { type: string },
+          context: Record<string, unknown>,
+        ) => Promise<void> | void,
+      ): void;
+    }) => Promise<void>;
   };
   assert.equal(typeof loaded.default, "function");
+  assert.equal(typeof loaded.createApertureOmarchyOmpExtension, "function");
   const registered: string[] = [];
   const handlers = new Map<
     string,
@@ -96,6 +108,92 @@ try {
     if (previousPath === undefined) delete process.env.PATH;
     else process.env.PATH = previousPath;
   }
+  const directEvents: unknown[] = [];
+  const directCommands: string[] = [];
+  const directHandlers = new Map<
+    string,
+    (event: { type: string }, context: Record<string, unknown>) => Promise<void> | void
+  >();
+  process.env.PI_NOTIFICATIONS = "on";
+  try {
+    const directFactory = loaded.createApertureOmarchyOmpExtension!({
+      directTransport: {
+        isAvailable: async () => true,
+        send: async (event: unknown) => {
+          directEvents.push(event);
+        },
+        close: async () => undefined,
+      },
+      availabilityCheck: async () => true,
+      commandRunner: async (command: string) => {
+        directCommands.push(command);
+        return { stdout: command === "omarchy-notification-send" ? "99\n" : "", stderr: "" };
+      },
+    });
+    await directFactory({ on: (event, handler) => directHandlers.set(event, handler) });
+    await directHandlers.get("tool_approval_requested")?.(
+      {
+        type: "tool_approval_requested",
+        sessionId: "session-smoke",
+        toolCallId: "tool-smoke",
+        toolName: "bash",
+        approvalMode: "write",
+      },
+      { sessionManager: { sessionId: "session-smoke" } },
+    );
+    await directHandlers.get("session_shutdown")?.(
+      { type: "session_shutdown" },
+      { sessionManager: { sessionId: "session-smoke" } },
+    );
+    assert.equal(directEvents.length, 2);
+    assert.equal(directCommands.includes("omarchy-notification-send"), false);
+    assert.equal(process.env.PI_NOTIFICATIONS, "on");
+  } finally {
+    if (previousNotifications === undefined) delete process.env.PI_NOTIFICATIONS;
+    else process.env.PI_NOTIFICATIONS = previousNotifications;
+  }
+  const fallbackCommands: string[] = [];
+  const fallbackHandlers = new Map<
+    string,
+    (event: { type: string }, context: Record<string, unknown>) => Promise<void> | void
+  >();
+  process.env.PI_NOTIFICATIONS = "on";
+  try {
+    const fallbackFactory = loaded.createApertureOmarchyOmpExtension!({
+      directTransport: {
+        isAvailable: async () => true,
+        send: async () => {
+          throw new Error("direct transport unavailable");
+        },
+        close: async () => undefined,
+      },
+      availabilityCheck: async () => true,
+      commandRunner: async (command: string) => {
+        fallbackCommands.push(command);
+        return { stdout: command === "omarchy-notification-send" ? "100\n" : "", stderr: "" };
+      },
+    });
+    await fallbackFactory({ on: (event, handler) => fallbackHandlers.set(event, handler) });
+    await fallbackHandlers.get("tool_approval_requested")?.(
+      {
+        type: "tool_approval_requested",
+        sessionId: "session-fallback",
+        toolCallId: "tool-fallback",
+        toolName: "bash",
+        approvalMode: "write",
+      },
+      { sessionManager: { sessionId: "session-fallback" } },
+    );
+    await fallbackHandlers.get("session_shutdown")?.(
+      { type: "session_shutdown" },
+      { sessionManager: { sessionId: "session-fallback" } },
+    );
+    assert.equal(fallbackCommands.includes("omarchy-notification-send"), true);
+    assert.equal(process.env.PI_NOTIFICATIONS, "on");
+  } finally {
+    if (previousNotifications === undefined) delete process.env.PI_NOTIFICATIONS;
+    else process.env.PI_NOTIFICATIONS = previousNotifications;
+  }
   const content = await readFile(extensionPath);
   const report = {
     schemaVersion: 1,
@@ -119,6 +217,9 @@ try {
       identicalReplacement: "native-id-reuse-without-artificial-update",
       sessionShutdown: "close-persistent-approval-and-input-only",
       credentialDisabled: "deterministic-typed-event-proof",
+      directTransport: "acknowledged-direct-suppresses-native",
+      nativeFallback: "direct-failure-restores-native",
+      deliveryScheduling: "non-blocking-bounded-queue",
     },
   };
   if (options.report) {

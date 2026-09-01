@@ -33,6 +33,20 @@ const schemaNames = [
   "notification-worker-input.schema.json",
   "notification-worker-output.schema.json",
   "surface-protocol.schema.json",
+  "omp-attention-event.schema.json",
+] as const;
+const ompFixtureNames = [
+  "approval-request.json",
+  "input-request.json",
+  "failure-event.json",
+  "completion-event.json",
+  "status-event.json",
+  "snapshot-failure.json",
+  "snapshot-completion.json",
+  "snapshot-status.json",
+  "snapshot-now-next.json",
+  "snapshot-resolved.json",
+  "notification-fallback-ambient.json",
 ] as const;
 
 const options = parseOptions(process.argv.slice(2));
@@ -67,10 +81,12 @@ const libraryRoot = path.join(outputRoot, "lib");
 const schemaRoot = path.join(outputRoot, "schemas");
 const evidenceRoot = path.join(outputRoot, "evidence");
 const ompIntegrationRoot = path.join(outputRoot, "integrations", "omp");
+const ompFixtureRoot = path.join(outputRoot, "fixtures", "omp-direct");
 await mkdir(libraryRoot, { recursive: true });
 await mkdir(schemaRoot, { recursive: true });
 await mkdir(evidenceRoot, { recursive: true });
 await mkdir(ompIntegrationRoot, { recursive: true });
+await mkdir(ompFixtureRoot, { recursive: true });
 const stagedBundle = path.join(libraryRoot, workerBundleName);
 await copyFile(workerBundle, stagedBundle);
 await chmod(stagedBundle, 0o644);
@@ -82,6 +98,12 @@ await chmod(stagedOmpExtension, 0o644);
 await chmod(stagedOmpManifest, 0o644);
 for (const schemaName of schemaNames) {
   await copyFile(path.join(packageRoot, "dist", schemaName), path.join(schemaRoot, schemaName));
+}
+for (const fixtureName of ompFixtureNames) {
+  await copyFile(
+    path.join(packageRoot, "fixtures", "omp-direct", fixtureName),
+    path.join(ompFixtureRoot, fixtureName),
+  );
 }
 const stagedImportReport = path.join(evidenceRoot, "runtime-imports.json");
 await copyFile(runtimeImportReport, stagedImportReport);
@@ -161,12 +183,29 @@ const files = await Promise.all([
   ...schemaNames.map((schemaName) =>
     artifactFile(outputRoot, path.join(schemaRoot, schemaName), "0644"),
   ),
+  ...ompFixtureNames.map((fixtureName) =>
+    artifactFile(outputRoot, path.join(ompFixtureRoot, fixtureName), "0644"),
+  ),
   artifactFile(outputRoot, stagedImportReport, "0644"),
   artifactFile(outputRoot, stagedOmpExtension, "0644"),
   artifactFile(outputRoot, stagedOmpManifest, "0644"),
   artifactFile(outputRoot, stagedOmpImportReport, "0644"),
 ]);
-const workerFile = files[0]!;
+const fileByPath = new Map(files.map((entry) => [entry.path, entry]));
+const requiredFile = (relativePath: string) => {
+  const entry = fileByPath.get(relativePath);
+  if (!entry) throw new Error(`staged artifact is missing ${relativePath}`);
+  return entry;
+};
+const workerFile = requiredFile(`lib/${workerBundleName}`);
+const notificationInputSchema = requiredFile("schemas/notification-worker-input.schema.json");
+const notificationOutputSchema = requiredFile("schemas/notification-worker-output.schema.json");
+const surfaceSchema = requiredFile("schemas/surface-protocol.schema.json");
+const ompAttentionSchema = requiredFile("schemas/omp-attention-event.schema.json");
+const workerImportEvidence = requiredFile("evidence/runtime-imports.json");
+const ompExtensionFile = requiredFile(`integrations/omp/${ompExtensionName}`);
+const ompManifestFile = requiredFile("integrations/omp/package.json");
+const ompImportEvidence = requiredFile("evidence/omp-runtime-imports.json");
 const buildInfo = {
   schemaVersion: 1,
   artifactType: "node-commonjs-bundle",
@@ -185,24 +224,36 @@ const buildInfo = {
   },
   workerContract: {
     notificationInputSchemaVersion: 1,
-    notificationOutputSchemaVersion: 1,
-    surfaceProtocolVersion: 1,
+    notificationOutputSchemaVersion: 2,
+    surfaceProtocolVersion: 2,
+    ompAttentionEventSchemaVersion: 1,
   },
   schemas: {
     input: {
       version: 1,
-      path: files[1]!.path,
-      sha256: files[1]!.sha256,
+      path: notificationInputSchema.path,
+      sha256: notificationInputSchema.sha256,
     },
     output: {
-      version: 1,
-      path: files[2]!.path,
-      sha256: files[2]!.sha256,
+      version: 2,
+      path: notificationOutputSchema.path,
+      sha256: notificationOutputSchema.sha256,
     },
     surface: {
+      version: 2,
+      path: surfaceSchema.path,
+      sha256: surfaceSchema.sha256,
+    },
+    ompAttentionEvent: {
       version: 1,
-      path: files[3]!.path,
-      sha256: files[3]!.sha256,
+      path: ompAttentionSchema.path,
+      sha256: ompAttentionSchema.sha256,
+    },
+  },
+  fixtures: {
+    ompDirect: {
+      version: 1,
+      paths: ompFixtureNames.map((fixtureName) => `fixtures/omp-direct/${fixtureName}`),
     },
   },
   workerBundle: {
@@ -215,24 +266,24 @@ const buildInfo = {
     policy: "node-builtins-only",
     status: "passed",
     imports: importReport.imports,
-    evidencePath: files[4]!.path,
-    evidenceSha256: files[4]!.sha256,
+    evidencePath: workerImportEvidence.path,
+    evidenceSha256: workerImportEvidence.sha256,
   },
   integrations: {
     omp: {
       artifactType: "omp-extension-module",
-      path: files[5]!.path,
-      manifestPath: files[6]!.path,
-      sha256: files[5]!.sha256,
-      bytes: files[5]!.bytes,
+      path: ompExtensionFile.path,
+      manifestPath: ompManifestFile.path,
+      sha256: ompExtensionFile.sha256,
+      bytes: ompExtensionFile.bytes,
       minimumOmpVersion: "18.0.0",
       proofId: "aperture-omp-adapter-conformance-v1",
       runtimeDependencies: {
         policy: "node-builtins-only",
         status: "passed",
         imports: ompImportReport.imports,
-        evidencePath: files[7]!.path,
-        evidenceSha256: files[7]!.sha256,
+        evidencePath: ompImportEvidence.path,
+        evidenceSha256: ompImportEvidence.sha256,
       },
     },
   },
@@ -246,6 +297,9 @@ const buildInfo = {
     status: "pending",
     conformanceProofId: "aperture-attention-worker-conformance-v1",
     ambientCeilingProofId: "notification-worker-ambient-ceiling-v1",
+    directTransportProofId: "aperture-omp-direct-transport-conformance-v1",
+    directPrivacyProofId: "aperture-omp-direct-privacy-v1",
+    navigationProofId: "aperture-omp-session-navigation-v1",
     requiredNodeMajors: [22, 24, "current"],
     nodeCompatibility: [],
   },

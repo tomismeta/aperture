@@ -1,0 +1,41 @@
+{
+  "type": "snapshot",
+  "sequence": 1,
+  "sources": [
+    {
+      "kind": "omp",
+      "label": "OMP"
+    }
+  ],
+  "totals": {
+    "now": 0,
+    "next": 0,
+    "ambient": 1,
+    "sources": 1
+  },
+  "view": {
+    "now": null,
+    "next": [],
+    "ambient": [
+      {
+        "id": "frame:interaction:desktop-notification:omp:fe914ac7e45775afab8be318:status",
+        "taskId": "desktop-notification:omp:fe914ac7e45775afab8be318",
+        "interactionId": "interaction:desktop-notification:omp:fe914ac7e45775afab8be318:status",
+        "version": 1,
+        "mode": "status",
+        "tone": "ambient",
+        "consequence": "low",
+        "title": "Open OMP session 01a0123456789abcdef",
+        "summary": "Desktop notification received from a reviewed agent application.",
+        "source": {
+          "kind": "omp",
+          "label": "OMP"
+        },
+        "timing": {
+          "createdAt": "2026-09-01T16:00:00.000Z",
+          "updatedAt": "2026-09-01T16:00:00.000Z"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "type": "snapshot",
+  "sequence": 2,
+  "sources": [
+    {
+      "kind": "omp",
+      "label": "OMP"
+    }
+  ],
+  "totals": {
+    "now": 1,
+    "next": 0,
+    "ambient": 0,
+    "sources": 1
+  },
+  "view": {
+    "now": {
+      "id": "frame:interaction:omp-direct:4d1e0e42c3abca7c4bfaf5509eec06cc:attention",
+      "taskId": "omp-direct:4d1e0e42c3abca7c4bfaf5509eec06cc",
+      "interactionId": "interaction:omp-direct:4d1e0e42c3abca7c4bfaf5509eec06cc:attention",
+      "version": 1,
+      "mode": "form",
+      "tone": "focused",
+      "consequence": "medium",
+      "title": "OMP needs your input",
+      "summary": "OMP is waiting for an operator response.",
+      "source": {
+        "kind": "omp",
+        "label": "OMP"
+      },
+      "navigation": {
+        "kind": "omp-session",
+        "sessionId": "01a0123456789abcdef"
+      },
+      "provenance": {
+        "whyNow": "Additional input is required before work can continue."
+      },
+      "timing": {
+        "createdAt": "2026-09-01T16:00:01.000Z",
+        "updatedAt": "2026-09-01T16:00:01.000Z"
+      }
+    },
+    "next": [],
+    "ambient": []
+  }
+}

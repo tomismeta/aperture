@@ -36,6 +36,8 @@
       "@aperture/lab/capture": ["packages/lab/src/capture.ts"],
       "@aperture/opencode": ["packages/opencode/src/index.ts"],
       "@aperture/omp": ["packages/omp/src/index.ts"],
+      "@aperture/omp/direct-event": ["packages/omp/src/direct-event-mapping.ts"],
+      "@tomismeta/aperture/omp-attention-event": ["packages/aperture/src/omp-attention-event.ts"],
       "@aperture/tui": ["packages/tui/src/index.ts"]
     }
   }

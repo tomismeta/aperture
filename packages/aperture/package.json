@@ -1,6 +1,6 @@
 {
   "name": "@tomismeta/aperture",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": false,
   "description": "The live attention surface for humans working with agents.",
   "author": "tomismeta <tomismeta@gmail.com>",
@@ -40,6 +40,11 @@
       "types": "./dist/work.d.ts",
       "default": "./dist/work.js"
     },
+    "./omp-attention-event": {
+      "types": "./dist/omp-attention-event.d.ts",
+      "default": "./dist/omp-attention-event.js"
+    },
+    "./omp-attention-event.schema.json": "./dist/omp-attention-event.schema.json",
     "./surface-protocol.schema.json": "./dist/surface-protocol.schema.json",
     "./notification-worker-input.schema.json": "./dist/notification-worker-input.schema.json",
     "./notification-worker-output.schema.json": "./dist/notification-worker-output.schema.json"
@@ -56,6 +61,10 @@
     "smoke": "tsx ./scripts/smoke.ts",
     "smoke:attention-worker": "tsx ./scripts/smoke-attention-worker.ts",
     "smoke:omp-extension": "tsx ./scripts/smoke-omp-extension.ts",
+    "smoke:omp-direct-worker": "tsx ./scripts/smoke-omp-direct-worker.ts",
+    "smoke:omp-host-direct": "tsx ./scripts/smoke-omp-host-direct.ts",
+    "omp:fixtures:check": "tsx ./scripts/generate-omp-direct-fixtures.ts",
+    "omp:fixtures:write": "tsx ./scripts/generate-omp-direct-fixtures.ts --write",
     "surface:fixtures:check": "tsx ./scripts/generate-surface-fixtures.ts",
     "surface:fixtures:write": "tsx ./scripts/generate-surface-fixtures.ts --write",
     "prepack": "pnpm run build"

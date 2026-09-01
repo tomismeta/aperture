@@ -1,0 +1,73 @@
+{
+  "type": "snapshot",
+  "sequence": 1,
+  "sources": [
+    {
+      "kind": "omp",
+      "label": "OMP"
+    }
+  ],
+  "totals": {
+    "now": 1,
+    "next": 1,
+    "ambient": 0,
+    "sources": 1
+  },
+  "view": {
+    "now": {
+      "id": "frame:interaction:omp-direct:a5f404ade6f91232a7a68f3eae38dd95:attention",
+      "taskId": "omp-direct:a5f404ade6f91232a7a68f3eae38dd95",
+      "interactionId": "interaction:omp-direct:a5f404ade6f91232a7a68f3eae38dd95:attention",
+      "version": 1,
+      "mode": "approval",
+      "tone": "focused",
+      "consequence": "medium",
+      "title": "OMP needs approval for bash",
+      "summary": "OMP is waiting for an operator decision.",
+      "source": {
+        "kind": "omp",
+        "label": "OMP"
+      },
+      "navigation": {
+        "kind": "omp-session",
+        "sessionId": "01a0123456789abcdef"
+      },
+      "provenance": {
+        "whyNow": "Approval is required before work can continue."
+      },
+      "timing": {
+        "createdAt": "2026-09-01T16:00:00.000Z",
+        "updatedAt": "2026-09-01T16:00:00.000Z"
+      }
+    },
+    "next": [
+      {
+        "id": "frame:interaction:omp-direct:4d1e0e42c3abca7c4bfaf5509eec06cc:attention",
+        "taskId": "omp-direct:4d1e0e42c3abca7c4bfaf5509eec06cc",
+        "interactionId": "interaction:omp-direct:4d1e0e42c3abca7c4bfaf5509eec06cc:attention",
+        "version": 1,
+        "mode": "form",
+        "tone": "focused",
+        "consequence": "medium",
+        "title": "OMP needs your input",
+        "summary": "OMP is waiting for an operator response.",
+        "source": {
+          "kind": "omp",
+          "label": "OMP"
+        },
+        "navigation": {
+          "kind": "omp-session",
+          "sessionId": "01a0123456789abcdef"
+        },
+        "provenance": {
+          "whyNow": "Additional input is required before work can continue."
+        },
+        "timing": {
+          "createdAt": "2026-09-01T16:00:01.000Z",
+          "updatedAt": "2026-09-01T16:00:01.000Z"
+        }
+      }
+    ],
+    "ambient": []
+  }
+}

@@ -30,9 +30,10 @@
         "capabilities": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["notificationInput", "snapshots", "responses"],
+          "required": ["notificationInput", "ompDirectInput", "snapshots", "responses"],
           "properties": {
             "notificationInput": { "const": true },
+            "ompDirectInput": { "const": true },
             "snapshots": { "const": true },
             "responses": { "const": false }
           }

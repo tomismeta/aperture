@@ -2,6 +2,7 @@ import type { Writable } from "node:stream";
 
 import type { NotificationWorkerIdentity } from "./adapter.js";
 import { NotificationWorkerEngine } from "./engine.js";
+import { startOmpAttentionSocketServer, type OmpAttentionSocketServer } from "./direct-server.js";
 import {
   APERTURE_NOTIFICATION_WORKER_LIMITS,
   NotificationWorkerProtocolError,
@@ -16,6 +17,7 @@ export type NotificationWorkerStdioOptions = {
   packageVersion: string;
   identities: NotificationWorkerIdentity[];
   stateDir: string;
+  socketPath?: string;
   input?: NodeJS.ReadableStream;
   output?: Writable;
   diagnostic?: Writable;
@@ -30,6 +32,8 @@ export async function runNotificationWorkerStdio(
   const diagnostic = options.diagnostic ?? process.stderr;
   let stopping = false;
   let lastProjection = "";
+  let socketServer: OmpAttentionSocketServer | undefined;
+  let operationQueue = Promise.resolve();
 
   const write = async (message: NotificationWorkerOutput): Promise<void> => {
     const line = serializeNotificationWorkerOutput(message);
@@ -49,6 +53,14 @@ export async function runNotificationWorkerStdio(
     };
     await write(error);
   };
+  const serialize = async <T>(operation: () => Promise<T>): Promise<T> => {
+    const result = operationQueue.then(operation, operation);
+    operationQueue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  };
 
   await write(notificationWorkerHello(options.packageVersion));
   await write({ type: "engine", state: "restoring", acceptedSources: options.identities.length });
@@ -61,15 +73,10 @@ export async function runNotificationWorkerStdio(
   if (restored.recoveredCorruptState) {
     await writeError(
       "corrupt_state_recovered",
-      "Aperture recovered from an invalid local notification state file.",
+      "Aperture recovered from an invalid local worker state file.",
       true,
     );
   }
-  await write({
-    type: "engine",
-    state: options.identities.length > 0 ? "ready" : "degraded",
-    acceptedSources: restored.engine.getAcceptedSourceCount(),
-  });
 
   const emitSnapshot = async (): Promise<void> => {
     const snapshot = restored.engine.snapshot();
@@ -82,6 +89,33 @@ export async function runNotificationWorkerStdio(
     lastProjection = fingerprint;
     await write(snapshot);
   };
+
+  if (options.socketPath) {
+    try {
+      socketServer = await startOmpAttentionSocketServer({
+        socketPath: options.socketPath,
+        diagnostic,
+        handle: (event) =>
+          serialize(async () => {
+            if (stopping) throw new Error("Aperture worker is stopping");
+            await restored.engine.handleOmpAttention(event);
+            await emitSnapshot();
+          }),
+      });
+    } catch {
+      await writeError(
+        "direct_transport_unavailable",
+        "Aperture could not safely open the direct OMP transport.",
+        true,
+      );
+    }
+  }
+
+  await write({
+    type: "engine",
+    state: options.identities.length > 0 ? "ready" : "degraded",
+    acceptedSources: restored.engine.getAcceptedSourceCount(),
+  });
   await emitSnapshot();
 
   const stop = () => {
@@ -97,24 +131,29 @@ export async function runNotificationWorkerStdio(
     )) {
       if (stopping) break;
       if ("error" in decoded) {
-        await writeError("invalid_input", decoded.error, true);
+        await serialize(() => writeError("invalid_input", decoded.error, true));
         continue;
       }
       try {
-        const event = parseNotificationWorkerInput(decoded.line);
-        if (!(await restored.engine.handle(event))) break;
-        if (stopping) break;
-        await emitSnapshot();
+        const shouldContinue = await serialize(async () => {
+          const event = parseNotificationWorkerInput(decoded.line);
+          const keepRunning = await restored.engine.handle(event);
+          if (keepRunning) await emitSnapshot();
+          return keepRunning;
+        });
+        if (!shouldContinue || stopping) break;
       } catch (error) {
         if (error instanceof NotificationWorkerProtocolError) {
-          await writeError("invalid_input", error.message, true);
+          await serialize(() => writeError("invalid_input", error.message, true));
           continue;
         }
         diagnostic.write("Aperture notification worker fatal error\n");
-        await writeError(
-          "worker_failure",
-          "Aperture could not safely process the notification event.",
-          false,
+        await serialize(() =>
+          writeError(
+            "worker_failure",
+            "Aperture could not safely process the notification event.",
+            false,
+          ),
         );
         break;
       }
@@ -122,6 +161,9 @@ export async function runNotificationWorkerStdio(
   } catch (error) {
     if (!stopping) throw error;
   } finally {
+    stopping = true;
+    await socketServer?.close();
+    await operationQueue;
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);
     // The input stream owns its lifecycle; signal handling only requests its destruction.

@@ -352,11 +352,11 @@ test("Omarchy OMP extension preserves built-ins when its sender is unavailable",
       { type: "session_stop", session_id: "session-1", turn_id: 1 },
       {},
     );
-    assert.equal(commandAttempts, 1);
     await handlers.get("session_stop")?.(
       { type: "session_stop", session_id: "session-1", turn_id: 2 },
       {},
     );
+    await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, {});
     assert.equal(commandAttempts, 1);
     assert.equal(process.env.PI_NOTIFICATIONS, "on");
   } finally {

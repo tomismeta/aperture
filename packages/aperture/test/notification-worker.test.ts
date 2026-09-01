@@ -94,6 +94,9 @@ test("notification worker schemas validate canonical input and output", async ()
   const surfaceSchema = JSON.parse(
     await readFile(new URL("../src/surface-protocol.schema.json", import.meta.url), "utf8"),
   ) as object;
+  const ompAttentionSchema = JSON.parse(
+    await readFile(new URL("../src/omp-attention-event.schema.json", import.meta.url), "utf8"),
+  ) as object;
   const snapshot = JSON.parse(
     await readFile(
       new URL("./fixtures/surface-protocol/snapshot-minimal.json", import.meta.url),
@@ -105,6 +108,7 @@ test("notification worker schemas validate canonical input and output", async ()
   ajv.addSchema(surfaceSchema);
   const validateInput = ajv.compile(inputSchema);
   const validateOutput = ajv.compile(outputSchema);
+  const validateOmpAttention = ajv.compile(ompAttentionSchema);
   assert.equal(validateInput(notificationInput()), true, JSON.stringify(validateInput.errors));
   assert.equal(
     validateInput({
@@ -123,7 +127,12 @@ test("notification worker schemas validate canonical input and output", async ()
       type: "hello",
       packageVersion: "0.5.0",
       worker: "aperture-attention-engine",
-      capabilities: { notificationInput: true, snapshots: true, responses: false },
+      capabilities: {
+        notificationInput: true,
+        ompDirectInput: true,
+        snapshots: true,
+        responses: false,
+      },
     }),
     true,
     JSON.stringify(validateOutput.errors),
@@ -139,6 +148,38 @@ test("notification worker schemas validate canonical input and output", async ()
     JSON.stringify(validateOutput.errors),
   );
   assert.equal(validateOutput(snapshot), true, JSON.stringify(validateOutput.errors));
+  assert.equal(
+    validateOmpAttention({
+      schemaVersion: 1,
+      type: "omp.attention-event",
+      eventId: "event-1",
+      occurredAt: observedAt,
+      sessionId: "session-1",
+      interactionId: "interaction-1",
+      classification: "approval_requested",
+      title: "OMP needs approval",
+      summary: "OMP is waiting for an operator decision.",
+      transition: "requested",
+    }),
+    true,
+    JSON.stringify(validateOmpAttention.errors),
+  );
+  assert.equal(
+    validateOmpAttention({
+      schemaVersion: 1,
+      type: "omp.attention-event",
+      eventId: "event-1",
+      occurredAt: observedAt,
+      sessionId: "session-1",
+      interactionId: "interaction-1",
+      classification: "approval_requested",
+      title: "OMP needs approval",
+      summary: "OMP is waiting for an operator decision.",
+      transition: "requested",
+      prompt: "private",
+    }),
+    false,
+  );
   assert.equal(validateOutput({ type: "engine", state: "unknown", acceptedSources: 1 }), false);
 });
 test("notification worker input parser accepts the closed fact contract", () => {

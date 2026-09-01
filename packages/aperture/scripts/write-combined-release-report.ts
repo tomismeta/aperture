@@ -16,10 +16,25 @@ type BuildInfo = {
   provenanceAttestationReference: string;
   workerBundle: { bytes: number; sha256: string };
   integrations: { omp: { bytes: number; sha256: string } };
+  workerContract: {
+    notificationInputSchemaVersion: number;
+    notificationOutputSchemaVersion: number;
+    surfaceProtocolVersion: number;
+    ompAttentionEventSchemaVersion: number;
+  };
   validation: {
     conformanceProofId: string;
     ambientCeilingProofId: string;
     ompAdapterProofId: string;
+    directTransportProofId: string;
+    directPrivacyProofId: string;
+    navigationProofId: string;
+    ompHostProofId: string;
+    directNodeCompatibility: Array<{
+      nodeVersion: string;
+      status: string;
+      reportPath: string;
+    }>;
     nodeCompatibility: Array<{ nodeVersion: string; status: string; reportPath: string }>;
   };
   ci: { workflowRef: string; runId: string; runAttempt: string };
@@ -36,8 +51,8 @@ const buildInfoMetadata = await lstat(buildInfoPath);
 const buildInfoMode = (buildInfoMetadata.mode & 0o777).toString(8).padStart(4, "0");
 const archiveContent = await readFile(archivePath);
 const ompCompatibility = JSON.parse(
-  await readFile(path.join(artifactRoot, "evidence", "omp-18.0.11.json"), "utf8"),
-) as { ompVersion: string };
+  await readFile(path.join(artifactRoot, "evidence", "omp-host-matrix.json"), "utf8"),
+) as { matrix: Array<{ ompVersion: string; status: string }> };
 
 const report = {
   schemaVersion: 1,
@@ -62,10 +77,20 @@ const report = {
     status: entry.status,
     evidence: entry.reportPath,
   })),
-  ompVersion: ompCompatibility.ompVersion,
+  ompMatrix: ompCompatibility.matrix,
   workerConformanceProof: buildInfo.validation.conformanceProofId,
   ambientCeilingProof: buildInfo.validation.ambientCeilingProofId,
   ompAdapterProof: buildInfo.validation.ompAdapterProofId,
+  directTransportProof: buildInfo.validation.directTransportProofId,
+  directPrivacyProof: buildInfo.validation.directPrivacyProofId,
+  navigationProof: buildInfo.validation.navigationProofId,
+  ompHostProof: buildInfo.validation.ompHostProofId,
+  directNodeMatrix: buildInfo.validation.directNodeCompatibility.map((entry) => ({
+    version: entry.nodeVersion,
+    status: entry.status,
+    evidence: entry.reportPath,
+  })),
+  schemaVersions: buildInfo.workerContract,
   buildInfoPath: "BUILDINFO.json",
   buildInfoSha256: sha256(buildInfoContent),
   filesManifestCount: buildInfo.files.length,

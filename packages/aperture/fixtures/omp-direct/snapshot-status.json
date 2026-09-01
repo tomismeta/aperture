@@ -1,0 +1,45 @@
+{
+  "type": "snapshot",
+  "sequence": 1,
+  "sources": [
+    {
+      "kind": "omp",
+      "label": "OMP"
+    }
+  ],
+  "totals": {
+    "now": 0,
+    "next": 0,
+    "ambient": 1,
+    "sources": 1
+  },
+  "view": {
+    "now": null,
+    "next": [],
+    "ambient": [
+      {
+        "id": "frame:interaction:omp-direct:70f96806e231e325900ce3c909f265b7:status",
+        "taskId": "omp-direct:70f96806e231e325900ce3c909f265b7",
+        "interactionId": "interaction:omp-direct:70f96806e231e325900ce3c909f265b7:status",
+        "version": 1,
+        "mode": "status",
+        "tone": "ambient",
+        "consequence": "low",
+        "title": "OMP is waiting",
+        "summary": "OMP is waiting for the authoritative session stop event.",
+        "source": {
+          "kind": "omp",
+          "label": "OMP"
+        },
+        "navigation": {
+          "kind": "omp-session",
+          "sessionId": "01a0123456789abcdef"
+        },
+        "timing": {
+          "createdAt": "2026-09-01T16:00:05.000Z",
+          "updatedAt": "2026-09-01T16:00:05.000Z"
+        }
+      }
+    ]
+  }
+}

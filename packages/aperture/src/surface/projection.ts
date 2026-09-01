@@ -1,10 +1,12 @@
 import type { AttentionFrame, AttentionView } from "@tomismeta/aperture-core";
 import type { ApertureRuntimeSnapshot } from "@aperture/runtime";
+import { assertOmpSessionId } from "../omp-attention-event.js";
 
 import {
   APERTURE_SURFACE_LIMITS,
   type ApertureSurfaceContextItem,
   type ApertureSurfaceFrame,
+  type ApertureSurfaceNavigation,
   type ApertureSurfaceSnapshotMessage,
   type ApertureSurfaceSource,
 } from "./protocol.js";
@@ -26,6 +28,7 @@ export type ApertureSurfaceProjectionSource = {
 export type ApertureSurfaceProjectionInput = {
   sources: ApertureSurfaceProjectionSource[];
   attentionView: AttentionView;
+  navigationByTaskId?: ReadonlyMap<string, ApertureSurfaceNavigation>;
 };
 
 export function projectSurfaceSnapshot(
@@ -62,11 +65,15 @@ export function projectAttentionSurfaceView(
       sources: input.sources.length,
     },
     view: {
-      now: input.attentionView.now ? projectFrame(input.attentionView.now) : null,
-      next: input.attentionView.next.slice(0, APERTURE_SURFACE_LIMITS.nextFrames).map(projectFrame),
+      now: input.attentionView.now
+        ? projectFrame(input.attentionView.now, input.navigationByTaskId)
+        : null,
+      next: input.attentionView.next
+        .slice(0, APERTURE_SURFACE_LIMITS.nextFrames)
+        .map((frame) => projectFrame(frame, input.navigationByTaskId)),
       ambient: input.attentionView.ambient
         .slice(0, APERTURE_SURFACE_LIMITS.ambientFrames)
-        .map(projectFrame),
+        .map((frame) => projectFrame(frame, input.navigationByTaskId)),
     },
   };
   const fitted = fitSurfaceSnapshot(projected);
@@ -89,7 +96,10 @@ function projectSource(source: ApertureSurfaceProjectionSource): ApertureSurface
   };
 }
 
-function projectFrame(frame: AttentionFrame): ApertureSurfaceFrame {
+function projectFrame(
+  frame: AttentionFrame,
+  navigationByTaskId?: ReadonlyMap<string, ApertureSurfaceNavigation>,
+): ApertureSurfaceFrame {
   const sourceKind =
     frame.source?.kind && frame.source.kind.trim()
       ? projectSurfaceIdentifier(
@@ -110,6 +120,7 @@ function projectFrame(frame: AttentionFrame): ApertureSurfaceFrame {
   const summary = optionalDisplayText(frame.summary, APERTURE_SURFACE_LIMITS.summary);
   const context = projectContext(frame);
   const whyNow = optionalDisplayText(frame.provenance?.whyNow, APERTURE_SURFACE_LIMITS.whyNow);
+  const navigation = projectNavigation(frame, navigationByTaskId);
 
   return {
     id: projectSurfaceIdentifier(frame.id, APERTURE_SURFACE_LIMITS.id, "frame id"),
@@ -126,6 +137,7 @@ function projectFrame(frame: AttentionFrame): ApertureSurfaceFrame {
     title: requiredDisplayText(frame.title, APERTURE_SURFACE_LIMITS.title, "frame title"),
     ...(summary ? { summary } : {}),
     ...(source ? { source } : {}),
+    ...(navigation ? { navigation } : {}),
     ...(context ? { context } : {}),
     ...(whyNow ? { provenance: { whyNow } } : {}),
     timing: {
@@ -135,6 +147,21 @@ function projectFrame(frame: AttentionFrame): ApertureSurfaceFrame {
         ? { expiresAt: canonicalTimestamp(frame.timing.expiresAt, "frame expiresAt") }
         : {}),
     },
+  };
+}
+
+function projectNavigation(
+  frame: AttentionFrame,
+  navigationByTaskId: ReadonlyMap<string, ApertureSurfaceNavigation> | undefined,
+): ApertureSurfaceNavigation | undefined {
+  const navigation = navigationByTaskId?.get(frame.taskId);
+  if (!navigation) return undefined;
+  if (frame.source?.kind !== "omp" || navigation.kind !== "omp-session") {
+    throw new ApertureSurfaceProjectionError("surface navigation source is invalid");
+  }
+  return {
+    kind: "omp-session",
+    sessionId: assertOmpSessionId(navigation.sessionId),
   };
 }
 

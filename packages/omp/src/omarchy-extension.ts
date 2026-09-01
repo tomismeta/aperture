@@ -1,5 +1,10 @@
 import { bindOmpExtension } from "./bind.js";
 import {
+  OmpDirectWorkerTransport,
+  type OmpDirectWorkerTransportOptions,
+} from "./direct-worker-transport.js";
+import { OmarchyAttentionTransport } from "./omarchy-attention-transport.js";
+import {
   OmarchyNotificationTransport,
   type OmarchyNotificationTransportOptions,
 } from "./omarchy-notification-transport.js";
@@ -8,48 +13,62 @@ import type { OmpExtensionApi, OmpMappingContext } from "./types.js";
 export type ApertureOmarchyOmpExtensionOptions = OmarchyNotificationTransportOptions & {
   mappingContext?: OmpMappingContext;
   suppressBuiltInNotifications?: boolean;
+  directTransport?: OmpDirectWorkerTransport;
+  directTransportOptions?: OmpDirectWorkerTransportOptions;
 };
 
 export function createApertureOmarchyOmpExtension(
   options: ApertureOmarchyOmpExtensionOptions = {},
 ) {
   return async function apertureOmarchyOmpExtension(pi: OmpExtensionApi): Promise<void> {
-    const { mappingContext, suppressBuiltInNotifications = true, ...transportOptions } = options;
-    const transport = new OmarchyNotificationTransport(transportOptions);
-    const suppressionActive = suppressBuiltInNotifications && (await transport.isAvailable());
+    const {
+      mappingContext,
+      suppressBuiltInNotifications = true,
+      directTransport: configuredDirectTransport,
+      directTransportOptions,
+      ...notificationOptions
+    } = options;
+    const direct =
+      configuredDirectTransport ?? new OmpDirectWorkerTransport(directTransportOptions);
+    const notification = new OmarchyNotificationTransport(notificationOptions);
+    let suppressionActive = false;
+    let deliveryActive = true;
+    function handleDeliveryFailure(error: unknown): void {
+      pi.logger?.warn?.("Aperture OMP adapter delivery failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      if (!suppressionActive || !deliveryActive) return;
+      deliveryActive = false;
+      transport.disable();
+      restoreBuiltInNotifications();
+    }
     const previousNotifications = process.env.PI_NOTIFICATIONS;
-    if (suppressionActive) process.env.PI_NOTIFICATIONS = "off";
-
     const restoreBuiltInNotifications = (): void => {
       if (!suppressionActive || process.env.PI_NOTIFICATIONS !== "off") return;
       if (previousNotifications === undefined) delete process.env.PI_NOTIFICATIONS;
       else process.env.PI_NOTIFICATIONS = previousNotifications;
     };
-    let deliveryActive = true;
+    const transport = new OmarchyAttentionTransport({
+      direct,
+      notification,
+      onFailure: handleDeliveryFailure,
+    });
+    suppressionActive = suppressBuiltInNotifications && (await transport.isAvailable());
+    if (suppressionActive) process.env.PI_NOTIFICATIONS = "off";
 
     bindOmpExtension(
       pi,
-      suppressionActive
-        ? {
-            handle: async (event, context) => {
-              if (!deliveryActive) return;
-              try {
-                await transport.handle(event, context);
-              } catch (error) {
-                deliveryActive = false;
-                restoreBuiltInNotifications();
-                throw error;
-              }
-            },
-            close: async () => {
-              try {
-                await transport.close();
-              } finally {
-                restoreBuiltInNotifications();
-              }
-            },
+      {
+        handle: (event, context) =>
+          deliveryActive ? transport.handle(event, context) : Promise.resolve(),
+        close: async () => {
+          try {
+            await transport.close();
+          } finally {
+            restoreBuiltInNotifications();
           }
-        : transport,
+        },
+      },
       mappingContext,
     );
   };

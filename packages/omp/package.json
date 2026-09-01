@@ -14,6 +14,10 @@
       "types": "./dist/src/extension.d.ts",
       "default": "./dist/src/extension.js"
     },
+    "./direct-event": {
+      "types": "./dist/src/direct-event-mapping.d.ts",
+      "default": "./dist/src/direct-event-mapping.js"
+    },
     "./omarchy-extension": {
       "types": "./dist/src/omarchy-extension.d.ts",
       "default": "./dist/src/omarchy-extension.js"
@@ -25,6 +29,7 @@
     ]
   },
   "dependencies": {
+    "@tomismeta/aperture": "workspace:*",
     "@aperture/runtime": "workspace:*",
     "@tomismeta/aperture-core": "workspace:*"
   },

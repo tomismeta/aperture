@@ -1,0 +1,46 @@
+{
+  "type": "snapshot",
+  "sequence": 1,
+  "sources": [
+    {
+      "kind": "omp",
+      "label": "OMP"
+    }
+  ],
+  "totals": {
+    "now": 1,
+    "next": 0,
+    "ambient": 0,
+    "sources": 1
+  },
+  "view": {
+    "now": {
+      "id": "frame:interaction:omp-direct:f030c4cf7dcd4dda8bf24352707866c6:status",
+      "taskId": "omp-direct:f030c4cf7dcd4dda8bf24352707866c6",
+      "interactionId": "interaction:omp-direct:f030c4cf7dcd4dda8bf24352707866c6:status",
+      "version": 1,
+      "mode": "status",
+      "tone": "critical",
+      "consequence": "high",
+      "title": "OMP bash failed",
+      "summary": "OMP reported a terminal tool execution failure.",
+      "source": {
+        "kind": "omp",
+        "label": "OMP"
+      },
+      "navigation": {
+        "kind": "omp-session",
+        "sessionId": "01a0123456789abcdef"
+      },
+      "provenance": {
+        "whyNow": "Work has failed and should be reviewed."
+      },
+      "timing": {
+        "createdAt": "2026-09-01T16:00:03.000Z",
+        "updatedAt": "2026-09-01T16:00:03.000Z"
+      }
+    },
+    "next": [],
+    "ambient": []
+  }
+}

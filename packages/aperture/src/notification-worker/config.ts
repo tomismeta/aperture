@@ -2,6 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { resolveOmpAttentionSocketPath } from "../omp-attention-event.js";
 import type { NotificationWorkerIdentity } from "./adapter.js";
 
 export type NotificationWorkerConfig = {
@@ -12,6 +13,7 @@ export type NotificationWorkerConfig = {
 export type NotificationWorkerPaths = {
   configPath: string;
   stateDir: string;
+  socketPath?: string;
 };
 
 export function notificationWorkerPaths(
@@ -20,9 +22,11 @@ export function notificationWorkerPaths(
   const home = environment.HOME || os.homedir();
   const configHome = environment.XDG_CONFIG_HOME || path.join(home, ".config");
   const stateHome = environment.XDG_STATE_HOME || path.join(home, ".local", "state");
+  const socketPath = resolveOmpAttentionSocketPath(environment);
   return {
     configPath: path.join(configHome, "omarchy", "aperture", "config.json"),
     stateDir: path.join(stateHome, "omarchy", "aperture"),
+    ...(socketPath ? { socketPath } : {}),
   };
 }
 

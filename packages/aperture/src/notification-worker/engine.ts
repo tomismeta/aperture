@@ -9,6 +9,8 @@ import {
 
 import { projectAttentionSurfaceView } from "../surface/projection.js";
 import type { ApertureSurfaceSnapshotMessage } from "../surface/protocol.js";
+import type { OmpAttentionEvent } from "../omp-attention-event.js";
+import type { ApertureSurfaceNavigation } from "../surface/protocol.js";
 import {
   mapNotificationToSourceEvent,
   NOTIFICATION_PUBLIC_SUMMARY,
@@ -16,6 +18,15 @@ import {
   type NotificationWorkerIdentity,
 } from "./adapter.js";
 import type { NotificationClosedInput, NotificationWorkerInput } from "./protocol.js";
+import { mapOmpDirectEvent, type MappedOmpDirectEvent } from "./omp-direct-adapter.js";
+import {
+  emptyOmpDirectState,
+  loadOmpDirectState,
+  ompDirectRecordCount,
+  saveOmpDirectState,
+  type OmpDirectPersistedState,
+  type PersistedOmpDirectEntry,
+} from "./omp-direct-state-store.js";
 import {
   emptyNotificationWorkerState,
   loadNotificationWorkerState,
@@ -56,6 +67,10 @@ export class NotificationWorkerEngine {
   private state: NotificationWorkerPersistedState;
   private readonly activeByKey = new Map<string, PersistedActiveNotification>();
   private readonly displayTitleByTaskId = new Map<string, string>();
+  private directState: OmpDirectPersistedState;
+  private readonly directByKey = new Map<string, PersistedOmpDirectEntry>();
+  private readonly navigationByTaskId = new Map<string, ApertureSurfaceNavigation>();
+  private readonly notificationTaskIds = new Set<string>();
   private sequence = 0;
 
   private constructor(options: NotificationWorkerEngineOptions) {
@@ -65,16 +80,24 @@ export class NotificationWorkerEngine {
     this.coreClock = { value: this.now() };
     this.core = this.createCore();
     this.state = emptyNotificationWorkerState();
+    this.directState = emptyOmpDirectState();
   }
 
   static async restore(
     options: NotificationWorkerEngineOptions,
   ): Promise<NotificationWorkerEngineRestore> {
     const engine = new NotificationWorkerEngine(options);
-    const loaded = await loadNotificationWorkerState(options.stateDir, engine.now());
+    const [loaded, direct] = await Promise.all([
+      loadNotificationWorkerState(options.stateDir, engine.now()),
+      loadOmpDirectState(options.stateDir, engine.now()),
+    ]);
     engine.state = loaded.state;
+    engine.directState = direct.state;
     engine.replayState();
-    return { engine, recoveredCorruptState: loaded.recoveredCorruptState };
+    return {
+      engine,
+      recoveredCorruptState: loaded.recoveredCorruptState || direct.recoveredCorruptState,
+    };
   }
 
   getAcceptedSourceCount(): number {
@@ -89,10 +112,12 @@ export class NotificationWorkerEngine {
           kind: identity.kind,
           label: identity.label,
         })),
-        attentionView: projectNotificationDisplayView(
+        attentionView: projectWorkerDisplayView(
           this.core.getAttentionView(),
           this.displayTitleByTaskId,
+          this.notificationTaskIds,
         ),
+        navigationByTaskId: this.navigationByTaskId,
       },
       this.sequence,
     );
@@ -136,6 +161,45 @@ export class NotificationWorkerEngine {
     return true;
   }
 
+  async handleOmpAttention(event: OmpAttentionEvent): Promise<void> {
+    const mapped = mapOmpDirectEvent(event);
+    if (mapped.kind === "shutdown") {
+      const active = this.directState.active.filter(
+        (entry) => entry.navigation.sessionId === mapped.sessionId,
+      );
+      for (const entry of active) {
+        this.cancelDirect(entry, mapped.eventId, mapped.occurredAt, "OMP session shut down");
+      }
+      if (active.length > 0) await this.persistDirect();
+      return;
+    }
+
+    const previous = this.directByKey.get(mapped.key);
+    if (mapped.kind === "resolve") {
+      if (!previous) return;
+      this.cancelDirect(previous, mapped.eventId, mapped.occurredAt, "OMP request resolved");
+      await this.persistDirect();
+      return;
+    }
+
+    const previousRevision = previous ? latestDirectRevision(previous) : undefined;
+    if (
+      previousRevision &&
+      previousRevision.displayTitle === mapped.displayTitle &&
+      JSON.stringify(previousRevision.sourceEvent) === JSON.stringify(mapped.sourceEvent)
+    ) {
+      return;
+    }
+
+    this.setClock(mapped.occurredAt);
+    this.core.publishSourceEvent(mapped.sourceEvent);
+    const active = persistedDirect(mapped, previous);
+    const index = this.directState.active.findIndex((entry) => entry.key === mapped.key);
+    if (index === -1) this.directState.active.push(active);
+    else this.directState.active[index] = active;
+    await this.persistDirect();
+  }
+
   private async closeNotification(input: NotificationClosedInput): Promise<void> {
     const active = this.activeByKey.get(input.key);
     if (!active) return;
@@ -169,6 +233,23 @@ export class NotificationWorkerEngine {
     await this.persist(true);
   }
 
+  private cancelDirect(
+    active: PersistedOmpDirectEntry,
+    eventId: string,
+    occurredAt: string,
+    reason: string,
+  ): void {
+    this.setClock(occurredAt);
+    this.core.publishSourceEvent({
+      id: `${eventId}:${active.taskId}`,
+      taskId: active.taskId,
+      timestamp: occurredAt,
+      type: "task.cancelled",
+      reason,
+    });
+    this.directState.active = this.directState.active.filter((entry) => entry.key !== active.key);
+  }
+
   private createCore(): ApertureCore {
     return new ApertureCore({
       surfaceCapabilities: NOTIFICATION_SURFACE_CAPABILITIES,
@@ -179,7 +260,10 @@ export class NotificationWorkerEngine {
   private replayState(): void {
     this.core = this.createCore();
     this.activeByKey.clear();
+    this.directByKey.clear();
     this.displayTitleByTaskId.clear();
+    this.navigationByTaskId.clear();
+    this.notificationTaskIds.clear();
     const replay = [
       ...this.state.active.flatMap((entry) =>
         entry.revisions.map((revision, index) => ({
@@ -188,7 +272,21 @@ export class NotificationWorkerEngine {
             this.core.publishSourceEvent(revision.sourceEvent);
             if (index === entry.revisions.length - 1) {
               this.activeByKey.set(entry.key, entry);
+              this.notificationTaskIds.add(entry.taskId);
               this.displayTitleByTaskId.set(entry.taskId, revision.displayTitle);
+            }
+          },
+        })),
+      ),
+      ...this.directState.active.flatMap((entry) =>
+        entry.revisions.map((revision, index) => ({
+          timestamp: revision.occurredAt,
+          apply: () => {
+            this.core.publishSourceEvent(revision.sourceEvent);
+            if (index === entry.revisions.length - 1) {
+              this.directByKey.set(entry.key, entry);
+              this.displayTitleByTaskId.set(entry.taskId, revision.displayTitle);
+              this.navigationByTaskId.set(entry.taskId, entry.navigation);
             }
           },
         })),
@@ -218,11 +316,34 @@ export class NotificationWorkerEngine {
       this.replayState();
       return;
     }
+    this.rebuildIndexes();
+  }
+
+  private async persistDirect(): Promise<void> {
+    const recordCount = ompDirectRecordCount(this.directState);
+    this.directState = await saveOmpDirectState(this.stateDir, this.directState, this.now());
+    if (ompDirectRecordCount(this.directState) !== recordCount) {
+      this.replayState();
+      return;
+    }
+    this.rebuildIndexes();
+  }
+
+  private rebuildIndexes(): void {
     this.activeByKey.clear();
+    this.directByKey.clear();
     this.displayTitleByTaskId.clear();
+    this.navigationByTaskId.clear();
+    this.notificationTaskIds.clear();
     for (const active of this.state.active) {
       this.activeByKey.set(active.key, active);
+      this.notificationTaskIds.add(active.taskId);
       this.displayTitleByTaskId.set(active.taskId, latestRevision(active).displayTitle);
+    }
+    for (const active of this.directState.active) {
+      this.directByKey.set(active.key, active);
+      this.displayTitleByTaskId.set(active.taskId, latestDirectRevision(active).displayTitle);
+      this.navigationByTaskId.set(active.taskId, active.navigation);
     }
   }
 }
@@ -244,31 +365,62 @@ function persistedActive(
   };
 }
 
+function persistedDirect(
+  mapped: Extract<MappedOmpDirectEvent, { kind: "upsert" }>,
+  previous: PersistedOmpDirectEntry | undefined,
+): PersistedOmpDirectEntry {
+  return {
+    key: mapped.key,
+    taskId: mapped.taskId,
+    interactionId: mapped.interactionId,
+    navigation: mapped.navigation,
+    revisions: [
+      ...(previous?.revisions ?? []),
+      {
+        occurredAt: mapped.occurredAt,
+        displayTitle: mapped.displayTitle,
+        sourceEvent: mapped.sourceEvent,
+      },
+    ],
+  };
+}
+
+function latestDirectRevision(active: PersistedOmpDirectEntry) {
+  const revision = active.revisions.at(-1);
+  if (!revision) throw new Error("OMP direct active state has no revision");
+  return revision;
+}
+
 function latestRevision(active: PersistedActiveNotification): PersistedNotificationRevision {
   const revision = active.revisions.at(-1);
   if (!revision) throw new Error("notification worker active state has no revision");
   return revision;
 }
 
-function projectNotificationDisplayView(
+function projectWorkerDisplayView(
   view: AttentionView,
   displayTitleByTaskId: ReadonlyMap<string, string>,
+  notificationTaskIds: ReadonlySet<string>,
 ): AttentionView {
+  const project = (frame: AttentionFrame) =>
+    projectWorkerDisplayFrame(frame, displayTitleByTaskId, notificationTaskIds);
   return {
-    now: view.now ? projectNotificationDisplayFrame(view.now, displayTitleByTaskId) : null,
-    next: view.next.map((frame) => projectNotificationDisplayFrame(frame, displayTitleByTaskId)),
-    ambient: view.ambient.map((frame) =>
-      projectNotificationDisplayFrame(frame, displayTitleByTaskId),
-    ),
+    now: view.now ? project(view.now) : null,
+    next: view.next.map(project),
+    ambient: view.ambient.map(project),
   };
 }
 
-function projectNotificationDisplayFrame(
+function projectWorkerDisplayFrame(
   frame: AttentionFrame,
   displayTitleByTaskId: ReadonlyMap<string, string>,
+  notificationTaskIds: ReadonlySet<string>,
 ): AttentionFrame {
   const displayTitle = displayTitleByTaskId.get(frame.taskId);
   if (!displayTitle) return frame;
+  if (!notificationTaskIds.has(frame.taskId)) {
+    return { ...frame, title: displayTitle };
+  }
   const { provenance: _provenance, ...withoutProvenance } = frame;
   return {
     ...withoutProvenance,

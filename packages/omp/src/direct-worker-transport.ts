@@ -1,0 +1,139 @@
+import { createConnection } from "node:net";
+
+import {
+  resolveOmpAttentionSocketPath,
+  serializeOmpAttentionEvent,
+  type OmpAttentionEvent,
+} from "@tomismeta/aperture/omp-attention-event";
+
+const CONNECT_TIMEOUT_MS = 75;
+const RESPONSE_TIMEOUT_MS = 200;
+const MAXIMUM_RESPONSE_BYTES = 4 * 1024;
+
+export type OmpDirectWorkerTransportOptions = {
+  socketPath?: string;
+  environment?: NodeJS.ProcessEnv;
+  connect?: typeof createConnection;
+  connectTimeoutMs?: number;
+  responseTimeoutMs?: number;
+};
+
+export class OmpDirectWorkerTransport {
+  private readonly socketPath: string | undefined;
+  private readonly connect: typeof createConnection;
+  private readonly connectTimeoutMs: number;
+  private readonly responseTimeoutMs: number;
+
+  constructor(options: OmpDirectWorkerTransportOptions = {}) {
+    this.socketPath =
+      options.socketPath ?? resolveOmpAttentionSocketPath(options.environment ?? process.env);
+    this.connect = options.connect ?? createConnection;
+    this.connectTimeoutMs = options.connectTimeoutMs ?? CONNECT_TIMEOUT_MS;
+    this.responseTimeoutMs = options.responseTimeoutMs ?? RESPONSE_TIMEOUT_MS;
+  }
+
+  async isAvailable(): Promise<boolean> {
+    if (!this.socketPath) return false;
+    return new Promise<boolean>((resolve) => {
+      const socket = this.connect({ path: this.socketPath! });
+      const timeout = setTimeout(() => finish(false), this.connectTimeoutMs);
+      const finish = (available: boolean): void => {
+        clearTimeout(timeout);
+        socket.removeAllListeners();
+        socket.destroy();
+        resolve(available);
+      };
+      socket.once("connect", () => finish(true));
+      socket.once("error", () => finish(false));
+    });
+  }
+
+  async send(event: OmpAttentionEvent): Promise<void> {
+    if (!this.socketPath) throw new Error("Aperture worker socket is unavailable");
+    const line = serializeOmpAttentionEvent(event);
+    await new Promise<void>((resolve, reject) => {
+      const socket = this.connect({ path: this.socketPath! });
+      let settled = false;
+      let response = Buffer.alloc(0);
+      let responseTimer: NodeJS.Timeout | undefined;
+      const connectTimer = setTimeout(
+        () => finish(new Error("Aperture worker socket connection timed out")),
+        this.connectTimeoutMs,
+      );
+
+      const finish = (error?: Error): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(connectTimer);
+        clearTimeout(responseTimer);
+        socket.removeAllListeners();
+        socket.destroy();
+        if (error) reject(error);
+        else resolve();
+      };
+
+      socket.once("connect", () => {
+        clearTimeout(connectTimer);
+        responseTimer = setTimeout(
+          () => finish(new Error("Aperture worker socket response timed out")),
+          this.responseTimeoutMs,
+        );
+        socket.write(line, "utf8", (error) => {
+          if (error) finish(new Error("Aperture worker socket write failed"));
+        });
+      });
+      socket.on("data", (chunk: Buffer) => {
+        if (response.byteLength + chunk.byteLength > MAXIMUM_RESPONSE_BYTES) {
+          finish(new Error("Aperture worker socket response exceeded the byte limit"));
+          return;
+        }
+        response = Buffer.concat([response, chunk]);
+        const newline = response.indexOf(0x0a);
+        if (newline === -1) return;
+        try {
+          const acknowledgement = parseAcknowledgement(
+            response.subarray(0, newline).toString("utf8"),
+          );
+          if (acknowledgement.eventId !== event.eventId) {
+            finish(new Error("Aperture worker acknowledgement identity mismatch"));
+            return;
+          }
+          finish();
+        } catch {
+          finish(new Error("Aperture worker acknowledgement was invalid"));
+        }
+      });
+      socket.once("error", () => finish(new Error("Aperture worker socket delivery failed")));
+      socket.once("close", () => {
+        if (!settled) finish(new Error("Aperture worker socket closed before acknowledgement"));
+      });
+    });
+  }
+
+  async close(): Promise<void> {}
+}
+
+type OmpDirectAcknowledgement = {
+  schemaVersion: 1;
+  status: "accepted";
+  eventId: string;
+};
+
+function parseAcknowledgement(line: string): OmpDirectAcknowledgement {
+  const value: unknown = JSON.parse(line);
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("invalid acknowledgement");
+  }
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  if (
+    JSON.stringify(keys) !== JSON.stringify(["eventId", "schemaVersion", "status"]) ||
+    record.schemaVersion !== 1 ||
+    record.status !== "accepted" ||
+    typeof record.eventId !== "string" ||
+    !record.eventId
+  ) {
+    throw new Error("invalid acknowledgement");
+  }
+  return record as OmpDirectAcknowledgement;
+}

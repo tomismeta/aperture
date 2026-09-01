@@ -62,11 +62,7 @@
             "type": { "const": "connection" },
             "state": { "const": "disconnected" },
             "reason": {
-              "enum": [
-                "runtime_unavailable",
-                "authentication_failed",
-                "connection_failed"
-              ]
+              "enum": ["runtime_unavailable", "authentication_failed", "connection_failed"]
             }
           }
         }
@@ -88,6 +84,20 @@
       "properties": {
         "kind": { "$ref": "#/$defs/kind" },
         "label": { "$ref": "#/$defs/label" }
+      }
+    },
+    "navigation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "sessionId"],
+      "properties": {
+        "kind": { "enum": ["omp-session"] },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        }
       }
     },
     "contextItem": {
@@ -125,6 +135,7 @@
         "title": { "type": "string", "minLength": 1, "maxLength": 200 },
         "summary": { "type": "string", "maxLength": 600 },
         "source": { "$ref": "#/$defs/frameSource" },
+        "navigation": { "$ref": "#/$defs/navigation" },
         "context": {
           "type": "object",
           "additionalProperties": false,

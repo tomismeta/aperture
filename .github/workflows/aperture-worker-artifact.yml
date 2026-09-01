@@ -53,7 +53,10 @@ jobs:
           --output-dir "$RUNNER_TEMP/aperture-worker"
 
       - name: Run worker contract tests
-        run: pnpm exec tsx --test packages/aperture/test/notification-worker.test.ts
+        run: >-
+          pnpm exec tsx --test
+          packages/aperture/test/notification-worker.test.ts
+          packages/aperture/test/omp-direct-worker.test.ts
       - name: Run OMP adapter contract tests
         run: pnpm --dir packages/omp test
 
@@ -62,6 +65,11 @@ jobs:
           pnpm --dir packages/aperture smoke:attention-worker --
           --worker "$RUNNER_TEMP/aperture-worker/lib/aperture-attention-engine.cjs"
           --report "$RUNNER_TEMP/reports/node-22.json"
+      - name: Smoke direct transport on Node 22
+        run: >-
+          pnpm --dir packages/aperture smoke:omp-direct-worker --
+          --worker "$RUNNER_TEMP/aperture-worker/lib/aperture-attention-engine.cjs"
+          --report "$RUNNER_TEMP/reports/direct-node-22.json"
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v4
@@ -74,6 +82,11 @@ jobs:
           pnpm --dir packages/aperture smoke:attention-worker --
           --worker "$RUNNER_TEMP/aperture-worker/lib/aperture-attention-engine.cjs"
           --report "$RUNNER_TEMP/reports/node-24.json"
+      - name: Smoke direct transport on Node 24
+        run: >-
+          pnpm --dir packages/aperture smoke:omp-direct-worker --
+          --worker "$RUNNER_TEMP/aperture-worker/lib/aperture-attention-engine.cjs"
+          --report "$RUNNER_TEMP/reports/direct-node-24.json"
 
       - name: Setup current Omarchy Node
         uses: actions/setup-node@v4
@@ -86,12 +99,31 @@ jobs:
           pnpm --dir packages/aperture smoke:attention-worker --
           --worker "$RUNNER_TEMP/aperture-worker/lib/aperture-attention-engine.cjs"
           --report "$RUNNER_TEMP/reports/node-current.json"
+      - name: Smoke direct transport on current Node
+        run: >-
+          pnpm --dir packages/aperture smoke:omp-direct-worker --
+          --worker "$RUNNER_TEMP/aperture-worker/lib/aperture-attention-engine.cjs"
+          --report "$RUNNER_TEMP/reports/direct-node-current.json"
       - name: Smoke exact OMP extension artifact
         run: >-
           pnpm --dir packages/aperture smoke:omp-extension --
           --extension "$RUNNER_TEMP/aperture-worker/integrations/omp/aperture-omp-extension.mjs"
           --manifest "$RUNNER_TEMP/aperture-worker/integrations/omp/package.json"
           --report "$RUNNER_TEMP/reports/omp-adapter.json"
+
+      - name: Setup Bun for OMP host matrix
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Validate actual OMP host matrix
+        run: >-
+          pnpm --dir packages/aperture smoke:omp-host-direct --
+          --worker "$RUNNER_TEMP/aperture-worker/lib/aperture-attention-engine.cjs"
+          --extension "$RUNNER_TEMP/aperture-worker/integrations/omp/aperture-omp-extension.mjs"
+          --omp-version 18.0.11
+          --omp-version 18.1.1
+          --report "$RUNNER_TEMP/reports/omp-host-matrix.json"
 
       - name: Attest worker and OMP extension provenance
         id: provenance
@@ -108,6 +140,10 @@ jobs:
           --node-report "$RUNNER_TEMP/reports/node-22.json"
           --node-report "$RUNNER_TEMP/reports/node-24.json"
           --node-report "$RUNNER_TEMP/reports/node-current.json"
+          --direct-report "$RUNNER_TEMP/reports/direct-node-22.json"
+          --direct-report "$RUNNER_TEMP/reports/direct-node-24.json"
+          --direct-report "$RUNNER_TEMP/reports/direct-node-current.json"
+          --omp-host-report "$RUNNER_TEMP/reports/omp-host-matrix.json"
           --attestation-reference "${{ steps.provenance.outputs.attestation-url }}"
           --omp-report "$RUNNER_TEMP/reports/omp-adapter.json"
 
@@ -125,6 +161,12 @@ jobs:
             .runtimeDependencies.status == "passed" and
             (.runtimeDependencies.imports | all(startswith("node:"))) and
             (.validation.nodeCompatibility | length) == 3 and
+            (.validation.directNodeCompatibility | length) == 3 and
+            .validation.ompHostProofId == "aperture-omp-host-direct-compatibility-v1" and
+            .integrations.omp.hostCompatibility.status == "passed" and
+            .validation.directTransportProofId == "aperture-omp-direct-transport-conformance-v1" and
+            .validation.directPrivacyProofId == "aperture-omp-direct-privacy-v1" and
+            .validation.navigationProofId == "aperture-omp-session-navigation-v1" and
             .integrations.omp.validation.status == "passed" and
             .integrations.omp.runtimeDependencies.status == "passed" and
             (.integrations.omp.runtimeDependencies.imports | all(startswith("node:"))) and

@@ -8,6 +8,7 @@ import type { OmpEventSink } from "./bind.js";
 import {
   mapOmpNotificationTransitions,
   type OmpNotificationClass,
+  type OmpNotificationTransition,
 } from "./notification-mapping.js";
 import type { OmpEvent, OmpMappingContext } from "./types.js";
 
@@ -53,11 +54,22 @@ export class OmarchyNotificationTransport implements OmpEventSink {
   }
 
   async handle(event: OmpEvent, context: OmpMappingContext): Promise<void> {
+    await this.deliverTransitions(mapOmpNotificationTransitions(event, context), true);
+  }
+
+  async handleClosures(event: OmpEvent, context: OmpMappingContext): Promise<void> {
+    await this.deliverTransitions(mapOmpNotificationTransitions(event, context), false);
+  }
+
+  private async deliverTransitions(
+    transitions: OmpNotificationTransition[],
+    allowUpserts: boolean,
+  ): Promise<void> {
     this.pruneExpired();
-    const transitions = mapOmpNotificationTransitions(event, context);
     for (const transition of transitions) {
       switch (transition.kind) {
         case "upsert": {
+          if (!allowUpserts) break;
           const existing = this.active.get(transition.key);
           const args = [
             "--app-name",

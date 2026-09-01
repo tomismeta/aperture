@@ -1,5 +1,10 @@
 export { bindOmpExtension, type OmpEventSink } from "./bind.js";
 export { createApertureOmpExtension, type ApertureOmpExtensionOptions } from "./extension.js";
+export { mapOmpDirectAttentionEvents } from "./direct-event-mapping.js";
+export {
+  OmpDirectWorkerTransport,
+  type OmpDirectWorkerTransportOptions,
+} from "./direct-worker-transport.js";
 export {
   contextFromOmpExtension,
   createOmpInstanceKey,
@@ -13,6 +18,10 @@ export {
   type OmpNotificationClass,
   type OmpNotificationTransition,
 } from "./notification-mapping.js";
+export {
+  OmarchyAttentionTransport,
+  type OmarchyAttentionTransportOptions,
+} from "./omarchy-attention-transport.js";
 export {
   OmarchyNotificationTransport,
   type OmarchyNotificationTransportOptions,

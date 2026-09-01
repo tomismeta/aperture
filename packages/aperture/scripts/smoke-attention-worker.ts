@@ -46,7 +46,7 @@ try {
   );
 
   const eventKey = "generation:smoke-1";
-  const occurredAt = Date.parse("2026-08-31T16:00:00.000Z");
+  const occurredAt = Date.now() - 60_000;
   const eventLines = ambientCases.map((summary, index) =>
     JSON.stringify({
       type: index === 0 ? "notification.observed" : "notification.updated",
@@ -80,6 +80,7 @@ try {
   assert.equal(first.messages[0]?.worker, "aperture-attention-engine");
   assert.deepEqual(first.messages[0]?.capabilities, {
     notificationInput: true,
+    ompDirectInput: true,
     snapshots: true,
     responses: false,
   });
@@ -215,6 +216,7 @@ type SmokeWorkerMessage = {
   sequence?: number;
   capabilities?: {
     notificationInput?: boolean;
+    ompDirectInput?: boolean;
     snapshots?: boolean;
     responses?: boolean;
   };

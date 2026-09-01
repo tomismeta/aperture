@@ -9,6 +9,8 @@
   },
   "include": [
     "packages/aperture/src/work.ts",
+    "packages/aperture/src/omp-attention-event.ts",
+    "packages/aperture/src/omp-attention-event.schema.json",
     "packages/aperture/src/work-event.schema.json",
     "packages/aperture/src/work-event-batch.schema.json"
   ]

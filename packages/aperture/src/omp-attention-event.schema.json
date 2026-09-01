@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tomismeta:aperture:omp-attention-event:v1",
+  "title": "Aperture OMP Attention Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "type",
+    "eventId",
+    "occurredAt",
+    "sessionId",
+    "classification",
+    "title",
+    "summary",
+    "transition"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "type": { "const": "omp.attention-event" },
+    "eventId": { "$ref": "#/$defs/opaqueId" },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "sessionId": { "$ref": "#/$defs/sessionId" },
+    "turnId": { "$ref": "#/$defs/opaqueId" },
+    "interactionId": { "$ref": "#/$defs/opaqueId" },
+    "classification": {
+      "enum": [
+        "approval_requested",
+        "approval_resolved",
+        "input_requested",
+        "input_resolved",
+        "tool_failure",
+        "provider_failure",
+        "turn_completed",
+        "session_stop_failure",
+        "session_shutdown",
+        "status_updated"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 320,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "transition": {
+      "enum": ["requested", "resolved", "failed", "completed", "stopped", "shutdown", "updated"]
+    },
+    "status": { "enum": ["running", "waiting", "blocked", "completed", "failed"] }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "classification": {
+            "enum": ["approval_requested", "approval_resolved", "input_requested", "input_resolved"]
+          }
+        },
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": { "interactionId": { "$ref": "#/$defs/opaqueId" } },
+        "required": ["interactionId"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "classification": { "const": "status_updated" } },
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": {
+          "status": { "enum": ["running", "waiting", "blocked", "completed", "failed"] }
+        },
+        "required": ["status"]
+      },
+      "else": { "not": { "required": ["status"] } }
+    },
+    {
+      "if": {
+        "properties": {
+          "classification": { "enum": ["approval_requested", "input_requested"] }
+        },
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": { "transition": { "const": "requested" } }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "classification": { "enum": ["approval_resolved", "input_resolved"] }
+        },
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": { "transition": { "const": "resolved" } }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "classification": {
+            "enum": ["tool_failure", "provider_failure", "session_stop_failure"]
+          }
+        },
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": { "transition": { "const": "failed" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "classification": { "const": "turn_completed" } },
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": { "transition": { "const": "completed" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "classification": { "const": "session_shutdown" } },
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": { "transition": { "const": "shutdown" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "classification": { "const": "status_updated" } },
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": { "transition": { "const": "updated" } }
+      }
+    }
+  ],
+  "$defs": {
+    "opaqueId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    }
+  }
+}

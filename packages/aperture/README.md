@@ -188,9 +188,12 @@ Desktop-shell integrations that own `ApertureCore` state use a separate
 bidirectional notification-worker contract rather than attach to an existing
 runtime. The dependency-free `dist/aperture-attention-engine.cjs` bundle targets
 Node 22 and is intended to run on the Node runtime supplied by the host
-platform. Its canonical schemas are exported as
-`@tomismeta/aperture/notification-worker-input.schema.json` and
-`@tomismeta/aperture/notification-worker-output.schema.json`.
+platform. Its canonical schemas are exported as:
+
+- `@tomismeta/aperture/notification-worker-input.schema.json`
+- `@tomismeta/aperture/notification-worker-output.schema.json`
+- `@tomismeta/aperture/surface-protocol.schema.json`
+- `@tomismeta/aperture/omp-attention-event.schema.json`
 
 `pnpm --dir packages/aperture build:attention-worker -- --output-dir <path>`
 stages the bundle, schemas, hashes, and BUILDINFO for a host integration. The
@@ -198,10 +201,22 @@ worker is integration build input, not a user-facing Aperture command, and
 requires no npm install or `node_modules` on the target machine.
 
 The staged payload also includes
-`integrations/omp/aperture-omp-extension.mjs`, a first-class OMP extension that
-can publish typed OMP events to a normal Aperture runtime or emit bounded
-adapter-owned Omarchy notifications for the self-contained desktop plugin.
-Shipping the extension does not automatically activate it in OMP.
+`integrations/omp/aperture-omp-extension.mjs`, a first-class OMP extension. When
+the worker owns `$XDG_RUNTIME_DIR/omarchy/aperture/attention.sock`, the extension
+sends bounded typed session events directly and suppresses the duplicate native
+notification only after worker acknowledgement. The worker alone feeds those
+facts into `ApertureCore`; Core remains the lane authority. If the socket is
+unavailable, the extension fails open to the existing `aperture-omp`
+notification transport, whose projection remains Ambient-only and has no
+session navigation. Shipping the extension does not automatically activate it
+in OMP.
+
+Direct-session releases use notification input schema `1`, notification output
+schema `2`, surface protocol `2`, and OMP attention event schema `1`. Hosts must
+install the schema-2 output validator before switching to the new worker.
+`navigation` is optional, so non-OMP and notification-fallback frames remain
+valid without it. The frozen `aperture-worker-v0.1.1` packet remains the
+notification-native fail-open fallback.
 
 ## Product State
 

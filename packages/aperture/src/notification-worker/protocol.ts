@@ -1,4 +1,6 @@
 import type { ApertureSurfaceSnapshotMessage } from "../surface/protocol.js";
+export const NOTIFICATION_WORKER_INPUT_SCHEMA_VERSION = 1;
+export const NOTIFICATION_WORKER_OUTPUT_SCHEMA_VERSION = 2;
 
 export const APERTURE_NOTIFICATION_WORKER_LIMITS = {
   inputLineBytes: 64 * 1024,
@@ -49,6 +51,7 @@ export type NotificationWorkerHello = {
   worker: "aperture-attention-engine";
   capabilities: {
     notificationInput: true;
+    ompDirectInput: true;
     snapshots: true;
     responses: false;
   };
@@ -92,6 +95,7 @@ export function notificationWorkerHello(packageVersion: string): NotificationWor
     worker: "aperture-attention-engine",
     capabilities: {
       notificationInput: true,
+      ompDirectInput: true,
       snapshots: true,
       responses: false,
     },

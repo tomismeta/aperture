@@ -24,6 +24,7 @@ async function main(): Promise<void> {
     packageVersion,
     identities: config.identities,
     stateDir,
+    ...(defaults.socketPath ? { socketPath: defaults.socketPath } : {}),
   });
 }
 

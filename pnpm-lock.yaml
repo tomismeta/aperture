@@ -93,6 +93,9 @@ importers:
       '@aperture/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@tomismeta/aperture':
+        specifier: workspace:*
+        version: link:../aperture
       '@tomismeta/aperture-core':
         specifier: workspace:*
         version: link:../core

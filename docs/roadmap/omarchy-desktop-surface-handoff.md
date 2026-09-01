@@ -343,9 +343,9 @@ Observed locally:
   events
 - private OMP 18.0.11 proof on Omarchy passed exact identity, lifecycle,
   fail-open fallback, replacement, privacy, replay, and Bun-free removal
-- signed tag `aperture-worker-v1.0.1` produced the trusted combined payload at
-  CI run `33503856041` with provenance attestation `44395727`
-- trusted CI reproduced worker SHA-256
+- the first signed worker release uses the repository-consistent
+  `aperture-worker-v0.1.0` component tag
+- trusted CI must reproduce worker SHA-256
   `a24ccd5f91c106a056ac48502e33cdfba85010efc7d2b54e085e915df2fbb294`
   and OMP SHA-256
   `4ed0828ece31c1d82c521c304b2670b6b6224359472dd9d2090cd01818c70268`

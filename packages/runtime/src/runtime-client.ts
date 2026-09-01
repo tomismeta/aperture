@@ -3,11 +3,7 @@ import type {
   AttentionSurfaceCapabilities,
   AttentionView,
 } from "@tomismeta/aperture-core";
-import type {
-  ApertureTrace,
-  AttentionSignalSummary,
-  AttentionState,
-} from "@tomismeta/aperture-core/internal";
+import type { AttentionSignalSummary, AttentionState } from "@tomismeta/aperture-core/internal";
 
 import type {
   ApertureRuntimeEvent,
@@ -16,6 +12,14 @@ import type {
   ApertureRuntimeSurfaceRole,
 } from "./runtime-contract.js";
 import { RuntimeAttachmentSession } from "./runtime-client-session.js";
+import {
+  RuntimeClientSubscriptions,
+  type ApertureRuntimeClientErrorListener,
+  type ApertureRuntimeSnapshotListener,
+  type AttentionViewListener,
+  type ResponseListener,
+  type TraceListener,
+} from "./runtime-client-subscriptions.js";
 import {
   createEmptyRuntimeSnapshot,
   DEFAULT_RUNTIME_POLL_INTERVAL_MS,
@@ -26,6 +30,11 @@ import {
   resolveRuntimeAuthToken,
   type RuntimeRequestOptions,
 } from "./runtime-client-shared.js";
+
+export type {
+  ApertureRuntimeClientErrorListener,
+  ApertureRuntimeSnapshotListener,
+} from "./runtime-client-subscriptions.js";
 
 export type ApertureRuntimeClientOptions = {
   baseUrl: string;
@@ -38,18 +47,11 @@ export type ApertureRuntimeClientOptions = {
   surfaceCapabilities?: PartialSurfaceCapabilities;
 };
 
-export type ApertureRuntimeClientErrorListener = (error: Error) => void;
-
 type PartialSurfaceCapabilities = {
   topology?: Partial<AttentionSurfaceCapabilities["topology"]>;
   responses?: Partial<AttentionSurfaceCapabilities["responses"]>;
 };
 const RUNTIME_DETACH_TIMEOUT_MS = 1_000;
-
-type AttentionViewListener = (attentionView: AttentionView) => void;
-export type ApertureRuntimeSnapshotListener = (snapshot: ApertureRuntimeSnapshot) => void;
-type ResponseListener = (response: AttentionResponse) => void;
-type TraceListener = (trace: ApertureTrace) => void;
 
 export class ApertureRuntimeClient {
   private readonly controlUrl: string;
@@ -60,11 +62,7 @@ export class ApertureRuntimeClient {
   private readonly surfaceCapabilities: PartialSurfaceCapabilities | undefined;
   private readonly explicitAuthToken: string | undefined;
   private readonly requestOptions: RuntimeRequestOptions;
-  private readonly attentionListeners = new Set<AttentionViewListener>();
-  private readonly snapshotListeners = new Set<ApertureRuntimeSnapshotListener>();
-  private readonly responseListeners = new Set<ResponseListener>();
-  private readonly traceListeners = new Set<TraceListener>();
-  private readonly errorListeners = new Set<ApertureRuntimeClientErrorListener>();
+  private readonly subscriptions = new RuntimeClientSubscriptions();
   private snapshotState: ApertureRuntimeSnapshot = createEmptyRuntimeSnapshot();
   private surfaceId: string | null = null;
   private authToken = "";
@@ -115,40 +113,23 @@ export class ApertureRuntimeClient {
   }
 
   subscribeAttentionView(listener: AttentionViewListener): () => void {
-    this.attentionListeners.add(listener);
-    listener(this.snapshotState.attentionView);
-    return () => {
-      this.attentionListeners.delete(listener);
-    };
+    return this.subscriptions.subscribeAttentionView(listener, this.snapshotState.attentionView);
   }
 
   subscribeSnapshot(listener: ApertureRuntimeSnapshotListener): () => void {
-    this.snapshotListeners.add(listener);
-    listener(this.getSnapshot());
-    return () => {
-      this.snapshotListeners.delete(listener);
-    };
+    return this.subscriptions.subscribeSnapshot(listener, this.getSnapshot());
   }
 
   onResponse(listener: ResponseListener): () => void {
-    this.responseListeners.add(listener);
-    return () => {
-      this.responseListeners.delete(listener);
-    };
+    return this.subscriptions.onResponse(listener);
   }
 
   onTrace(listener: TraceListener): () => void {
-    this.traceListeners.add(listener);
-    return () => {
-      this.traceListeners.delete(listener);
-    };
+    return this.subscriptions.onTrace(listener);
   }
 
   onError(listener: ApertureRuntimeClientErrorListener): () => void {
-    this.errorListeners.add(listener);
-    return () => {
-      this.errorListeners.delete(listener);
-    };
+    return this.subscriptions.onError(listener);
   }
 
   submit(response: AttentionResponse): void {
@@ -225,17 +206,7 @@ export class ApertureRuntimeClient {
         if (payload.stateVersion !== this.snapshotState.version) {
           await this.refreshState();
         }
-        for (const event of payload.events) {
-          if (event.type === "response") {
-            for (const listener of this.responseListeners) {
-              listener(event.response);
-            }
-            continue;
-          }
-          for (const listener of this.traceListeners) {
-            listener(event.trace);
-          }
-        }
+        for (const event of payload.events) this.subscriptions.emitEvent(event);
       },
       onError: (error) => this.reportError(error),
     });
@@ -248,12 +219,7 @@ export class ApertureRuntimeClient {
     this.snapshotState = snapshot;
     this.lastError = null;
     if (versionChanged) {
-      for (const listener of this.attentionListeners) {
-        listener(snapshot.attentionView);
-      }
-      for (const listener of this.snapshotListeners) {
-        listener(this.getSnapshot());
-      }
+      this.subscriptions.emitSnapshot(snapshot.attentionView, () => this.getSnapshot());
     }
   }
 
@@ -300,8 +266,6 @@ export class ApertureRuntimeClient {
   private reportError(error: unknown): void {
     const nextError = error instanceof Error ? error : new Error(String(error));
     this.lastError = nextError;
-    for (const listener of this.errorListeners) {
-      listener(nextError);
-    }
+    this.subscriptions.emitError(nextError);
   }
 }

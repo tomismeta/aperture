@@ -424,29 +424,16 @@ export class FocusBroker {
         ])
       ).trim();
       if (!/^\$\d{1,10}$/.test(sessionId)) throw new Error("invalid tmux session");
-      const clients = (
-        await this.tmuxRequest(target.socketPath, [
-          "list-clients", "-F", "#{client_name}\t#{session_id}",
-        ])
-      ).split(/\r?\n/).filter(Boolean).map((line) => line.split("\t"));
-      const matching = clients.filter((entry) => entry[1] === sessionId);
-      if (matching.length !== 1 || !matching[0]?.[0]) {
-        throw new Error("Aperture rejected ambiguous tmux clients");
-      }
+      const clientName = await this.soleTmuxClientForSession(
+        target.socketPath,
+        sessionId,
+      );
       const shared = [...this.leases.values()].find(
         (lease) =>
           lease.backendKind === "tmux" &&
           lease.tmux?.socketPath === target.socketPath &&
           lease.tmux.sessionId === sessionId,
       );
-      const clientName = matching[0]![0]!;
-      if (
-        clientName.length < 1 ||
-        clientName.length > 160 ||
-        !/^[\x20-\x7e]+$/.test(clientName)
-      ) {
-        throw new Error("Aperture rejected invalid tmux client identity");
-      }
       if (shared) {
         if (
           shared.compositorAddress !== target.hyprlandInstance ||
@@ -592,24 +579,39 @@ export class FocusBroker {
     throw new Error("Aperture focus marker did not resolve");
   }
 
+  private async soleTmuxClientForSession(
+    socketPath: string,
+    sessionId: string,
+  ): Promise<string> {
+    const names = (
+      await this.tmuxRequest(socketPath, [
+        "list-clients",
+        "-t",
+        sessionId,
+        "-F",
+        "#{client_name}",
+      ])
+    )
+      .split(/\r?\n/)
+      .filter((name) => name.length > 0);
+    if (names.length > 32) throw new Error("too many tmux clients");
+    const unique = [...new Set(names)];
+    if (unique.length !== names.length || unique.length !== 1) {
+      throw new Error("ambiguous tmux clients");
+    }
+    assertTmuxClientName(unique[0]!);
+    return unique[0]!;
+  }
+
   private async assertTmuxLease(lease: FocusClientLease): Promise<void> {
     const tmux = lease.tmux;
     if (!tmux) throw new Error("invalid tmux lease");
     await this.socketValidator(tmux.socketPath);
-    const clients = (
-      await this.tmuxRequest(tmux.socketPath, [
-        "list-clients",
-        "-F",
-        "#{client_name}\t#{session_id}",
-      ])
-    )
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => line.split("\t"));
-    const matching = clients.filter((entry) => entry[1] === tmux.sessionId);
-    if (matching.length !== 1 || matching[0]?.[0] !== tmux.clientName) {
-      throw new Error("changed tmux client");
-    }
+    const clientName = await this.soleTmuxClientForSession(
+      tmux.socketPath,
+      tmux.sessionId,
+    );
+    if (clientName !== tmux.clientName) throw new Error("changed tmux client");
     const enabled = await readTmuxOption(
       this.tmuxRequest,
       tmux.socketPath,
@@ -1002,6 +1004,12 @@ export class FocusBroker {
     return result;
   }
 }
+function assertTmuxClientName(value: string): void {
+  if (value.length < 1 || value.length > 160 || !/^[\x20-\x7e]+$/.test(value)) {
+    throw new Error("invalid tmux client identity");
+  }
+}
+
 function tmuxLine(output: string): string {
   const line = output.endsWith("\r\n")
     ? output.slice(0, -2)

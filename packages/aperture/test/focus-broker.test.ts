@@ -477,14 +477,14 @@ test("tmux backend uses fixed commands, shares refcount, focuses pane, and CAS r
   let explicitSetTitles = false;
   let explicitTitleString = true;
   let focusedPane = "%0";
-  let tmuxClientName = "/dev/pts/3";
+  let tmuxClientName = "/dev/pts/3 active";
   const commands: string[][] = [];
   const tmuxRequest = async (socket: string, args: string[]): Promise<string> => {
     assert.equal(socket, socketPath);
     commands.push([...args]);
     const command = args[0];
     if (command === "display-message" && args.includes("#{session_id}")) return "$0\n";
-    if (command === "list-clients") return `${tmuxClientName}\t$0\n`;
+    if (command === "list-clients") return `${tmuxClientName}\r\n`;
     if (command === "show-options") {
       const option = args.at(-1);
       const value = option === "set-titles" ? setTitles : titleString;
@@ -573,6 +573,13 @@ test("tmux backend uses fixed commands, shares refcount, focuses pane, and CAS r
   assert.equal(titleString, "");
   assert.equal(setTitles, "off");
   assert(commands.every((args) => ["display-message", "list-clients", "show-options", "set-option", "switch-client"].includes(args[0]!)));
+  assert(
+    commands.some(
+      (args) =>
+        JSON.stringify(args) ===
+        JSON.stringify(["list-clients", "-t", "$0", "-F", "#{client_name}"]),
+    ),
+  );
   const quotedTitle = ` # "quoted" \\ #{pane_id} `;
   titleString = quotedTitle;
   explicitTitleString = true;
@@ -587,12 +594,12 @@ test("tmux backend uses fixed commands, shares refcount, focuses pane, and CAS r
   });
   assert.equal(titleString, quotedTitle);
   await broker.register({ ...first, requestId: "tmux-client-replacement" });
-  tmuxClientName = "/dev/pts/4";
+  tmuxClientName = "/dev/pts/4 active";
   await assert.rejects(() =>
     broker.register({ ...first, requestId: "tmux-client-changed" }),
   );
   assert.equal(broker.navigationFor(handleA), undefined);
-  tmuxClientName = "/dev/pts/3";
+  tmuxClientName = "/dev/pts/3 active";
   await broker.register({ ...first, requestId: "tmux-mutation" });
   setTitles = "off";
   await assert.rejects(() =>
@@ -614,14 +621,15 @@ test("tmux backend uses fixed commands, shares refcount, focuses pane, and CAS r
 test("tmux backend rejects detached, multiple, and malformed client output", async () => {
   for (const clientsOutput of [
     "",
-    "client0\t$1\nclient1\t$1\n",
-    "malformed-without-session\n",
+    "client0\nclient1\n",
+    "client0\r\nclient0\r\n",
+    "bad\tname\n",
   ]) {
     const broker = new FocusBroker({
       randomToken: tokenFactory(),
       socketValidator: async () => undefined,
       tmuxRequest: async (_socket, args) => {
-        if (args[0] === "display-message") return "$1\n";
+        if (args[0] === "display-message") return "$0\n";
         if (args[0] === "list-clients") return clientsOutput;
         throw new Error("unexpected tmux continuation");
       },
@@ -638,7 +646,7 @@ test("tmux backend rejects detached, multiple, and malformed client output", asy
       target: {
         kind: "tmux",
         socketPath: "/run/user/1000/tmux.sock",
-        paneId: "%1",
+        paneId: "%0",
         hyprlandInstance: "instance_1",
       },
     }) as OmpFocusRegistration;

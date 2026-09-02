@@ -176,6 +176,8 @@ jobs:
             .validation.focusBackendReport == "evidence/focus-backends.json" and
             .workerContract.workerDirectProtocolVersion == 4 and
             .schemas.workerDirectMessage.version == 4 and
+            (.files | length) == 39 and
+            any(.files[]; .path == "config/identities.json") and
             .integrations.omp.validation.status == "passed" and
             .integrations.omp.runtimeDependencies.status == "passed" and
             (.integrations.omp.runtimeDependencies.imports | all(startswith("node:"))) and

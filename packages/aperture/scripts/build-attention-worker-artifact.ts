@@ -54,6 +54,17 @@ const ompFixtureNames = [
   "snapshot-resolved.json",
   "notification-fallback-ambient.json",
 ] as const;
+const identityConfig = {
+  schemaVersion: 1,
+  identities: [
+    {
+      id: "omp",
+      kind: "omp",
+      label: "OMP",
+      applicationNames: ["aperture-omp"],
+    },
+  ],
+} as const;
 
 const options = parseOptions(process.argv.slice(2));
 const outputRoot = path.resolve(
@@ -86,13 +97,18 @@ await rm(outputRoot, { recursive: true, force: true });
 const libraryRoot = path.join(outputRoot, "lib");
 const schemaRoot = path.join(outputRoot, "schemas");
 const evidenceRoot = path.join(outputRoot, "evidence");
+const configRoot = path.join(outputRoot, "config");
 const ompIntegrationRoot = path.join(outputRoot, "integrations", "omp");
 const ompFixtureRoot = path.join(outputRoot, "fixtures", "omp-direct");
 await mkdir(libraryRoot, { recursive: true });
 await mkdir(schemaRoot, { recursive: true });
 await mkdir(evidenceRoot, { recursive: true });
 await mkdir(ompIntegrationRoot, { recursive: true });
+await mkdir(configRoot, { recursive: true });
 await mkdir(ompFixtureRoot, { recursive: true });
+const stagedIdentityConfig = path.join(configRoot, "identities.json");
+await writeFile(stagedIdentityConfig, `${JSON.stringify(identityConfig, null, 2)}\n`, "utf8");
+await chmod(stagedIdentityConfig, 0o644);
 const stagedBundle = path.join(libraryRoot, workerBundleName);
 await copyFile(workerBundle, stagedBundle);
 await chmod(stagedBundle, 0o644);
@@ -185,6 +201,7 @@ const esbuildMetadata = JSON.parse(
   await readFile(requireFromScript.resolve("esbuild/package.json"), "utf8"),
 ) as { version?: unknown };
 const files = await Promise.all([
+  artifactFile(outputRoot, stagedIdentityConfig, "0644"),
   artifactFile(outputRoot, stagedBundle, "0644"),
   ...schemaNames.map((schemaName) =>
     artifactFile(outputRoot, path.join(schemaRoot, schemaName), "0644"),

@@ -69,7 +69,10 @@ test("worker lease keeps two authoritative panes focusable and clears after the 
         focusedPane = String(params.pane_id);
         return { type: "pane_focus", changed: true };
       }
-      return { focused_pane_id: focusedPane };
+      return {
+        type: "session_snapshot",
+        snapshot: { focused_pane_id: focusedPane },
+      };
     },
     hyprctlRequest: async (_instance, args) => {
       if (args[1] === "clients") return clients;
@@ -154,7 +157,10 @@ test("a second Foot client on one Herdr context invalidates and blocks rebind", 
         clients[foreground]!.title = foreground === 0 ? "first" : "second";
         return { type: "client_window_title", changed: true, reason: "cleared" };
       }
-      return { focused_pane_id: String(params.pane_id ?? "w2:p1") };
+      return {
+        type: "session_snapshot",
+        snapshot: { focused_pane_id: String(params.pane_id ?? "w2:p1") },
+      };
     },
     hyprctlRequest: async (_instance, args) =>
       args[1] === "clients" ? clients : { ...clients[foreground] },
@@ -216,7 +222,10 @@ test("revocation during pane confirmation fences compositor dispatch and focused
         client.title = "initial";
         return { type: "client_window_title", changed: true, reason: "cleared" };
       }
-      return { focused_pane_id: "w2:p1" };
+      return {
+        type: "session_snapshot",
+        snapshot: { focused_pane_id: "w2:p1" },
+      };
     },
     hyprctlRequest: async (_instance, args) => {
       if (args[1] === "clients") return [client];
@@ -262,7 +271,10 @@ test("title loss heartbeat removes navigation without setting or rebinding", asy
         client.title = "shape: dev";
         return { type: "client_window_title", changed: true, reason: "cleared" };
       }
-      return { focused_pane_id: "w2:p1" };
+      return {
+        type: "session_snapshot",
+        snapshot: { focused_pane_id: "w2:p1" },
+      };
     },
     hyprctlRequest: async (_instance, args) =>
       args[1] === "clients" ? [client] : client,
@@ -336,7 +348,12 @@ test("activewindow confirmation polls, times out stale, and honors cancellation"
           client.title = "initial";
           return { type: "client_window_title", changed: true, reason: "cleared" };
         }
-        if (method === "session.snapshot") return { focused_pane_id: "w2:p1" };
+        if (method === "session.snapshot") {
+          return {
+            type: "session_snapshot",
+            snapshot: { focused_pane_id: "w2:p1" },
+          };
+        }
         return { type: "pane_focus", changed: true };
       },
       hyprctlRequest: async (_instance, args) => {
@@ -377,6 +394,45 @@ test("activewindow confirmation polls, times out stale, and honors cancellation"
       assert.equal(renderedStages.includes(privateValue), false);
     }
     assert.equal(activeQueries, mode === "eventual" ? 2 : mode === "cancel" ? 1 : 41);
+    await broker.close();
+  }
+});
+
+test("session snapshot requires the strict nested Herdr envelope", async () => {
+  const malformed = [
+    { focused_pane_id: "w2:p1" },
+    { type: "snapshot", snapshot: { focused_pane_id: "w2:p1" } },
+    {
+      type: "session_snapshot",
+      snapshot: { focused_pane_id: "w2:p1" },
+      extra: true,
+    },
+  ];
+  for (const snapshotResult of malformed) {
+    const client = { address: "0xabc", class: "foot", title: "initial" };
+    const broker = new FocusBroker({
+      randomToken: tokenFactory(),
+      herdrRequest: async (_socket, method, params) => {
+        if (method === "pane.current") {
+          return { type: "pane_current", pane: { pane_id: params.caller_pane_id } };
+        }
+        if (method === "client.window_title.set") {
+          client.title = String(params.title);
+          return { type: "client_window_title", changed: true, reason: "set" };
+        }
+        if (method === "client.window_title.clear") {
+          client.title = "initial";
+          return { type: "client_window_title", changed: true, reason: "cleared" };
+        }
+        if (method === "session.snapshot") return snapshotResult;
+        return { type: "pane_focus", changed: true };
+      },
+      hyprctlRequest: async (_instance, args) =>
+        args[1] === "clients" ? [client] : client,
+    });
+    await broker.register(registration());
+    assert.equal(await broker.activate(handleA), "stale");
+    assert.equal(broker.navigationFor(handleA), undefined);
     await broker.close();
   }
 });

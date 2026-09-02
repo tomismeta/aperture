@@ -340,8 +340,13 @@ export class FocusBroker {
         pane_id: authoritativePaneId,
       });
       this.onDiagnostic("pane-snapshot");
-      const snapshot = await this.herdrRequest(record.herdrSocketPath, "session.snapshot", {});
-      if (snapshot.focused_pane_id !== authoritativePaneId) {
+      const snapshotResult = await this.herdrRequest(
+        record.herdrSocketPath,
+        "session.snapshot",
+        {},
+      );
+      const focusedPaneId = focusedPaneFromSnapshot(snapshotResult);
+      if (focusedPaneId !== authoritativePaneId) {
         await this.invalidate(record);
         return "stale";
       }
@@ -627,6 +632,26 @@ export class FocusBroker {
     );
     return result;
   }
+}
+
+function focusedPaneFromSnapshot(result: Record<string, unknown>): string {
+  if (
+    result.type !== "session_snapshot" ||
+    JSON.stringify(Object.keys(result).sort()) !==
+      JSON.stringify(["snapshot", "type"])
+  ) {
+    throw new Error("Herdr session snapshot envelope was invalid");
+  }
+  const snapshot = asRecord(result.snapshot);
+  const focusedPaneId = snapshot.focused_pane_id;
+  if (
+    typeof focusedPaneId !== "string" ||
+    focusedPaneId.length > 64 ||
+    !PANE_ID.test(focusedPaneId)
+  ) {
+    throw new Error("Herdr focused pane was invalid");
+  }
+  return focusedPaneId;
 }
 
 function exactMarkerClient(clients: FootClient[], markerTitle: string): FootClient | undefined {

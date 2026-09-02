@@ -87,7 +87,7 @@ test("Herdr focus context is exact and rejects unsupported terminal modes", () =
     assert.equal(resolveHerdrFocusContext({ ...valid, HERDR_PANE_ID: paneId }, true), undefined);
   }
 });
-test("direct Foot waits for auto-title, sets marker in order, and fails open on UI error", async () => {
+test("direct probe starts only at navigable handling and tolerates empty session name", async () => {
   class CapturingTransport extends OmpDirectWorkerTransport {
     rejectRegistration = false;
     constructor() {
@@ -107,7 +107,6 @@ test("direct Foot waits for auto-title, sets marker in order, and fails open on 
     direct: new CapturingTransport(),
     environment,
     stdoutIsTTY: true,
-    initialTitle: "Session name",
     ui: { setTitle: (title) => titles.push(title) },
     randomToken: (() => {
       let value = 0;
@@ -124,7 +123,6 @@ test("direct Foot waits for auto-title, sets marker in order, and fails open on 
     direct: rejectingTransport,
     environment,
     stdoutIsTTY: true,
-    initialTitle: "Session name",
     ui: { setTitle: (title) => renamedTitles.push(title) },
     randomToken: (() => {
       let value = 0;
@@ -143,7 +141,6 @@ test("direct Foot waits for auto-title, sets marker in order, and fails open on 
     direct: pendingTransport,
     environment,
     stdoutIsTTY: true,
-    initialTitle: "Session name",
     ui: { setTitle: (title) => pendingTitles.push(title) },
     randomToken: (() => {
       let value = 0;
@@ -168,28 +165,27 @@ test("direct Foot waits for auto-title, sets marker in order, and fails open on 
       direct: new UnsupportedTerminalTransport(),
       environment,
       stdoutIsTTY: true,
-      initialTitle: "Session name",
       ui: { setTitle: (title) => unsupportedTitles.push(title) },
     }),
     undefined,
   );
   assert.equal(unsupportedTitles.at(-1), "π");
   assert.equal(pendingTitles.at(-1), "π");
+  const emptyNameTitles: string[] = [];
+  const emptyNameHost = await OmpFocusHost.create({
+    direct: new CapturingTransport(),
+    environment,
+    stdoutIsTTY: true,
+    ui: { setTitle: (title) => emptyNameTitles.push(title) },
+  });
+  assert.ok(emptyNameHost);
+  assert.match(emptyNameTitles[0]!, /^Aperture Focus /);
+  await emptyNameHost.close();
   assert.equal(
     await OmpFocusHost.create({
       direct: new CapturingTransport(),
       environment,
       stdoutIsTTY: true,
-      ui: { setTitle: () => assert.fail("title must wait for session name") },
-    }),
-    undefined,
-  );
-  assert.equal(
-    await OmpFocusHost.create({
-      direct: new CapturingTransport(),
-      environment,
-      stdoutIsTTY: true,
-      initialTitle: "Session name",
       ui: { setTitle: () => { throw new Error("UI unavailable"); } },
     }),
     undefined,

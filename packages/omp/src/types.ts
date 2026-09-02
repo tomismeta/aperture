@@ -153,7 +153,6 @@ export type OmpExtensionApi = {
     event: string,
     handler: (event: OmpEvent, context: OmpExtensionContext) => Promise<void> | void,
   ): void;
-  getSessionName?: () => string | undefined;
   logger?: {
     warn?: (message: string, attributes?: Record<string, unknown>) => void;
   };

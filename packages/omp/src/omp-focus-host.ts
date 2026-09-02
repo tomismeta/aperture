@@ -21,7 +21,6 @@ export type OmpFocusHostOptions = {
   environment?: NodeJS.ProcessEnv;
   stdoutIsTTY?: boolean;
   ui?: { setTitle?: (title: string) => void };
-  initialTitle?: string;
   randomToken?: () => string;
   heartbeatIntervalMs?: number;
 };
@@ -57,13 +56,7 @@ export class OmpFocusHost {
     if (![hostGeneration, publicHandle].every((value) => /^[A-Za-z0-9_-]{32}$/.test(value))) {
       return undefined;
     }
-    const resolved = resolveFocusTarget(
-      environment,
-      stdoutIsTTY,
-      options.ui,
-      options.initialTitle,
-      token,
-    );
+    const resolved = resolveFocusTarget(environment, stdoutIsTTY, options.ui, token);
     if (!resolved) return undefined;
     const registration = assertOmpDirectMessage({
       schemaVersion: 3,
@@ -192,7 +185,6 @@ export function resolveHerdrFocusContext(
     environment,
     stdoutIsTTY,
     undefined,
-    undefined,
     () => "A".repeat(32),
   );
   return resolved?.target.kind === "herdr" ? resolved.target : undefined;
@@ -202,7 +194,6 @@ function resolveFocusTarget(
   environment: NodeJS.ProcessEnv,
   stdoutIsTTY: boolean,
   ui: { setTitle?: (title: string) => void } | undefined,
-  initialTitle: string | undefined,
   token: () => string,
 ): {
   target: OmpFocusTarget;
@@ -268,10 +259,6 @@ function resolveFocusTarget(
   }
   if (
     ui?.setTitle &&
-    initialTitle &&
-    initialTitle.trim() &&
-    Array.from(initialTitle).length <= 160 &&
-    !/[\u0000-\u001f\u007f]/.test(initialTitle) &&
     environment.TERM !== "dumb" &&
     environment.HERDR_ENV === undefined &&
     environment.TMUX === undefined &&

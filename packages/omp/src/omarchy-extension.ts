@@ -88,7 +88,6 @@ export function createApertureOmarchyOmpExtension(
               direct,
               ...focusHostOptions,
               ui: context.focusUi,
-              initialTitle: pi.getSessionName?.(),
             });
           }
           const focusHandle = focusHost?.focusHandle();

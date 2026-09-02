@@ -3,7 +3,7 @@ name: Aperture Worker Direct Release
 on:
   push:
     tags:
-      - "aperture-worker-v0.2.*"
+      - "aperture-worker-v0.3.*"
 
 permissions:
   contents: write
@@ -15,11 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      EXPECTED_SOURCE_TAG: aperture-worker-v0.2.0
+      EXPECTED_SOURCE_TAG: aperture-worker-v0.3.0
       SOURCE_TAG: ${{ github.ref_name }}
       SOURCE_COMMIT: ${{ github.sha }}
-      ARCHIVE_NAME: aperture-worker-v0.2.0.tar.gz
-      RELEASE_URL: https://github.com/${{ github.repository }}/releases/download/aperture-worker-v0.2.0/aperture-worker-v0.2.0.tar.gz
+      ARCHIVE_NAME: aperture-worker-v0.3.0.tar.gz
+      RELEASE_URL: https://github.com/${{ github.repository }}/releases/download/aperture-worker-v0.3.0/aperture-worker-v0.3.0.tar.gz
 
     steps:
       - name: Checkout signed source tag
@@ -138,7 +138,7 @@ jobs:
           --worker "$PAYLOAD_DIR/lib/aperture-attention-engine.cjs"
           --extension "$PAYLOAD_DIR/integrations/omp/aperture-omp-extension.mjs"
           --omp-version 18.0.11
-          --omp-version 18.1.1
+          --omp-version 18.1.2
           --report "$REPORT_DIR/omp-host-matrix.json"
 
       - name: Finalize canonical validation evidence
@@ -198,10 +198,10 @@ jobs:
             --owner=0 \
             --group=0 \
             --numeric-owner \
-            -cf "$PACKET_DIR/aperture-worker-v0.2.0.tar" \
+            -cf "$PACKET_DIR/aperture-worker-v0.3.0.tar" \
             -C "$PAYLOAD_DIR" \
             BUILDINFO.json config evidence fixtures integrations lib schemas
-          gzip -n "$PACKET_DIR/aperture-worker-v0.2.0.tar"
+          gzip -n "$PACKET_DIR/aperture-worker-v0.3.0.tar"
           test -f "$PACKET_DIR/$ARCHIVE_NAME"
           (cd "$PACKET_DIR" && sha256sum "$ARCHIVE_NAME" > "$ARCHIVE_NAME.sha256")
           buildinfo_sha=$(sha256sum "$PAYLOAD_DIR/BUILDINFO.json" | cut -d' ' -f1)
@@ -211,7 +211,7 @@ jobs:
         id: archive-provenance
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: ${{ runner.temp }}/release-packet/aperture-worker-v0.2.0.tar.gz
+          subject-path: ${{ runner.temp }}/release-packet/aperture-worker-v0.3.0.tar.gz
 
       - name: Write trusted release verification report
         run: >-
@@ -225,7 +225,7 @@ jobs:
       - name: Upload trusted release packet evidence
         uses: actions/upload-artifact@v4
         with:
-          name: aperture-worker-v0.2.0-release-packet
+          name: aperture-worker-v0.3.0-release-packet
           path: ${{ runner.temp }}/release-packet
           if-no-files-found: error
           compression-level: 0

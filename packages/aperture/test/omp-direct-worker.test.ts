@@ -27,6 +27,7 @@ import {
   loadOmpDirectState,
   ompDirectRecordCount,
   saveOmpDirectState,
+  migrateOmpDirectStateV1,
 } from "../src/notification-worker/omp-direct-state-store.js";
 import { runNotificationWorkerStdio } from "../src/notification-worker/stdio.js";
 import { assertApertureSurfaceMessage } from "../src/surface/protocol-validator.js";
@@ -297,6 +298,65 @@ test("notification fallback remains Ambient and cannot manufacture navigation", 
   assert.equal(snapshot.view.ambient[0]?.navigation, undefined);
 });
 
+test("v1 direct state migrates atomically to non-navigable v2 and rejects rollback", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-v1-migration-"));
+  const original = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => Date.parse(occurredAt),
+  });
+  await original.engine.handleOmpAttention(directEvent());
+  const statePath = path.join(root, "omp-direct-state.json");
+  const v2 = JSON.parse(await readFile(statePath, "utf8")) as {
+    active: Array<Record<string, unknown> & { sessionId: string }>;
+  };
+  const v1 = {
+    schemaVersion: 1,
+    active: v2.active.map(({ sessionId, ...entry }) => ({
+      ...entry,
+      navigation: { kind: "omp-session", sessionId },
+    })),
+  };
+  await writeFile(statePath, `${JSON.stringify(v1)}\n`, { mode: 0o600 });
+
+  const migrated = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => Date.parse(occurredAt),
+  });
+  assert.equal(migrated.recoveredCorruptState, false);
+  assert.equal(migrated.engine.snapshot().view.now?.title, directEvent().title);
+  assert.equal(migrated.engine.snapshot().view.now?.navigation, undefined);
+  const canonical = await readFile(statePath, "utf8");
+  assert.match(canonical, /\"schemaVersion\":2/);
+  assert.doesNotMatch(canonical, /navigation|focusHandle|marker|socketPath|compositor/);
+  assert.equal((await stat(statePath)).mode & 0o777, 0o600);
+
+  await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => Date.parse(occurredAt),
+  });
+  assert.equal(await readFile(statePath, "utf8"), canonical);
+  assert.throws(() => migrateOmpDirectStateV1(JSON.parse(canonical)), /v1 state schema/);
+
+  const malformed = {
+    ...v1,
+    active: v1.active.map((entry) => ({
+      ...entry,
+      navigation: { ...entry.navigation, marker: "private" },
+    })),
+  };
+  await writeFile(statePath, `${JSON.stringify(malformed)}\n`, { mode: 0o600 });
+  const recovered = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => Date.parse(occurredAt),
+  });
+  assert.equal(recovered.recoveredCorruptState, true);
+  assert.equal(recovered.engine.snapshot().view.now, null);
+});
+
 test("direct OMP persistence remains private and record-bounded", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-direct-bounds-"));
   const restored = await NotificationWorkerEngine.restore({
@@ -402,7 +462,7 @@ test("worker shutdown removes its direct OMP socket", async () => {
   });
   const ready = once(messages, "ready");
   const running = runNotificationWorkerStdio({
-    packageVersion: "0.6.0",
+    packageVersion: "0.7.0",
     identities: [identity],
     stateDir,
     socketPath,

@@ -38,6 +38,8 @@ fallbacks and unsupported tmux, screen, zellij, RPC, headless, and direct Foot
 contexts remain non-navigable. Herdr socket, pane, marker, host-generation,
 compositor, and toplevel address facts are volatile worker-private state and are
 never projected or persisted.
+Herdr pane IDs are bounded opaque identifiers, including base-style IDs such
+as `wA:p1`; Aperture never derives numeric workspace or pane semantics.
 
 When `omarchy-notification-send` is executable, the Omarchy extension disables
 OMP's built-in notifications process-locally to avoid duplicates. It restores

@@ -54,9 +54,10 @@ export async function loadOmpDirectState(
     }
     await chmod(statePath, 0o600);
     const parsed: unknown = JSON.parse(await readFile(statePath, "utf8"));
-    const validated = assertOmpDirectState(parsed);
+    const decoded = decodeOmpDirectState(parsed);
+    const validated = decoded.state;
     const bounded = fitStateToBounds(pruneOmpDirectState(validated, now));
-    if (JSON.stringify(bounded) !== JSON.stringify(validated)) {
+    if (decoded.migrated || JSON.stringify(bounded) !== JSON.stringify(validated)) {
       return {
         state: await saveOmpDirectState(rootDir, bounded, now),
         recoveredCorruptState: false,
@@ -107,14 +108,11 @@ export function pruneOmpDirectState(
   const active = state.active
     .map((entry) => ({
       ...entry,
-      revisions: entry.revisions
-        .filter((revision) => Date.parse(revision.occurredAt) >= cutoff)
-        .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt)),
+      revisions: entry.revisions.filter(
+        (revision) => Date.parse(revision.occurredAt) >= cutoff,
+      ),
     }))
-    .filter((entry) => entry.revisions.length > 0)
-    .sort((left, right) =>
-      left.revisions[0]!.occurredAt.localeCompare(right.revisions[0]!.occurredAt),
-    );
+    .filter((entry) => entry.revisions.length > 0);
   while (active.reduce((total, entry) => total + entry.revisions.length, 0) > MAXIMUM_RECORDS) {
     removeOldest(active);
   }
@@ -146,6 +144,49 @@ function removeOldest(active: PersistedOmpDirectEntry[]): boolean {
   revisions.shift();
   if (revisions.length === 0) active.splice(oldestIndex, 1);
   return true;
+}
+
+export function migrateOmpDirectStateV1(value: unknown): OmpDirectPersistedState {
+  const state = asRecord(value, "OMP direct state");
+  assertExactKeys(state, ["schemaVersion", "active"], "OMP direct state");
+  if (state.schemaVersion !== 1 || !Array.isArray(state.active)) {
+    throw new Error("OMP direct v1 state schema is unsupported");
+  }
+  const active = state.active.map((value) => {
+    const entry = asRecord(value, "OMP direct v1 active entry");
+    assertExactKeys(
+      entry,
+      ["key", "taskId", "interactionId", "navigation", "revisions"],
+      "OMP direct v1 active entry",
+    );
+    const navigation = asRecord(entry.navigation, "OMP direct v1 navigation");
+    assertExactKeys(navigation, ["kind", "sessionId"], "OMP direct v1 navigation");
+    if (navigation.kind !== "omp-session") {
+      throw new Error("OMP direct v1 navigation kind is invalid");
+    }
+    const migrated: PersistedOmpDirectEntry = {
+      key: storedText(entry.key, 160, "OMP direct key"),
+      taskId: storedText(entry.taskId, 160, "OMP direct taskId"),
+      interactionId: storedText(entry.interactionId, 160, "OMP direct interactionId"),
+      sessionId: assertOmpSessionId(navigation.sessionId),
+      revisions: Array.isArray(entry.revisions)
+        ? (entry.revisions as PersistedOmpDirectRevision[])
+        : [],
+    };
+    assertOmpDirectEntry(migrated);
+    return migrated;
+  });
+  return { schemaVersion: 2, active };
+}
+
+function decodeOmpDirectState(
+  value: unknown,
+): { state: OmpDirectPersistedState; migrated: boolean } {
+  const record = asRecord(value, "OMP direct state");
+  if (record.schemaVersion === 1) {
+    return { state: migrateOmpDirectStateV1(value), migrated: true };
+  }
+  return { state: assertOmpDirectState(value), migrated: false };
 }
 
 function assertOmpDirectState(value: unknown): OmpDirectPersistedState {

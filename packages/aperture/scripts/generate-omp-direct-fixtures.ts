@@ -84,7 +84,7 @@ const focusRegistration = assertOmpDirectMessage({
   publicHandle: focusHandle,
   hostGeneration: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
   herdrSocketPath: "/run/user/1000/herdr.sock",
-  paneId: "w2:p1",
+  paneId: "wA:p1",
   compositorAddress: "instance_1",
 });
 const focusActivation = {

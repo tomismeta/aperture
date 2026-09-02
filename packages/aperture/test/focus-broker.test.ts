@@ -241,6 +241,10 @@ test("revocation during pane confirmation fences compositor dispatch and focused
 });
 
 test("private registration accepts only context references and rejects extension markers", () => {
+  assert.equal(registration({ paneId: "wA:p1" }).paneId, "wA:p1");
+  for (const paneId of ["", "w:p1", "wA:p", "wA:p1\n", "/tmp/wA:p1", `w${"a".repeat(31)}:p1`]) {
+    assert.throws(() => registration({ paneId }), /pane context/);
+  }
   assert.throws(
     () => assertOmpDirectMessage({ ...registration(), marker: "A".repeat(32) }),
     /fields/,

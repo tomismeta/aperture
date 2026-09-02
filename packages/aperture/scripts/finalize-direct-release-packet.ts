@@ -2,10 +2,6 @@ import { createHash } from "node:crypto";
 import { chmod, lstat, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const WORKER_BYTES = 946_391;
-const WORKER_SHA256 = "7eeb7151ad5948bd12bfee6221d80930168fb5caecddf2d436eeb9be71b054b5";
-const OMP_BYTES = 33_069;
-const OMP_SHA256 = "e572c71c8849a7aa44a330a216eb95609952edebfcdd50907e4f5db09ad2a4ed";
 const WORKER_PROOF = "aperture-attention-worker-conformance-v1";
 const AMBIENT_PROOF = "notification-worker-ambient-ceiling-v1";
 const OMP_PROOF = "aperture-omp-adapter-conformance-v1";
@@ -124,7 +120,7 @@ async function validateMetadata(
   assert(buildInfo.sourceDirty === false, "combined release source must be clean");
   assert(buildInfo.apertureCommit === sourceCommit, "BUILDINFO source commit mismatch");
   assert(buildInfo.apertureSourceTag === sourceTag, "BUILDINFO source tag mismatch");
-  assert(buildInfo.aperturePackageVersion === "0.6.0", "invalid Aperture package version");
+  assert(buildInfo.aperturePackageVersion === "0.7.0", "invalid Aperture package version");
   assert(buildInfo.apertureCoreVersion === "0.9.0", "invalid ApertureCore version");
   assertUtcTimestamp(buildInfo.builtAt);
   assertNonempty(buildInfo.provenanceAttestationReference, "missing provenance reference");
@@ -153,16 +149,22 @@ async function validateMetadata(
 
   const worker = record(buildInfo.workerBundle, "missing worker identity");
   assert(worker.path === "lib/aperture-attention-engine.cjs", "invalid worker path");
-  assert(worker.bytes === WORKER_BYTES, "worker byte identity mismatch");
-  assert(worker.sha256 === WORKER_SHA256, "worker SHA-256 identity mismatch");
+  assert(typeof worker.bytes === "number" && worker.bytes > 0, "invalid worker byte size");
+  assert(
+    typeof worker.sha256 === "string" && /^[0-9a-f]{64}$/.test(worker.sha256),
+    "invalid worker SHA-256",
+  );
 
   const integrations = record(buildInfo.integrations, "missing integrations");
   const omp = record(integrations.omp, "missing OMP integration");
   assert(omp.artifactType === "omp-extension-module", "invalid OMP artifact type");
   assert(omp.path === "integrations/omp/aperture-omp-extension.mjs", "invalid OMP path");
   assert(omp.manifestPath === "integrations/omp/package.json", "invalid OMP manifest path");
-  assert(omp.bytes === OMP_BYTES, "OMP byte identity mismatch");
-  assert(omp.sha256 === OMP_SHA256, "OMP SHA-256 identity mismatch");
+  assert(typeof omp.bytes === "number" && omp.bytes > 0, "invalid OMP byte size");
+  assert(
+    typeof omp.sha256 === "string" && /^[0-9a-f]{64}$/.test(omp.sha256),
+    "invalid OMP SHA-256",
+  );
   assert(omp.minimumOmpVersion === "18.0.0", "invalid minimum OMP version");
   assert(omp.proofId === OMP_PROOF, "invalid OMP proof identity");
 
@@ -211,7 +213,7 @@ async function validateMetadata(
   assert(hostCompatibility.proofId === OMP_HOST_PROOF, "invalid OMP host proof identity");
   const hostVersions = array(hostCompatibility.versions, "missing OMP host versions");
   assert(hostVersions.includes("18.0.11"), "OMP 18.0.11 compatibility is missing");
-  assert(hostVersions.includes("18.1.1"), "current OMP compatibility is missing");
+  assert(hostVersions.includes("18.1.2"), "current OMP compatibility is missing");
 
   const schemas = record(buildInfo.schemas, "missing schemas");
   assertSchema(schemas.input, "schemas/notification-worker-input.schema.json", 2);
@@ -286,16 +288,16 @@ async function validateMetadata(
   assert(ompCompatibility.passed === true, "OMP host compatibility did not pass");
   assert(
     JSON.stringify(ompCompatibility.worker) ===
-      JSON.stringify({ bytes: WORKER_BYTES, sha256: WORKER_SHA256 }),
+      JSON.stringify({ bytes: worker.bytes, sha256: worker.sha256 }),
     "OMP host worker identity mismatch",
   );
   assert(
     JSON.stringify(ompCompatibility.extension) ===
-      JSON.stringify({ bytes: OMP_BYTES, sha256: OMP_SHA256 }),
+      JSON.stringify({ bytes: omp.bytes, sha256: omp.sha256 }),
     "OMP host extension identity mismatch",
   );
   const ompMatrix = array(ompCompatibility.matrix, "missing OMP host matrix");
-  for (const version of ["18.0.11", "18.1.1"]) {
+  for (const version of ["18.0.11", "18.1.2"]) {
     const entry = ompMatrix.find(
       (candidate) =>
         candidate &&

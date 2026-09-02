@@ -223,6 +223,16 @@ OMP direct protocol `2`. Navigable frames carry only
 `focused`, `stale`, or `missing`. Session identity remains a private event fact
 and is never executable navigation.
 
+Upgrade from the v0.2 worker migrates unresolved OMP direct state schema `1`
+to schema `2` atomically with mode `0600`, preserving session, interaction,
+revision, and event order while dropping executable session navigation and all
+focus-private facts. Migrated attention restores non-navigable until a live
+focus capability registers. Rolling a schema-2 state directory back to v0.2 is
+unsupported and fail-visible: the legacy worker reports corrupt-state recovery
+before removing the unsupported file. Do not start v0.2 against a migrated
+state directory; take an operator backup before rollback, then restore it and
+roll forward to `aperture-worker-v0.3.0`.
+
 ## Product State
 
 Aperture stores product-owned local state under:

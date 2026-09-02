@@ -218,6 +218,7 @@ const buildInfo = {
   minimumNodeVersion,
   minimumNodeMajor: 22,
   apertureCommit: commit,
+  releaseSeries: "aperture-worker-v0.3",
   apertureSourceTag: process.env.APERTURE_SOURCE_TAG || null,
   sourceDirty,
   payloadProfile: options.allowUnsignedLocal ? "development" : "release",
@@ -234,6 +235,14 @@ const buildInfo = {
     surfaceProtocolVersion: 3,
     ompAttentionEventSchemaVersion: 2,
     ompDirectProtocolVersion: 2,
+  },
+  stateMigration: {
+    ompDirect: {
+      fromSchemaVersion: 1,
+      toSchemaVersion: 2,
+      navigationAfterMigration: "absent-until-live-registration",
+      rollback: "v0.2-fail-visible-corrupt-state-recovery",
+    },
   },
   focusBroker: {
     registrationTtlMs: 15_000,

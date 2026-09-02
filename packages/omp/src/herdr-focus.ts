@@ -1,14 +1,16 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import path from "node:path";
 
-import type { OmpFocusRegistration } from "@tomismeta/aperture/omp-direct-message";
+import {
+  assertOmpHerdrPaneId,
+  type OmpFocusRegistration,
+} from "@tomismeta/aperture/omp-direct-message";
 
 import { OmpDirectWorkerTransport } from "./direct-worker-transport.js";
 
 const HEARTBEAT_INTERVAL_MS = 5_000;
 const MAXIMUM_SOCKET_PATH_BYTES = 100;
 const MAXIMUM_COMPOSITOR_ADDRESS_CHARACTERS = 160;
-const MAXIMUM_PANE_ID_CHARACTERS = 64;
 
 export type HerdrFocusContext = {
   herdrSocketPath: string;
@@ -153,12 +155,15 @@ export function resolveHerdrFocusContext(
     herdrSocketPath.includes("\0") ||
     Buffer.byteLength(herdrSocketPath, "utf8") > MAXIMUM_SOCKET_PATH_BYTES ||
     !paneId ||
-    paneId.length > MAXIMUM_PANE_ID_CHARACTERS ||
-    !/^w[1-9]\d*:p[1-9]\d*$/.test(paneId) ||
     !compositorAddress ||
     compositorAddress.length > MAXIMUM_COMPOSITOR_ADDRESS_CHARACTERS ||
     !/^[A-Za-z0-9_.-]+$/.test(compositorAddress)
   ) {
+    return undefined;
+  }
+  try {
+    assertOmpHerdrPaneId(paneId);
+  } catch {
     return undefined;
   }
   return { herdrSocketPath, paneId, compositorAddress };

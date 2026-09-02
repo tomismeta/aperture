@@ -137,7 +137,7 @@ function assertRegistration(record: Record<string, unknown>): OmpFocusRegistrati
     hostGeneration: secretToken(record.hostGeneration, "host generation"),
 
     herdrSocketPath,
-    paneId: paneId(record.paneId),
+    paneId: assertOmpHerdrPaneId(record.paneId),
     compositorAddress: compositorAddress(record.compositorAddress),
   };
 }
@@ -212,11 +212,11 @@ function socketPath(value: unknown): string {
   return value;
 }
 
-function paneId(value: unknown): string {
+export function assertOmpHerdrPaneId(value: unknown): string {
   if (
     typeof value !== "string" ||
     value.length > OMP_DIRECT_LIMITS.paneIdCharacters ||
-    !/^w[1-9]\d*:p[1-9]\d*$/.test(value)
+    !/^w[A-Za-z0-9_-]{1,30}:p[A-Za-z0-9_-]{1,30}$/.test(value)
   ) {
     throw new OmpDirectProtocolError("OMP direct Herdr pane context is invalid");
   }

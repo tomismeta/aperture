@@ -4,7 +4,11 @@ import { lstat } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { performance } from "node:perf_hooks";
 
-import type { OmpFocusRegistration, OmpFocusRevocation } from "../omp-direct-message.js";
+import {
+  assertOmpHerdrPaneId,
+  type OmpFocusRegistration,
+  type OmpFocusRevocation,
+} from "../omp-direct-message.js";
 import type { ApertureSurfaceNavigation } from "../surface/protocol.js";
 
 const REGISTRATION_TTL_MS = 15_000;
@@ -21,7 +25,6 @@ const ACTIVE_WINDOW_CONFIRM_TIMEOUT_MS = 1_000;
 const HYPRCTL_PATH = "/usr/bin/hyprctl";
 const FOOT_CLASSES: Readonly<Record<string, true>> = { foot: true, footclient: true };
 const HYPRLAND_ADDRESS = /^0x[0-9a-fA-F]{1,16}$/;
-const PANE_ID = /^w[1-9]\d*:p[1-9]\d*$/;
 
 export type FocusActivationResult = "focused" | "stale" | "missing";
 export type FocusDiagnosticStage =
@@ -476,15 +479,14 @@ export class FocusBroker {
       caller_pane_id: callerPaneId,
     });
     const pane = asRecord(result.pane);
-    if (
-      result.type !== "pane_current" ||
-      typeof pane.pane_id !== "string" ||
-      pane.pane_id.length > 64 ||
-      !PANE_ID.test(pane.pane_id)
-    ) {
+    if (result.type !== "pane_current") {
       throw new Error("Herdr focus pane was invalid");
     }
-    return pane.pane_id;
+    try {
+      return assertOmpHerdrPaneId(pane.pane_id);
+    } catch {
+      throw new Error("Herdr focus pane was invalid");
+    }
   }
 
   private async assertLease(lease: FocusClientLease, epoch = lease.epoch): Promise<void> {
@@ -644,14 +646,11 @@ function focusedPaneFromSnapshot(result: Record<string, unknown>): string {
   }
   const snapshot = asRecord(result.snapshot);
   const focusedPaneId = snapshot.focused_pane_id;
-  if (
-    typeof focusedPaneId !== "string" ||
-    focusedPaneId.length > 64 ||
-    !PANE_ID.test(focusedPaneId)
-  ) {
+  try {
+    return assertOmpHerdrPaneId(focusedPaneId);
+  } catch {
     throw new Error("Herdr focused pane was invalid");
   }
-  return focusedPaneId;
 }
 
 function exactMarkerClient(clients: FootClient[], markerTitle: string): FootClient | undefined {

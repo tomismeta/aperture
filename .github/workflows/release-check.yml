@@ -186,7 +186,7 @@ jobs:
           --worker "$RUNNER_TEMP/aperture-attention-worker/lib/aperture-attention-engine.cjs"
           --extension "$RUNNER_TEMP/aperture-attention-worker/integrations/omp/aperture-omp-extension.mjs"
           --omp-version 18.0.11
-          --omp-version 18.1.1
+          --omp-version 18.1.2
           --report "$RUNNER_TEMP/reports/omp-host-matrix.json"
 
       - name: Finalize unsigned candidate evidence

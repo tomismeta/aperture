@@ -48,7 +48,7 @@
         "paneId": {
           "type": "string",
           "maxLength": 64,
-          "pattern": "^w[1-9][0-9]*:p[1-9][0-9]*$"
+          "pattern": "^w[A-Za-z0-9_-]{1,30}:p[A-Za-z0-9_-]{1,30}$"
         },
         "compositorAddress": {
           "type": "string",

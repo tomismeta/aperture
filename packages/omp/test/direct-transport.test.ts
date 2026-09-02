@@ -75,6 +75,13 @@ test("Herdr focus context is exact and rejects unsupported terminal modes", () =
     resolveHerdrFocusContext({ ...valid, HYPRLAND_INSTANCE_SIGNATURE: "bad address" }, true),
     undefined,
   );
+  assert.equal(
+    resolveHerdrFocusContext({ ...valid, HERDR_PANE_ID: "wA:p1" }, true)?.paneId,
+    "wA:p1",
+  );
+  for (const paneId of ["", "w:p1", "wA:p", "wA:p1\n", "/tmp/wA:p1", `w${"a".repeat(31)}:p1`]) {
+    assert.equal(resolveHerdrFocusContext({ ...valid, HERDR_PANE_ID: paneId }, true), undefined);
+  }
 });
 test("focus registration has a bounded broker response budget while attention stays fail-fast", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "aperture-direct-timeout-"));

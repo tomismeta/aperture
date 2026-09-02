@@ -5,7 +5,7 @@
   "publicHandle": "A23456789_-bcdefghijklmnopqrstuv",
   "hostGeneration": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
   "target": {
-    "kind": "direct-foot",
+    "kind": "direct-terminal-probe",
     "marker": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
     "hyprlandInstance": "instance_1"
   }

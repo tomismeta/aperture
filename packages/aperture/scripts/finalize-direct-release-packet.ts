@@ -36,7 +36,7 @@ const FIXED_FILES = new Set([
   "fixtures/omp-direct/input-request.json",
   "fixtures/omp-direct/notification-fallback-ambient.json",
   "fixtures/omp-direct/snapshot-completion.json",
-  "fixtures/omp-direct/focus-registration-direct-foot.json",
+  "fixtures/omp-direct/focus-registration-direct-terminal-probe.json",
   "fixtures/omp-direct/focus-registration-tmux.json",
   "fixtures/omp-direct/snapshot-failure.json",
   "fixtures/omp-direct/snapshot-now-next.json",

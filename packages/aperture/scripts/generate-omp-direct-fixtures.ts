@@ -97,7 +97,7 @@ const focusDirectFootRegistration = assertOmpDirectMessage({
   publicHandle: focusHandle,
   hostGeneration: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
   target: {
-    kind: "direct-foot",
+    kind: "direct-terminal-probe",
     marker: "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
     hyprlandInstance: "instance_1",
   },
@@ -198,7 +198,7 @@ try {
     ["snapshot-failure.json", failureSnapshot],
     ["snapshot-completion.json", completionSnapshot],
     ["focus-registration.json", focusRegistration],
-    ["focus-registration-direct-foot.json", focusDirectFootRegistration],
+    ["focus-registration-direct-terminal-probe.json", focusDirectFootRegistration],
     ["focus-registration-tmux.json", focusTmuxRegistration],
     ["focus-activation.json", focusActivation],
     ["focus-result.json", focusResult],

@@ -23,6 +23,19 @@ export type OmpDirectWorkerTransportOptions = {
   responseTimeoutMs?: number;
   focusRegistrationResponseTimeoutMs?: number;
 };
+export class OmpFocusRegistrationRejectedError extends Error {
+  constructor(
+    readonly code:
+      | "unsupported_terminal_owned"
+      | "marker_missing"
+      | "marker_ambiguous"
+      | "invalid_context",
+  ) {
+    super("Aperture worker rejected focus registration");
+    this.name = "OmpFocusRegistrationRejectedError";
+  }
+}
+
 
 export class OmpDirectWorkerTransport {
   private readonly socketPath: string | undefined;
@@ -110,6 +123,10 @@ export class OmpDirectWorkerTransport {
           );
           if (acknowledgement.requestId !== requestId) {
             finish(new Error("Aperture worker acknowledgement identity mismatch"));
+            return;
+          }
+          if (acknowledgement.status === "rejected") {
+            finish(new OmpFocusRegistrationRejectedError(acknowledgement.code));
             return;
           }
           finish();

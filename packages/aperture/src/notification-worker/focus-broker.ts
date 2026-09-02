@@ -27,6 +27,19 @@ const FOOT_CLASSES: Readonly<Record<string, true>> = { foot: true, footclient: t
 const HYPRLAND_ADDRESS = /^0x[0-9a-fA-F]{1,16}$/;
 
 export type FocusActivationResult = "focused" | "stale" | "missing";
+export class FocusRegistrationError extends Error {
+  constructor(
+    readonly code:
+      | "unsupported_terminal_owned"
+      | "marker_missing"
+      | "marker_ambiguous"
+      | "invalid_context",
+  ) {
+    super("Aperture focus registration rejected");
+    this.name = "FocusRegistrationError";
+  }
+}
+
 export type FocusDiagnosticStage =
   | "resolve-pane"
   | "lease-before-focus"
@@ -48,7 +61,7 @@ type FocusClientLease = {
   marker: string;
   markerTitle: string;
   epoch: string;
-  backendKind: "herdr" | "direct-foot" | "tmux";
+  backendKind: "herdr" | "direct-terminal-probe" | "tmux";
   tmux?: {
     socketPath: string;
     paneId: string;
@@ -357,14 +370,25 @@ export class FocusBroker {
       try {
         if (existing.lease.backendKind === "tmux") {
           await this.assertTmuxLease(existing.lease);
+          await this.assertLease(existing.lease, existing.lease.epoch);
+        } else if (existing.lease.backendKind === "direct-terminal-probe") {
+          const candidate = await this.resolveDirectProbe(
+            existing.lease.compositorAddress,
+            existing.lease.markerTitle,
+          );
+          if (candidate.address !== existing.lease.address) {
+            throw new FocusRegistrationError("invalid_context");
+          }
+        } else {
+          await this.assertLease(existing.lease, existing.lease.epoch);
         }
-        await this.assertLease(existing.lease, existing.lease.epoch);
-      } catch {
+      } catch (error) {
         if (existing.lease.backendKind === "tmux") {
           await this.invalidateLease(existing.lease);
         } else {
           await this.invalidate(existing);
         }
+        if (error instanceof FocusRegistrationError) throw error;
         throw new Error("Aperture rejected a lost focus target");
       }
       this.renew(existing, registration.requestId);
@@ -374,12 +398,14 @@ export class FocusBroker {
     let marker: string;
     let markerTitle: string;
     let tmux: FocusClientLease["tmux"];
-    if (target.kind === "direct-foot") {
+    let candidate: FootClient | undefined;
+    if (target.kind === "direct-terminal-probe") {
       marker = target.marker;
       markerTitle = `Aperture Focus ${marker}`;
+      candidate = await this.resolveDirectProbe(target.hyprlandInstance, markerTitle);
       const shared = [...this.leases.values()].find(
         (lease) =>
-          lease.backendKind === "direct-foot" &&
+          lease.backendKind === "direct-terminal-probe" &&
           lease.compositorAddress === target.hyprlandInstance &&
           lease.marker === target.marker,
       );
@@ -472,15 +498,16 @@ export class FocusBroker {
         throw new Error("Aperture tmux title transaction failed");
       }
     }
-    let candidate: FootClient;
-    try {
-      candidate = await this.resolveMarkerClient(
-        target.hyprlandInstance,
-        markerTitle,
-      );
-    } catch {
-      if (tmux) await restoreTmuxOptions(this.tmuxRequest, tmux, markerTitle);
-      throw new Error("Aperture focus marker did not resolve");
+    if (!candidate) {
+      try {
+        candidate = await this.resolveMarkerClient(
+          target.hyprlandInstance,
+          markerTitle,
+        );
+      } catch {
+        if (tmux) await restoreTmuxOptions(this.tmuxRequest, tmux, markerTitle);
+        throw new Error("Aperture focus marker did not resolve");
+      }
     }
     const contextKey = `${target.kind}\u0000${target.hyprlandInstance}\u0000${candidate.address}`;
     const epoch = this.randomToken();
@@ -506,6 +533,48 @@ export class FocusBroker {
     this.leases.set(contextKey, lease);
     this.registrations.set(registration.publicHandle, record);
     this.cancelledHandles.delete(registration.publicHandle);
+  }
+
+  private async resolveDirectProbe(
+    hyprlandInstance: string,
+    markerTitle: string,
+  ): Promise<FootClient> {
+    const inspect = async (): Promise<Record<string, unknown>[]> => {
+      const value = await this.hyprctlRequest(hyprlandInstance, ["-j", "clients"]);
+      if (!Array.isArray(value)) throw new FocusRegistrationError("invalid_context");
+      return value
+        .map((item) => asRecord(item))
+        .filter((item) => item.title === markerTitle);
+    };
+    const first = await inspect();
+    if (first.length === 0) throw new FocusRegistrationError("marker_missing");
+    if (first.length !== 1) throw new FocusRegistrationError("marker_ambiguous");
+    const owner = first[0]!;
+    if (
+      typeof owner.address !== "string" ||
+      !HYPRLAND_ADDRESS.test(owner.address) ||
+      typeof owner.class !== "string"
+    ) {
+      throw new FocusRegistrationError("invalid_context");
+    }
+    if (FOOT_CLASSES[owner.class] === true) {
+      return {
+        address: owner.address,
+        title: markerTitle,
+        className: owner.class as "foot" | "footclient",
+      };
+    }
+    const second = await inspect();
+    if (
+      second.length === 1 &&
+      second[0]?.address === owner.address &&
+      second[0]?.class === owner.class
+    ) {
+      throw new FocusRegistrationError("unsupported_terminal_owned");
+    }
+    throw new FocusRegistrationError(
+      second.length === 0 ? "marker_missing" : "marker_ambiguous",
+    );
   }
 
   private async resolveMarkerClient(

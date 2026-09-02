@@ -24,7 +24,7 @@ export type OmpFocusTarget =
       hyprlandInstance: string;
     }
   | {
-      kind: "direct-foot";
+      kind: "direct-terminal-probe";
       marker: string;
       hyprlandInstance: string;
     }
@@ -54,11 +54,18 @@ export type OmpFocusRevocation = {
 
 export type OmpDirectMessage = OmpAttentionEvent | OmpFocusRegistration | OmpFocusRevocation;
 
-export type OmpDirectAcknowledgement = {
-  schemaVersion: 3;
-  status: "accepted";
-  requestId: string;
-};
+export type OmpDirectAcknowledgement =
+  | { schemaVersion: 3; status: "accepted"; requestId: string }
+  | {
+      schemaVersion: 3;
+      status: "rejected";
+      requestId: string;
+      code:
+        | "unsupported_terminal_owned"
+        | "marker_missing"
+        | "marker_ambiguous"
+        | "invalid_context";
+    };
 
 export class OmpDirectProtocolError extends Error {
   constructor(message: string) {
@@ -112,20 +119,39 @@ export function parseOmpDirectAcknowledgement(line: string): OmpDirectAcknowledg
     throw new OmpDirectProtocolError("OMP direct acknowledgement was invalid");
   }
   const record = asRecord(value);
-  assertExactKeys(record, ["schemaVersion", "status", "requestId"]);
-  if (record.schemaVersion !== 3 || record.status !== "accepted") {
+  const keys = Object.keys(record).sort();
+  const requestId = boundedVisible(record.requestId, 160, "acknowledgement request id");
+  if (record.schemaVersion !== 3) {
     throw new OmpDirectProtocolError("OMP direct acknowledgement was invalid");
   }
-  return {
-    schemaVersion: 3,
-    status: "accepted",
-    requestId: boundedVisible(
-      record.requestId,
-      OMP_DIRECT_LIMITS.requestIdCharacters,
-      "acknowledgement request id",
-    ),
-  };
+  if (
+    record.status === "accepted" &&
+    JSON.stringify(keys) === JSON.stringify(["requestId", "schemaVersion", "status"])
+  ) {
+    return { schemaVersion: 3, status: "accepted", requestId };
+  }
+  const codes = new Set([
+    "unsupported_terminal_owned",
+    "marker_missing",
+    "marker_ambiguous",
+    "invalid_context",
+  ]);
+  if (
+    record.status === "rejected" &&
+    JSON.stringify(keys) === JSON.stringify(["code", "requestId", "schemaVersion", "status"]) &&
+    typeof record.code === "string" &&
+    codes.has(record.code)
+  ) {
+    return {
+      schemaVersion: 3,
+      status: "rejected",
+      requestId,
+      code: record.code as Extract<OmpDirectAcknowledgement, { status: "rejected" }>["code"],
+    };
+  }
+  throw new OmpDirectProtocolError("OMP direct acknowledgement was invalid");
 }
+
 
 function assertRegistration(record: Record<string, unknown>): OmpFocusRegistration {
   assertExactKeys(record, [
@@ -158,10 +184,10 @@ function assertTarget(value: unknown): OmpFocusTarget {
       hyprlandInstance,
     };
   }
-  if (target.kind === "direct-foot") {
+  if (target.kind === "direct-terminal-probe") {
     assertExactKeys(target, ["kind", "marker", "hyprlandInstance"]);
     return {
-      kind: "direct-foot",
+      kind: "direct-terminal-probe",
       marker: secretToken(target.marker, "Foot marker"),
       hyprlandInstance,
     };

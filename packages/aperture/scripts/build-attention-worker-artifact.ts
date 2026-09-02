@@ -41,7 +41,7 @@ const ompFixtureNames = [
   "input-request.json",
   "failure-event.json",
   "focus-registration.json",
-  "focus-registration-direct-foot.json",
+  "focus-registration-direct-terminal-probe.json",
   "focus-registration-tmux.json",
   "focus-activation.json",
   "focus-result.json",

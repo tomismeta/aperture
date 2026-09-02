@@ -457,7 +457,7 @@ test("direct Foot backend performs only exact outer focus and worker never reass
     requestId: "foot",
     publicHandle: handleA,
     hostGeneration: generationA,
-    target: { kind: "direct-foot", marker, hyprlandInstance: "instance_1" },
+    target: { kind: "direct-terminal-probe", marker, hyprlandInstance: "instance_1" },
   }) as OmpFocusRegistration;
   await broker.register(direct);
   assert.equal(await broker.activate(handleA), "focused");

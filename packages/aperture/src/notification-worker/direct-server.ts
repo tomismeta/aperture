@@ -10,7 +10,9 @@ import {
   parseOmpDirectMessage,
   type OmpFocusRegistration,
   type OmpFocusRevocation,
+  type OmpDirectMessage,
 } from "../omp-direct-message.js";
+import { FocusRegistrationError } from "./focus-broker.js";
 import type { OmpAttentionEvent } from "../omp-attention-event.js";
 
 const SOCKET_MODE = 0o600;
@@ -189,8 +191,9 @@ async function handleConnection(
   });
 
   const processLine = async (line: string): Promise<void> => {
+    let message: OmpDirectMessage | undefined;
     try {
-      const message = parseOmpDirectMessage(line);
+      message = parseOmpDirectMessage(line);
       const processing =
         message.type === "omp.attention-event"
           ? options.handleAttention(message)
@@ -212,7 +215,22 @@ async function handleConnection(
           })}\n`,
         );
       }
-    } catch {
+    } catch (error) {
+      if (
+        message?.type === "omp.focus.register" &&
+        error instanceof FocusRegistrationError &&
+        !socket.destroyed
+      ) {
+        socket.end(
+          `${JSON.stringify({
+            schemaVersion: 3,
+            status: "rejected",
+            requestId: message.requestId,
+            code: error.code,
+          })}\n`,
+        );
+        return;
+      }
       diagnostic.write("Aperture rejected an invalid direct OMP event\n");
       reject();
     }

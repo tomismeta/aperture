@@ -49,7 +49,7 @@
           "additionalProperties": false,
           "required": ["kind", "marker", "hyprlandInstance"],
           "properties": {
-            "kind": { "const": "direct-foot" },
+            "kind": { "const": "direct-terminal-probe" },
             "marker": { "$ref": "#/$defs/token" },
             "hyprlandInstance": { "$ref": "#/$defs/hyprlandInstance" }
           }

@@ -11,7 +11,10 @@ import type { OmpDirectMessage } from "@tomismeta/aperture/omp-direct-message";
 
 import { mapOmpDirectAttentionEvents } from "../src/direct-event-mapping.js";
 import { OmpFocusHost, resolveHerdrFocusContext } from "../src/omp-focus-host.js";
-import { OmpDirectWorkerTransport } from "../src/direct-worker-transport.js";
+import {
+  OmpDirectWorkerTransport,
+  OmpFocusRegistrationRejectedError,
+} from "../src/direct-worker-transport.js";
 import { OmarchyAttentionTransport } from "../src/omarchy-attention-transport.js";
 import {
   OmarchyNotificationTransport,
@@ -97,7 +100,7 @@ test("direct Foot waits for auto-title, sets marker in order, and fails open on 
   }
   const titles = ["auto: Session name"];
   const environment = {
-    TERM: "foot",
+    TERM: "xterm-256color",
     HYPRLAND_INSTANCE_SIGNATURE: "instance_1",
   };
   const host = await OmpFocusHost.create({
@@ -154,6 +157,23 @@ test("direct Foot waits for auto-title, sets marker in order, and fails open on 
   await pendingHost.retryRegistration();
   assert.match(pendingHost.focusHandle() ?? "", /^[A-Za-z0-9_-]{32}$/);
   await pendingHost.close();
+  class UnsupportedTerminalTransport extends CapturingTransport {
+    override async registerFocus(): Promise<void> {
+      throw new OmpFocusRegistrationRejectedError("unsupported_terminal_owned");
+    }
+  }
+  const unsupportedTitles: string[] = [];
+  assert.equal(
+    await OmpFocusHost.create({
+      direct: new UnsupportedTerminalTransport(),
+      environment,
+      stdoutIsTTY: true,
+      initialTitle: "Session name",
+      ui: { setTitle: (title) => unsupportedTitles.push(title) },
+    }),
+    undefined,
+  );
+  assert.equal(unsupportedTitles.at(-1), "π");
   assert.equal(pendingTitles.at(-1), "π");
   assert.equal(
     await OmpFocusHost.create({

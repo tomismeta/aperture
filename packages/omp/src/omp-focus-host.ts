@@ -7,7 +7,10 @@ import {
   type OmpFocusTarget,
 } from "@tomismeta/aperture/omp-direct-message";
 
-import { OmpDirectWorkerTransport } from "./direct-worker-transport.js";
+import {
+  OmpDirectWorkerTransport,
+  OmpFocusRegistrationRejectedError,
+} from "./direct-worker-transport.js";
 
 const HEARTBEAT_INTERVAL_MS = 5_000;
 
@@ -77,8 +80,19 @@ export class OmpFocusHost {
       host.everActive = true;
       host.startHeartbeat();
       return host;
-    } catch {
-      if (registration.target.kind === "direct-foot") {
+    } catch (error) {
+      if (registration.target.kind === "direct-terminal-probe") {
+        if (
+          error instanceof OmpFocusRegistrationRejectedError &&
+          error.code === "unsupported_terminal_owned"
+        ) {
+          try {
+            host.resetDirectTitle?.();
+          } catch {
+            // Immediate owned-marker cleanup is best-effort.
+          }
+          return undefined;
+        }
         host.startHeartbeat();
         return host;
       }
@@ -148,6 +162,7 @@ export class OmpFocusHost {
     }
   }
 
+
   private startHeartbeat(): void {
     if (this.heartbeat) return;
     this.heartbeat = setInterval(() => void this.refresh(), this.heartbeatIntervalMs);
@@ -189,13 +204,19 @@ function resolveFocusTarget(
   ui: { setTitle?: (title: string) => void } | undefined,
   initialTitle: string | undefined,
   token: () => string,
-): { target: OmpFocusTarget; resetTitle?: () => void } | undefined {
+): {
+  target: OmpFocusTarget;
+  resetTitle?: () => void;
+} | undefined {
   if (
     !stdoutIsTTY ||
     environment.STY !== undefined ||
     environment.ZELLIJ !== undefined ||
     environment.OMP_RPC !== undefined ||
     environment.PI_RPC !== undefined ||
+    environment.OMP_ACP !== undefined ||
+    environment.PI_ACP !== undefined ||
+    environment.ACP_MODE !== undefined ||
     environment.OMP_HEADLESS !== undefined ||
     environment.PI_HEADLESS !== undefined
   ) {
@@ -246,22 +267,30 @@ function resolveFocusTarget(
     }
   }
   if (
-    (environment.TERM === "foot" || environment.TERM === "foot-direct") &&
     ui?.setTitle &&
     initialTitle &&
     initialTitle.trim() &&
     Array.from(initialTitle).length <= 160 &&
-    !/[\u0000-\u001f\u007f]/.test(initialTitle)
+    !/[\u0000-\u001f\u007f]/.test(initialTitle) &&
+    environment.TERM !== "dumb" &&
+    environment.HERDR_ENV === undefined &&
+    environment.TMUX === undefined &&
+    environment.KITTY_WINDOW_ID === undefined &&
+    environment.WEZTERM_PANE === undefined &&
+    environment.GHOSTTY_RESOURCES_DIR === undefined &&
+    environment.ALACRITTY_SOCKET === undefined &&
+    environment.TERM_PROGRAM === undefined
   ) {
     const marker = token();
     if (!/^[A-Za-z0-9_-]{32}$/.test(marker)) return undefined;
+    const markerTitle = `Aperture Focus ${marker}`;
     try {
-      ui.setTitle(`Aperture Focus ${marker}`);
+      ui.setTitle(markerTitle);
     } catch {
       return undefined;
     }
     return {
-      target: { kind: "direct-foot", marker, hyprlandInstance },
+      target: { kind: "direct-terminal-probe", marker, hyprlandInstance },
       resetTitle: () => ui.setTitle?.("π"),
     };
   }

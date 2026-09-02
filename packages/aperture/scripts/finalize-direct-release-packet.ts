@@ -155,9 +155,22 @@ async function validateMetadata(
     focusCoordinator.maximumPendingQmlFocusRequests === 16,
     "invalid downstream focus-request cap",
   );
+  assert(focusCoordinator.maximumFocusReplayEvents === 64, "invalid focus replay cap");
+  assert(
+    focusCoordinator.focusReplayAcknowledgementTimeoutMs === 750,
+    "invalid focus replay acknowledgement bound",
+  );
+  assert(
+    focusCoordinator.maximumConcurrentFocusReplays === 1,
+    "invalid focus replay concurrency cap",
+  );
   assert(
     focusCoordinator.titleOwnership === "backend-cas-host-recovery-generation-fenced",
     "invalid focus ownership policy",
+  );
+  assert(
+    focusCoordinator.workerGeneration === "volatile-per-worker",
+    "invalid worker generation policy",
   );
 
   const ci = record(buildInfo.ci, "missing CI metadata");

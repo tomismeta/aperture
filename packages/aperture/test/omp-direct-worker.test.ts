@@ -157,10 +157,12 @@ test("private focus control v4 is generic, exact, and recovery-bounded", () => {
       status: "accepted",
       requestId: "focus-register-1",
       recovery: { kind: "herdr", marker: "C".repeat(32) },
+      workerGeneration: "W".repeat(32),
     }),
   );
-  assert.equal(acknowledgement.status, "accepted");
+  if (acknowledgement.status !== "accepted") throw new Error("expected accepted acknowledgement");
   assert.equal(acknowledgement.recovery?.kind, "herdr");
+  assert.equal(acknowledgement.workerGeneration, "W".repeat(32));
 });
 
 test("surface navigation is closed, bounded, and absent without a worker route", () => {

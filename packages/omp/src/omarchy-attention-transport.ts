@@ -1,8 +1,13 @@
+import type { OmpAttentionEvent } from "@tomismeta/aperture/omp-attention-event";
 import type { OmpEventSink } from "./bind.js";
 import { boundedShutdownWait } from "./bounded-shutdown.js";
-import { mapOmpDirectAttentionEvents } from "./direct-event-mapping.js";
 import { OmpDirectWorkerTransport } from "./direct-worker-transport.js";
+import { FocusReplaySender, type FocusReplayResult } from "./focus-replay-sender.js";
 import { OmarchyNotificationTransport } from "./omarchy-notification-transport.js";
+import {
+  deliverQueuedAttention,
+  type QueuedAttentionDelivery,
+} from "./omarchy-attention-delivery.js";
 import type { OmpEvent, OmpMappingContext } from "./types.js";
 
 const MAXIMUM_QUEUED_DELIVERIES = 64;
@@ -12,25 +17,22 @@ export type OmarchyAttentionTransportOptions = {
   direct: OmpDirectWorkerTransport;
   notification: OmarchyNotificationTransport;
   onFailure?: (error: unknown) => void;
+  onFocusReplay?: (result: FocusReplayResult) => void;
   shutdownTimeoutMs?: number;
   waitForShutdown?: (operation: Promise<unknown>, milliseconds: number) => Promise<void>;
-};
-
-type QueuedDelivery = {
-  event: OmpEvent;
-  context: OmpMappingContext;
 };
 
 export class OmarchyAttentionTransport implements OmpEventSink {
   private readonly direct: OmpDirectWorkerTransport;
   private readonly notification: OmarchyNotificationTransport;
   private readonly onFailure: (error: unknown) => void;
+  private readonly focusReplay: FocusReplaySender;
   private readonly shutdownTimeoutMs: number;
   private readonly waitForShutdown: (
     operation: Promise<unknown>,
     milliseconds: number,
   ) => Promise<void>;
-  private readonly queue: QueuedDelivery[] = [];
+  private readonly queue: QueuedAttentionDelivery[] = [];
   private draining: Promise<void> | null = null;
   private active = true;
 
@@ -40,6 +42,10 @@ export class OmarchyAttentionTransport implements OmpEventSink {
     this.shutdownTimeoutMs = options.shutdownTimeoutMs ?? SHUTDOWN_TIMEOUT_MS;
     this.waitForShutdown = options.waitForShutdown ?? boundedShutdownWait;
     this.onFailure = options.onFailure ?? (() => undefined);
+    this.focusReplay = new FocusReplaySender(
+      this.direct,
+      options.onFocusReplay ?? (() => undefined),
+    );
   }
 
   async isAvailable(): Promise<boolean> {
@@ -51,18 +57,25 @@ export class OmarchyAttentionTransport implements OmpEventSink {
   }
 
   async handle(event: OmpEvent, context: OmpMappingContext): Promise<void> {
-    if (!this.active) return;
-    if (this.queue.length >= MAXIMUM_QUEUED_DELIVERIES) {
-      void this.notification.handle(event, context).catch((error) => this.onFailure(error));
-      return;
-    }
-    this.queue.push({ event, context });
-    this.draining ??= this.drain();
+    this.enqueue({ kind: "event", event, context });
+  }
+
+  async handleMapped(
+    event: OmpEvent,
+    context: OmpMappingContext,
+    directEvents: OmpAttentionEvent[],
+  ): Promise<void> {
+    this.enqueue({ kind: "event", event, context, directEvents: [...directEvents] });
+  }
+
+  replayFocus(events: OmpAttentionEvent[]): void {
+    if (this.active) this.focusReplay.send(events);
   }
 
   async close(): Promise<void> {
     if (!this.active) return;
     this.active = false;
+    this.focusReplay.close();
     this.queue.length = 0;
     const deadline = Date.now() + this.shutdownTimeoutMs;
     if (this.draining) {
@@ -76,7 +89,20 @@ export class OmarchyAttentionTransport implements OmpEventSink {
 
   disable(): void {
     this.active = false;
+    this.focusReplay.close();
     this.queue.length = 0;
+  }
+
+  private enqueue(delivery: QueuedAttentionDelivery): void {
+    if (!this.active) return;
+    if (this.queue.length >= MAXIMUM_QUEUED_DELIVERIES) {
+      void this.notification
+        .handle(delivery.event, delivery.context)
+        .catch((error) => this.onFailure(error));
+      return;
+    }
+    this.queue.push(delivery);
+    this.draining ??= this.drain();
   }
 
   private async drain(): Promise<void> {
@@ -85,7 +111,7 @@ export class OmarchyAttentionTransport implements OmpEventSink {
         const delivery = this.queue.shift();
         if (!delivery) return;
         try {
-          await this.deliver(delivery);
+          await deliverQueuedAttention(delivery, this.direct, this.notification);
         } catch (error) {
           this.onFailure(error);
         }
@@ -93,27 +119,6 @@ export class OmarchyAttentionTransport implements OmpEventSink {
     } finally {
       this.draining = null;
       if (this.active && this.queue.length > 0) this.draining = this.drain();
-    }
-  }
-
-  private async deliver(delivery: QueuedDelivery): Promise<void> {
-    let directEvents;
-    try {
-      directEvents = mapOmpDirectAttentionEvents(delivery.event, delivery.context);
-    } catch {
-      await this.notification.handle(delivery.event, delivery.context);
-      return;
-    }
-    if (directEvents.length === 0) {
-      await this.notification.handle(delivery.event, delivery.context);
-      return;
-    }
-
-    try {
-      for (const event of directEvents) await this.direct.send(event);
-      await this.notification.handleClosures(delivery.event, delivery.context);
-    } catch {
-      await this.notification.handle(delivery.event, delivery.context);
     }
   }
 }

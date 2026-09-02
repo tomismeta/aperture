@@ -65,6 +65,10 @@ export type FocusRegistration = {
   target: FocusTarget;
   recovery?: FocusRecovery;
 };
+export type FocusRegistrationResult = {
+  workerGeneration: string;
+  recovery?: FocusRecovery;
+};
 
 export type FocusRevocation = {
   schemaVersion: 4;
@@ -76,19 +80,34 @@ export type FocusRevocation = {
 
 export type WorkerDirectMessage = OmpAttentionEvent | FocusRegistration | FocusRevocation;
 
-export type FocusRejectionCode =
+export type WorkerDirectRejectionCode =
   | "unsupported_terminal_owned"
   | "marker_missing"
   | "marker_ambiguous"
   | "invalid_context"
-  | "capacity";
-const FOCUS_REJECTION_CODES: Readonly<Record<FocusRejectionCode, true>> = {
+  | "capacity"
+  | "processing_failed"
+  | "processing_timeout"
+  | "attention_engine_failed"
+  | "attention_snapshot_failed";
+const WORKER_DIRECT_REJECTION_CODES: Readonly<Record<WorkerDirectRejectionCode, true>> = {
   unsupported_terminal_owned: true,
   marker_missing: true,
   marker_ambiguous: true,
   invalid_context: true,
   capacity: true,
+  processing_failed: true,
+  processing_timeout: true,
+  attention_engine_failed: true,
+  attention_snapshot_failed: true,
 };
+
+export class WorkerDirectRejectedError extends Error {
+  constructor(readonly code: WorkerDirectRejectionCode) {
+    super("Aperture worker rejected a direct message");
+    this.name = "WorkerDirectRejectedError";
+  }
+}
 
 export type WorkerDirectAcknowledgement =
   | {
@@ -96,12 +115,13 @@ export type WorkerDirectAcknowledgement =
       status: "accepted";
       requestId: string;
       recovery?: FocusRecovery;
+      workerGeneration?: string;
     }
   | {
       schemaVersion: 4;
       status: "rejected";
       requestId: string;
-      code: FocusRejectionCode;
+      code: WorkerDirectRejectionCode;
     };
 
 export class WorkerDirectProtocolError extends Error {
@@ -165,29 +185,33 @@ export function parseWorkerDirectAcknowledgement(line: string): WorkerDirectAckn
     throw new WorkerDirectProtocolError("worker direct acknowledgement was invalid");
   }
   if (record.status === "accepted") {
-    const expected =
-      record.recovery === undefined
-        ? ["requestId", "schemaVersion", "status"]
-        : ["recovery", "requestId", "schemaVersion", "status"];
+    const expected = ["requestId", "schemaVersion", "status"];
+    if (record.recovery !== undefined) expected.push("recovery");
+    if (record.workerGeneration !== undefined) expected.push("workerGeneration");
     assertExactKeys(record, expected);
     return {
       schemaVersion: 4,
       status: "accepted",
       requestId,
       ...(record.recovery === undefined ? {} : { recovery: assertRecovery(record.recovery) }),
+      ...(record.workerGeneration === undefined
+        ? {}
+        : {
+            workerGeneration: secretToken(record.workerGeneration, "worker generation"),
+          }),
     };
   }
   if (
     record.status === "rejected" &&
     typeof record.code === "string" &&
-    FOCUS_REJECTION_CODES[record.code as FocusRejectionCode] === true
+    WORKER_DIRECT_REJECTION_CODES[record.code as WorkerDirectRejectionCode] === true
   ) {
     assertExactKeys(record, ["code", "requestId", "schemaVersion", "status"]);
     return {
       schemaVersion: 4,
       status: "rejected",
       requestId,
-      code: record.code as FocusRejectionCode,
+      code: record.code as WorkerDirectRejectionCode,
     };
   }
   throw new WorkerDirectProtocolError("worker direct acknowledgement was invalid");

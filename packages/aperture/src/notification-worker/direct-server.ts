@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { createServer, type Socket } from "node:net";
 import type { Writable } from "node:stream";
 
@@ -37,6 +38,7 @@ export type OmpAttentionSocketServerOptions = {
   uid?: number;
   probe?: (socketPath: string) => Promise<boolean>;
   maximumClients?: number;
+  workerGeneration?: string;
   shutdownTimeoutMs?: number;
 };
 
@@ -52,6 +54,10 @@ export async function startOmpAttentionSocketServer(
   const uid = options.uid ?? currentUid();
   const maximumClients = options.maximumClients ?? FOCUS_LIMITS.directClients;
   const shutdownTimeoutMs = options.shutdownTimeoutMs ?? FOCUS_LIMITS.shutdownMilliseconds;
+  const workerGeneration = options.workerGeneration ?? randomBytes(24).toString("base64url");
+  if (!/^[A-Za-z0-9_-]{32}$/.test(workerGeneration)) {
+    throw new Error("Aperture worker generation was invalid");
+  }
   if (!Number.isSafeInteger(maximumClients) || maximumClients < 1) {
     throw new Error("Aperture direct client limit was invalid");
   }
@@ -67,9 +73,11 @@ export async function startOmpAttentionSocketServer(
       return;
     }
     clients.add(socket);
-    void handleConnection(socket, options, diagnostic, activeOperations).finally(() => {
-      clients.delete(socket);
-    });
+    void handleConnection(socket, options, diagnostic, activeOperations, workerGeneration).finally(
+      () => {
+        clients.delete(socket);
+      },
+    );
   });
   await listen(server, options.socketPath);
   const socketIdentity = await secureListeningSocket(options.socketPath, uid);
@@ -95,6 +103,7 @@ async function handleConnection(
   >,
   diagnostic: Writable,
   activeOperations: Set<AbortController>,
+  workerGeneration: string,
 ): Promise<void> {
   socket.setTimeout(CONNECTION_TIMEOUT_MS);
   let buffer = Buffer.alloc(0);
@@ -159,6 +168,7 @@ async function handleConnection(
             status: "accepted",
             requestId: directMessageRequestId(current),
             ...(current.type === "focus.register" && recovery ? { recovery } : {}),
+            ...(current.type === "focus.register" ? { workerGeneration } : {}),
           })}\n`,
         );
       }
@@ -174,6 +184,26 @@ async function handleConnection(
             status: "rejected",
             requestId: message.requestId,
             code: error.code,
+          })}\n`,
+        );
+        return;
+      }
+      if (message && !socket.destroyed) {
+        const code =
+          error instanceof Error && error.message === "Aperture attention engine failed"
+            ? "attention_engine_failed"
+            : error instanceof Error && error.message === "Aperture attention snapshot failed"
+              ? "attention_snapshot_failed"
+              : error instanceof Error &&
+                  error.message === "Aperture direct message processing timed out"
+                ? "processing_timeout"
+                : "processing_failed";
+        socket.end(
+          `${JSON.stringify({
+            schemaVersion: 4,
+            status: "rejected",
+            requestId: directMessageRequestId(message),
+            code,
           })}\n`,
         );
         return;

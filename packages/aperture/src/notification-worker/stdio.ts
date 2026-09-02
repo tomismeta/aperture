@@ -101,22 +101,44 @@ export async function runNotificationWorkerStdio(
       });
     },
   });
-
+  let markDirectReady!: () => void;
+  const directReady = new Promise<void>((resolve) => {
+    markDirectReady = resolve;
+  });
   if (options.socketPath) {
     try {
       socketServer = await startOmpAttentionSocketServer({
         socketPath: options.socketPath,
         diagnostic,
-        registerFocus: (registration, signal) => focusCoordinator.register(registration, signal),
-        revokeFocus: (revocation, signal) => focusCoordinator.revoke(revocation, signal),
-        handleAttention: (event, signal) =>
-          serialize(async () => {
+        registerFocus: async (registration, signal) => {
+          await directReady;
+          if (signal.aborted) throw new Error("Aperture worker is stopping");
+          return focusCoordinator.register(registration, signal);
+        },
+        revokeFocus: async (revocation, signal) => {
+          await directReady;
+          if (signal.aborted) throw new Error("Aperture worker is stopping");
+          await focusCoordinator.revoke(revocation, signal);
+        },
+        handleAttention: async (event, signal) => {
+          await directReady;
+          if (signal.aborted) throw new Error("Aperture worker is stopping");
+          await serialize(async () => {
             if (stopping || signal.aborted) throw new Error("Aperture worker is stopping");
             const navigation = focusCoordinator.navigationFor(event.focus?.handle);
-            await restored.engine.handleOmpAttention(event, navigation);
+            try {
+              await restored.engine.handleOmpAttention(event, navigation);
+            } catch {
+              throw new Error("Aperture attention engine failed");
+            }
             if (signal.aborted) throw new Error("Aperture attention operation was cancelled");
-            await emitSnapshot();
-          }),
+            try {
+              await emitSnapshot();
+            } catch {
+              throw new Error("Aperture attention snapshot failed");
+            }
+          });
+        },
       });
     } catch {
       await writeError(
@@ -126,13 +148,13 @@ export async function runNotificationWorkerStdio(
       );
     }
   }
-
   await write({
     type: "engine",
     state: options.identities.length > 0 ? "ready" : "degraded",
     acceptedSources: restored.engine.getAcceptedSourceCount(),
   });
   await emitSnapshot();
+  markDirectReady();
 
   const stop = () => {
     stopping = true;

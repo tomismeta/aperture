@@ -151,6 +151,7 @@ export type OmpExtensionApi = {
     handler: (event: OmpEvent, context: OmpExtensionContext) => Promise<void> | void,
   ): void;
   logger?: {
+    debug?: (message: string, attributes?: Record<string, unknown>) => void;
     warn?: (message: string, attributes?: Record<string, unknown>) => void;
   };
 };

@@ -4,7 +4,7 @@ import {
   assertWorkerDirectMessage,
   type FocusRecovery,
   type FocusRegistration,
-  type FocusRejectionCode,
+  type FocusRegistrationResult,
   type FocusRevocation,
   type FocusTarget,
 } from "./worker-direct-message.js";
@@ -13,9 +13,10 @@ const HEARTBEAT_INTERVAL_MS = 5_000;
 const RETRY_INITIAL_MS = 250;
 const RETRY_MAXIMUM_MS = 5_000;
 const CLOSE_TIMEOUT_MS = 3_000;
+export type FocusHostStatus = "registered" | "unavailable" | "unsupported";
 
 export type FocusControlTransport = {
-  registerFocus(registration: FocusRegistration): Promise<FocusRecovery | undefined>;
+  registerFocus(registration: FocusRegistration): Promise<FocusRegistrationResult>;
   revokeFocus(revocation: FocusRevocation): Promise<void>;
 };
 
@@ -39,14 +40,9 @@ export type FocusHostOptions = {
   closeTimeoutMs?: number;
   setTimer?: typeof setTimeout;
   clearTimer?: typeof clearTimeout;
+  onRegistered?: (publicHandle: string, workerGeneration: string) => void;
+  onStatus?: (status: FocusHostStatus) => void;
 };
-
-export class FocusControlRejectedError extends Error {
-  constructor(readonly code: FocusRejectionCode) {
-    super("Aperture focus registration was rejected");
-    this.name = "FocusControlRejectedError";
-  }
-}
 
 export class FocusHost {
   private readonly transport: FocusControlTransport;
@@ -56,14 +52,18 @@ export class FocusHost {
   private readonly closeTimeoutMs: number;
   private readonly setTimer: typeof setTimeout;
   private readonly clearTimer: typeof clearTimeout;
+  private readonly onRegistered: (publicHandle: string, workerGeneration: string) => void;
+  private readonly onStatus: (status: FocusHostStatus) => void;
   private readonly baseRegistration: Omit<FocusRegistration, "requestId" | "recovery">;
   private readonly titleLease: TerminalTitleLease | undefined;
   private recovery: FocusRecovery | undefined;
+  private workerGeneration: string | undefined;
   private timer: NodeJS.Timeout | undefined;
   private attempt: Promise<void> | undefined;
   private active = false;
   private closing = false;
   private retryAttempt = 0;
+  private lastStatus: FocusHostStatus | undefined;
 
   private constructor(
     options: FocusHostOptions,
@@ -77,6 +77,8 @@ export class FocusHost {
     this.closeTimeoutMs = options.closeTimeoutMs ?? CLOSE_TIMEOUT_MS;
     this.setTimer = options.setTimer ?? setTimeout;
     this.clearTimer = options.clearTimer ?? clearTimeout;
+    this.onRegistered = options.onRegistered ?? (() => undefined);
+    this.onStatus = options.onStatus ?? (() => undefined);
     this.baseRegistration = registration;
     this.titleLease = titleLease;
   }
@@ -169,26 +171,26 @@ export class FocusHost {
 
   private async refresh(): Promise<void> {
     try {
-      const recovery = await this.transport.registerFocus(this.registration());
-      if (this.baseRegistration.target.kind === "direct-terminal") {
-        if (recovery !== undefined) {
-          throw new Error("focus worker returned unexpected direct-terminal recovery");
-        }
-      } else if (!recovery || recovery.kind !== this.baseRegistration.target.kind) {
-        throw new Error("focus worker returned incomplete recovery state");
-      }
+      const registration = await this.transport.registerFocus(this.registration());
       if (this.closing) return;
-      this.recovery = recovery;
+      const generationChanged = this.workerGeneration !== registration.workerGeneration;
+      this.workerGeneration = registration.workerGeneration;
+      this.recovery = registration.recovery;
       this.active = true;
       this.retryAttempt = 0;
+      if (generationChanged) {
+        this.onRegistered(this.baseRegistration.publicHandle, registration.workerGeneration);
+        this.lastStatus = "registered";
+        this.onStatus("registered");
+      } else {
+        this.reportStatus("registered");
+      }
     } catch (error) {
       if (this.closing) return;
       this.active = false;
-      if (
-        this.titleLease &&
-        error instanceof FocusControlRejectedError &&
-        error.code === "unsupported_terminal_owned"
-      ) {
+      const unsupported = isWorkerDirectRejection(error, "unsupported_terminal_owned");
+      this.reportStatus(unsupported ? "unsupported" : "unavailable");
+      if (this.titleLease && unsupported) {
         this.closing = true;
         try {
           this.titleLease.release();
@@ -220,6 +222,11 @@ export class FocusHost {
   private clearScheduled(): void {
     this.clearTimer(this.timer);
     this.timer = undefined;
+  }
+  private reportStatus(status: FocusHostStatus): void {
+    if (this.lastStatus === status) return;
+    this.lastStatus = status;
+    this.onStatus(status);
   }
 }
 
@@ -313,6 +320,15 @@ function validatedTarget(target: Record<string, unknown>): { target: FocusTarget
 
 function validToken(value: string): boolean {
   return /^[A-Za-z0-9_-]{32}$/.test(value);
+}
+
+function isWorkerDirectRejection(error: unknown, code: string): boolean {
+  return Boolean(
+    error instanceof Error &&
+    error.name === "WorkerDirectRejectedError" &&
+    "code" in error &&
+    error.code === code,
+  );
 }
 
 async function succeedsWithin(operation: Promise<unknown>, milliseconds: number): Promise<boolean> {

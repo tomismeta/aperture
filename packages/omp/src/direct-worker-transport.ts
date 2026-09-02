@@ -1,17 +1,18 @@
 import { createConnection } from "node:net";
 
-import { FocusControlRejectedError } from "@tomismeta/aperture/focus-host";
 import {
   directMessageRequestId,
   parseWorkerDirectAcknowledgement,
   serializeWorkerDirectMessage,
-  type FocusRecovery,
+  WorkerDirectRejectedError,
   type FocusRegistration,
+  type FocusRegistrationResult,
   type FocusRevocation,
   type WorkerDirectAcknowledgement,
   type WorkerDirectMessage,
 } from "@tomismeta/aperture/worker-direct-message";
 import { resolveOmpAttentionSocketPath } from "@tomismeta/aperture/omp-attention-event";
+import { focusRegistrationResult } from "./focus-registration-response.js";
 
 const CONNECT_TIMEOUT_MS = 75;
 const RESPONSE_TIMEOUT_MS = 200;
@@ -116,13 +117,27 @@ export class OmpDirectWorkerTransport {
             return;
           }
           if (acknowledgement.status === "rejected") {
-            finish(undefined, new FocusControlRejectedError(acknowledgement.code));
+            finish(undefined, new WorkerDirectRejectedError(acknowledgement.code));
             return;
           }
           finish(acknowledgement);
         } catch (error) {
-          if (error instanceof FocusControlRejectedError) finish(undefined, error);
-          else finish(undefined, new Error("Aperture worker acknowledgement was invalid"));
+          if (error instanceof WorkerDirectRejectedError) {
+            finish(undefined, error);
+            return;
+          }
+          try {
+            const rejected = JSON.parse(response.subarray(0, newline).toString("utf8")) as {
+              status?: unknown;
+            };
+            if (rejected.status === "rejected") {
+              finish(undefined, new Error("Aperture worker rejected direct message"));
+              return;
+            }
+          } catch {
+            // The bounded response remains classified without exposing its content.
+          }
+          finish(undefined, new Error("Aperture worker acknowledgement was invalid"));
         }
       });
       socket.once("error", () =>
@@ -136,20 +151,9 @@ export class OmpDirectWorkerTransport {
     });
   }
 
-  async registerFocus(registration: FocusRegistration): Promise<FocusRecovery | undefined> {
+  async registerFocus(registration: FocusRegistration): Promise<FocusRegistrationResult> {
     const acknowledgement = await this.send(registration, this.focusRegistrationResponseTimeoutMs);
-    if (acknowledgement.status !== "accepted") return undefined;
-    const recovery = acknowledgement.recovery;
-    if (registration.target.kind === "direct-terminal") {
-      if (recovery !== undefined) {
-        throw new Error("Aperture worker returned unexpected direct-terminal recovery");
-      }
-      return undefined;
-    }
-    if (!recovery || recovery.kind !== registration.target.kind) {
-      throw new Error("Aperture worker returned incomplete focus recovery");
-    }
-    return recovery;
+    return focusRegistrationResult(registration, acknowledgement);
   }
 
   async revokeFocus(revocation: FocusRevocation): Promise<void> {

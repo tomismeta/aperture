@@ -1,4 +1,5 @@
 import { FocusHost, type FocusHostOptions } from "@tomismeta/aperture/focus-host";
+import type { OmpAttentionEvent } from "@tomismeta/aperture/omp-attention-event";
 
 import { bindOmpExtension } from "./bind.js";
 import {
@@ -18,7 +19,10 @@ export type ApertureOmarchyOmpExtensionOptions = OmarchyNotificationTransportOpt
   suppressBuiltInNotifications?: boolean;
   directTransport?: OmpDirectWorkerTransport;
   directTransportOptions?: OmpDirectWorkerTransportOptions;
-  focusHostOptions?: Omit<FocusHostOptions, "transport" | "terminalTitle">;
+  focusHostOptions?: Omit<
+    FocusHostOptions,
+    "transport" | "terminalTitle" | "onRegistered" | "onStatus"
+  >;
 };
 
 export function createApertureOmarchyOmpExtension(
@@ -39,6 +43,7 @@ export function createApertureOmarchyOmpExtension(
     let suppressionActive = false;
     let deliveryActive = true;
     let focusHost: FocusHost | undefined;
+    const focusReplayCache = new Map<string, OmpAttentionEvent>();
     function handleDeliveryFailure(error: unknown): void {
       pi.logger?.warn?.("Aperture OMP adapter delivery failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -58,6 +63,9 @@ export function createApertureOmarchyOmpExtension(
       direct,
       notification,
       onFailure: handleDeliveryFailure,
+      onFocusReplay: (result) => {
+        pi.logger?.debug?.(`Aperture focus replay ${result}`);
+      },
     });
     const transportAvailable = await transport.isAvailable();
     suppressionActive = suppressBuiltInNotifications && transportAvailable;
@@ -68,31 +76,43 @@ export function createApertureOmarchyOmpExtension(
       {
         handle: async (event, context, capabilities) => {
           if (!deliveryActive) return;
-          const navigable = (() => {
-            try {
-              return mapOmpDirectAttentionEvents(event, context).length > 0;
-            } catch {
-              return false;
-            }
-          })();
-          if (!focusHost && (navigable || isFocusPrewarmEvent(event))) {
+          if (!focusHost && (isFocusCandidateEvent(event) || isFocusPrewarmEvent(event))) {
             focusHost = FocusHost.create({
               transport: direct,
               ...focusHostOptions,
               ...(capabilities.terminalTitle ? { terminalTitle: capabilities.terminalTitle } : {}),
+              onRegistered: (publicHandle) => {
+                transport.replayFocus(
+                  [...focusReplayCache.values()].map((cached) => ({
+                    ...cached,
+                    focus: { kind: "opaque-focus", handle: publicHandle },
+                  })),
+                );
+              },
+              onStatus: (status) => {
+                pi.logger?.debug?.(`Aperture focus ${status}`);
+              },
             });
           }
           focusHost?.prewarm();
           const focusHandle = focusHost?.focusHandle();
-          await transport.handle(event, {
+          const deliveryContext = {
             ...context,
             ...(focusHandle ? { focusHandle } : {}),
-          });
+          };
+          try {
+            const directEvents = mapOmpDirectAttentionEvents(event, deliveryContext);
+            updateFocusReplayCache(focusReplayCache, directEvents);
+            await transport.handleMapped(event, deliveryContext, directEvents);
+          } catch {
+            await transport.handle(event, deliveryContext);
+          }
         },
         close: async () => {
           try {
             await focusHost?.close();
             await transport.close();
+            focusReplayCache.clear();
           } finally {
             restoreBuiltInNotifications();
           }
@@ -103,12 +123,55 @@ export function createApertureOmarchyOmpExtension(
   };
 }
 
+function isFocusCandidateEvent(event: OmpEvent): boolean {
+  return (
+    event.type === "tool_approval_requested" ||
+    ((event.type === "tool_call" || event.type === "tool_execution_start") &&
+      event.toolName === "ask")
+  );
+}
+
 function isFocusPrewarmEvent(event: OmpEvent): boolean {
   return (
     event.type === "session_start" ||
     event.type === "before_agent_start" ||
     event.type === "turn_start"
   );
+}
+
+const MAXIMUM_FOCUS_REPLAY_EVENTS = 64;
+
+function updateFocusReplayCache(
+  cache: Map<string, OmpAttentionEvent>,
+  events: OmpAttentionEvent[],
+): void {
+  for (const event of events) {
+    if (event.classification === "session_shutdown") {
+      const prefix = `${event.sessionId}\u0000`;
+      for (const key of cache.keys()) {
+        if (key.startsWith(prefix)) cache.delete(key);
+      }
+      continue;
+    }
+    if (!event.interactionId) continue;
+    const key = `${event.sessionId}\u0000${event.interactionId}`;
+    if (event.classification === "approval_resolved" || event.classification === "input_resolved") {
+      cache.delete(key);
+      continue;
+    }
+    if (
+      event.classification !== "approval_requested" &&
+      event.classification !== "input_requested"
+    ) {
+      continue;
+    }
+    const { focus: _focus, ...withoutFocus } = event;
+    if (!cache.has(key) && cache.size >= MAXIMUM_FOCUS_REPLAY_EVENTS) {
+      const oldest = cache.keys().next().value;
+      if (typeof oldest === "string") cache.delete(oldest);
+    }
+    cache.set(key, withoutFocus);
+  }
 }
 
 export default createApertureOmarchyOmpExtension();

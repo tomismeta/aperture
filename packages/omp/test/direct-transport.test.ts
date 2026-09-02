@@ -3,7 +3,6 @@ import { EventEmitter, once } from "node:events";
 import test from "node:test";
 
 import {
-  FocusControlRejectedError,
   FocusHost,
   resolveFocusTarget,
   type FocusControlTransport,
@@ -12,8 +11,10 @@ import {
 import type { OmpAttentionEvent } from "@tomismeta/aperture/omp-attention-event";
 import {
   directMessageRequestId,
+  WorkerDirectRejectedError,
   type FocusRecovery,
   type FocusRegistration,
+  type FocusRegistrationResult,
   type WorkerDirectAcknowledgement,
   type WorkerDirectMessage,
 } from "@tomismeta/aperture/worker-direct-message";
@@ -139,12 +140,12 @@ test("focus target detection is closed and rejects unsupported harness modes", (
 
 test("300 ms and 2 s focus registration never delay attention delivery", async () => {
   for (const simulatedDelay of [300, 2_000]) {
-    const registration = deferred<FocusRecovery | undefined>();
+    const registration = deferred<FocusRegistrationResult>();
     class DelayedTransport extends FakeDirectTransport {
       registrationCalls = 0;
       concurrentRegistrations = 0;
       maximumConcurrentRegistrations = 0;
-      override async registerFocus(): Promise<FocusRecovery | undefined> {
+      override async registerFocus(): Promise<FocusRegistrationResult> {
         this.registrationCalls += 1;
         this.concurrentRegistrations += 1;
         this.maximumConcurrentRegistrations = Math.max(
@@ -218,10 +219,84 @@ test("300 ms and 2 s focus registration never delay attention delivery", async (
     assert.equal(direct.maximumConcurrentRegistrations, 1);
     assert.equal(direct.sent.length, 1);
     assert.equal(direct.sent[0]?.focus, undefined);
-    registration.resolve(undefined);
+    registration.resolve({ workerGeneration: "W".repeat(32) });
     await flushMicrotasks();
+    assert.equal(direct.sent.length, 2);
+    assert.match(direct.sent[1]?.focus?.handle ?? "", /^[A-Za-z0-9_-]{32}$/);
     await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, extensionContext);
   }
+});
+
+test("worker generation change replays active requests with the same opaque handle", async () => {
+  class GenerationTransport extends FakeDirectTransport {
+    workerGeneration = "W".repeat(32);
+    override async registerFocus(): Promise<FocusRegistrationResult> {
+      return {
+        workerGeneration: this.workerGeneration,
+        recovery: { kind: "herdr", marker: "R".repeat(32) },
+      };
+    }
+    override async revokeFocus(): Promise<void> {}
+  }
+  const direct = new GenerationTransport();
+  const timers = new ManualTimers();
+  let mappingClockCalls = 0;
+  const handlers = new Map<
+    string,
+    (event: OmpEvent, context: OmpExtensionContext) => Promise<void> | void
+  >();
+  await createApertureOmarchyOmpExtension({
+    mappingContext: {
+      now: () => new Date(Date.UTC(2026, 8, 2, 16, 0, mappingClockCalls++)).toISOString(),
+    },
+    directTransport: direct,
+    availabilityCheck: async () => true,
+    commandRunner: async () => ({ stdout: "", stderr: "" }),
+    focusHostOptions: {
+      environment: {
+        HERDR_ENV: "1",
+        HERDR_SOCKET_PATH: "/run/user/1000/herdr.sock",
+        HERDR_PANE_ID: "w1:p1",
+        HYPRLAND_INSTANCE_SIGNATURE: "instance_1",
+      },
+      stdoutIsTTY: true,
+      heartbeatIntervalMs: 5,
+      setTimer: timers.setTimer as typeof setTimeout,
+      clearTimer: timers.clearTimer as typeof clearTimeout,
+    },
+  })({
+    on(name, handler) {
+      handlers.set(name, handler);
+    },
+  });
+  const extensionContext: OmpExtensionContext = {
+    sessionManager: { sessionId: "session-1" },
+  };
+  await handlers.get("session_start")?.({ type: "session_start" }, extensionContext);
+  await flushMicrotasks();
+  await handlers.get("tool_approval_requested")?.(
+    {
+      type: "tool_approval_requested",
+      sessionId: "session-1",
+      toolCallId: "tool-1",
+      toolName: "bash",
+      approvalMode: "write",
+    },
+    extensionContext,
+  );
+  await flushMicrotasks();
+  assert.equal(direct.sent.length, 1);
+  const originalHandle = direct.sent[0]?.focus?.handle;
+  assert.match(originalHandle ?? "", /^[A-Za-z0-9_-]{32}$/);
+  direct.workerGeneration = "X".repeat(32);
+  timers.runNext();
+  await flushMicrotasks();
+  assert.equal(direct.sent.length, 2);
+  assert.equal(direct.sent[1]?.eventId, direct.sent[0]?.eventId);
+  assert.equal(direct.sent[1]?.occurredAt, direct.sent[0]?.occurredAt);
+  assert.equal(direct.sent[1]?.focus?.handle, originalHandle);
+  assert.equal(mappingClockCalls, 2);
+  await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, extensionContext);
 });
 
 test("focus host recovers worker late-start and restart with one attempt", async () => {
@@ -231,6 +306,8 @@ test("focus host recovers worker late-start and restart with one attempt", async
   let maximumConcurrent = 0;
   const registrations: FocusRegistration[] = [];
   const recovery: FocusRecovery = { kind: "herdr", marker: "R".repeat(32) };
+  let workerGeneration = "W".repeat(32);
+  const registeredGenerations: string[] = [];
   const timers = new ManualTimers();
   const transport: FocusControlTransport = {
     async registerFocus(registration) {
@@ -241,7 +318,7 @@ test("focus host recovers worker late-start and restart with one attempt", async
       await Promise.resolve();
       concurrent -= 1;
       if (!available) throw new Error("worker unavailable");
-      return recovery;
+      return { workerGeneration, recovery };
     },
     async revokeFocus() {},
   };
@@ -260,6 +337,7 @@ test("focus host recovers worker late-start and restart with one attempt", async
     randomToken: tokenFactory(),
     setTimer: timers.setTimer as typeof setTimeout,
     clearTimer: timers.clearTimer as typeof clearTimeout,
+    onRegistered: (_handle, generation) => registeredGenerations.push(generation),
   });
   assert.ok(host);
   host.prewarm();
@@ -275,21 +353,24 @@ test("focus host recovers worker late-start and restart with one attempt", async
   timers.runNext();
   await flushMicrotasks();
   assert.equal(host.isActive(), true);
+  assert.deepEqual(registeredGenerations, ["W".repeat(32)]);
   available = false;
   timers.runNext();
   await flushMicrotasks();
   assert.equal(host.isActive(), false);
+  workerGeneration = "X".repeat(32);
   available = true;
   timers.runNext();
   await flushMicrotasks();
   assert.equal(host.isActive(), true);
+  assert.deepEqual(registeredGenerations, ["W".repeat(32), "X".repeat(32)]);
   assert(registrations.some((item) => item.recovery?.kind === "herdr"));
   assert.equal(maximumConcurrent, 1);
   await host.close();
 });
 
 test("focus host shutdown does not start a second registration after its deadline", async () => {
-  const registration = deferred<FocusRecovery | undefined>();
+  const registration = deferred<FocusRegistrationResult>();
   let registrationCalls = 0;
   let revocationCalls = 0;
   const transport: FocusControlTransport = {
@@ -319,7 +400,10 @@ test("focus host shutdown does not start a second registration after its deadlin
   await host.close();
   assert.equal(registrationCalls, 1);
   assert.equal(revocationCalls, 1);
-  registration.resolve({ kind: "herdr", marker: "R".repeat(32) });
+  registration.resolve({
+    workerGeneration: "W".repeat(32),
+    recovery: { kind: "herdr", marker: "R".repeat(32) },
+  });
   await flushMicrotasks();
 });
 
@@ -329,7 +413,7 @@ test("direct title rename prevents cleanup from overwriting the new owner", asyn
   const transport: FocusControlTransport = {
     async registerFocus() {
       if (reject) throw new Error("marker ownership lost");
-      return undefined;
+      return { workerGeneration: "W".repeat(32) };
     },
     async revokeFocus() {},
   };
@@ -355,9 +439,11 @@ test("direct title rename prevents cleanup from overwriting the new owner", asyn
 
 test("stable unsupported direct ownership releases the host title claim", async () => {
   let releases = 0;
+  const releaseEvents = new EventEmitter();
+  const released = once(releaseEvents, "released");
   const transport: FocusControlTransport = {
     async registerFocus() {
-      throw new FocusControlRejectedError("unsupported_terminal_owned");
+      throw new WorkerDirectRejectedError("unsupported_terminal_owned");
     },
     async revokeFocus() {},
   };
@@ -367,7 +453,12 @@ test("stable unsupported direct ownership releases the host title claim", async 
     stdoutIsTTY: true,
     terminalTitle: {
       claim() {
-        return { release: () => (releases += 1) };
+        return {
+          release: () => {
+            releases += 1;
+            releaseEvents.emit("released");
+          },
+        };
       },
     },
     retryInitialMs: 1,
@@ -375,7 +466,7 @@ test("stable unsupported direct ownership releases the host title claim", async 
   });
   assert.ok(host);
   host.prewarm();
-  await flushMicrotasks();
+  await released;
   assert.equal(releases, 1);
   assert.equal(host.isActive(), false);
 });

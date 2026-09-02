@@ -92,6 +92,9 @@ export async function runNotificationWorkerStdio(
   };
   const focusBroker = new FocusBroker({
     ...(options.now ? { now: options.now } : {}),
+    onDiagnostic: (stage) => {
+      diagnostic.write(`Aperture focus ${stage}\n`);
+    },
     onInvalidated: (publicHandle) => {
       void serialize(async () => {
         if (restored.engine.removeFocusHandle(publicHandle)) await emitSnapshot();

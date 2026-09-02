@@ -306,10 +306,12 @@ test("activewindow confirmation polls, times out stale, and honors cancellation"
     const client = { address: "0xabc", class: "foot", title: "initial" };
     let activeQueries = 0;
     let clock = 0;
+    const stages: string[] = [];
     let broker: FocusBroker;
     const options: FocusBrokerOptions = {
       randomToken: tokenFactory(),
       monotonicNow: () => clock,
+      onDiagnostic: (stage) => stages.push(stage),
       sleep: async () => {
         clock += 25;
         if (mode === "cancel") {
@@ -354,6 +356,26 @@ test("activewindow confirmation polls, times out stale, and honors cancellation"
       result,
       mode === "eventual" ? "focused" : mode === "cancel" ? "missing" : "stale",
     );
+    assert.deepEqual(stages.slice(0, 5), [
+      "resolve-pane",
+      "lease-before-focus",
+      "pane-focus",
+      "pane-snapshot",
+      "dispatch",
+    ]);
+    assert.equal(
+      stages.includes("active-confirm-timeout"),
+      mode === "never",
+    );
+    const renderedStages = JSON.stringify(stages);
+    for (const privateValue of [
+      handleA,
+      client.address,
+      client.title,
+      "/run/user/1000/herdr.sock",
+    ]) {
+      assert.equal(renderedStages.includes(privateValue), false);
+    }
     assert.equal(activeQueries, mode === "eventual" ? 2 : mode === "cancel" ? 1 : 41);
     await broker.close();
   }

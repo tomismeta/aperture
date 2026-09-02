@@ -24,6 +24,15 @@ const HYPRLAND_ADDRESS = /^0x[0-9a-fA-F]{1,16}$/;
 const PANE_ID = /^w[1-9]\d*:p[1-9]\d*$/;
 
 export type FocusActivationResult = "focused" | "stale" | "missing";
+export type FocusDiagnosticStage =
+  | "resolve-pane"
+  | "lease-before-focus"
+  | "pane-focus"
+  | "pane-snapshot"
+  | "dispatch"
+  | "active-confirm-timeout"
+  | "exception";
+
 
 type FootClient = { address: string; title: string; className: "foot" | "footclient" };
 
@@ -75,6 +84,7 @@ export type FocusBrokerOptions = {
   sleep?: (milliseconds: number) => Promise<void>;
   monotonicNow?: () => number;
   onInvalidated?: (publicHandle: string) => void;
+  onDiagnostic?: (stage: FocusDiagnosticStage) => void;
 };
 
 export class FocusBroker {
@@ -90,6 +100,7 @@ export class FocusBroker {
   private readonly onInvalidated: (publicHandle: string) => void;
   private readonly sleep: (milliseconds: number) => Promise<void>;
   private readonly monotonicNow: () => number;
+  private readonly onDiagnostic: (stage: FocusDiagnosticStage) => void;
   private operationQueue = Promise.resolve();
 
   constructor(options: FocusBrokerOptions = {}) {
@@ -103,6 +114,7 @@ export class FocusBroker {
       options.sleep ??
       ((milliseconds) =>
         new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+    this.onDiagnostic = options.onDiagnostic ?? (() => undefined);
     this.monotonicNow = options.monotonicNow ?? (() => performance.now());
   }
 
@@ -313,31 +325,40 @@ export class FocusBroker {
     const lease = record.lease;
     const epoch = lease.epoch;
     try {
+      this.onDiagnostic("resolve-pane");
       const authoritativePaneId = await this.resolvePane(
         record.herdrSocketPath,
         record.authoritativePaneId,
       );
       record.authoritativePaneId = authoritativePaneId;
       if (!this.isCurrent(record, lease, epoch)) return "missing";
+      this.onDiagnostic("lease-before-focus");
       await this.assertLease(lease, epoch);
       if (!this.isCurrent(record, lease, epoch)) return "missing";
+      this.onDiagnostic("pane-focus");
       await this.herdrRequest(record.herdrSocketPath, "pane.focus", {
         pane_id: authoritativePaneId,
       });
+      this.onDiagnostic("pane-snapshot");
       const snapshot = await this.herdrRequest(record.herdrSocketPath, "session.snapshot", {});
       if (snapshot.focused_pane_id !== authoritativePaneId) {
         await this.invalidate(record);
         return "stale";
       }
       if (!this.isCurrent(record, lease, epoch)) return "missing";
+      this.onDiagnostic("dispatch");
       await this.hyprctlRequest(lease.compositorAddress, [
         "dispatch",
         `hl.dsp.focus({ window = "address:${lease.address}" })`,
       ]);
       const confirmation = await this.confirmActiveWindow(record, lease, epoch);
-      if (confirmation === "stale") await this.invalidateLease(lease);
+      if (confirmation === "stale") {
+        this.onDiagnostic("active-confirm-timeout");
+        await this.invalidateLease(lease);
+      }
       return confirmation;
     } catch {
+      this.onDiagnostic("exception");
       if (this.registrations.get(publicHandle) === record) await this.invalidate(record);
       return "stale";
     }

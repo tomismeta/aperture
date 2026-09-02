@@ -300,3 +300,61 @@ test("title loss heartbeat removes navigation without setting or rebinding", asy
   });
   await broker.close();
 });
+
+test("activewindow confirmation polls, times out stale, and honors cancellation", async () => {
+  for (const mode of ["eventual", "never", "cancel"] as const) {
+    const client = { address: "0xabc", class: "foot", title: "initial" };
+    let activeQueries = 0;
+    let clock = 0;
+    let broker: FocusBroker;
+    const options: FocusBrokerOptions = {
+      randomToken: tokenFactory(),
+      monotonicNow: () => clock,
+      sleep: async () => {
+        clock += 25;
+        if (mode === "cancel") {
+          void broker.revoke({
+            schemaVersion: 2,
+            type: "omp.focus.revoke",
+            requestId: "cancel-during-confirmation",
+            publicHandle: handleA,
+            hostGeneration: generationA,
+          });
+        }
+      },
+      herdrRequest: async (_socket, method, params) => {
+        if (method === "pane.current") {
+          return { type: "pane_current", pane: { pane_id: params.caller_pane_id } };
+        }
+        if (method === "client.window_title.set") {
+          client.title = String(params.title);
+          return { type: "client_window_title", changed: true, reason: "set" };
+        }
+        if (method === "client.window_title.clear") {
+          client.title = "initial";
+          return { type: "client_window_title", changed: true, reason: "cleared" };
+        }
+        if (method === "session.snapshot") return { focused_pane_id: "w2:p1" };
+        return { type: "pane_focus", changed: true };
+      },
+      hyprctlRequest: async (_instance, args) => {
+        if (args[1] === "clients") return [client];
+        if (args[1] === "activewindow") {
+          activeQueries += 1;
+          if (mode === "eventual" && activeQueries >= 2) return client;
+          return { address: "0xsource", class: "chromium", title: "Source" };
+        }
+        return null;
+      },
+    };
+    broker = new FocusBroker(options);
+    await broker.register(registration({ requestId: `poll-${mode}` }));
+    const result = await broker.activate(handleA);
+    assert.equal(
+      result,
+      mode === "eventual" ? "focused" : mode === "cancel" ? "missing" : "stale",
+    );
+    assert.equal(activeQueries, mode === "eventual" ? 2 : mode === "cancel" ? 1 : 41);
+    await broker.close();
+  }
+});

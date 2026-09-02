@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { lstat } from "node:fs/promises";
 import { createConnection } from "node:net";
+import { performance } from "node:perf_hooks";
 
 import type { OmpFocusRegistration, OmpFocusRevocation } from "../omp-direct-message.js";
 import type { ApertureSurfaceNavigation } from "../surface/protocol.js";
@@ -15,6 +16,8 @@ const HYPRCTL_OUTPUT_BYTES = 128 * 1024;
 const ACTIVATION_EXPIRY_FENCE_MS = 3_000;
 const BLOCKED_CONTEXT_TTL_MS = 60_000;
 const MAXIMUM_BLOCKED_CONTEXTS = 64;
+const ACTIVE_WINDOW_CONFIRM_INTERVAL_MS = 25;
+const ACTIVE_WINDOW_CONFIRM_TIMEOUT_MS = 1_000;
 const HYPRCTL_PATH = "/usr/bin/hyprctl";
 const FOOT_CLASSES: Readonly<Record<string, true>> = { foot: true, footclient: true };
 const HYPRLAND_ADDRESS = /^0x[0-9a-fA-F]{1,16}$/;
@@ -69,6 +72,8 @@ export type FocusBrokerOptions = {
   randomToken?: () => string;
   herdrRequest?: HerdrRequest;
   hyprctlRequest?: HyprctlRequest;
+  sleep?: (milliseconds: number) => Promise<void>;
+  monotonicNow?: () => number;
   onInvalidated?: (publicHandle: string) => void;
 };
 
@@ -83,6 +88,8 @@ export class FocusBroker {
   private readonly herdrRequest: HerdrRequest;
   private readonly hyprctlRequest: HyprctlRequest;
   private readonly onInvalidated: (publicHandle: string) => void;
+  private readonly sleep: (milliseconds: number) => Promise<void>;
+  private readonly monotonicNow: () => number;
   private operationQueue = Promise.resolve();
 
   constructor(options: FocusBrokerOptions = {}) {
@@ -92,6 +99,11 @@ export class FocusBroker {
     this.herdrRequest = options.herdrRequest ?? requestHerdr;
     this.hyprctlRequest = options.hyprctlRequest ?? requestHyprctl;
     this.onInvalidated = options.onInvalidated ?? (() => undefined);
+    this.sleep =
+      options.sleep ??
+      ((milliseconds) =>
+        new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+    this.monotonicNow = options.monotonicNow ?? (() => performance.now());
   }
 
   register(registration: OmpFocusRegistration): Promise<void> {
@@ -322,23 +334,53 @@ export class FocusBroker {
         "dispatch",
         `hl.dsp.focus({ window = "address:${lease.address}" })`,
       ]);
+      const confirmation = await this.confirmActiveWindow(record, lease, epoch);
+      if (confirmation === "stale") await this.invalidateLease(lease);
+      return confirmation;
+    } catch {
+      if (this.registrations.get(publicHandle) === record) await this.invalidate(record);
+      return "stale";
+    }
+  }
+
+  private async confirmActiveWindow(
+    record: FocusRegistrationRecord,
+    lease: FocusClientLease,
+    epoch: string,
+  ): Promise<FocusActivationResult> {
+    const deadline = this.monotonicNow() + ACTIVE_WINDOW_CONFIRM_TIMEOUT_MS;
+    const maximumAttempts =
+      Math.floor(
+        ACTIVE_WINDOW_CONFIRM_TIMEOUT_MS / ACTIVE_WINDOW_CONFIRM_INTERVAL_MS,
+      ) + 1;
+    for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+      if (!this.isCurrent(record, lease, epoch)) return "missing";
       const active = asRecord(
         await this.hyprctlRequest(lease.compositorAddress, ["-j", "activewindow"]),
       );
       if (
-        active.address !== lease.address ||
-        active.title !== lease.markerTitle ||
-        typeof active.class !== "string" ||
-        FOOT_CLASSES[active.class] !== true
+        active.address === lease.address &&
+        active.title === lease.markerTitle &&
+        typeof active.class === "string" &&
+        FOOT_CLASSES[active.class] === true
       ) {
-        await this.invalidateLeaseWithoutClear(lease);
+        return this.isCurrent(record, lease, epoch) ? "focused" : "missing";
+      }
+      if (
+        attempt === maximumAttempts - 1 ||
+        this.monotonicNow() >= deadline
+      ) {
         return "stale";
       }
-      if (!this.isCurrent(record, lease, epoch)) return "missing";
-      return "focused";
-    } catch {
-      if (this.registrations.get(publicHandle) === record) await this.invalidate(record);
-      return "stale";
+      await this.sleep(ACTIVE_WINDOW_CONFIRM_INTERVAL_MS);
+    }
+    return "stale";
+  }
+
+  private async invalidateLease(lease: FocusClientLease): Promise<void> {
+    for (const handle of [...lease.members]) {
+      const record = this.registrations.get(handle);
+      if (record) await this.invalidate(record);
     }
   }
 

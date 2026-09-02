@@ -15,6 +15,8 @@ import type { OmpAttentionEvent } from "../omp-attention-event.js";
 
 const SOCKET_MODE = 0o600;
 const DIRECTORY_MODE = 0o700;
+const ATTENTION_PROCESSING_TIMEOUT_MS = 500;
+const FOCUS_PROCESSING_TIMEOUT_MS = 2_250;
 const CONNECTION_TIMEOUT_MS = 500;
 const STALE_PROBE_TIMEOUT_MS = 75;
 
@@ -168,6 +170,7 @@ async function handleConnection(
     const newline = buffer.indexOf(0x0a);
     if (newline === -1) return;
     handled = true;
+    socket.setTimeout(0);
     const trailing = buffer.subarray(newline + 1).toString("utf8");
     if (trailing.trim()) {
       reject();
@@ -178,6 +181,7 @@ async function handleConnection(
   socket.once("end", () => {
     if (!handled && buffer.byteLength > 0) {
       handled = true;
+      socket.setTimeout(0);
       void processLine(buffer.toString("utf8"));
     } else if (!handled) {
       socket.destroy();
@@ -187,13 +191,18 @@ async function handleConnection(
   const processLine = async (line: string): Promise<void> => {
     try {
       const message = parseOmpDirectMessage(line);
-      if (message.type === "omp.attention-event") {
-        await options.handleAttention(message);
-      } else if (message.type === "omp.focus.register") {
-        await options.registerFocus(message);
-      } else {
-        await options.revokeFocus(message);
-      }
+      const processing =
+        message.type === "omp.attention-event"
+          ? options.handleAttention(message)
+          : message.type === "omp.focus.register"
+            ? options.registerFocus(message)
+            : options.revokeFocus(message);
+      await withDeadline(
+        Promise.resolve(processing),
+        message.type === "omp.attention-event"
+          ? ATTENTION_PROCESSING_TIMEOUT_MS
+          : FOCUS_PROCESSING_TIMEOUT_MS,
+      );
       if (!socket.destroyed) {
         socket.end(
           `${JSON.stringify({
@@ -210,6 +219,23 @@ async function handleConnection(
   };
 
   await new Promise<void>((resolve) => socket.once("close", () => resolve()));
+}
+
+async function withDeadline<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Aperture direct message processing timed out")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function probeSocket(socketPath: string): Promise<boolean> {

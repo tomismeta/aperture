@@ -238,6 +238,9 @@ const buildInfo = {
   focusBroker: {
     registrationTtlMs: 15_000,
     heartbeatIntervalMs: 5_000,
+    attentionAcknowledgementTimeoutMs: 200,
+    focusAcknowledgementTimeoutMs: 2_000,
+    focusServerProcessingTimeoutMs: 2_250,
     herdrProtocol: "raw-ndjson-0.8.2",
     compositorExecutable: "/usr/bin/hyprctl",
     compositorDispatchTemplate: 'dispatch hl.dsp.focus({ window = "address:<validated>" })',

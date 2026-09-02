@@ -73,6 +73,17 @@ export class HerdrFocusHost {
       host.heartbeat.unref?.();
       return host;
     } catch {
+      try {
+        await host.direct.revokeFocus({
+          schemaVersion: 2,
+          type: "omp.focus.revoke",
+          requestId: randomUUID(),
+          publicHandle,
+          hostGeneration,
+        });
+      } catch {
+        // Worker TTL is the final cleanup if registration committed after timeout.
+      }
       return undefined;
     }
   }

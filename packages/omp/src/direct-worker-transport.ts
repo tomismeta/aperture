@@ -12,6 +12,7 @@ import { resolveOmpAttentionSocketPath } from "@tomismeta/aperture/omp-attention
 
 const CONNECT_TIMEOUT_MS = 75;
 const RESPONSE_TIMEOUT_MS = 200;
+const FOCUS_REGISTRATION_RESPONSE_TIMEOUT_MS = 2_000;
 const MAXIMUM_RESPONSE_BYTES = 4 * 1024;
 
 export type OmpDirectWorkerTransportOptions = {
@@ -20,6 +21,7 @@ export type OmpDirectWorkerTransportOptions = {
   connect?: typeof createConnection;
   connectTimeoutMs?: number;
   responseTimeoutMs?: number;
+  focusRegistrationResponseTimeoutMs?: number;
 };
 
 export class OmpDirectWorkerTransport {
@@ -27,6 +29,7 @@ export class OmpDirectWorkerTransport {
   private readonly connect: typeof createConnection;
   private readonly connectTimeoutMs: number;
   private readonly responseTimeoutMs: number;
+  private readonly focusRegistrationResponseTimeoutMs: number;
 
   constructor(options: OmpDirectWorkerTransportOptions = {}) {
     this.socketPath =
@@ -34,6 +37,9 @@ export class OmpDirectWorkerTransport {
     this.connect = options.connect ?? createConnection;
     this.connectTimeoutMs = options.connectTimeoutMs ?? CONNECT_TIMEOUT_MS;
     this.responseTimeoutMs = options.responseTimeoutMs ?? RESPONSE_TIMEOUT_MS;
+    this.focusRegistrationResponseTimeoutMs =
+      options.focusRegistrationResponseTimeoutMs ??
+      FOCUS_REGISTRATION_RESPONSE_TIMEOUT_MS;
   }
 
   async isAvailable(): Promise<boolean> {
@@ -52,7 +58,10 @@ export class OmpDirectWorkerTransport {
     });
   }
 
-  async send(message: OmpDirectMessage): Promise<void> {
+  async send(
+    message: OmpDirectMessage,
+    responseTimeoutMs = this.responseTimeoutMs,
+  ): Promise<void> {
     if (!this.socketPath) throw new Error("Aperture worker socket is unavailable");
     const line = serializeOmpDirectMessage(message);
     const requestId = directMessageRequestId(message);
@@ -81,7 +90,7 @@ export class OmpDirectWorkerTransport {
         clearTimeout(connectTimer);
         responseTimer = setTimeout(
           () => finish(new Error("Aperture worker socket response timed out")),
-          this.responseTimeoutMs,
+          responseTimeoutMs,
         );
         socket.write(line, "utf8", (error) => {
           if (error) finish(new Error("Aperture worker socket write failed"));
@@ -115,11 +124,11 @@ export class OmpDirectWorkerTransport {
     });
   }
   async registerFocus(registration: OmpFocusRegistration): Promise<void> {
-    await this.send(registration);
+    await this.send(registration, this.focusRegistrationResponseTimeoutMs);
   }
 
   async revokeFocus(revocation: OmpFocusRevocation): Promise<void> {
-    await this.send(revocation);
+    await this.send(revocation, this.focusRegistrationResponseTimeoutMs);
   }
 
   async close(): Promise<void> {}

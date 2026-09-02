@@ -352,7 +352,10 @@ test("worker-owned socket validates ownership, bounds input, and removes itself"
     handleAttention: async (event) => {
       received.push(event);
     },
-    registerFocus: async () => undefined,
+    registerFocus: async () => {
+      // Integration contract: processing must outlive the socket's 500 ms read deadline.
+      await new Promise<void>((resolve) => setTimeout(resolve, 700));
+    },
     revokeFocus: () => undefined,
   });
   const socketMetadata = await lstat(socketPath);
@@ -363,6 +366,16 @@ test("worker-owned socket validates ownership, bounds input, and removes itself"
 
   const client = new OmpDirectWorkerTransport({ socketPath });
   await client.send(directEvent());
+  await client.registerFocus({
+    schemaVersion: 2,
+    type: "omp.focus.register",
+    requestId: "slow-register",
+    publicHandle: "A".repeat(32),
+    hostGeneration: "B".repeat(32),
+    herdrSocketPath: "/run/user/1000/herdr.sock",
+    paneId: "w2:p1",
+    compositorAddress: "instance_1",
+  });
   assert.equal(received.length, 1);
   assert.match(await sendRaw(socketPath, "{\n"), /rejected/);
   assert.match(

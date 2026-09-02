@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { EventEmitter, once } from "node:events";
+import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:net";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import type { OmpAttentionEvent } from "@tomismeta/aperture/omp-attention-event";
 import type { OmpDirectMessage } from "@tomismeta/aperture/omp-direct-message";
 
 import { mapOmpDirectAttentionEvents } from "../src/direct-event-mapping.js";
-import { resolveHerdrFocusContext } from "../src/herdr-focus.js";
+import { HerdrFocusHost, resolveHerdrFocusContext } from "../src/herdr-focus.js";
 import { OmpDirectWorkerTransport } from "../src/direct-worker-transport.js";
 import { OmarchyAttentionTransport } from "../src/omarchy-attention-transport.js";
 import {
@@ -72,7 +76,102 @@ test("Herdr focus context is exact and rejects unsupported terminal modes", () =
     undefined,
   );
 });
+test("focus registration has a bounded broker response budget while attention stays fail-fast", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-direct-timeout-"));
+  const socketPath = path.join(root, "worker.sock");
+  const server = createServer((socket) => {
+    let input = "";
+    socket.setEncoding("utf8");
+    socket.on("data", (chunk: string) => {
+      input += chunk;
+      if (!input.includes("\n")) return;
+      const message = JSON.parse(input) as {
+        type: string;
+        requestId?: string;
+        eventId?: string;
+      };
+      // Integration contract: real socket ACK latency must cross the configured budgets.
+      setTimeout(() => {
+        socket.end(
+          `${JSON.stringify({
+            schemaVersion: 2,
+            status: "accepted",
+            requestId: message.requestId ?? message.eventId,
+          })}\n`,
+        );
+      }, 300);
+    });
+  });
+  server.listen(socketPath);
+  await once(server, "listening");
+  const transport = new OmpDirectWorkerTransport({ socketPath });
+  try {
+    await transport.registerFocus({
+      schemaVersion: 2,
+      type: "omp.focus.register",
+      requestId: "register-1",
+      publicHandle: "A".repeat(32),
+      hostGeneration: "B".repeat(32),
+      herdrSocketPath: "/run/user/1000/herdr.sock",
+      paneId: "w2:p1",
+      compositorAddress: "instance_1",
+    });
+    const attention = mapOmpDirectAttentionEvents(
+      {
+        type: "tool_approval_requested",
+        sessionId: "session-1",
+        toolCallId: "tool-1",
+        toolName: "bash",
+        approvalMode: "write",
+      },
+      { ...context, sessionId: "session-1" },
+    )[0]!;
+    await assert.rejects(() => transport.send(attention), /response timed out/);
+  } finally {
+    server.close();
+    await once(server, "close");
+    await rm(root, { recursive: true, force: true });
+  }
+});
+test("registration acknowledgement failure revokes a possibly late worker commit", async () => {
+  let registeredHandle = "";
+  let revokedHandle = "";
+  class LateCommitTransport extends OmpDirectWorkerTransport {
+    constructor() {
+      super({ socketPath: "/unused" });
+    }
 
+    override async registerFocus(registration: Parameters<OmpDirectWorkerTransport["registerFocus"]>[0]) {
+      registeredHandle = registration.publicHandle;
+      throw new Error("Aperture worker socket response timed out");
+    }
+
+    override async revokeFocus(revocation: Parameters<OmpDirectWorkerTransport["revokeFocus"]>[0]) {
+      revokedHandle = revocation.publicHandle;
+    }
+  }
+  const host = await HerdrFocusHost.create({
+    direct: new LateCommitTransport(),
+    stdoutIsTTY: true,
+    environment: {
+      HERDR_ENV: "1",
+      HERDR_SOCKET_PATH: "/run/user/1000/herdr.sock",
+      HERDR_PANE_ID: "w2:p1",
+      HYPRLAND_INSTANCE_SIGNATURE: "instance_1",
+    },
+    randomToken: (() => {
+      let token = "A";
+      return () => {
+        const value = token.repeat(32);
+        token = "B";
+        return value;
+      };
+    })(),
+  });
+  assert.equal(host, undefined);
+  assert.equal(revokedHandle, registeredHandle);
+  assert.match(revokedHandle, /^[A-Za-z0-9_-]{32}$/);
+});
 
 test("direct mapping emits bounded typed facts without private OMP payloads", () => {
   const approval = mapOmpDirectAttentionEvents(

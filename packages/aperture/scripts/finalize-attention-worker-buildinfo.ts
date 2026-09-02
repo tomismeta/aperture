@@ -406,7 +406,9 @@ const evidenceFiles = await Promise.all([
   artifactFile(artifactRoot, stagedOmpHostReportPath),
   artifactFile(artifactRoot, stagedFocusReportPath),
 ]);
-buildInfo.files = [...existingFiles, ...evidenceFiles];
+buildInfo.files = [...existingFiles, ...evidenceFiles].sort((left, right) =>
+  left.path.localeCompare(right.path),
+);
 buildInfo.validation = {
   status: "passed",
   conformanceProofId: "aperture-attention-worker-conformance-v1",

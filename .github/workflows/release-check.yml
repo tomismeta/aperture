@@ -225,6 +225,7 @@ jobs:
             .schemas.workerDirectMessage.version == 4 and
             (.files | length) == 39 and
             any(.files[]; .path == "config/identities.json") and
+            [.files[].path] == ([.files[].path] | sort) and
             .integrations.omp.validation.status == "passed" and
             .integrations.omp.bytes <= 1048576 and
             .workerBundle.bytes <= 8388608

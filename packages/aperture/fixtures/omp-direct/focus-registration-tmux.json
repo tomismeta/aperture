@@ -1,13 +1,13 @@
 {
   "schemaVersion": 3,
   "type": "omp.focus.register",
-  "requestId": "fixture-focus-register-1",
+  "requestId": "fixture-focus-tmux-1",
   "publicHandle": "A23456789_-bcdefghijklmnopqrstuv",
   "hostGeneration": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
   "target": {
-    "kind": "herdr",
-    "socketPath": "/run/user/1000/herdr.sock",
-    "paneId": "wA:p1",
+    "kind": "tmux",
+    "socketPath": "/run/user/1000/tmux.sock",
+    "paneId": "%0",
     "hyprlandInstance": "instance_1"
   }
 }

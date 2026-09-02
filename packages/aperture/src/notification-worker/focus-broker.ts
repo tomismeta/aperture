@@ -38,6 +38,7 @@ export type FocusDiagnosticStage =
 
 
 type FootClient = { address: string; title: string; className: "foot" | "footclient" };
+type TmuxSavedOption = { explicit: boolean; value: string };
 
 type FocusClientLease = {
   contextKey: string;
@@ -47,6 +48,15 @@ type FocusClientLease = {
   marker: string;
   markerTitle: string;
   epoch: string;
+  backendKind: "herdr" | "direct-foot" | "tmux";
+  tmux?: {
+    socketPath: string;
+    paneId: string;
+    clientName: string;
+    sessionId: string;
+    originalSetTitles: TmuxSavedOption;
+    originalTitleString: TmuxSavedOption;
+  };
   members: Set<string>;
 };
 
@@ -77,6 +87,7 @@ type HyprctlRequest = (
   compositorAddress: string,
   args: readonly string[],
 ) => Promise<unknown>;
+type TmuxRequest = (socketPath: string, args: string[]) => Promise<string>;
 
 export type FocusBrokerOptions = {
   now?: () => number;
@@ -88,6 +99,8 @@ export type FocusBrokerOptions = {
   monotonicNow?: () => number;
   onInvalidated?: (publicHandle: string) => void;
   onDiagnostic?: (stage: FocusDiagnosticStage) => void;
+  tmuxRequest?: TmuxRequest;
+  socketValidator?: (socketPath: string) => Promise<void>;
 };
 
 export class FocusBroker {
@@ -100,8 +113,10 @@ export class FocusBroker {
   private readonly randomToken: () => string;
   private readonly herdrRequest: HerdrRequest;
   private readonly hyprctlRequest: HyprctlRequest;
+  private readonly tmuxRequest: TmuxRequest;
   private readonly onInvalidated: (publicHandle: string) => void;
   private readonly sleep: (milliseconds: number) => Promise<void>;
+  private readonly socketValidator: (socketPath: string) => Promise<void>;
   private readonly monotonicNow: () => number;
   private readonly onDiagnostic: (stage: FocusDiagnosticStage) => void;
   private operationQueue = Promise.resolve();
@@ -117,8 +132,10 @@ export class FocusBroker {
       options.sleep ??
       ((milliseconds) =>
         new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+    this.tmuxRequest = options.tmuxRequest ?? runTmux;
     this.onDiagnostic = options.onDiagnostic ?? (() => undefined);
     this.monotonicNow = options.monotonicNow ?? (() => performance.now());
+    this.socketValidator = options.socketValidator ?? assertOwnedHerdrSocket;
   }
 
   register(registration: OmpFocusRegistration): Promise<void> {
@@ -177,21 +194,27 @@ export class FocusBroker {
   }
 
   private async registerSerialized(registration: OmpFocusRegistration): Promise<void> {
+    const target = registration.target;
+    if (target.kind !== "herdr") {
+      await this.registerNonHerdr(registration);
+      return;
+    }
     const contextKey = focusContextKey(
-      registration.herdrSocketPath,
-      registration.compositorAddress,
+      target.socketPath,
+      target.hyprlandInstance,
     );
-    await this.assertContextUnblocked(contextKey, registration.compositorAddress);
+    await this.assertContextUnblocked(contextKey, target.hyprlandInstance);
     const authoritativePaneId = await this.resolvePane(
-      registration.herdrSocketPath,
-      registration.paneId,
+      target.socketPath,
+      target.paneId,
     );
     const existing = this.registrations.get(registration.publicHandle);
     if (
       existing &&
       (existing.hostGeneration !== registration.hostGeneration ||
-        existing.herdrSocketPath !== registration.herdrSocketPath ||
-        existing.compositorAddress !== registration.compositorAddress)
+        existing.target.kind !== "herdr" ||
+        existing.target.socketPath !== target.socketPath ||
+        existing.target.hyprlandInstance !== target.hyprlandInstance)
     ) {
       await this.invalidate(existing);
       throw new Error("Aperture rejected a stale focus registration");
@@ -239,7 +262,7 @@ export class FocusBroker {
       return;
     }
 
-    const before = await this.listFootClients(registration.compositorAddress);
+    const before = await this.listFootClients(target.hyprlandInstance);
     const foreignMarkers = before
       .filter((client) => client.title.startsWith("Aperture Focus "))
       .map((client) => client.title);
@@ -257,7 +280,7 @@ export class FocusBroker {
     let titleSet = false;
     try {
       const titleResult = await this.herdrRequest(
-        registration.herdrSocketPath,
+        target.socketPath,
         "client.window_title.set",
         { title: markerTitle },
       );
@@ -269,7 +292,7 @@ export class FocusBroker {
         throw new Error("Herdr did not establish focus marker ownership");
       }
       titleSet = true;
-      const clients = await this.listFootClients(registration.compositorAddress);
+      const clients = await this.listFootClients(target.hyprlandInstance);
       const candidate = exactMarkerClient(clients, markerTitle);
       if (!candidate) throw new Error("Aperture focus marker did not resolve uniquely");
       const unexpectedMarkers = clients
@@ -282,7 +305,7 @@ export class FocusBroker {
       if (unexpectedMarkers.length > 0) {
         this.blockContext(contextKey, [...unexpectedMarkers, markerTitle]);
         await this.herdrRequest(
-          registration.herdrSocketPath,
+          target.socketPath,
           "client.window_title.clear",
           {},
         );
@@ -291,13 +314,14 @@ export class FocusBroker {
       }
       const lease: FocusClientLease = {
         contextKey,
-        herdrSocketPath: registration.herdrSocketPath,
-        compositorAddress: registration.compositorAddress,
+        herdrSocketPath: target.socketPath,
+        compositorAddress: target.hyprlandInstance,
         address: candidate.address,
         marker,
         markerTitle,
         epoch,
         members: new Set<string>(),
+        backendKind: "herdr",
       };
       const record = this.newRecord(registration, authoritativePaneId, lease);
       lease.members.add(registration.publicHandle);
@@ -308,8 +332,9 @@ export class FocusBroker {
       if (titleSet) {
         await this.clearUncommittedTitle(
           contextKey,
-          registration.herdrSocketPath,
-          registration.compositorAddress,
+          target.socketPath,
+
+          target.hyprlandInstance,
           markerTitle,
           epoch,
         );
@@ -317,10 +342,277 @@ export class FocusBroker {
       throw new Error("Aperture rejected an invalid focus registration");
     }
   }
+  private async registerNonHerdr(registration: OmpFocusRegistration): Promise<void> {
+    const target = registration.target;
+    if (target.kind === "herdr") throw new Error("invalid backend dispatch");
+    const existing = this.registrations.get(registration.publicHandle);
+    if (existing) {
+      if (
+        existing.hostGeneration !== registration.hostGeneration ||
+        JSON.stringify(existing.target) !== JSON.stringify(target)
+      ) {
+        await this.invalidate(existing);
+        throw new Error("Aperture rejected a stale focus registration");
+      }
+      try {
+        if (existing.lease.backendKind === "tmux") {
+          await this.assertTmuxLease(existing.lease);
+        }
+        await this.assertLease(existing.lease, existing.lease.epoch);
+      } catch {
+        if (existing.lease.backendKind === "tmux") {
+          await this.invalidateLease(existing.lease);
+        } else {
+          await this.invalidate(existing);
+        }
+        throw new Error("Aperture rejected a lost focus target");
+      }
+      this.renew(existing, registration.requestId);
+      this.cancelledHandles.delete(registration.publicHandle);
+      return;
+    }
+    let marker: string;
+    let markerTitle: string;
+    let tmux: FocusClientLease["tmux"];
+    if (target.kind === "direct-foot") {
+      marker = target.marker;
+      markerTitle = `Aperture Focus ${marker}`;
+      const shared = [...this.leases.values()].find(
+        (lease) =>
+          lease.backendKind === "direct-foot" &&
+          lease.compositorAddress === target.hyprlandInstance &&
+          lease.marker === target.marker,
+      );
+      if (shared) {
+        await this.assertLease(shared, shared.epoch);
+        const record = this.newRecord(registration, "", shared);
+        shared.members.add(registration.publicHandle);
+        this.registrations.set(registration.publicHandle, record);
+        this.cancelledHandles.delete(registration.publicHandle);
+        return;
+      }
+    } else {
+      const sessionId = (
+        await this.tmuxRequest(target.socketPath, [
+          "display-message", "-p", "-t", target.paneId, "#{session_id}",
+        ])
+      ).trim();
+      if (!/^\$\d{1,10}$/.test(sessionId)) throw new Error("invalid tmux session");
+      const clients = (
+        await this.tmuxRequest(target.socketPath, [
+          "list-clients", "-F", "#{client_name}\t#{session_id}",
+        ])
+      ).split(/\r?\n/).filter(Boolean).map((line) => line.split("\t"));
+      const matching = clients.filter((entry) => entry[1] === sessionId);
+      if (matching.length !== 1 || !matching[0]?.[0]) {
+        throw new Error("Aperture rejected ambiguous tmux clients");
+      }
+      const shared = [...this.leases.values()].find(
+        (lease) =>
+          lease.backendKind === "tmux" &&
+          lease.tmux?.socketPath === target.socketPath &&
+          lease.tmux.sessionId === sessionId,
+      );
+      const clientName = matching[0]![0]!;
+      if (
+        clientName.length < 1 ||
+        clientName.length > 160 ||
+        !/^[\x20-\x7e]+$/.test(clientName)
+      ) {
+        throw new Error("Aperture rejected invalid tmux client identity");
+      }
+      if (shared) {
+        if (
+          shared.compositorAddress !== target.hyprlandInstance ||
+          shared.tmux?.clientName !== clientName
+        ) {
+          await this.invalidateLease(shared);
+          throw new Error("Aperture rejected changed tmux client");
+        }
+        await this.assertTmuxLease(shared);
+        await this.assertLease(shared, shared.epoch);
+        const record = this.newRecord(registration, target.paneId, shared);
+        shared.members.add(registration.publicHandle);
+        this.registrations.set(registration.publicHandle, record);
+        this.cancelledHandles.delete(registration.publicHandle);
+        return;
+      }
+      marker = this.randomToken();
+      if (!/^[A-Za-z0-9_-]{32}$/.test(marker)) throw new Error("invalid tmux marker");
+      markerTitle = `Aperture Focus ${marker}`;
+      const originalSetTitles = await readTmuxExplicitOption(
+        this.tmuxRequest,
+        target.socketPath,
+        sessionId,
+        "set-titles",
+      );
+      const originalTitleString = await readTmuxExplicitOption(
+        this.tmuxRequest,
+        target.socketPath,
+        sessionId,
+        "set-titles-string",
+      );
+      tmux = {
+        socketPath: target.socketPath,
+        paneId: target.paneId,
+        clientName,
+        sessionId,
+        originalSetTitles,
+        originalTitleString,
+      };
+      try {
+        await this.tmuxRequest(target.socketPath, [
+          "set-option", "-t", sessionId, "set-titles", "on",
+        ]);
+        await this.tmuxRequest(target.socketPath, [
+          "set-option", "-t", sessionId, "set-titles-string", markerTitle,
+        ]);
+      } catch {
+        await rollbackTmuxSetup(this.tmuxRequest, tmux, markerTitle);
+        throw new Error("Aperture tmux title transaction failed");
+      }
+    }
+    let candidate: FootClient;
+    try {
+      candidate = await this.resolveMarkerClient(
+        target.hyprlandInstance,
+        markerTitle,
+      );
+    } catch {
+      if (tmux) await restoreTmuxOptions(this.tmuxRequest, tmux, markerTitle);
+      throw new Error("Aperture focus marker did not resolve");
+    }
+    const contextKey = `${target.kind}\u0000${target.hyprlandInstance}\u0000${candidate.address}`;
+    const epoch = this.randomToken();
+    if (!/^[A-Za-z0-9_-]{32}$/.test(epoch)) throw new Error("invalid focus epoch");
+    const lease: FocusClientLease = {
+      contextKey,
+      herdrSocketPath: "",
+      compositorAddress: target.hyprlandInstance,
+      address: candidate.address,
+      marker,
+      markerTitle,
+      epoch,
+      backendKind: target.kind,
+      ...(tmux ? { tmux } : {}),
+      members: new Set<string>(),
+    };
+    const record = this.newRecord(
+      registration,
+      target.kind === "tmux" ? target.paneId : "",
+      lease,
+    );
+    lease.members.add(registration.publicHandle);
+    this.leases.set(contextKey, lease);
+    this.registrations.set(registration.publicHandle, record);
+    this.cancelledHandles.delete(registration.publicHandle);
+  }
+
+  private async resolveMarkerClient(
+    hyprlandInstance: string,
+    markerTitle: string,
+  ): Promise<FootClient> {
+    for (let attempt = 0; attempt < 41; attempt += 1) {
+      const candidate = exactMarkerClient(
+        await this.listFootClients(hyprlandInstance),
+        markerTitle,
+      );
+      if (candidate) return candidate;
+      if (attempt < 40) await this.sleep(25);
+    }
+    throw new Error("Aperture focus marker did not resolve");
+  }
+
+  private async assertTmuxLease(lease: FocusClientLease): Promise<void> {
+    const tmux = lease.tmux;
+    if (!tmux) throw new Error("invalid tmux lease");
+    await this.socketValidator(tmux.socketPath);
+    const clients = (
+      await this.tmuxRequest(tmux.socketPath, [
+        "list-clients",
+        "-F",
+        "#{client_name}\t#{session_id}",
+      ])
+    )
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => line.split("\t"));
+    const matching = clients.filter((entry) => entry[1] === tmux.sessionId);
+    if (matching.length !== 1 || matching[0]?.[0] !== tmux.clientName) {
+      throw new Error("changed tmux client");
+    }
+    const enabled = await readTmuxOption(
+      this.tmuxRequest,
+      tmux.socketPath,
+      tmux.sessionId,
+      "set-titles",
+    );
+    const title = await readTmuxOption(
+      this.tmuxRequest,
+      tmux.socketPath,
+      tmux.sessionId,
+      "set-titles-string",
+    );
+    if (enabled !== "on" || title !== lease.markerTitle) {
+      throw new Error("changed tmux title options");
+    }
+  }
+
+  private async activateNonHerdr(
+    record: FocusRegistrationRecord,
+  ): Promise<FocusActivationResult> {
+    const lease = record.lease;
+    const epoch = lease.epoch;
+    try {
+      if (lease.backendKind === "tmux") await this.assertTmuxLease(lease);
+      await this.assertLease(lease, epoch);
+      if (!this.isCurrent(record, lease, epoch)) return "missing";
+      if (lease.backendKind === "tmux") {
+        const tmux = lease.tmux;
+        if (!tmux) throw new Error("invalid tmux lease");
+        await this.tmuxRequest(tmux.socketPath, [
+          "switch-client",
+          "-c",
+          tmux.clientName,
+          "-t",
+          record.authoritativePaneId,
+        ]);
+        const focused = (
+          await this.tmuxRequest(tmux.socketPath, [
+            "display-message",
+            "-p",
+            "-c",
+            tmux.clientName,
+            "#{pane_id}",
+          ])
+        ).trim();
+        if (focused !== record.authoritativePaneId) throw new Error("tmux focus mismatch");
+      }
+      if (!this.isCurrent(record, lease, epoch)) return "missing";
+      this.onDiagnostic("dispatch");
+      await this.hyprctlRequest(lease.compositorAddress, [
+        "dispatch",
+        `hl.dsp.focus({ window = "address:${lease.address}" })`,
+      ]);
+      const confirmation = await this.confirmActiveWindow(record, lease, epoch);
+      if (confirmation === "stale") await this.invalidateLease(lease);
+      return confirmation;
+    } catch {
+      this.onDiagnostic("exception");
+      if (this.registrations.get(record.publicHandle) === record) {
+        if (lease.backendKind === "tmux") await this.invalidateLease(lease);
+        else await this.invalidate(record);
+      }
+      return "stale";
+    }
+  }
 
   private async activateSerialized(publicHandle: string): Promise<FocusActivationResult> {
     const record = this.registrations.get(publicHandle);
     if (!record || this.cancelledHandles.has(publicHandle)) return "missing";
+    if (record.target.kind !== "herdr") {
+      return this.activateNonHerdr(record);
+    }
     if (record.expiresAt <= this.now() + ACTIVATION_EXPIRY_FENCE_MS) {
       await this.invalidate(record);
       return "missing";
@@ -330,7 +622,7 @@ export class FocusBroker {
     try {
       this.onDiagnostic("resolve-pane");
       const authoritativePaneId = await this.resolvePane(
-        record.herdrSocketPath,
+        record.target.socketPath,
         record.authoritativePaneId,
       );
       record.authoritativePaneId = authoritativePaneId;
@@ -339,12 +631,12 @@ export class FocusBroker {
       await this.assertLease(lease, epoch);
       if (!this.isCurrent(record, lease, epoch)) return "missing";
       this.onDiagnostic("pane-focus");
-      await this.herdrRequest(record.herdrSocketPath, "pane.focus", {
+      await this.herdrRequest(record.target.socketPath, "pane.focus", {
         pane_id: authoritativePaneId,
       });
       this.onDiagnostic("pane-snapshot");
       const snapshotResult = await this.herdrRequest(
-        record.herdrSocketPath,
+        record.target.socketPath,
         "session.snapshot",
         {},
       );
@@ -600,9 +892,13 @@ export class FocusBroker {
       ) {
         return;
       }
-      await this.herdrRequest(lease.herdrSocketPath, "client.window_title.clear", {});
+      if (lease.backendKind === "herdr") {
+        await this.herdrRequest(lease.herdrSocketPath, "client.window_title.clear", {});
+      } else if (lease.backendKind === "tmux" && lease.tmux) {
+        await restoreTmuxOptions(this.tmuxRequest, lease.tmux, lease.markerTitle);
+      }
     } catch {
-      // A missing or replaced epoch is not this cleanup's title to clear.
+      // A missing, mutated, or replaced epoch is not this cleanup's title to clear.
     }
   }
 
@@ -630,10 +926,124 @@ export class FocusBroker {
     const result = this.operationQueue.then(operation, operation);
     this.operationQueue = result.then(
       () => undefined,
+
+
       () => undefined,
     );
     return result;
   }
+}
+function tmuxLine(output: string): string {
+  const line = output.endsWith("\r\n")
+    ? output.slice(0, -2)
+    : output.endsWith("\n")
+      ? output.slice(0, -1)
+      : output;
+  if (/[\r\n\u0000]/.test(line)) throw new Error("invalid tmux output");
+  return line;
+}
+
+async function readTmuxOption(
+  request: TmuxRequest,
+  socketPath: string,
+  sessionId: string,
+  option: "set-titles" | "set-titles-string",
+): Promise<string> {
+  return tmuxLine(
+    await request(socketPath, ["show-options", "-v", "-t", sessionId, option]),
+  );
+}
+
+async function readTmuxExplicitOption(
+  request: TmuxRequest,
+  socketPath: string,
+  sessionId: string,
+  option: "set-titles" | "set-titles-string",
+): Promise<TmuxSavedOption> {
+  const presentation = tmuxLine(
+    await request(socketPath, ["show-options", "-q", "-t", sessionId, option]),
+  );
+  if (presentation === "") return { explicit: false, value: "" };
+  const value = tmuxLine(
+    await request(socketPath, ["show-options", "-qv", "-t", sessionId, option]),
+  );
+  return { explicit: true, value };
+}
+
+async function restoreTmuxOption(
+  request: TmuxRequest,
+  tmux: NonNullable<FocusClientLease["tmux"]>,
+  option: "set-titles" | "set-titles-string",
+  saved: TmuxSavedOption,
+): Promise<void> {
+  await request(
+    tmux.socketPath,
+    saved.explicit
+      ? ["set-option", "-t", tmux.sessionId, option, saved.value]
+      : ["set-option", "-u", "-t", tmux.sessionId, option],
+  );
+}
+
+async function restoreTmuxOptions(
+  request: TmuxRequest,
+  tmux: NonNullable<FocusClientLease["tmux"]>,
+  markerTitle: string,
+): Promise<void> {
+  const effectiveSetTitles = await readTmuxOption(
+    request, tmux.socketPath, tmux.sessionId, "set-titles",
+  );
+  const effectiveTitle = await readTmuxOption(
+    request, tmux.socketPath, tmux.sessionId, "set-titles-string",
+  );
+  if (effectiveSetTitles !== "on" || effectiveTitle !== markerTitle) return;
+  await restoreTmuxOption(request, tmux, "set-titles-string", tmux.originalTitleString);
+  await restoreTmuxOption(request, tmux, "set-titles", tmux.originalSetTitles);
+}
+
+async function rollbackTmuxSetup(
+  request: TmuxRequest,
+  tmux: NonNullable<FocusClientLease["tmux"]>,
+  markerTitle: string,
+): Promise<void> {
+  const title = await readTmuxOption(
+    request, tmux.socketPath, tmux.sessionId, "set-titles-string",
+  );
+  if (title === markerTitle) {
+    await restoreTmuxOption(request, tmux, "set-titles-string", tmux.originalTitleString);
+  }
+  const enabled = await readTmuxOption(
+    request, tmux.socketPath, tmux.sessionId, "set-titles",
+  );
+  if (enabled === "on") {
+    await restoreTmuxOption(request, tmux, "set-titles", tmux.originalSetTitles);
+  }
+}
+async function runTmux(socketPath: string, args: string[]): Promise<string> {
+  await assertOwnedHerdrSocket(socketPath);
+  const allowed = new Set([
+    "display-message",
+    "list-clients",
+    "show-options",
+    "set-option",
+    "switch-client",
+  ]);
+  if (!args[0] || !allowed.has(args[0])) throw new Error("unsupported tmux operation");
+  return new Promise<string>((resolve, reject) => {
+    execFile(
+      "/usr/bin/tmux",
+      ["-S", socketPath, ...args],
+      {
+        encoding: "utf8",
+        timeout: 500,
+        maxBuffer: 64 * 1024,
+        windowsHide: true,
+      },
+      (error, stdout) => {
+        if (error) reject(new Error("Aperture tmux operation failed"));
+        else resolve(stdout);
+      },
+    );
+  });
 }
 
 function focusedPaneFromSnapshot(result: Record<string, unknown>): string {

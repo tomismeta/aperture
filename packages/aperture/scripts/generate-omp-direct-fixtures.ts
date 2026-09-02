@@ -78,14 +78,42 @@ const status = event({
   status: "waiting",
 });
 const focusRegistration = assertOmpDirectMessage({
-  schemaVersion: 2,
+  schemaVersion: 3,
   type: "omp.focus.register",
   requestId: "fixture-focus-register-1",
   publicHandle: focusHandle,
   hostGeneration: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-  herdrSocketPath: "/run/user/1000/herdr.sock",
-  paneId: "wA:p1",
-  compositorAddress: "instance_1",
+  target: {
+    kind: "herdr",
+    socketPath: "/run/user/1000/herdr.sock",
+    paneId: "wA:p1",
+    hyprlandInstance: "instance_1",
+  },
+});
+const focusDirectFootRegistration = assertOmpDirectMessage({
+  schemaVersion: 3,
+  type: "omp.focus.register",
+  requestId: "fixture-focus-foot-1",
+  publicHandle: focusHandle,
+  hostGeneration: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+  target: {
+    kind: "direct-foot",
+    marker: "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    hyprlandInstance: "instance_1",
+  },
+});
+const focusTmuxRegistration = assertOmpDirectMessage({
+  schemaVersion: 3,
+  type: "omp.focus.register",
+  requestId: "fixture-focus-tmux-1",
+  publicHandle: focusHandle,
+  hostGeneration: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+  target: {
+    kind: "tmux",
+    socketPath: "/run/user/1000/tmux.sock",
+    paneId: "%0",
+    hyprlandInstance: "instance_1",
+  },
 });
 const focusActivation = {
   type: "focus.activate",
@@ -170,6 +198,8 @@ try {
     ["snapshot-failure.json", failureSnapshot],
     ["snapshot-completion.json", completionSnapshot],
     ["focus-registration.json", focusRegistration],
+    ["focus-registration-direct-foot.json", focusDirectFootRegistration],
+    ["focus-registration-tmux.json", focusTmuxRegistration],
     ["focus-activation.json", focusActivation],
     ["focus-result.json", focusResult],
     ["snapshot-status.json", statusSnapshot],

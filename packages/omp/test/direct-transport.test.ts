@@ -10,7 +10,7 @@ import type { OmpAttentionEvent } from "@tomismeta/aperture/omp-attention-event"
 import type { OmpDirectMessage } from "@tomismeta/aperture/omp-direct-message";
 
 import { mapOmpDirectAttentionEvents } from "../src/direct-event-mapping.js";
-import { HerdrFocusHost, resolveHerdrFocusContext } from "../src/herdr-focus.js";
+import { OmpFocusHost, resolveHerdrFocusContext } from "../src/omp-focus-host.js";
 import { OmpDirectWorkerTransport } from "../src/direct-worker-transport.js";
 import { OmarchyAttentionTransport } from "../src/omarchy-attention-transport.js";
 import {
@@ -52,9 +52,10 @@ test("Herdr focus context is exact and rejects unsupported terminal modes", () =
     HYPRLAND_INSTANCE_SIGNATURE: "instance_1",
   };
   assert.deepEqual(resolveHerdrFocusContext(valid, true), {
-    herdrSocketPath: valid.HERDR_SOCKET_PATH,
+    kind: "herdr",
+    socketPath: valid.HERDR_SOCKET_PATH,
     paneId: valid.HERDR_PANE_ID,
-    compositorAddress: valid.HYPRLAND_INSTANCE_SIGNATURE,
+    hyprlandInstance: valid.HYPRLAND_INSTANCE_SIGNATURE,
   });
   assert.equal(resolveHerdrFocusContext(valid, false), undefined);
   for (const unsupported of [
@@ -83,6 +84,98 @@ test("Herdr focus context is exact and rejects unsupported terminal modes", () =
     assert.equal(resolveHerdrFocusContext({ ...valid, HERDR_PANE_ID: paneId }, true), undefined);
   }
 });
+test("direct Foot waits for auto-title, sets marker in order, and fails open on UI error", async () => {
+  class CapturingTransport extends OmpDirectWorkerTransport {
+    rejectRegistration = false;
+    constructor() {
+      super({ socketPath: "/unused" });
+    }
+    override async registerFocus(): Promise<void> {
+      if (this.rejectRegistration) throw new Error("marker ownership lost");
+    }
+    override async revokeFocus(): Promise<void> {}
+  }
+  const titles = ["auto: Session name"];
+  const environment = {
+    TERM: "foot",
+    HYPRLAND_INSTANCE_SIGNATURE: "instance_1",
+  };
+  const host = await OmpFocusHost.create({
+    direct: new CapturingTransport(),
+    environment,
+    stdoutIsTTY: true,
+    initialTitle: "Session name",
+    ui: { setTitle: (title) => titles.push(title) },
+    randomToken: (() => {
+      let value = 0;
+      return () => String.fromCharCode(65 + value++).repeat(32);
+    })(),
+  });
+  assert.ok(host);
+  assert.match(titles[1]!, /^Aperture Focus /);
+  await host.close();
+  assert.equal(titles.at(-1), "π");
+  const rejectingTransport = new CapturingTransport();
+  const renamedTitles: string[] = [];
+  const renamedHost = await OmpFocusHost.create({
+    direct: rejectingTransport,
+    environment,
+    stdoutIsTTY: true,
+    initialTitle: "Session name",
+    ui: { setTitle: (title) => renamedTitles.push(title) },
+    randomToken: (() => {
+      let value = 0;
+      return () => String.fromCharCode(68 + value++).repeat(32);
+    })(),
+  });
+  assert.ok(renamedHost);
+  renamedTitles.push("authoritative rename");
+  rejectingTransport.rejectRegistration = true;
+  await renamedHost.close();
+  assert.equal(renamedTitles.at(-1), "authoritative rename");
+  const pendingTransport = new CapturingTransport();
+  pendingTransport.rejectRegistration = true;
+  const pendingTitles: string[] = [];
+  const pendingHost = await OmpFocusHost.create({
+    direct: pendingTransport,
+    environment,
+    stdoutIsTTY: true,
+    initialTitle: "Session name",
+    ui: { setTitle: (title) => pendingTitles.push(title) },
+    randomToken: (() => {
+      let value = 0;
+      return () => String.fromCharCode(71 + value++).repeat(32);
+    })(),
+  });
+  assert.ok(pendingHost);
+  assert.match(pendingTitles.at(-1)!, /^Aperture Focus /);
+  assert.equal(pendingHost.focusHandle(), undefined);
+  pendingTransport.rejectRegistration = false;
+  await pendingHost.retryRegistration();
+  assert.match(pendingHost.focusHandle() ?? "", /^[A-Za-z0-9_-]{32}$/);
+  await pendingHost.close();
+  assert.equal(pendingTitles.at(-1), "π");
+  assert.equal(
+    await OmpFocusHost.create({
+      direct: new CapturingTransport(),
+      environment,
+      stdoutIsTTY: true,
+      ui: { setTitle: () => assert.fail("title must wait for session name") },
+    }),
+    undefined,
+  );
+  assert.equal(
+    await OmpFocusHost.create({
+      direct: new CapturingTransport(),
+      environment,
+      stdoutIsTTY: true,
+      initialTitle: "Session name",
+      ui: { setTitle: () => { throw new Error("UI unavailable"); } },
+    }),
+    undefined,
+  );
+});
+
 test("focus registration has a bounded broker response budget while attention stays fail-fast", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "aperture-direct-timeout-"));
   const socketPath = path.join(root, "worker.sock");
@@ -101,7 +194,7 @@ test("focus registration has a bounded broker response budget while attention st
       setTimeout(() => {
         socket.end(
           `${JSON.stringify({
-            schemaVersion: 2,
+            schemaVersion: 3,
             status: "accepted",
             requestId: message.requestId ?? message.eventId,
           })}\n`,
@@ -114,14 +207,17 @@ test("focus registration has a bounded broker response budget while attention st
   const transport = new OmpDirectWorkerTransport({ socketPath });
   try {
     await transport.registerFocus({
-      schemaVersion: 2,
+      schemaVersion: 3,
       type: "omp.focus.register",
       requestId: "register-1",
       publicHandle: "A".repeat(32),
       hostGeneration: "B".repeat(32),
-      herdrSocketPath: "/run/user/1000/herdr.sock",
-      paneId: "w2:p1",
-      compositorAddress: "instance_1",
+      target: {
+        kind: "herdr",
+        socketPath: "/run/user/1000/herdr.sock",
+        paneId: "w2:p1",
+        hyprlandInstance: "instance_1",
+      },
     });
     const attention = mapOmpDirectAttentionEvents(
       {
@@ -157,7 +253,7 @@ test("registration acknowledgement failure revokes a possibly late worker commit
       revokedHandle = revocation.publicHandle;
     }
   }
-  const host = await HerdrFocusHost.create({
+  const host = await OmpFocusHost.create({
     direct: new LateCommitTransport(),
     stdoutIsTTY: true,
     environment: {

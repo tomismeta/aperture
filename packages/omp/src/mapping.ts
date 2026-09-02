@@ -205,6 +205,9 @@ export function contextFromOmpExtension(
 ): OmpMappingContext {
   const next: OmpMappingContext = { ...base };
   if (!next.cwd && extensionContext.cwd) next.cwd = extensionContext.cwd;
+  if (!next.focusUi && extensionContext.ui?.setTitle) {
+    next.focusUi = { setTitle: extensionContext.ui.setTitle.bind(extensionContext.ui) };
+  }
   if (!next.sessionFile) {
     const sessionFile = readSessionFile(extensionContext.sessionManager);
     if (sessionFile) next.sessionFile = sessionFile;

@@ -159,7 +159,7 @@ const directReports = await Promise.all(
       report.schemaVersion !== 1 ||
       report.proofId !== "aperture-omp-direct-transport-conformance-v1" ||
       report.privacyProofId !== "aperture-omp-direct-privacy-v1" ||
-      report.navigationProofId !== "aperture-opaque-focus-navigation-v2" ||
+      report.navigationProofId !== "aperture-opaque-focus-navigation-v3" ||
       report.passed !== true ||
       typeof report.nodeVersion !== "string" ||
       !report.bundle ||
@@ -287,7 +287,7 @@ for (const { report } of directReports) {
 const directEvidence = {
   schemaVersion: 1,
   proofId: "aperture-omp-direct-transport-conformance-v1",
-  navigationProofId: "aperture-opaque-focus-navigation-v2",
+  navigationProofId: "aperture-opaque-focus-navigation-v3",
   status: "passed",
   socket: {
     relativePath: "omarchy/aperture/attention.sock",
@@ -382,7 +382,7 @@ buildInfo.validation = {
   directTransportReport: "evidence/direct-transport.json",
   directPrivacyProofId: "aperture-omp-direct-privacy-v1",
   directPrivacyReport: "evidence/direct-privacy.json",
-  navigationProofId: "aperture-opaque-focus-navigation-v2",
+  navigationProofId: "aperture-opaque-focus-navigation-v3",
   directNodeCompatibility: directCompatibility,
   ompHostProofId: "aperture-omp-host-direct-compatibility-v1",
   ompHostReport: "evidence/omp-host-matrix.json",

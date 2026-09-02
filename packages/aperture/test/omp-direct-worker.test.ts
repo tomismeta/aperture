@@ -427,14 +427,17 @@ test("worker-owned socket validates ownership, bounds input, and removes itself"
   const client = new OmpDirectWorkerTransport({ socketPath });
   await client.send(directEvent());
   await client.registerFocus({
-    schemaVersion: 2,
+    schemaVersion: 3,
     type: "omp.focus.register",
     requestId: "slow-register",
     publicHandle: "A".repeat(32),
     hostGeneration: "B".repeat(32),
-    herdrSocketPath: "/run/user/1000/herdr.sock",
-    paneId: "w2:p1",
-    compositorAddress: "instance_1",
+    target: {
+      kind: "herdr",
+      socketPath: "/run/user/1000/herdr.sock",
+      paneId: "w2:p1",
+      hyprlandInstance: "instance_1",
+    },
   });
   assert.equal(received.length, 1);
   assert.match(await sendRaw(socketPath, "{\n"), /rejected/);
@@ -462,7 +465,7 @@ test("worker shutdown removes its direct OMP socket", async () => {
   });
   const ready = once(messages, "ready");
   const running = runNotificationWorkerStdio({
-    packageVersion: "0.7.0",
+    packageVersion: "0.8.0",
     identities: [identity],
     stateDir,
     socketPath,

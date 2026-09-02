@@ -3,7 +3,8 @@ import {
   OmpDirectWorkerTransport,
   type OmpDirectWorkerTransportOptions,
 } from "./direct-worker-transport.js";
-import { HerdrFocusHost, type HerdrFocusHostOptions } from "./herdr-focus.js";
+import { OmpFocusHost, type OmpFocusHostOptions } from "./omp-focus-host.js";
+import { mapOmpDirectAttentionEvents } from "./direct-event-mapping.js";
 import { OmarchyAttentionTransport } from "./omarchy-attention-transport.js";
 import {
   OmarchyNotificationTransport,
@@ -16,7 +17,7 @@ export type ApertureOmarchyOmpExtensionOptions = OmarchyNotificationTransportOpt
   suppressBuiltInNotifications?: boolean;
   directTransport?: OmpDirectWorkerTransport;
   directTransportOptions?: OmpDirectWorkerTransportOptions;
-  focusHostOptions?: Omit<HerdrFocusHostOptions, "direct">;
+  focusHostOptions?: Omit<OmpFocusHostOptions, "direct">;
 };
 
 export function createApertureOmarchyOmpExtension(
@@ -36,7 +37,7 @@ export function createApertureOmarchyOmpExtension(
     const notification = new OmarchyNotificationTransport(notificationOptions);
     let suppressionActive = false;
     let deliveryActive = true;
-    let focusHost: HerdrFocusHost | undefined;
+    let focusHost: OmpFocusHost | undefined;
     function handleDeliveryFailure(error: unknown): void {
       pi.logger?.warn?.("Aperture OMP adapter delivery failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -62,23 +63,40 @@ export function createApertureOmarchyOmpExtension(
       direct.isAvailable(),
     ]);
     suppressionActive = suppressBuiltInNotifications && transportAvailable;
-    if (directAvailable) {
-      focusHost = await HerdrFocusHost.create({ direct, ...focusHostOptions });
-    }
     if (suppressionActive) process.env.PI_NOTIFICATIONS = "off";
 
     bindOmpExtension(
       pi,
       {
-        handle: (event, context) =>
-          deliveryActive
-            ? transport.handle(event, {
-                ...context,
-                ...(focusHost?.focusHandle()
-                  ? { focusHandle: focusHost.focusHandle() }
-                  : {}),
-              })
-            : Promise.resolve(),
+        handle: async (event, context) => {
+          if (!deliveryActive) return;
+          let navigable = false;
+          try {
+            navigable = mapOmpDirectAttentionEvents(event, context).length > 0;
+          } catch {
+            navigable = false;
+          }
+          if (focusHost?.shouldRecreate()) {
+            await focusHost.close();
+            focusHost = undefined;
+          }
+          if (focusHost && !focusHost.isActive() && navigable) {
+            await focusHost.retryRegistration();
+          }
+          if (directAvailable && !focusHost && navigable) {
+            focusHost = await OmpFocusHost.create({
+              direct,
+              ...focusHostOptions,
+              ui: context.focusUi,
+              initialTitle: pi.getSessionName?.(),
+            });
+          }
+          const focusHandle = focusHost?.focusHandle();
+          await transport.handle(event, {
+            ...context,
+            ...(focusHandle ? { focusHandle } : {}),
+          });
+        },
         close: async () => {
           try {
             await focusHost?.close();

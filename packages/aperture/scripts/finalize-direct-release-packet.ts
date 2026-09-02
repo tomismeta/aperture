@@ -7,7 +7,7 @@ const AMBIENT_PROOF = "notification-worker-ambient-ceiling-v1";
 const OMP_PROOF = "aperture-omp-adapter-conformance-v1";
 const DIRECT_PROOF = "aperture-omp-direct-transport-conformance-v1";
 const PRIVACY_PROOF = "aperture-omp-direct-privacy-v1";
-const NAVIGATION_PROOF = "aperture-opaque-focus-navigation-v2";
+const NAVIGATION_PROOF = "aperture-opaque-focus-navigation-v3";
 const OMP_HOST_PROOF = "aperture-omp-host-direct-compatibility-v1";
 const ROOT_ENTRIES = new Set([
   "BUILDINFO.json",
@@ -36,6 +36,8 @@ const FIXED_FILES = new Set([
   "fixtures/omp-direct/input-request.json",
   "fixtures/omp-direct/notification-fallback-ambient.json",
   "fixtures/omp-direct/snapshot-completion.json",
+  "fixtures/omp-direct/focus-registration-direct-foot.json",
+  "fixtures/omp-direct/focus-registration-tmux.json",
   "fixtures/omp-direct/snapshot-failure.json",
   "fixtures/omp-direct/snapshot-now-next.json",
   "fixtures/omp-direct/snapshot-resolved.json",
@@ -120,11 +122,10 @@ async function validateMetadata(
   assert(buildInfo.sourceDirty === false, "combined release source must be clean");
   assert(buildInfo.apertureCommit === sourceCommit, "BUILDINFO source commit mismatch");
   assert(buildInfo.apertureSourceTag === sourceTag, "BUILDINFO source tag mismatch");
-  assert(buildInfo.aperturePackageVersion === "0.7.0", "invalid Aperture package version");
+  assert(buildInfo.aperturePackageVersion === "0.8.0", "invalid Aperture package version");
   assert(buildInfo.apertureCoreVersion === "0.9.0", "invalid ApertureCore version");
   assertUtcTimestamp(buildInfo.builtAt);
   assertNonempty(buildInfo.provenanceAttestationReference, "missing provenance reference");
-
   const builder = record(buildInfo.builder, "missing builder metadata");
   assert(builder.name === "esbuild", "invalid builder");
   assertNonempty(builder.version, "missing esbuild version");
@@ -137,7 +138,7 @@ async function validateMetadata(
   );
   assert(workerContract.surfaceProtocolVersion === 3, "invalid surface protocol version");
   assert(workerContract.ompAttentionEventSchemaVersion === 2, "invalid OMP event schema");
-  assert(workerContract.ompDirectProtocolVersion === 2, "invalid OMP direct protocol");
+  assert(workerContract.ompDirectProtocolVersion === 3, "invalid OMP direct protocol");
 
   const ci = record(buildInfo.ci, "missing CI metadata");
   assertNonempty(ci.workflowRef, "missing CI workflowRef");
@@ -220,10 +221,10 @@ async function validateMetadata(
   assertSchema(schemas.output, "schemas/notification-worker-output.schema.json", 3);
   assertSchema(schemas.surface, "schemas/surface-protocol.schema.json", 3);
   assertSchema(schemas.ompAttentionEvent, "schemas/omp-attention-event.schema.json", 2);
-  assertSchema(schemas.ompDirectMessage, "schemas/omp-direct-message.schema.json", 2);
+  assertSchema(schemas.ompDirectMessage, "schemas/omp-direct-message.schema.json", 3);
   const fixtureMetadata = record(buildInfo.fixtures, "missing fixture metadata");
   const ompFixtures = record(fixtureMetadata.ompDirect, "missing OMP direct fixtures");
-  assert(ompFixtures.version === 2, "invalid OMP fixture version");
+  assert(ompFixtures.version === 3, "invalid OMP fixture version");
   const declaredFixturePaths = array(ompFixtures.paths, "missing OMP fixture paths");
   const requiredFixturePaths = [...FIXED_FILES]
     .filter((entry) => entry.startsWith("fixtures/"))

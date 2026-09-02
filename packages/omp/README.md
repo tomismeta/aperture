@@ -30,16 +30,18 @@ Navigable worker frames expose only a bounded opaque focus capability:
 { "navigation": { "kind": "opaque-focus", "handle": "<32-character opaque handle>" } }
 ```
 
-The handle is available only for an interactive OMP pane inside Herdr with an
-exact worker-validated Foot toplevel marker. Activation is focus-only and
-returns `focused`, `stale`, or `missing`; it never approves, answers, dismisses,
-completes, engages, resumes, or attaches a session. Native notification
-fallbacks and unsupported tmux, screen, zellij, RPC, headless, and direct Foot
-contexts remain non-navigable. Herdr socket, pane, marker, host-generation,
-compositor, and toplevel address facts are volatile worker-private state and are
-never projected or persisted.
+The handle is available only for a validated Herdr, direct Foot, or tmux
+interactive context. Activation is focus-only and returns `focused`, `stale`,
+or `missing`; it never approves, answers, dismisses, completes, engages,
+resumes, or attaches a session. Native notification fallbacks and unsupported
+contexts remain non-navigable. Socket, pane, marker, host-generation,
+compositor, tmux option, and toplevel address facts are volatile worker-private
+state and are never projected or persisted.
 Herdr pane IDs are bounded opaque identifiers, including base-style IDs such
 as `wA:p1`; Aperture never derives numeric workspace or pane semantics.
+The focus backends are deliberately limited to Herdr, direct Foot, and tmux.
+Kitty, WezTerm, Zellij, Ghostty, Alacritty, and generic terminal contexts are
+unsupported and remain non-navigable; there are no heuristic probes or aliases.
 
 When `omarchy-notification-send` is executable, the Omarchy extension disables
 OMP's built-in notifications process-locally to avoid duplicates. It restores

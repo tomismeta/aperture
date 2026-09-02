@@ -6,7 +6,7 @@ import {
   type OmpAttentionEvent,
 } from "./omp-attention-event.js";
 
-export const OMP_DIRECT_PROTOCOL_VERSION = 2;
+export const OMP_DIRECT_PROTOCOL_VERSION = 3;
 export const OMP_DIRECT_LIMITS = {
   jsonLineBytes: OMP_ATTENTION_LIMITS.jsonLineBytes,
   requestIdCharacters: 160,
@@ -16,19 +16,36 @@ export const OMP_DIRECT_LIMITS = {
   compositorAddressCharacters: 160,
 } as const;
 
+export type OmpFocusTarget =
+  | {
+      kind: "herdr";
+      socketPath: string;
+      paneId: string;
+      hyprlandInstance: string;
+    }
+  | {
+      kind: "direct-foot";
+      marker: string;
+      hyprlandInstance: string;
+    }
+  | {
+      kind: "tmux";
+      socketPath: string;
+      paneId: string;
+      hyprlandInstance: string;
+    };
+
 export type OmpFocusRegistration = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   type: "omp.focus.register";
   requestId: string;
   publicHandle: string;
   hostGeneration: string;
-  herdrSocketPath: string;
-  paneId: string;
-  compositorAddress: string;
+  target: OmpFocusTarget;
 };
 
 export type OmpFocusRevocation = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   type: "omp.focus.revoke";
   requestId: string;
   publicHandle: string;
@@ -38,7 +55,7 @@ export type OmpFocusRevocation = {
 export type OmpDirectMessage = OmpAttentionEvent | OmpFocusRegistration | OmpFocusRevocation;
 
 export type OmpDirectAcknowledgement = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   status: "accepted";
   requestId: string;
 };
@@ -96,14 +113,11 @@ export function parseOmpDirectAcknowledgement(line: string): OmpDirectAcknowledg
   }
   const record = asRecord(value);
   assertExactKeys(record, ["schemaVersion", "status", "requestId"]);
-  if (
-    record.schemaVersion !== OMP_DIRECT_PROTOCOL_VERSION ||
-    record.status !== "accepted"
-  ) {
+  if (record.schemaVersion !== 3 || record.status !== "accepted") {
     throw new OmpDirectProtocolError("OMP direct acknowledgement was invalid");
   }
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     status: "accepted",
     requestId: boundedVisible(
       record.requestId,
@@ -120,44 +134,56 @@ function assertRegistration(record: Record<string, unknown>): OmpFocusRegistrati
     "requestId",
     "publicHandle",
     "hostGeneration",
-    "herdrSocketPath",
-    "paneId",
-    "compositorAddress",
+    "target",
   ]);
-  const herdrSocketPath = socketPath(record.herdrSocketPath);
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     type: "omp.focus.register",
-    requestId: boundedVisible(
-      record.requestId,
-      OMP_DIRECT_LIMITS.requestIdCharacters,
-      "registration request id",
-    ),
+    requestId: boundedVisible(record.requestId, 160, "registration request id"),
     publicHandle: secretToken(record.publicHandle, "public focus handle"),
     hostGeneration: secretToken(record.hostGeneration, "host generation"),
-
-    herdrSocketPath,
-    paneId: assertOmpHerdrPaneId(record.paneId),
-    compositorAddress: compositorAddress(record.compositorAddress),
+    target: assertTarget(record.target),
   };
 }
 
+function assertTarget(value: unknown): OmpFocusTarget {
+  const target = asRecord(value);
+  const hyprlandInstance = compositorAddress(target.hyprlandInstance);
+  if (target.kind === "herdr") {
+    assertExactKeys(target, ["kind", "socketPath", "paneId", "hyprlandInstance"]);
+    return {
+      kind: "herdr",
+      socketPath: socketPath(target.socketPath),
+      paneId: assertOmpHerdrPaneId(target.paneId),
+      hyprlandInstance,
+    };
+  }
+  if (target.kind === "direct-foot") {
+    assertExactKeys(target, ["kind", "marker", "hyprlandInstance"]);
+    return {
+      kind: "direct-foot",
+      marker: secretToken(target.marker, "Foot marker"),
+      hyprlandInstance,
+    };
+  }
+  if (target.kind === "tmux") {
+    assertExactKeys(target, ["kind", "socketPath", "paneId", "hyprlandInstance"]);
+    return {
+      kind: "tmux",
+      socketPath: socketPath(target.socketPath),
+      paneId: assertOmpTmuxPaneId(target.paneId),
+      hyprlandInstance,
+    };
+  }
+  throw new OmpDirectProtocolError("OMP direct focus target kind is unsupported");
+}
+
 function assertRevocation(record: Record<string, unknown>): OmpFocusRevocation {
-  assertExactKeys(record, [
-    "schemaVersion",
-    "type",
-    "requestId",
-    "publicHandle",
-    "hostGeneration",
-  ]);
+  assertExactKeys(record, ["schemaVersion", "type", "requestId", "publicHandle", "hostGeneration"]);
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     type: "omp.focus.revoke",
-    requestId: boundedVisible(
-      record.requestId,
-      OMP_DIRECT_LIMITS.requestIdCharacters,
-      "revocation request id",
-    ),
+    requestId: boundedVisible(record.requestId, 160, "revocation request id"),
     publicHandle: secretToken(record.publicHandle, "public focus handle"),
     hostGeneration: secretToken(record.hostGeneration, "host generation"),
   };
@@ -171,9 +197,7 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 
 function assertExactKeys(record: Record<string, unknown>, expected: string[]): void {
-  const actual = Object.keys(record).sort();
-  const sorted = [...expected].sort();
-  if (JSON.stringify(actual) !== JSON.stringify(sorted)) {
+  if (JSON.stringify(Object.keys(record).sort()) !== JSON.stringify([...expected].sort())) {
     throw new OmpDirectProtocolError("OMP direct message fields are invalid");
   }
 }
@@ -191,10 +215,7 @@ function boundedVisible(value: unknown, maximum: number, label: string): string 
 }
 
 function secretToken(value: unknown, label: string): string {
-  if (
-    typeof value !== "string" ||
-    !new RegExp(`^[A-Za-z0-9_-]{${OMP_DIRECT_LIMITS.secretTokenCharacters}}$`).test(value)
-  ) {
+  if (typeof value !== "string" || !/^[A-Za-z0-9_-]{32}$/.test(value)) {
     throw new OmpDirectProtocolError(`OMP direct ${label} is invalid`);
   }
   return value;
@@ -207,7 +228,7 @@ function socketPath(value: unknown): string {
     value.includes("\0") ||
     Buffer.byteLength(value, "utf8") > OMP_DIRECT_LIMITS.socketPathBytes
   ) {
-    throw new OmpDirectProtocolError("OMP direct Herdr socket context is invalid");
+    throw new OmpDirectProtocolError("OMP direct socket context is invalid");
   }
   return value;
 }
@@ -215,10 +236,17 @@ function socketPath(value: unknown): string {
 export function assertOmpHerdrPaneId(value: unknown): string {
   if (
     typeof value !== "string" ||
-    value.length > OMP_DIRECT_LIMITS.paneIdCharacters ||
+    value.length > 64 ||
     !/^w[A-Za-z0-9_-]{1,30}:p[A-Za-z0-9_-]{1,30}$/.test(value)
   ) {
     throw new OmpDirectProtocolError("OMP direct Herdr pane context is invalid");
+  }
+  return value;
+}
+
+export function assertOmpTmuxPaneId(value: unknown): string {
+  if (typeof value !== "string" || !/^%\d{1,10}$/.test(value)) {
+    throw new OmpDirectProtocolError("OMP direct tmux pane context is invalid");
   }
   return value;
 }

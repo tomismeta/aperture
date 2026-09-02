@@ -218,7 +218,7 @@ Shipping the extension does not automatically activate it in OMP.
 
 The direct cutover uses notification input schema `2`, notification output
 schema `3`, surface protocol `3`, OMP attention event schema `2`, and private
-OMP direct protocol `2`. Navigable frames carry only
+OMP direct protocol `3`. Navigable frames carry only
 `{ "kind": "opaque-focus", "handle": "…" }`; activation returns only
 `focused`, `stale`, or `missing`. Session identity remains a private event fact
 and is never executable navigation.
@@ -231,7 +231,7 @@ focus capability registers. Rolling a schema-2 state directory back to v0.2 is
 unsupported and fail-visible: the legacy worker reports corrupt-state recovery
 before removing the unsupported file. Do not start v0.2 against a migrated
 state directory; take an operator backup before rollback, then restore it and
-roll forward to `aperture-worker-v0.3.0`.
+roll forward to `aperture-worker-v0.4.0`.
 
 ## Product State
 

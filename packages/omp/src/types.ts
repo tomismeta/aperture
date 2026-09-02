@@ -134,6 +134,9 @@ export type OmpMappingContext = {
   sourceLabel?: string;
   now?: () => string;
   focusHandle?: string;
+  focusUi?: {
+    setTitle?: (title: string) => void;
+  };
 };
 
 export type OmpExtensionContext = {
@@ -141,6 +144,7 @@ export type OmpExtensionContext = {
   sessionManager?: unknown;
   ui?: {
     notify?: (message: string, type?: "info" | "warning" | "error") => void;
+    setTitle?: (title: string) => void;
   };
 };
 
@@ -149,6 +153,7 @@ export type OmpExtensionApi = {
     event: string,
     handler: (event: OmpEvent, context: OmpExtensionContext) => Promise<void> | void,
   ): void;
+  getSessionName?: () => string | undefined;
   logger?: {
     warn?: (message: string, attributes?: Record<string, unknown>) => void;
   };

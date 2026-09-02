@@ -154,7 +154,7 @@ async function handleConnection(
   let handled = false;
   const reject = (): void => {
     if (socket.destroyed) return;
-    socket.end(`${JSON.stringify({ schemaVersion: 2, status: "rejected" })}\n`);
+    socket.end(`${JSON.stringify({ schemaVersion: 3, status: "rejected" })}\n`);
   };
 
   socket.once("timeout", reject);
@@ -206,7 +206,7 @@ async function handleConnection(
       if (!socket.destroyed) {
         socket.end(
           `${JSON.stringify({
-            schemaVersion: 2,
+            schemaVersion: 3,
             status: "accepted",
             requestId: directMessageRequestId(message),
           })}\n`,

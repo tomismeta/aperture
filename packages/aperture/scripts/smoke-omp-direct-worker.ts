@@ -173,7 +173,7 @@ try {
     privacyProofId: "aperture-omp-direct-privacy-v1",
     passed: true,
     nodeVersion: process.versions.node,
-    navigationProofId: "aperture-opaque-focus-navigation-v2",
+    navigationProofId: "aperture-opaque-focus-navigation-v3",
     bundle: {
       sha256: createHash("sha256").update(bundle).digest("hex"),
       bytes: bundle.byteLength,
@@ -298,7 +298,7 @@ async function sendDirect(socketPath: string, directEvent: OmpAttentionEvent): P
     requestId?: string;
   };
   assert.deepEqual(acknowledgement, {
-    schemaVersion: 2,
+    schemaVersion: 3,
     status: "accepted",
     requestId: directEvent.eventId,
   });

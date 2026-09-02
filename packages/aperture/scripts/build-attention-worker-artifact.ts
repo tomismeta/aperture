@@ -41,6 +41,8 @@ const ompFixtureNames = [
   "input-request.json",
   "failure-event.json",
   "focus-registration.json",
+  "focus-registration-direct-foot.json",
+  "focus-registration-tmux.json",
   "focus-activation.json",
   "focus-result.json",
   "completion-event.json",
@@ -218,7 +220,7 @@ const buildInfo = {
   minimumNodeVersion,
   minimumNodeMajor: 22,
   apertureCommit: commit,
-  releaseSeries: "aperture-worker-v0.3",
+  releaseSeries: "aperture-worker-v0.4",
   apertureSourceTag: process.env.APERTURE_SOURCE_TAG || null,
   sourceDirty,
   payloadProfile: options.allowUnsignedLocal ? "development" : "release",
@@ -234,7 +236,7 @@ const buildInfo = {
     notificationOutputSchemaVersion: 3,
     surfaceProtocolVersion: 3,
     ompAttentionEventSchemaVersion: 2,
-    ompDirectProtocolVersion: 2,
+    ompDirectProtocolVersion: 3,
   },
   stateMigration: {
     ompDirect: {
@@ -260,6 +262,7 @@ const buildInfo = {
     clientPolicy: "one-foot-client-per-herdr-socket-and-hypr-instance",
     persistence: "volatile-only",
   },
+  focusBackends: ["herdr-0.8.2", "foot-1.27", "tmux-3.7c"],
   schemas: {
     input: {
       version: 2,
@@ -282,14 +285,14 @@ const buildInfo = {
       sha256: ompAttentionSchema.sha256,
     },
     ompDirectMessage: {
-      version: 2,
+      version: 3,
       path: ompDirectSchema.path,
       sha256: ompDirectSchema.sha256,
     },
   },
   fixtures: {
     ompDirect: {
-      version: 2,
+      version: 3,
       paths: ompFixtureNames.map((fixtureName) => `fixtures/omp-direct/${fixtureName}`),
     },
   },
@@ -336,7 +339,7 @@ const buildInfo = {
     ambientCeilingProofId: "notification-worker-ambient-ceiling-v1",
     directTransportProofId: "aperture-omp-direct-transport-conformance-v1",
     directPrivacyProofId: "aperture-omp-direct-privacy-v1",
-    navigationProofId: "aperture-opaque-focus-navigation-v2",
+    navigationProofId: "aperture-opaque-focus-navigation-v3",
     requiredNodeMajors: [22, 24, "current"],
     nodeCompatibility: [],
   },

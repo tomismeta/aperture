@@ -1,6 +1,6 @@
 {
   "name": "@tomismeta/aperture",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": false,
   "description": "The live attention surface for humans working with agents.",
   "author": "tomismeta <tomismeta@gmail.com>",

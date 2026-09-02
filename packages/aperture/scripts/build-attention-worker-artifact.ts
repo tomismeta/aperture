@@ -34,14 +34,14 @@ const schemaNames = [
   "notification-worker-output.schema.json",
   "surface-protocol.schema.json",
   "omp-attention-event.schema.json",
-  "omp-direct-message.schema.json",
+  "worker-direct-message.schema.json",
 ] as const;
 const ompFixtureNames = [
   "approval-request.json",
   "input-request.json",
   "failure-event.json",
   "focus-registration.json",
-  "focus-registration-direct-terminal-probe.json",
+  "focus-registration-direct-terminal.json",
   "focus-registration-tmux.json",
   "focus-activation.json",
   "focus-result.json",
@@ -207,12 +207,15 @@ const workerFile = requiredFile(`lib/${workerBundleName}`);
 const notificationInputSchema = requiredFile("schemas/notification-worker-input.schema.json");
 const notificationOutputSchema = requiredFile("schemas/notification-worker-output.schema.json");
 const surfaceSchema = requiredFile("schemas/surface-protocol.schema.json");
-const ompDirectSchema = requiredFile("schemas/omp-direct-message.schema.json");
+const workerDirectSchema = requiredFile("schemas/worker-direct-message.schema.json");
 const ompAttentionSchema = requiredFile("schemas/omp-attention-event.schema.json");
 const workerImportEvidence = requiredFile("evidence/runtime-imports.json");
 const ompExtensionFile = requiredFile(`integrations/omp/${ompExtensionName}`);
 const ompManifestFile = requiredFile("integrations/omp/package.json");
 const ompImportEvidence = requiredFile("evidence/omp-runtime-imports.json");
+const apertureSourceTag = process.env.APERTURE_SOURCE_TAG || null;
+const releaseSeries = apertureSourceTag ? apertureSourceTag.replace(/\.\d+$/, "") : "development";
+
 const buildInfo = {
   schemaVersion: 1,
   artifactType: "node-commonjs-bundle",
@@ -220,8 +223,8 @@ const buildInfo = {
   minimumNodeVersion,
   minimumNodeMajor: 22,
   apertureCommit: commit,
-  releaseSeries: "aperture-worker-v0.4",
-  apertureSourceTag: process.env.APERTURE_SOURCE_TAG || null,
+  releaseSeries,
+  apertureSourceTag,
   sourceDirty,
   payloadProfile: options.allowUnsignedLocal ? "development" : "release",
   aperturePackageVersion: String(packageMetadata.version || ""),
@@ -236,7 +239,7 @@ const buildInfo = {
     notificationOutputSchemaVersion: 3,
     surfaceProtocolVersion: 3,
     ompAttentionEventSchemaVersion: 2,
-    ompDirectProtocolVersion: 3,
+    workerDirectProtocolVersion: 4,
   },
   stateMigration: {
     ompDirect: {
@@ -246,20 +249,28 @@ const buildInfo = {
       rollback: "v0.2-fail-visible-corrupt-state-recovery",
     },
   },
-  focusBroker: {
+  focusCoordinator: {
     registrationTtlMs: 15_000,
     heartbeatIntervalMs: 5_000,
+    retryInitialMs: 250,
+    retryMaximumMs: 5_000,
     attentionAcknowledgementTimeoutMs: 200,
     focusAcknowledgementTimeoutMs: 2_000,
     focusServerProcessingTimeoutMs: 2_250,
     activeWindowConfirmationIntervalMs: 25,
     activeWindowConfirmationTimeoutMs: 1_000,
+    shutdownTimeoutMs: 3_000,
+    maximumDirectClients: 32,
+    maximumQueuedFocusOperations: 64,
+    maximumActiveRegistrations: 128,
+    maximumLeaseMembers: 32,
+    maximumPendingQmlFocusRequests: 16,
     herdrProtocol: "raw-ndjson-0.8.2",
     compositorExecutable: "/usr/bin/hyprctl",
     compositorDispatchTemplate: 'dispatch hl.dsp.focus({ window = "address:<validated>" })',
     activationResults: ["focused", "stale", "missing"],
-    titleOwnership: "worker-central-epoch-fenced-lease",
-    clientPolicy: "one-foot-client-per-herdr-socket-and-hypr-instance",
+    titleOwnership: "backend-cas-host-recovery-generation-fenced",
+    clientPolicy: "backend-scoped-single-client-admission",
     persistence: "volatile-only",
   },
   focusBackends: ["herdr-0.8.2", "foot-1.27", "tmux-3.7c"],
@@ -284,15 +295,15 @@ const buildInfo = {
       path: ompAttentionSchema.path,
       sha256: ompAttentionSchema.sha256,
     },
-    ompDirectMessage: {
-      version: 3,
-      path: ompDirectSchema.path,
-      sha256: ompDirectSchema.sha256,
+    workerDirectMessage: {
+      version: 4,
+      path: workerDirectSchema.path,
+      sha256: workerDirectSchema.sha256,
     },
   },
   fixtures: {
     ompDirect: {
-      version: 3,
+      version: 4,
       paths: ompFixtureNames.map((fixtureName) => `fixtures/omp-direct/${fixtureName}`),
     },
   },
@@ -339,7 +350,7 @@ const buildInfo = {
     ambientCeilingProofId: "notification-worker-ambient-ceiling-v1",
     directTransportProofId: "aperture-omp-direct-transport-conformance-v1",
     directPrivacyProofId: "aperture-omp-direct-privacy-v1",
-    navigationProofId: "aperture-opaque-focus-navigation-v3",
+    navigationProofId: "aperture-opaque-focus-navigation-v4",
     requiredNodeMajors: [22, 24, "current"],
     nodeCompatibility: [],
   },

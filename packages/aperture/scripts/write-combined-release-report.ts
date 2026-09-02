@@ -63,9 +63,15 @@ const report = {
   workflowRef: buildInfo.ci.workflowRef,
   runId: buildInfo.ci.runId,
   runAttempt: buildInfo.ci.runAttempt,
+  workflowChain: {
+    releaseCheckRunId: options.releaseCheckRunId,
+    workerArtifactRunId: options.workerArtifactRunId,
+    directReleaseRunId: options.directReleaseRunId,
+  },
   artifactUrl: options.artifactUrl,
   artifactArchiveSha256: sha256(archiveContent),
   archiveAttestationReference: options.archiveAttestationReference,
+  buildInfoAttestationReference: options.buildInfoAttestationReference,
   provenanceAttestationReference: buildInfo.provenanceAttestationReference,
   workerBytes: buildInfo.workerBundle.bytes,
   workerSha256: buildInfo.workerBundle.sha256,
@@ -129,8 +135,12 @@ type Options = {
   artifactDir: string;
   archive: string;
   archiveAttestationReference: string;
+  buildInfoAttestationReference: string;
   artifactUrl: string;
   output: string;
+  releaseCheckRunId: string;
+  workerArtifactRunId: string;
+  directReleaseRunId: string;
 };
 
 function parseOptions(args: string[]): Options {
@@ -142,6 +152,10 @@ function parseOptions(args: string[]): Options {
       argument === "--artifact-dir" ||
       argument === "--archive" ||
       argument === "--archive-attestation-reference" ||
+      argument === "--buildinfo-attestation-reference" ||
+      argument === "--release-check-run-id" ||
+      argument === "--worker-artifact-run-id" ||
+      argument === "--direct-release-run-id" ||
       argument === "--artifact-url" ||
       argument === "--output"
     ) {
@@ -151,6 +165,14 @@ function parseOptions(args: string[]): Options {
       else if (argument === "--archive") parsed.archive = value;
       else if (argument === "--archive-attestation-reference") {
         parsed.archiveAttestationReference = value;
+      } else if (argument === "--buildinfo-attestation-reference") {
+        parsed.buildInfoAttestationReference = value;
+      } else if (argument === "--release-check-run-id") {
+        parsed.releaseCheckRunId = value;
+      } else if (argument === "--worker-artifact-run-id") {
+        parsed.workerArtifactRunId = value;
+      } else if (argument === "--direct-release-run-id") {
+        parsed.directReleaseRunId = value;
       } else if (argument === "--artifact-url") parsed.artifactUrl = value;
       else parsed.output = value;
       index += 1;
@@ -163,7 +185,13 @@ function parseOptions(args: string[]): Options {
   if (!parsed.archiveAttestationReference) {
     throw new Error("--archive-attestation-reference is required");
   }
+  if (!parsed.buildInfoAttestationReference) {
+    throw new Error("--buildinfo-attestation-reference is required");
+  }
   if (!parsed.artifactUrl) throw new Error("--artifact-url is required");
   if (!parsed.output) throw new Error("--output is required");
+  if (!parsed.releaseCheckRunId) throw new Error("--release-check-run-id is required");
+  if (!parsed.workerArtifactRunId) throw new Error("--worker-artifact-run-id is required");
+  if (!parsed.directReleaseRunId) throw new Error("--direct-release-run-id is required");
   return parsed as Options;
 }

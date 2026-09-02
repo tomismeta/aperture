@@ -37,7 +37,6 @@ export type OmpAttentionFocus = {
   handle: string;
 };
 
-
 export type OmpAttentionEvent = {
   schemaVersion: 2;
   type: "omp.attention-event";
@@ -275,7 +274,6 @@ function optionalFocus(value: unknown): OmpAttentionFocus | undefined {
   }
   return { kind: "opaque-focus", handle: record.handle };
 }
-
 
 function timestamp(value: unknown): string {
   if (typeof value !== "string") {

@@ -1,16 +1,10 @@
-export { bindOmpExtension, type OmpEventSink } from "./bind.js";
+export { bindOmpExtension, type OmpEventCapabilities, type OmpEventSink } from "./bind.js";
 export { createApertureOmpExtension, type ApertureOmpExtensionOptions } from "./extension.js";
 export { mapOmpDirectAttentionEvents } from "./direct-event-mapping.js";
 export {
   OmpDirectWorkerTransport,
   type OmpDirectWorkerTransportOptions,
 } from "./direct-worker-transport.js";
-export {
-  OmpFocusHost,
-  resolveHerdrFocusContext,
-  type OmpFocusContext,
-  type OmpFocusHostOptions,
-} from "./omp-focus-host.js";
 export {
   contextFromOmpExtension,
   createOmpInstanceKey,

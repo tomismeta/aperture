@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { assertOmpAttentionEvent, type OmpAttentionEvent } from "../src/omp-attention-event.js";
-import { assertOmpDirectMessage } from "../src/omp-direct-message.js";
+import { assertWorkerDirectMessage } from "../src/worker-direct-message.js";
 import type { NotificationWorkerIdentity } from "../src/notification-worker/adapter.js";
 import { NotificationWorkerEngine } from "../src/notification-worker/engine.js";
 
@@ -77,9 +77,9 @@ const status = event({
   transition: "updated",
   status: "waiting",
 });
-const focusRegistration = assertOmpDirectMessage({
-  schemaVersion: 3,
-  type: "omp.focus.register",
+const focusRegistration = assertWorkerDirectMessage({
+  schemaVersion: 4,
+  type: "focus.register",
   requestId: "fixture-focus-register-1",
   publicHandle: focusHandle,
   hostGeneration: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
@@ -90,21 +90,21 @@ const focusRegistration = assertOmpDirectMessage({
     hyprlandInstance: "instance_1",
   },
 });
-const focusDirectFootRegistration = assertOmpDirectMessage({
-  schemaVersion: 3,
-  type: "omp.focus.register",
+const focusDirectFootRegistration = assertWorkerDirectMessage({
+  schemaVersion: 4,
+  type: "focus.register",
   requestId: "fixture-focus-foot-1",
   publicHandle: focusHandle,
   hostGeneration: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
   target: {
-    kind: "direct-terminal-probe",
+    kind: "direct-terminal",
     marker: "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
     hyprlandInstance: "instance_1",
   },
 });
-const focusTmuxRegistration = assertOmpDirectMessage({
-  schemaVersion: 3,
-  type: "omp.focus.register",
+const focusTmuxRegistration = assertWorkerDirectMessage({
+  schemaVersion: 4,
+  type: "focus.register",
   requestId: "fixture-focus-tmux-1",
   publicHandle: focusHandle,
   hostGeneration: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
@@ -125,7 +125,6 @@ const focusResult = {
   requestId: "fixture-focus-activate-1",
   result: "focused",
 } as const;
-
 
 const stateRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-fixtures-"));
 try {
@@ -198,7 +197,7 @@ try {
     ["snapshot-failure.json", failureSnapshot],
     ["snapshot-completion.json", completionSnapshot],
     ["focus-registration.json", focusRegistration],
-    ["focus-registration-direct-terminal-probe.json", focusDirectFootRegistration],
+    ["focus-registration-direct-terminal.json", focusDirectFootRegistration],
     ["focus-registration-tmux.json", focusTmuxRegistration],
     ["focus-activation.json", focusActivation],
     ["focus-result.json", focusResult],

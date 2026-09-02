@@ -1,5 +1,6 @@
+import type { TerminalTitleCapability } from "@tomismeta/aperture/focus-host";
 import { contextFromOmpExtension } from "./mapping.js";
-import type { OmpEvent, OmpExtensionApi, OmpMappingContext } from "./types.js";
+import type { OmpEvent, OmpExtensionApi, OmpExtensionContext, OmpMappingContext } from "./types.js";
 
 const OMP_EXTENSION_EVENTS = [
   "session_start",
@@ -21,8 +22,16 @@ const OMP_EXTENSION_EVENTS = [
   "credential_disabled",
 ] as const;
 
+export type OmpEventCapabilities = {
+  terminalTitle?: TerminalTitleCapability;
+};
+
 export type OmpEventSink = {
-  handle(event: OmpEvent, context: OmpMappingContext): Promise<void>;
+  handle(
+    event: OmpEvent,
+    context: OmpMappingContext,
+    capabilities: OmpEventCapabilities,
+  ): Promise<void>;
   close(): Promise<void>;
 };
 
@@ -34,14 +43,35 @@ export function bindOmpExtension(
   for (const eventName of OMP_EXTENSION_EVENTS) {
     pi.on(eventName, async (event, extensionContext) => {
       const context = contextFromOmpExtension(extensionContext, baseContext);
+      const capabilities = capabilitiesFromOmpExtension(extensionContext);
       try {
-        await sink.handle(event, context);
+        await sink.handle(event, context, capabilities);
         if (event.type === "session_shutdown") await sink.close();
       } catch (error) {
         reportAdapterError(pi, extensionContext.ui, error);
       }
     });
   }
+}
+
+function capabilitiesFromOmpExtension(extensionContext: OmpExtensionContext): OmpEventCapabilities {
+  const setTitle = extensionContext.ui?.setTitle;
+  if (!setTitle) return {};
+  return {
+    terminalTitle: {
+      claim(title) {
+        setTitle.call(extensionContext.ui, title);
+        let released = false;
+        return {
+          release() {
+            if (released) return;
+            released = true;
+            setTitle.call(extensionContext.ui, "π");
+          },
+        };
+      },
+    },
+  };
 }
 
 function reportAdapterError(

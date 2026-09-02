@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 3,
-  "type": "omp.focus.register",
+  "schemaVersion": 4,
+  "type": "focus.register",
   "requestId": "fixture-focus-register-1",
   "publicHandle": "A23456789_-bcdefghijklmnopqrstuv",
   "hostGeneration": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",

@@ -14,8 +14,14 @@ const OUTFILE = path.join(DIST_DIR, "cli.js");
 const WORK_OUTFILE = path.join(DIST_DIR, "work.js");
 const OMP_ATTENTION_EVENT_ENTRY_POINT = path.join(PACKAGE_ROOT, "src", "omp-attention-event.ts");
 const OMP_ATTENTION_EVENT_OUTFILE = path.join(DIST_DIR, "omp-attention-event.js");
-const OMP_DIRECT_MESSAGE_ENTRY_POINT = path.join(PACKAGE_ROOT, "src", "omp-direct-message.ts");
-const OMP_DIRECT_MESSAGE_OUTFILE = path.join(DIST_DIR, "omp-direct-message.js");
+const FOCUS_HOST_ENTRY_POINT = path.join(PACKAGE_ROOT, "src", "focus-host.ts");
+const FOCUS_HOST_OUTFILE = path.join(DIST_DIR, "focus-host.js");
+const WORKER_DIRECT_MESSAGE_ENTRY_POINT = path.join(
+  PACKAGE_ROOT,
+  "src",
+  "worker-direct-message.ts",
+);
+const WORKER_DIRECT_MESSAGE_OUTFILE = path.join(DIST_DIR, "worker-direct-message.js");
 const ATTENTION_WORKER_ENTRY_POINT = path.join(PACKAGE_ROOT, "src", "attention-worker.ts");
 const ATTENTION_WORKER_OUTFILE = path.join(DIST_DIR, "aperture-attention-engine.cjs");
 const ATTENTION_WORKER_IMPORT_REPORT = path.join(
@@ -41,7 +47,7 @@ const SCHEMA_FILES = [
   "notification-worker-input.schema.json",
   "notification-worker-output.schema.json",
   "omp-attention-event.schema.json",
-  "omp-direct-message.schema.json",
+  "worker-direct-message.schema.json",
 ] as const;
 
 await rm(DIST_DIR, { recursive: true, force: true });
@@ -83,10 +89,14 @@ await build({
 });
 await build({
   ...sharedBuildOptions,
-  entryPoints: [OMP_DIRECT_MESSAGE_ENTRY_POINT],
-  outfile: OMP_DIRECT_MESSAGE_OUTFILE,
+  entryPoints: [WORKER_DIRECT_MESSAGE_ENTRY_POINT],
+  outfile: WORKER_DIRECT_MESSAGE_OUTFILE,
 });
-
+await build({
+  ...sharedBuildOptions,
+  entryPoints: [FOCUS_HOST_ENTRY_POINT],
+  outfile: FOCUS_HOST_OUTFILE,
+});
 
 const attentionWorkerBuild = await build({
   bundle: true,

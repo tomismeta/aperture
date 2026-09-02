@@ -295,7 +295,6 @@ export class NotificationWorkerEngine {
             if (index === entry.revisions.length - 1) {
               this.directByKey.set(entry.key, entry);
               this.displayTitleByTaskId.set(entry.taskId, revision.displayTitle);
-
             }
           },
         })),

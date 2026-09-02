@@ -1,43 +1,54 @@
 name: Aperture Worker Direct Release
 
 on:
-  push:
-    tags:
-      - "aperture-worker-v0.4.*"
+  workflow_run:
+    workflows:
+      - Aperture Worker Artifact
+    types:
+      - completed
 
 permissions:
+  actions: read
   contents: write
   id-token: write
   attestations: write
 
 jobs:
-  build:
+  release:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'aperture-worker-v')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      EXPECTED_SOURCE_TAG: aperture-worker-v0.4.0
-      SOURCE_TAG: ${{ github.ref_name }}
-      SOURCE_COMMIT: ${{ github.sha }}
-      ARCHIVE_NAME: aperture-worker-v0.4.0.tar.gz
-      RELEASE_URL: https://github.com/${{ github.repository }}/releases/download/aperture-worker-v0.4.0/aperture-worker-v0.4.0.tar.gz
+      SOURCE_TAG: ${{ github.event.workflow_run.head_branch }}
+      SOURCE_COMMIT: ${{ github.event.workflow_run.head_sha }}
+      ARTIFACT_RUN_ID: ${{ github.event.workflow_run.id }}
 
     steps:
-      - name: Checkout signed source tag
+      - name: Checkout exact artifact source commit
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - name: Initialize trusted packet paths
+      - name: Initialize release paths
         run: |
+          test -n "$SOURCE_TAG"
+          test -n "$SOURCE_COMMIT"
           printf 'PAYLOAD_DIR=%s/aperture-worker\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
           printf 'REPORT_DIR=%s/reports\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
           printf 'PACKET_DIR=%s/release-packet\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'ARCHIVE_NAME=%s.tar.gz\n' "$SOURCE_TAG" >> "$GITHUB_ENV"
+          printf 'RELEASE_URL=https://github.com/%s/releases/download/%s/%s.tar.gz\n' \
+            "$GITHUB_REPOSITORY" "$SOURCE_TAG" "$SOURCE_TAG" >> "$GITHUB_ENV"
 
-      - name: Verify signed source tag and clean checkout
+      - name: Verify signed tag and canonical workflow chain
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          test "$SOURCE_TAG" = "$EXPECTED_SOURCE_TAG"
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test -z "$(git status --porcelain)"
           tag_object=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$SOURCE_TAG" --jq '.object.sha')
           tag_type=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$SOURCE_TAG" --jq '.object.type')
           test "$tag_type" = "tag"
@@ -45,8 +56,11 @@ jobs:
           tag_verified=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq '.verification.verified')
           test "$tag_commit" = "$SOURCE_COMMIT"
           test "$tag_verified" = "true"
-          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
-          test -z "$(git status --porcelain)"
+          release_check_run=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/release-check.yml/runs?head_sha=$SOURCE_COMMIT&status=success&per_page=20" \
+            --jq '.workflow_runs | map(select(.conclusion == "success")) | first | .id')
+          test -n "$release_check_run"
+          printf 'RELEASE_CHECK_RUN_ID=%s\n' "$release_check_run" >> "$GITHUB_ENV"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -62,33 +76,53 @@ jobs:
       - name: Install exact source dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build exact trusted worker and OMP payload
-        env:
-          CI: "true"
-          APERTURE_TRUSTED_CI: "1"
-          APERTURE_SOURCE_TAG: ${{ github.ref_name }}
-          APERTURE_SOURCE_COMMIT: ${{ github.sha }}
-        run: >-
-          pnpm --dir packages/aperture build:attention-worker --
-          --output-dir "$PAYLOAD_DIR"
+      - name: Run canonical focus release gate in publisher
+        run: pnpm release:focus-check
 
-      - name: Run direct and fallback source contracts
+      - name: Download exact successful Worker Artifact payload
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          pnpm exec tsx --test \
-            packages/aperture/test/notification-worker.test.ts \
-            packages/aperture/test/omp-direct-worker.test.ts
-          pnpm --dir packages/omp test
-          pnpm --dir packages/aperture omp:fixtures:check
-          pnpm product:omp-contract:prove
+          mkdir -p "$PAYLOAD_DIR" "$REPORT_DIR" "$PACKET_DIR"
+          gh run download "$ARTIFACT_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_TAG" \
+            --dir "$PAYLOAD_DIR"
+
+      - name: Verify downloaded payload identity and provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          jq -e --arg commit "$SOURCE_COMMIT" --arg tag "$SOURCE_TAG" '
+            .artifactType == "node-commonjs-bundle" and
+            .apertureCommit == $commit and
+            .apertureSourceTag == $tag and
+            .trustedCi == true and
+            .sourceDirty == false and
+            .workerContract.workerDirectProtocolVersion == 4 and
+            .schemas.workerDirectMessage.version == 4 and
+            .validation.navigationProofId == "aperture-opaque-focus-navigation-v4" and
+            .validation.focusBackendReport == "evidence/focus-backends.json" and
+            .validation.status == "passed"
+          ' "$PAYLOAD_DIR/BUILDINFO.json"
+          gh attestation verify "$PAYLOAD_DIR/lib/aperture-attention-engine.cjs" \
+            --repo "$GITHUB_REPOSITORY"
+          gh attestation verify "$PAYLOAD_DIR/integrations/omp/aperture-omp-extension.mjs" \
+            --repo "$GITHUB_REPOSITORY"
+          pnpm exec tsx packages/aperture/scripts/finalize-direct-release-packet.ts -- \
+            --artifact-dir "$PAYLOAD_DIR" \
+            --source-commit "$SOURCE_COMMIT" \
+            --source-tag "$SOURCE_TAG" \
+            --verify-only
 
       - name: Validate exact payload on Node 22
         run: |
           pnpm --dir packages/aperture smoke:attention-worker -- \
             --worker "$PAYLOAD_DIR/lib/aperture-attention-engine.cjs" \
-            --report "$REPORT_DIR/node-22.23.2.json"
+            --report "$REPORT_DIR/node-22.json"
           pnpm --dir packages/aperture smoke:omp-direct-worker -- \
             --worker "$PAYLOAD_DIR/lib/aperture-attention-engine.cjs" \
-            --report "$REPORT_DIR/direct-node-22.23.2.json"
+            --report "$REPORT_DIR/direct-node-22.json"
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v4
@@ -100,10 +134,10 @@ jobs:
         run: |
           pnpm --dir packages/aperture smoke:attention-worker -- \
             --worker "$PAYLOAD_DIR/lib/aperture-attention-engine.cjs" \
-            --report "$REPORT_DIR/node-24.13.0.json"
+            --report "$REPORT_DIR/node-24.json"
           pnpm --dir packages/aperture smoke:omp-direct-worker -- \
             --worker "$PAYLOAD_DIR/lib/aperture-attention-engine.cjs" \
-            --report "$REPORT_DIR/direct-node-24.13.0.json"
+            --report "$REPORT_DIR/direct-node-24.json"
 
       - name: Setup current Omarchy Node
         uses: actions/setup-node@v4
@@ -115,17 +149,14 @@ jobs:
         run: |
           pnpm --dir packages/aperture smoke:attention-worker -- \
             --worker "$PAYLOAD_DIR/lib/aperture-attention-engine.cjs" \
-            --report "$REPORT_DIR/node-26.4.0.json"
+            --report "$REPORT_DIR/node-current.json"
           pnpm --dir packages/aperture smoke:omp-direct-worker -- \
             --worker "$PAYLOAD_DIR/lib/aperture-attention-engine.cjs" \
-            --report "$REPORT_DIR/direct-node-26.4.0.json"
-
-      - name: Validate exact bundled OMP extension
-        run: >-
-          pnpm --dir packages/aperture smoke:omp-extension --
-          --extension "$PAYLOAD_DIR/integrations/omp/aperture-omp-extension.mjs"
-          --manifest "$PAYLOAD_DIR/integrations/omp/package.json"
-          --report "$REPORT_DIR/omp-adapter.json"
+            --report "$REPORT_DIR/direct-node-current.json"
+          pnpm --dir packages/aperture smoke:omp-extension -- \
+            --extension "$PAYLOAD_DIR/integrations/omp/aperture-omp-extension.mjs" \
+            --manifest "$PAYLOAD_DIR/integrations/omp/package.json" \
+            --report "$REPORT_DIR/omp-adapter.json"
 
       - name: Setup Bun for actual OMP matrix
         uses: oven-sh/setup-bun@v2
@@ -140,28 +171,6 @@ jobs:
           --omp-version 18.0.11
           --omp-version 18.1.2
           --report "$REPORT_DIR/omp-host-matrix.json"
-
-      - name: Finalize canonical validation evidence
-        run: >-
-          pnpm --dir packages/aperture finalize:attention-worker --
-          --artifact-dir "$PAYLOAD_DIR"
-          --node-report "$REPORT_DIR/node-22.23.2.json"
-          --node-report "$REPORT_DIR/node-24.13.0.json"
-          --node-report "$REPORT_DIR/node-26.4.0.json"
-          --direct-report "$REPORT_DIR/direct-node-22.23.2.json"
-          --direct-report "$REPORT_DIR/direct-node-24.13.0.json"
-          --direct-report "$REPORT_DIR/direct-node-26.4.0.json"
-          --omp-report "$REPORT_DIR/omp-adapter.json"
-          --omp-host-report "$REPORT_DIR/omp-host-matrix.json"
-          --attestation-reference "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-
-      - name: Stage and verify complete direct release payload
-        run: >-
-          pnpm exec tsx packages/aperture/scripts/finalize-direct-release-packet.ts --
-          --artifact-dir "$PAYLOAD_DIR"
-          --source-commit "$SOURCE_COMMIT"
-          --source-tag "$SOURCE_TAG"
-          --attestation-reference "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Attest every declared payload file
         id: payload-provenance
@@ -187,10 +196,14 @@ jobs:
             --source-commit "$SOURCE_COMMIT" \
             --source-tag "$SOURCE_TAG" \
             --verify-only
+      - name: Attest finalized BUILDINFO
+        id: buildinfo-provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ runner.temp }}/aperture-worker/BUILDINFO.json
 
       - name: Create deterministic complete archive and checksums
         run: |
-          mkdir -p "$PACKET_DIR"
           source_epoch=$(git show -s --format=%ct "$SOURCE_COMMIT")
           tar \
             --sort=name \
@@ -198,20 +211,20 @@ jobs:
             --owner=0 \
             --group=0 \
             --numeric-owner \
-            -cf "$PACKET_DIR/aperture-worker-v0.4.0.tar" \
+            -cf "$PACKET_DIR/$SOURCE_TAG.tar" \
             -C "$PAYLOAD_DIR" \
             BUILDINFO.json config evidence fixtures integrations lib schemas
-          gzip -n "$PACKET_DIR/aperture-worker-v0.4.0.tar"
+          gzip -n "$PACKET_DIR/$SOURCE_TAG.tar"
           test -f "$PACKET_DIR/$ARCHIVE_NAME"
           (cd "$PACKET_DIR" && sha256sum "$ARCHIVE_NAME" > "$ARCHIVE_NAME.sha256")
           buildinfo_sha=$(sha256sum "$PAYLOAD_DIR/BUILDINFO.json" | cut -d' ' -f1)
           printf '%s  BUILDINFO.json\n' "$buildinfo_sha" > "$PACKET_DIR/BUILDINFO.sha256"
 
-      - name: Attest complete direct release archive
+      - name: Attest complete release archive
         id: archive-provenance
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: ${{ runner.temp }}/release-packet/aperture-worker-v0.4.0.tar.gz
+          subject-path: ${{ runner.temp }}/release-packet/*.tar.gz
 
       - name: Write trusted release verification report
         run: >-
@@ -219,13 +232,17 @@ jobs:
           --artifact-dir "$PAYLOAD_DIR"
           --archive "$PACKET_DIR/$ARCHIVE_NAME"
           --archive-attestation-reference "${{ steps.archive-provenance.outputs.attestation-url }}"
+          --buildinfo-attestation-reference "${{ steps.buildinfo-provenance.outputs.attestation-url }}"
+          --release-check-run-id "$RELEASE_CHECK_RUN_ID"
+          --worker-artifact-run-id "$ARTIFACT_RUN_ID"
+          --direct-release-run-id "$GITHUB_RUN_ID"
           --artifact-url "$RELEASE_URL"
           --output "$PACKET_DIR/release-report.json"
 
-      - name: Upload trusted release packet evidence
+      - name: Upload release packet evidence
         uses: actions/upload-artifact@v4
         with:
-          name: aperture-worker-v0.4.0-release-packet
+          name: ${{ env.SOURCE_TAG }}-release-packet
           path: ${{ runner.temp }}/release-packet
           if-no-files-found: error
           compression-level: 0
@@ -234,13 +251,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          version=${SOURCE_TAG#aperture-worker-}
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF
-          Trusted Aperture Worker release with direct typed OMP transport and canonical session navigation.
+          Production-candidate Aperture Worker payload with bounded backend-neutral focus control.
 
           Source tag: $SOURCE_TAG
           Source commit: $SOURCE_COMMIT
-          Workflow run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          Release Check: https://github.com/$GITHUB_REPOSITORY/actions/runs/$RELEASE_CHECK_RUN_ID
+          Worker Artifact: https://github.com/$GITHUB_REPOSITORY/actions/runs/$ARTIFACT_RUN_ID
+          Direct Release: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           Payload attestation: ${{ steps.payload-provenance.outputs.attestation-url }}
+          BUILDINFO attestation: ${{ steps.buildinfo-provenance.outputs.attestation-url }}
           Archive attestation: ${{ steps.archive-provenance.outputs.attestation-url }}
           EOF
           gh release create "$SOURCE_TAG" \
@@ -250,5 +271,5 @@ jobs:
             "$PACKET_DIR/release-report.json" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
-            --title "Aperture Worker v0.2.0" \
+            --title "Aperture Worker $version" \
             --notes-file "$RUNNER_TEMP/release-notes.md"

@@ -194,7 +194,7 @@ platform. Its canonical schemas are exported as:
 - `@tomismeta/aperture/notification-worker-output.schema.json`
 - `@tomismeta/aperture/surface-protocol.schema.json`
 - `@tomismeta/aperture/omp-attention-event.schema.json`
-- `@tomismeta/aperture/omp-direct-message.schema.json`
+- `@tomismeta/aperture/worker-direct-message.schema.json`
 
 `pnpm --dir packages/aperture build:attention-worker -- --output-dir <path>`
 stages the bundle, schemas, hashes, and BUILDINFO for a host integration. The
@@ -203,7 +203,7 @@ requires no npm install or `node_modules` on the target machine.
 For an unsigned local development payload, use
 `pnpm --dir packages/aperture build:attention-worker:development -- --output-dir <path>`.
 Its BUILDINFO records `payloadProfile: "development"` and the exact volatile
-focus-broker contract.
+focus-coordinator contract.
 
 
 The staged payload also includes
@@ -218,10 +218,11 @@ Shipping the extension does not automatically activate it in OMP.
 
 The direct cutover uses notification input schema `2`, notification output
 schema `3`, surface protocol `3`, OMP attention event schema `2`, and private
-OMP direct protocol `3`. Navigable frames carry only
-`{ "kind": "opaque-focus", "handle": "…" }`; activation returns only
-`focused`, `stale`, or `missing`. Session identity remains a private event fact
-and is never executable navigation.
+worker direct protocol `4`. OMP attention events remain OMP-specific; generic
+`focus.register` and `focus.revoke` messages carry bounded volatile focus control.
+Navigable frames carry only `{ "kind": "opaque-focus", "handle": "…" }`;
+activation returns only `focused`, `stale`, or `missing`. Session identity
+remains a private event fact and is never executable navigation.
 
 Upgrade from the v0.2 worker migrates unresolved OMP direct state schema `1`
 to schema `2` atomically with mode `0600`, preserving session, interaction,
@@ -231,7 +232,7 @@ focus capability registers. Rolling a schema-2 state directory back to v0.2 is
 unsupported and fail-visible: the legacy worker reports corrupt-state recovery
 before removing the unsupported file. Do not start v0.2 against a migrated
 state directory; take an operator backup before rollback, then restore it and
-roll forward to `aperture-worker-v0.4.0`.
+roll forward to the next fully accepted signed worker release. v0.4.0 remains dogfood evidence.
 
 ## Product State
 

@@ -26,7 +26,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.sha')
+          tag_type=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.type')
+          tag_commit=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '.object.sha')
           tag_verified=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '.verification.verified')
+          test "$tag_type" = "tag"
+          test "$tag_commit" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain)"
           test "$tag_verified" = "true"
 
       - name: Setup pnpm
@@ -52,13 +58,8 @@ jobs:
           pnpm --dir packages/aperture build:attention-worker --
           --output-dir "$RUNNER_TEMP/aperture-worker"
 
-      - name: Run worker contract tests
-        run: >-
-          pnpm exec tsx --test
-          packages/aperture/test/notification-worker.test.ts
-          packages/aperture/test/omp-direct-worker.test.ts
-      - name: Run OMP adapter contract tests
-        run: pnpm --dir packages/omp test
+      - name: Run canonical focus release gate
+        run: pnpm release:focus-check
 
       - name: Smoke exact artifact on Node 22
         run: >-
@@ -110,6 +111,10 @@ jobs:
           --extension "$RUNNER_TEMP/aperture-worker/integrations/omp/aperture-omp-extension.mjs"
           --manifest "$RUNNER_TEMP/aperture-worker/integrations/omp/package.json"
           --report "$RUNNER_TEMP/reports/omp-adapter.json"
+      - name: Record positive three-backend focus smoke
+        run: >-
+          pnpm --dir packages/aperture smoke:focus-backends --
+          --report "$RUNNER_TEMP/reports/focus-backends.json"
 
       - name: Setup Bun for OMP host matrix
         uses: oven-sh/setup-bun@v2
@@ -146,6 +151,7 @@ jobs:
           --omp-host-report "$RUNNER_TEMP/reports/omp-host-matrix.json"
           --attestation-reference "${{ steps.provenance.outputs.attestation-url }}"
           --omp-report "$RUNNER_TEMP/reports/omp-adapter.json"
+          --focus-report "$RUNNER_TEMP/reports/focus-backends.json"
 
       - name: Verify trusted BUILDINFO
         run: |
@@ -166,7 +172,10 @@ jobs:
             .integrations.omp.hostCompatibility.status == "passed" and
             .validation.directTransportProofId == "aperture-omp-direct-transport-conformance-v1" and
             .validation.directPrivacyProofId == "aperture-omp-direct-privacy-v1" and
-            .validation.navigationProofId == "aperture-omp-session-navigation-v1" and
+            .validation.navigationProofId == "aperture-opaque-focus-navigation-v4" and
+            .validation.focusBackendReport == "evidence/focus-backends.json" and
+            .workerContract.workerDirectProtocolVersion == 4 and
+            .schemas.workerDirectMessage.version == 4 and
             .integrations.omp.validation.status == "passed" and
             .integrations.omp.runtimeDependencies.status == "passed" and
             (.integrations.omp.runtimeDependencies.imports | all(startswith("node:"))) and

@@ -7,9 +7,9 @@ const AMBIENT_PROOF = "notification-worker-ambient-ceiling-v1";
 const OMP_PROOF = "aperture-omp-adapter-conformance-v1";
 const DIRECT_PROOF = "aperture-omp-direct-transport-conformance-v1";
 const PRIVACY_PROOF = "aperture-omp-direct-privacy-v1";
-const NAVIGATION_PROOF = "aperture-opaque-focus-navigation-v3";
+const NAVIGATION_PROOF = "aperture-opaque-focus-navigation-v4";
 const OMP_HOST_PROOF = "aperture-omp-host-direct-compatibility-v1";
-const ROOT_ENTRIES = new Set([
+const ROOT_ENTRIES = [
   "BUILDINFO.json",
   "config",
   "evidence",
@@ -17,12 +17,13 @@ const ROOT_ENTRIES = new Set([
   "fixtures",
   "lib",
   "schemas",
-]);
-const FIXED_FILES = new Set([
+] as const;
+const FIXED_FILES = [
   "config/identities.json",
   "evidence/ambient-ceiling.json",
   "evidence/direct-privacy.json",
   "evidence/direct-transport.json",
+  "evidence/focus-backends.json",
   "evidence/omp-adapter.json",
   "evidence/omp-host-matrix.json",
   "evidence/omp-runtime-imports.json",
@@ -36,7 +37,7 @@ const FIXED_FILES = new Set([
   "fixtures/omp-direct/input-request.json",
   "fixtures/omp-direct/notification-fallback-ambient.json",
   "fixtures/omp-direct/snapshot-completion.json",
-  "fixtures/omp-direct/focus-registration-direct-terminal-probe.json",
+  "fixtures/omp-direct/focus-registration-direct-terminal.json",
   "fixtures/omp-direct/focus-registration-tmux.json",
   "fixtures/omp-direct/snapshot-failure.json",
   "fixtures/omp-direct/snapshot-now-next.json",
@@ -49,9 +50,9 @@ const FIXED_FILES = new Set([
   "schemas/notification-worker-input.schema.json",
   "schemas/notification-worker-output.schema.json",
   "schemas/omp-attention-event.schema.json",
-  "schemas/omp-direct-message.schema.json",
+  "schemas/worker-direct-message.schema.json",
   "schemas/surface-protocol.schema.json",
-]);
+];
 const IDENTITY_CONFIG = {
   schemaVersion: 1,
   identities: [
@@ -122,7 +123,11 @@ async function validateMetadata(
   assert(buildInfo.sourceDirty === false, "combined release source must be clean");
   assert(buildInfo.apertureCommit === sourceCommit, "BUILDINFO source commit mismatch");
   assert(buildInfo.apertureSourceTag === sourceTag, "BUILDINFO source tag mismatch");
-  assert(buildInfo.aperturePackageVersion === "0.8.0", "invalid Aperture package version");
+  assertSemver(buildInfo.aperturePackageVersion, "invalid Aperture package version");
+  assert(
+    buildInfo.releaseSeries === sourceTag.replace(/\.\d+$/, ""),
+    "BUILDINFO release series mismatch",
+  );
   assert(buildInfo.apertureCoreVersion === "0.9.0", "invalid ApertureCore version");
   assertUtcTimestamp(buildInfo.builtAt);
   assertNonempty(buildInfo.provenanceAttestationReference, "missing provenance reference");
@@ -138,7 +143,22 @@ async function validateMetadata(
   );
   assert(workerContract.surfaceProtocolVersion === 3, "invalid surface protocol version");
   assert(workerContract.ompAttentionEventSchemaVersion === 2, "invalid OMP event schema");
-  assert(workerContract.ompDirectProtocolVersion === 3, "invalid OMP direct protocol");
+  assert(workerContract.workerDirectProtocolVersion === 4, "invalid worker direct protocol");
+  const focusCoordinator = record(buildInfo.focusCoordinator, "missing focus coordinator policy");
+  assert(focusCoordinator.registrationTtlMs === 15_000, "invalid registration TTL");
+  assert(focusCoordinator.shutdownTimeoutMs === 3_000, "invalid focus shutdown bound");
+  assert(focusCoordinator.maximumDirectClients === 32, "invalid direct client cap");
+  assert(focusCoordinator.maximumQueuedFocusOperations === 64, "invalid focus operation cap");
+  assert(focusCoordinator.maximumActiveRegistrations === 128, "invalid focus registration cap");
+  assert(focusCoordinator.maximumLeaseMembers === 32, "invalid lease-member cap");
+  assert(
+    focusCoordinator.maximumPendingQmlFocusRequests === 16,
+    "invalid downstream focus-request cap",
+  );
+  assert(
+    focusCoordinator.titleOwnership === "backend-cas-host-recovery-generation-fenced",
+    "invalid focus ownership policy",
+  );
 
   const ci = record(buildInfo.ci, "missing CI metadata");
   assertNonempty(ci.workflowRef, "missing CI workflowRef");
@@ -179,6 +199,26 @@ async function validateMetadata(
   assert(validation.ompAdapterProofId === OMP_PROOF, "invalid OMP adapter proof identity");
   assert(validation.directTransportProofId === DIRECT_PROOF, "invalid direct transport proof");
   assert(validation.directPrivacyProofId === PRIVACY_PROOF, "invalid direct privacy proof");
+  assert(
+    validation.focusBackendReport === "evidence/focus-backends.json",
+    "missing positive focus backend report",
+  );
+  const focusReport = record(
+    JSON.parse(await readFile(path.join(root, "evidence", "focus-backends.json"), "utf8")),
+    "invalid positive focus backend report",
+  );
+  assert(focusReport.proofId === NAVIGATION_PROOF, "invalid focus backend proof");
+  assert(focusReport.status === "passed", "positive focus backend proof did not pass");
+  const focusBackends = array(focusReport.backends, "missing positive focus backends");
+  for (const backend of ["herdr", "direct-terminal", "tmux"]) {
+    assert(
+      focusBackends.some((entry) => {
+        const result = record(entry, "invalid focus backend result");
+        return result.backend === backend && result.result === "focused";
+      }),
+      `missing positive focus result for ${backend}`,
+    );
+  }
   assert(validation.navigationProofId === NAVIGATION_PROOF, "invalid navigation proof");
   assert(validation.ompHostProofId === OMP_HOST_PROOF, "invalid OMP host proof");
   const compatibility = array(validation.nodeCompatibility, "missing Node compatibility reports");
@@ -221,10 +261,10 @@ async function validateMetadata(
   assertSchema(schemas.output, "schemas/notification-worker-output.schema.json", 3);
   assertSchema(schemas.surface, "schemas/surface-protocol.schema.json", 3);
   assertSchema(schemas.ompAttentionEvent, "schemas/omp-attention-event.schema.json", 2);
-  assertSchema(schemas.ompDirectMessage, "schemas/omp-direct-message.schema.json", 3);
+  assertSchema(schemas.workerDirectMessage, "schemas/worker-direct-message.schema.json", 4);
   const fixtureMetadata = record(buildInfo.fixtures, "missing fixture metadata");
   const ompFixtures = record(fixtureMetadata.ompDirect, "missing OMP direct fixtures");
-  assert(ompFixtures.version === 3, "invalid OMP fixture version");
+  assert(ompFixtures.version === 4, "invalid OMP fixture version");
   const declaredFixturePaths = array(ompFixtures.paths, "missing OMP fixture paths");
   const requiredFixturePaths = [...FIXED_FILES]
     .filter((entry) => entry.startsWith("fixtures/"))
@@ -321,7 +361,10 @@ async function validateMetadata(
 async function collectArtifactFiles(root: string): Promise<ArtifactFile[]> {
   const rootEntries = await readdir(root, { withFileTypes: true });
   for (const entry of rootEntries) {
-    assert(ROOT_ENTRIES.has(entry.name), `undeclared artifact root entry: ${entry.name}`);
+    assert(
+      ROOT_ENTRIES.includes(entry.name as (typeof ROOT_ENTRIES)[number]),
+      `undeclared artifact root entry: ${entry.name}`,
+    );
     assert(!entry.isSymbolicLink(), `artifact root symlink is forbidden: ${entry.name}`);
   }
 
@@ -440,6 +483,10 @@ function assertSafeRelativePath(value: string): void {
   assert(value.length > 0 && !path.isAbsolute(value), `unsafe artifact path: ${value}`);
   const components = value.split("/");
   assert(!components.includes(".") && !components.includes(".."), `unsafe artifact path: ${value}`);
+}
+
+function assertSemver(value: unknown, message: string): asserts value is string {
+  assert(typeof value === "string" && /^\d+\.\d+\.\d+$/.test(value), message);
 }
 
 function assertUtcTimestamp(value: unknown): void {

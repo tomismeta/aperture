@@ -15,12 +15,16 @@ import {
   resolveOmpAttentionSocketPath,
   type OmpAttentionEvent,
 } from "../src/omp-attention-event.js";
+import {
+  assertWorkerDirectMessage,
+  parseWorkerDirectAcknowledgement,
+} from "../src/worker-direct-message.js";
 import type { NotificationWorkerIdentity } from "../src/notification-worker/adapter.js";
+import { startOmpAttentionSocketServer } from "../src/notification-worker/direct-server.js";
 import {
   assertOwnedSocketMetadata,
   prepareSocketPath,
-  startOmpAttentionSocketServer,
-} from "../src/notification-worker/direct-server.js";
+} from "../src/notification-worker/direct-socket-lifecycle.js";
 import { NotificationWorkerEngine } from "../src/notification-worker/engine.js";
 import type { NotificationWorkerInput } from "../src/notification-worker/protocol.js";
 import {
@@ -107,6 +111,56 @@ test("direct OMP contract rejects private or malformed payloads and preserves op
     () => parseOmpAttentionEvent(JSON.stringify({ ...directEvent(), summary: "x".repeat(70_000) })),
     /byte limit/,
   );
+});
+
+test("private focus control v4 is generic, exact, and recovery-bounded", () => {
+  const registration = {
+    schemaVersion: 4,
+    type: "focus.register",
+    requestId: "focus-register-1",
+    publicHandle: "A".repeat(32),
+    hostGeneration: "B".repeat(32),
+    target: {
+      kind: "herdr",
+      socketPath: "/run/user/1000/herdr.sock",
+      paneId: "wA:p1",
+      hyprlandInstance: "instance_1",
+    },
+  };
+  assert.deepEqual(assertWorkerDirectMessage(registration), registration);
+  assert.throws(
+    () => assertWorkerDirectMessage({ ...registration, schemaVersion: 3 }),
+    /schema version/,
+  );
+  assert.throws(
+    () => assertWorkerDirectMessage({ ...registration, type: "omp.focus.register" }),
+    /type/,
+  );
+  assert.throws(
+    () =>
+      assertWorkerDirectMessage({
+        ...registration,
+        recovery: {
+          kind: "tmux",
+          marker: "C".repeat(32),
+          sessionId: "$0",
+          clientName: "/dev/pts/7",
+          originalSetTitles: { explicit: true, value: "off" },
+          originalTitleString: { explicit: true, value: "original" },
+        },
+      }),
+    /does not match/,
+  );
+  const acknowledgement = parseWorkerDirectAcknowledgement(
+    JSON.stringify({
+      schemaVersion: 4,
+      status: "accepted",
+      requestId: "focus-register-1",
+      recovery: { kind: "herdr", marker: "C".repeat(32) },
+    }),
+  );
+  assert.equal(acknowledgement.status, "accepted");
+  assert.equal(acknowledgement.recovery?.kind, "herdr");
 });
 
 test("surface navigation is closed, bounded, and absent without a worker route", () => {
@@ -312,9 +366,9 @@ test("v1 direct state migrates atomically to non-navigable v2 and rejects rollba
   };
   const v1 = {
     schemaVersion: 1,
-    active: v2.active.map(({ sessionId, ...entry }) => ({
+    active: v2.active.map(({ sessionId: legacySessionId, ...entry }) => ({
       ...entry,
-      navigation: { kind: "omp-session", sessionId },
+      navigation: { kind: "omp-session", sessionId: legacySessionId },
     })),
   };
   await writeFile(statePath, `${JSON.stringify(v1)}\n`, { mode: 0o600 });
@@ -407,14 +461,21 @@ test("worker-owned socket validates ownership, bounds input, and removes itself"
   const runtimeRoot = await mkdtemp("/tmp/ap-omp-socket-");
   const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
   const received: OmpAttentionEvent[] = [];
+  const registrationEvents = new EventEmitter();
+  const registrationStarted = once(registrationEvents, "started");
+  let releaseRegistration!: () => void;
+  const registrationGate = new Promise<void>((resolve) => {
+    releaseRegistration = resolve;
+  });
   const server = await startOmpAttentionSocketServer({
     socketPath,
     handleAttention: async (event) => {
       received.push(event);
     },
     registerFocus: async () => {
-      // Integration contract: processing must outlive the socket's 500 ms read deadline.
-      await new Promise<void>((resolve) => setTimeout(resolve, 700));
+      registrationEvents.emit("started");
+      await registrationGate;
+      return { kind: "herdr", marker: "C".repeat(32) };
     },
     revokeFocus: () => undefined,
   });
@@ -426,9 +487,9 @@ test("worker-owned socket validates ownership, bounds input, and removes itself"
 
   const client = new OmpDirectWorkerTransport({ socketPath });
   await client.send(directEvent());
-  await client.registerFocus({
-    schemaVersion: 3,
-    type: "omp.focus.register",
+  const pendingRegistration = client.registerFocus({
+    schemaVersion: 4,
+    type: "focus.register",
     requestId: "slow-register",
     publicHandle: "A".repeat(32),
     hostGeneration: "B".repeat(32),
@@ -439,6 +500,9 @@ test("worker-owned socket validates ownership, bounds input, and removes itself"
       hyprlandInstance: "instance_1",
     },
   });
+  await registrationStarted;
+  releaseRegistration();
+  await pendingRegistration;
   assert.equal(received.length, 1);
   assert.match(await sendRaw(socketPath, "{\n"), /rejected/);
   assert.match(
@@ -447,6 +511,73 @@ test("worker-owned socket validates ownership, bounds input, and removes itself"
   );
 
   await server.close();
+  await assert.rejects(() => lstat(socketPath), /ENOENT/);
+});
+
+test("direct server rejects client cap plus one and closes bounded state", async () => {
+  const runtimeRoot = await mkdtemp("/tmp/ap-direct-client-cap-");
+  const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
+  const server = await startOmpAttentionSocketServer({
+    socketPath,
+    maximumClients: 1,
+    handleAttention: async () => undefined,
+    registerFocus: async () => undefined,
+    revokeFocus: async () => undefined,
+  });
+  const held = createConnection({ path: socketPath });
+  held.on("error", () => undefined);
+  await once(held, "connect");
+  const overflow = createConnection({ path: socketPath });
+  overflow.on("error", () => undefined);
+  await once(overflow, "close");
+  assert.equal(held.destroyed, false);
+  await server.close();
+  assert.equal(held.destroyed, true);
+  await assert.rejects(() => lstat(socketPath), /ENOENT/);
+});
+
+test("direct server aborts a stalled focus operation during shutdown", async () => {
+  const runtimeRoot = await mkdtemp("/tmp/ap-direct-stalled-shutdown-");
+  const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
+  const events = new EventEmitter();
+  let aborted = false;
+  const server = await startOmpAttentionSocketServer({
+    socketPath,
+    handleAttention: async () => undefined,
+    registerFocus: async (_registration, signal) =>
+      new Promise<undefined>((_resolve, reject) => {
+        events.emit("started");
+        signal.addEventListener(
+          "abort",
+          () => {
+            aborted = true;
+            reject(new Error("aborted"));
+          },
+          { once: true },
+        );
+      }),
+    revokeFocus: async () => undefined,
+  });
+  const client = new OmpDirectWorkerTransport({ socketPath });
+  const started = once(events, "started");
+  const pending = client.registerFocus({
+    schemaVersion: 4,
+    type: "focus.register",
+    requestId: "stalled-register",
+    publicHandle: "A".repeat(32),
+    hostGeneration: "B".repeat(32),
+    target: {
+      kind: "herdr",
+      socketPath: "/run/user/1000/herdr.sock",
+      paneId: "w2:p1",
+      hyprlandInstance: "instance_1",
+    },
+  });
+  const rejected = assert.rejects(pending);
+  await started;
+  await server.close();
+  await rejected;
+  assert.equal(aborted, true);
   await assert.rejects(() => lstat(socketPath), /ENOENT/);
 });
 
@@ -465,7 +596,7 @@ test("worker shutdown removes its direct OMP socket", async () => {
   });
   const ready = once(messages, "ready");
   const running = runNotificationWorkerStdio({
-    packageVersion: "0.8.0",
+    packageVersion: "0.9.0",
     identities: [identity],
     stateDir,
     socketPath,

@@ -84,7 +84,6 @@ export type NotificationWorkerFocusResult = {
   result: "focused" | "stale" | "missing";
 };
 
-
 export type NotificationWorkerOutput =
   | NotificationWorkerHello
   | NotificationWorkerState
@@ -163,7 +162,6 @@ export function assertNotificationWorkerInput(value: unknown): NotificationWorke
       handle,
     };
   }
-
 
   if (type === "notification.closed") {
     assertExactKeys(record, ["type", "key", "occurredAt", "reason"], "notification closed input");

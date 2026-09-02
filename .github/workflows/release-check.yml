@@ -94,13 +94,8 @@ jobs:
       - name: Build attention worker bundle
         run: pnpm --dir packages/aperture build
 
-      - name: Run attention worker contract tests
-        run: >-
-          pnpm exec tsx --test
-          packages/aperture/test/notification-worker.test.ts
-          packages/aperture/test/omp-direct-worker.test.ts
-      - name: Run OMP adapter contract tests
-        run: pnpm --dir packages/omp test
+      - name: Run canonical focus release gate
+        run: pnpm release:focus-check
 
       - name: Smoke clean-room attention worker
         run: pnpm --dir packages/aperture smoke:attention-worker
@@ -173,6 +168,12 @@ jobs:
           --extension "$RUNNER_TEMP/aperture-attention-worker/integrations/omp/aperture-omp-extension.mjs"
           --manifest "$RUNNER_TEMP/aperture-attention-worker/integrations/omp/package.json"
           --report "$RUNNER_TEMP/reports/omp-adapter.json"
+      - name: Record positive three-backend focus smoke
+        if: matrix.node-version == 22
+        run: >-
+          pnpm --dir packages/aperture smoke:focus-backends --
+          --report "$RUNNER_TEMP/reports/focus-backends.json"
+
       - name: Setup Bun for OMP host matrix
         if: matrix.node-version == 22
         uses: oven-sh/setup-bun@v2
@@ -202,6 +203,7 @@ jobs:
           --direct-report "$RUNNER_TEMP/reports/direct-node-24.json"
           --direct-report "$RUNNER_TEMP/reports/direct-node-current.json"
           --omp-report "$RUNNER_TEMP/reports/omp-adapter.json"
+          --focus-report "$RUNNER_TEMP/reports/focus-backends.json"
 
       - name: Verify staged artifact metadata
         if: matrix.node-version == 22
@@ -217,7 +219,10 @@ jobs:
             .validation.ompHostProofId == "aperture-omp-host-direct-compatibility-v1" and
             .integrations.omp.hostCompatibility.status == "passed" and
             .validation.directTransportProofId == "aperture-omp-direct-transport-conformance-v1" and
-            .validation.navigationProofId == "aperture-omp-session-navigation-v1" and
+            .validation.navigationProofId == "aperture-opaque-focus-navigation-v4" and
+            .validation.focusBackendReport == "evidence/focus-backends.json" and
+            .workerContract.workerDirectProtocolVersion == 4 and
+            .schemas.workerDirectMessage.version == 4 and
             .integrations.omp.validation.status == "passed" and
             .integrations.omp.bytes <= 1048576 and
             .workerBundle.bytes <= 8388608

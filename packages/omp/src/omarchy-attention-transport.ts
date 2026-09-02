@@ -1,15 +1,19 @@
 import type { OmpEventSink } from "./bind.js";
+import { boundedShutdownWait } from "./bounded-shutdown.js";
 import { mapOmpDirectAttentionEvents } from "./direct-event-mapping.js";
 import { OmpDirectWorkerTransport } from "./direct-worker-transport.js";
 import { OmarchyNotificationTransport } from "./omarchy-notification-transport.js";
 import type { OmpEvent, OmpMappingContext } from "./types.js";
 
 const MAXIMUM_QUEUED_DELIVERIES = 64;
+const SHUTDOWN_TIMEOUT_MS = 3_000;
 
 export type OmarchyAttentionTransportOptions = {
   direct: OmpDirectWorkerTransport;
   notification: OmarchyNotificationTransport;
   onFailure?: (error: unknown) => void;
+  shutdownTimeoutMs?: number;
+  waitForShutdown?: (operation: Promise<unknown>, milliseconds: number) => Promise<void>;
 };
 
 type QueuedDelivery = {
@@ -21,6 +25,11 @@ export class OmarchyAttentionTransport implements OmpEventSink {
   private readonly direct: OmpDirectWorkerTransport;
   private readonly notification: OmarchyNotificationTransport;
   private readonly onFailure: (error: unknown) => void;
+  private readonly shutdownTimeoutMs: number;
+  private readonly waitForShutdown: (
+    operation: Promise<unknown>,
+    milliseconds: number,
+  ) => Promise<void>;
   private readonly queue: QueuedDelivery[] = [];
   private draining: Promise<void> | null = null;
   private active = true;
@@ -28,6 +37,8 @@ export class OmarchyAttentionTransport implements OmpEventSink {
   constructor(options: OmarchyAttentionTransportOptions) {
     this.direct = options.direct;
     this.notification = options.notification;
+    this.shutdownTimeoutMs = options.shutdownTimeoutMs ?? SHUTDOWN_TIMEOUT_MS;
+    this.waitForShutdown = options.waitForShutdown ?? boundedShutdownWait;
     this.onFailure = options.onFailure ?? (() => undefined);
   }
 
@@ -50,8 +61,17 @@ export class OmarchyAttentionTransport implements OmpEventSink {
   }
 
   async close(): Promise<void> {
-    await this.draining;
-    await Promise.all([this.direct.close(), this.notification.close()]);
+    if (!this.active) return;
+    this.active = false;
+    this.queue.length = 0;
+    const deadline = Date.now() + this.shutdownTimeoutMs;
+    if (this.draining) {
+      await this.waitForShutdown(this.draining, Math.max(0, deadline - Date.now()));
+    }
+    await this.waitForShutdown(
+      Promise.allSettled([this.direct.close(), this.notification.close()]),
+      Math.max(0, deadline - Date.now()),
+    );
   }
 
   disable(): void {

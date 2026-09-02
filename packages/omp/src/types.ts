@@ -134,9 +134,6 @@ export type OmpMappingContext = {
   sourceLabel?: string;
   now?: () => string;
   focusHandle?: string;
-  focusUi?: {
-    setTitle?: (title: string) => void;
-  };
 };
 
 export type OmpExtensionContext = {

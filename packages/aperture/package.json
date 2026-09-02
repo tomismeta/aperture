@@ -1,6 +1,6 @@
 {
   "name": "@tomismeta/aperture",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": false,
   "description": "The live attention surface for humans working with agents.",
   "author": "tomismeta <tomismeta@gmail.com>",
@@ -44,12 +44,16 @@
       "types": "./dist/omp-attention-event.d.ts",
       "default": "./dist/omp-attention-event.js"
     },
-    "./omp-direct-message": {
-      "types": "./dist/omp-direct-message.d.ts",
-      "default": "./dist/omp-direct-message.js"
+    "./focus-host": {
+      "types": "./dist/focus-host.d.ts",
+      "default": "./dist/focus-host.js"
+    },
+    "./worker-direct-message": {
+      "types": "./dist/worker-direct-message.d.ts",
+      "default": "./dist/worker-direct-message.js"
     },
     "./omp-attention-event.schema.json": "./dist/omp-attention-event.schema.json",
-    "./omp-direct-message.schema.json": "./dist/omp-direct-message.schema.json",
+    "./worker-direct-message.schema.json": "./dist/worker-direct-message.schema.json",
     "./surface-protocol.schema.json": "./dist/surface-protocol.schema.json",
     "./notification-worker-input.schema.json": "./dist/notification-worker-input.schema.json",
     "./notification-worker-output.schema.json": "./dist/notification-worker-output.schema.json"
@@ -66,6 +70,7 @@
     "finalize:attention-worker": "tsx ./scripts/finalize-attention-worker-buildinfo.ts",
     "smoke": "tsx ./scripts/smoke.ts",
     "smoke:attention-worker": "tsx ./scripts/smoke-attention-worker.ts",
+    "smoke:focus-backends": "tsx ./scripts/smoke-focus-backends.ts",
     "smoke:omp-extension": "tsx ./scripts/smoke-omp-extension.ts",
     "smoke:omp-direct-worker": "tsx ./scripts/smoke-omp-direct-worker.ts",
     "smoke:omp-host-direct": "tsx ./scripts/smoke-omp-host-direct.ts",

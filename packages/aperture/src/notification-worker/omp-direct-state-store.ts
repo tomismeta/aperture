@@ -108,9 +108,7 @@ export function pruneOmpDirectState(
   const active = state.active
     .map((entry) => ({
       ...entry,
-      revisions: entry.revisions.filter(
-        (revision) => Date.parse(revision.occurredAt) >= cutoff,
-      ),
+      revisions: entry.revisions.filter((revision) => Date.parse(revision.occurredAt) >= cutoff),
     }))
     .filter((entry) => entry.revisions.length > 0);
   while (active.reduce((total, entry) => total + entry.revisions.length, 0) > MAXIMUM_RECORDS) {
@@ -152,8 +150,8 @@ export function migrateOmpDirectStateV1(value: unknown): OmpDirectPersistedState
   if (state.schemaVersion !== 1 || !Array.isArray(state.active)) {
     throw new Error("OMP direct v1 state schema is unsupported");
   }
-  const active = state.active.map((value) => {
-    const entry = asRecord(value, "OMP direct v1 active entry");
+  const active = state.active.map((rawEntry) => {
+    const entry = asRecord(rawEntry, "OMP direct v1 active entry");
     assertExactKeys(
       entry,
       ["key", "taskId", "interactionId", "navigation", "revisions"],
@@ -179,9 +177,10 @@ export function migrateOmpDirectStateV1(value: unknown): OmpDirectPersistedState
   return { schemaVersion: 2, active };
 }
 
-function decodeOmpDirectState(
-  value: unknown,
-): { state: OmpDirectPersistedState; migrated: boolean } {
+function decodeOmpDirectState(value: unknown): {
+  state: OmpDirectPersistedState;
+  migrated: boolean;
+} {
   const record = asRecord(value, "OMP direct state");
   if (record.schemaVersion === 1) {
     return { state: migrateOmpDirectStateV1(value), migrated: true };

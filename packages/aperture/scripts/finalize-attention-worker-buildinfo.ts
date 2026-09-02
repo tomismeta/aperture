@@ -86,6 +86,13 @@ type OmpHostCompatibilityReport = {
   socketRemovedOnShutdown?: unknown;
   matrix?: unknown;
 };
+type FocusBackendReport = {
+  schemaVersion?: unknown;
+  proofId?: unknown;
+  status?: unknown;
+  backends?: unknown;
+  checks?: unknown;
+};
 
 const options = parseOptions(process.argv.slice(2));
 const artifactRoot = path.resolve(options.artifactDir);
@@ -117,6 +124,9 @@ if (!options.ompReport) {
 }
 if (!options.ompHostReport) {
   throw new Error("attention worker finalization requires an OMP host matrix report");
+}
+if (!options.focusReport) {
+  throw new Error("attention worker finalization requires a focus backend report");
 }
 
 const reports = await Promise.all(
@@ -159,7 +169,7 @@ const directReports = await Promise.all(
       report.schemaVersion !== 1 ||
       report.proofId !== "aperture-omp-direct-transport-conformance-v1" ||
       report.privacyProofId !== "aperture-omp-direct-privacy-v1" ||
-      report.navigationProofId !== "aperture-opaque-focus-navigation-v3" ||
+      report.navigationProofId !== "aperture-opaque-focus-navigation-v4" ||
       report.passed !== true ||
       typeof report.nodeVersion !== "string" ||
       !report.bundle ||
@@ -247,6 +257,29 @@ if (
 ) {
   throw new Error("invalid OMP host compatibility report");
 }
+const focusReportPath = path.resolve(options.focusReport);
+const focusReportContent = await readFile(focusReportPath);
+const focusReport = JSON.parse(focusReportContent.toString("utf8")) as FocusBackendReport;
+if (
+  focusReport.schemaVersion !== 1 ||
+  focusReport.proofId !== "aperture-opaque-focus-navigation-v4" ||
+  focusReport.status !== "passed" ||
+  !Array.isArray(focusReport.backends) ||
+  !["herdr", "direct-terminal", "tmux"].every((backend) =>
+    focusReport.backends!.some(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        "backend" in entry &&
+        entry.backend === backend &&
+        "result" in entry &&
+        entry.result === "focused",
+    ),
+  ) ||
+  !Array.isArray(focusReport.checks)
+) {
+  throw new Error("invalid positive focus backend report");
+}
 
 const evidenceRoot = path.join(artifactRoot, "evidence");
 await mkdir(evidenceRoot, { recursive: true });
@@ -287,7 +320,7 @@ for (const { report } of directReports) {
 const directEvidence = {
   schemaVersion: 1,
   proofId: "aperture-omp-direct-transport-conformance-v1",
-  navigationProofId: "aperture-opaque-focus-navigation-v3",
+  navigationProofId: "aperture-opaque-focus-navigation-v4",
   status: "passed",
   socket: {
     relativePath: "omarchy/aperture/attention.sock",
@@ -348,11 +381,13 @@ const stagedOmpReportPath = path.join(evidenceRoot, "omp-adapter.json");
 await writeFile(stagedOmpReportPath, ompReportContent);
 const stagedOmpHostReportPath = path.join(evidenceRoot, "omp-host-matrix.json");
 await writeFile(stagedOmpHostReportPath, ompHostReportContent);
+const stagedFocusReportPath = path.join(evidenceRoot, "focus-backends.json");
+await writeFile(stagedFocusReportPath, focusReportContent);
 const existingFiles = Array.isArray(buildInfo.files)
   ? buildInfo.files.filter(
       (entry) =>
         typeof entry.path === "string" &&
-        !/^evidence\/(?:node-|direct-node-|ambient-ceiling\.json$|direct-transport\.json$|direct-privacy\.json$|omp-adapter\.json$|omp-host-matrix\.json$)/.test(
+        !/^evidence\/(?:node-|direct-node-|ambient-ceiling\.json$|direct-transport\.json$|direct-privacy\.json$|omp-adapter\.json$|omp-host-matrix\.json$|focus-backends\.json$)/.test(
           entry.path,
         ),
     )
@@ -369,6 +404,7 @@ const evidenceFiles = await Promise.all([
   artifactFile(artifactRoot, privacyEvidencePath),
   artifactFile(artifactRoot, stagedOmpReportPath),
   artifactFile(artifactRoot, stagedOmpHostReportPath),
+  artifactFile(artifactRoot, stagedFocusReportPath),
 ]);
 buildInfo.files = [...existingFiles, ...evidenceFiles];
 buildInfo.validation = {
@@ -382,7 +418,8 @@ buildInfo.validation = {
   directTransportReport: "evidence/direct-transport.json",
   directPrivacyProofId: "aperture-omp-direct-privacy-v1",
   directPrivacyReport: "evidence/direct-privacy.json",
-  navigationProofId: "aperture-opaque-focus-navigation-v3",
+  navigationProofId: "aperture-opaque-focus-navigation-v4",
+  focusBackendReport: "evidence/focus-backends.json",
   directNodeCompatibility: directCompatibility,
   ompHostProofId: "aperture-omp-host-direct-compatibility-v1",
   ompHostReport: "evidence/omp-host-matrix.json",
@@ -415,6 +452,7 @@ type FinalizeOptions = {
   directReports: string[];
   ompReport: string;
   ompHostReport: string;
+  focusReport: string;
   attestationReference?: string;
 };
 
@@ -424,6 +462,7 @@ function parseOptions(args: string[]): FinalizeOptions {
   const parsedDirectReports: string[] = [];
   let parsedOmpReport = "";
   let parsedOmpHostReport = "";
+  let parsedFocusReport = "";
   let attestationReference: string | undefined;
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -434,6 +473,7 @@ function parseOptions(args: string[]): FinalizeOptions {
       argument === "--direct-report" ||
       argument === "--omp-report" ||
       argument === "--omp-host-report" ||
+      argument === "--focus-report" ||
       argument === "--attestation-reference"
     ) {
       const value = args[index + 1];
@@ -443,6 +483,7 @@ function parseOptions(args: string[]): FinalizeOptions {
       else if (argument === "--direct-report") parsedDirectReports.push(value);
       else if (argument === "--omp-report") parsedOmpReport = value;
       else if (argument === "--omp-host-report") parsedOmpHostReport = value;
+      else if (argument === "--focus-report") parsedFocusReport = value;
       else attestationReference = value;
       index += 1;
       continue;
@@ -452,12 +493,14 @@ function parseOptions(args: string[]): FinalizeOptions {
   if (!artifactDir) throw new Error("--artifact-dir is required");
   if (!parsedOmpReport) throw new Error("--omp-report is required");
   if (!parsedOmpHostReport) throw new Error("--omp-host-report is required");
+  if (!parsedFocusReport) throw new Error("--focus-report is required");
   return {
     artifactDir,
     nodeReports,
     directReports: parsedDirectReports,
     ompReport: parsedOmpReport,
     ompHostReport: parsedOmpHostReport,
+    focusReport: parsedFocusReport,
     ...(attestationReference ? { attestationReference } : {}),
   };
 }

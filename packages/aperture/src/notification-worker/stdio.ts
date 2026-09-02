@@ -3,7 +3,7 @@ import type { Writable } from "node:stream";
 import type { NotificationWorkerIdentity } from "./adapter.js";
 import { NotificationWorkerEngine } from "./engine.js";
 import { startOmpAttentionSocketServer, type OmpAttentionSocketServer } from "./direct-server.js";
-import { FocusBroker } from "./focus-broker.js";
+import { FocusCoordinator } from "./focus/focus-coordinator.js";
 import {
   APERTURE_NOTIFICATION_WORKER_LIMITS,
   NotificationWorkerProtocolError,
@@ -90,7 +90,7 @@ export async function runNotificationWorkerStdio(
     lastProjection = fingerprint;
     await write(snapshot);
   };
-  const focusBroker = new FocusBroker({
+  const focusCoordinator = new FocusCoordinator({
     ...(options.now ? { now: options.now } : {}),
     onDiagnostic: (stage) => {
       diagnostic.write(`Aperture focus ${stage}\n`);
@@ -102,19 +102,19 @@ export async function runNotificationWorkerStdio(
     },
   });
 
-
   if (options.socketPath) {
     try {
       socketServer = await startOmpAttentionSocketServer({
         socketPath: options.socketPath,
         diagnostic,
-        registerFocus: (registration) => focusBroker.register(registration),
-        revokeFocus: (revocation) => focusBroker.revoke(revocation),
-        handleAttention: (event) =>
+        registerFocus: (registration, signal) => focusCoordinator.register(registration, signal),
+        revokeFocus: (revocation, signal) => focusCoordinator.revoke(revocation, signal),
+        handleAttention: (event, signal) =>
           serialize(async () => {
-            if (stopping) throw new Error("Aperture worker is stopping");
-            const navigation = focusBroker.navigationFor(event.focus?.handle);
+            if (stopping || signal.aborted) throw new Error("Aperture worker is stopping");
+            const navigation = focusCoordinator.navigationFor(event.focus?.handle);
             await restored.engine.handleOmpAttention(event, navigation);
+            if (signal.aborted) throw new Error("Aperture attention operation was cancelled");
             await emitSnapshot();
           }),
       });
@@ -154,7 +154,7 @@ export async function runNotificationWorkerStdio(
         const shouldContinue = await serialize(async () => {
           const event = parseNotificationWorkerInput(decoded.line);
           if (event.type === "focus.activate") {
-            const result = await focusBroker.activate(event.handle);
+            const result = await focusCoordinator.activate(event.handle);
             await write({ type: "focus.result", requestId: event.requestId, result });
             return true;
           }
@@ -184,7 +184,7 @@ export async function runNotificationWorkerStdio(
   } finally {
     stopping = true;
     await socketServer?.close();
-    await focusBroker.close();
+    await focusCoordinator.close();
     await operationQueue;
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);

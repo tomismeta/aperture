@@ -8,7 +8,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { assertOmpAttentionEvent, type OmpAttentionEvent } from "../src/omp-attention-event.js";
-import { serializeOmpDirectMessage } from "../src/omp-direct-message.js";
+import { serializeWorkerDirectMessage } from "../src/worker-direct-message.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(scriptDir, "..");
@@ -173,7 +173,7 @@ try {
     privacyProofId: "aperture-omp-direct-privacy-v1",
     passed: true,
     nodeVersion: process.versions.node,
-    navigationProofId: "aperture-opaque-focus-navigation-v3",
+    navigationProofId: "aperture-opaque-focus-navigation-v4",
     bundle: {
       sha256: createHash("sha256").update(bundle).digest("hex"),
       bytes: bundle.byteLength,
@@ -287,7 +287,7 @@ async function sendDirect(socketPath: string, directEvent: OmpAttentionEvent): P
   const socket = createConnection({ path: socketPath });
   let response = "";
   socket.setEncoding("utf8");
-  socket.once("connect", () => socket.write(serializeOmpDirectMessage(directEvent)));
+  socket.once("connect", () => socket.write(serializeWorkerDirectMessage(directEvent)));
   socket.on("data", (chunk: string) => {
     response += chunk;
   });
@@ -298,7 +298,7 @@ async function sendDirect(socketPath: string, directEvent: OmpAttentionEvent): P
     requestId?: string;
   };
   assert.deepEqual(acknowledgement, {
-    schemaVersion: 3,
+    schemaVersion: 4,
     status: "accepted",
     requestId: directEvent.eventId,
   });

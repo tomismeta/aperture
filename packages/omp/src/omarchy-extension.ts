@@ -1,23 +1,24 @@
+import { FocusHost, type FocusHostOptions } from "@tomismeta/aperture/focus-host";
+
 import { bindOmpExtension } from "./bind.js";
 import {
   OmpDirectWorkerTransport,
   type OmpDirectWorkerTransportOptions,
 } from "./direct-worker-transport.js";
-import { OmpFocusHost, type OmpFocusHostOptions } from "./omp-focus-host.js";
 import { mapOmpDirectAttentionEvents } from "./direct-event-mapping.js";
 import { OmarchyAttentionTransport } from "./omarchy-attention-transport.js";
 import {
   OmarchyNotificationTransport,
   type OmarchyNotificationTransportOptions,
 } from "./omarchy-notification-transport.js";
-import type { OmpExtensionApi, OmpMappingContext } from "./types.js";
+import type { OmpEvent, OmpExtensionApi, OmpMappingContext } from "./types.js";
 
 export type ApertureOmarchyOmpExtensionOptions = OmarchyNotificationTransportOptions & {
   mappingContext?: OmpMappingContext;
   suppressBuiltInNotifications?: boolean;
   directTransport?: OmpDirectWorkerTransport;
   directTransportOptions?: OmpDirectWorkerTransportOptions;
-  focusHostOptions?: Omit<OmpFocusHostOptions, "direct">;
+  focusHostOptions?: Omit<FocusHostOptions, "transport" | "terminalTitle">;
 };
 
 export function createApertureOmarchyOmpExtension(
@@ -37,7 +38,7 @@ export function createApertureOmarchyOmpExtension(
     const notification = new OmarchyNotificationTransport(notificationOptions);
     let suppressionActive = false;
     let deliveryActive = true;
-    let focusHost: OmpFocusHost | undefined;
+    let focusHost: FocusHost | undefined;
     function handleDeliveryFailure(error: unknown): void {
       pi.logger?.warn?.("Aperture OMP adapter delivery failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -58,38 +59,30 @@ export function createApertureOmarchyOmpExtension(
       notification,
       onFailure: handleDeliveryFailure,
     });
-    const [transportAvailable, directAvailable] = await Promise.all([
-      transport.isAvailable(),
-      direct.isAvailable(),
-    ]);
+    const transportAvailable = await transport.isAvailable();
     suppressionActive = suppressBuiltInNotifications && transportAvailable;
     if (suppressionActive) process.env.PI_NOTIFICATIONS = "off";
 
     bindOmpExtension(
       pi,
       {
-        handle: async (event, context) => {
+        handle: async (event, context, capabilities) => {
           if (!deliveryActive) return;
-          let navigable = false;
-          try {
-            navigable = mapOmpDirectAttentionEvents(event, context).length > 0;
-          } catch {
-            navigable = false;
-          }
-          if (focusHost?.shouldRecreate()) {
-            await focusHost.close();
-            focusHost = undefined;
-          }
-          if (focusHost && !focusHost.isActive() && navigable) {
-            await focusHost.retryRegistration();
-          }
-          if (directAvailable && !focusHost && navigable) {
-            focusHost = await OmpFocusHost.create({
-              direct,
+          const navigable = (() => {
+            try {
+              return mapOmpDirectAttentionEvents(event, context).length > 0;
+            } catch {
+              return false;
+            }
+          })();
+          if (!focusHost && (navigable || isFocusPrewarmEvent(event))) {
+            focusHost = FocusHost.create({
+              transport: direct,
               ...focusHostOptions,
-              ui: context.focusUi,
+              ...(capabilities.terminalTitle ? { terminalTitle: capabilities.terminalTitle } : {}),
             });
           }
+          focusHost?.prewarm();
           const focusHandle = focusHost?.focusHandle();
           await transport.handle(event, {
             ...context,
@@ -108,6 +101,14 @@ export function createApertureOmarchyOmpExtension(
       mappingContext,
     );
   };
+}
+
+function isFocusPrewarmEvent(event: OmpEvent): boolean {
+  return (
+    event.type === "session_start" ||
+    event.type === "before_agent_start" ||
+    event.type === "turn_start"
+  );
 }
 
 export default createApertureOmarchyOmpExtension();

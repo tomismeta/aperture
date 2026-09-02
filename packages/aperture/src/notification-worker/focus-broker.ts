@@ -1019,7 +1019,7 @@ async function readTmuxOption(
   option: "set-titles" | "set-titles-string",
 ): Promise<string> {
   return tmuxLine(
-    await request(socketPath, ["show-options", "-v", "-t", sessionId, option]),
+    await request(socketPath, ["show-options", "-Av", "-t", sessionId, option]),
   );
 }
 

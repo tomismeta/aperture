@@ -495,7 +495,9 @@ test("tmux backend uses fixed commands, shares refcount, focuses pane, and CAS r
         const presentation = value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
         return `${option} "${presentation}"\n`;
       }
-      return `${value}\n`;
+      if (args.includes("-Av")) return `${value}\n`;
+      if (args.includes("-v")) throw new Error("effective query omitted -A");
+      throw new Error("unexpected show-options flags");
     }
     if (command === "set-option") {
       const option = args.includes("set-titles-string")

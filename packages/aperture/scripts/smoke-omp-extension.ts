@@ -45,10 +45,14 @@ try {
   await copyFile(sourceManifest, manifestPath);
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
     name?: unknown;
+    version?: unknown;
+    private?: unknown;
     type?: unknown;
     omp?: { extensions?: unknown[] };
   };
   assert.equal(manifest.name, "@tomismeta/aperture-omp");
+  assert.equal(manifest.version, "0.1.0");
+  assert.equal(manifest.private, true);
   assert.equal(manifest.type, "module");
   assert.deepEqual(manifest.omp?.extensions, ["./aperture-omp-extension.mjs"]);
   // This intentionally loads the runtime-selected staged plugin artifact; a static import would

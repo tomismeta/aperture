@@ -105,6 +105,7 @@ const attentionWorkerBuild = await build({
   target: "node22",
   packages: "bundle",
   legalComments: "none",
+  minify: true,
   define: {
     APERTURE_PACKAGE_VERSION: JSON.stringify(packageMetadata.version),
   },
@@ -143,6 +144,7 @@ const ompExtensionBuild = await build({
   target: "node22",
   packages: "bundle",
   legalComments: "none",
+  minify: true,
   metafile: true,
   entryPoints: [OMP_EXTENSION_ENTRY_POINT],
   outfile: OMP_EXTENSION_OUTFILE,

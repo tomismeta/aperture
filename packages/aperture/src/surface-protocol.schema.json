@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tomismeta:aperture:surface-protocol:v3",
+  "$id": "urn:tomismeta:aperture:surface-protocol:v4",
   "title": "Aperture Surface Protocol",
   "oneOf": [
     { "$ref": "#/$defs/hello" },
@@ -15,9 +15,10 @@
     "hello": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "packageVersion", "surface", "capabilities"],
+      "required": ["type", "protocolVersion", "packageVersion", "surface", "capabilities"],
       "properties": {
         "type": { "const": "hello" },
+        "protocolVersion": { "const": 4 },
         "packageVersion": { "type": "string", "minLength": 1, "maxLength": 80 },
         "surface": { "const": "aperture-stdio" },
         "capabilities": {
@@ -86,20 +87,6 @@
         "label": { "$ref": "#/$defs/label" }
       }
     },
-    "navigation": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind", "handle"],
-      "properties": {
-        "kind": { "const": "opaque-focus" },
-        "handle": {
-          "type": "string",
-          "minLength": 32,
-          "maxLength": 32,
-          "pattern": "^[A-Za-z0-9_-]{32}$"
-        }
-      }
-    },
     "contextItem": {
       "type": "object",
       "additionalProperties": false,
@@ -135,7 +122,6 @@
         "title": { "type": "string", "minLength": 1, "maxLength": 200 },
         "summary": { "type": "string", "maxLength": 600 },
         "source": { "$ref": "#/$defs/frameSource" },
-        "navigation": { "$ref": "#/$defs/navigation" },
         "context": {
           "type": "object",
           "additionalProperties": false,

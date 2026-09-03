@@ -34,12 +34,44 @@ export async function runNotificationWorkerStdio(
   let stopping = false;
   let lastProjection = "";
   let socketServer: OmpAttentionSocketServer | undefined;
+  let focusCoordinator: FocusCoordinator | undefined;
+  let abortPendingWrite: (() => void) | undefined;
+  let markDirectReady!: () => void;
+  const directReady = new Promise<void>((resolve) => {
+    markDirectReady = resolve;
+  });
+  const setStopping = (): void => {
+    if (stopping) return;
+    stopping = true;
+    abortPendingWrite?.();
+  };
+  const stop = (): void => {
+    setStopping();
+    if ("destroy" in input && typeof input.destroy === "function") input.destroy();
+  };
+  process.once("SIGINT", stop);
+  process.once("SIGTERM", stop);
   let operationQueue = Promise.resolve();
 
   const write = async (message: NotificationWorkerOutput): Promise<void> => {
+    if (stopping) throw new Error("Aperture worker is stopping");
     const line = serializeNotificationWorkerOutput(message);
     await new Promise<void>((resolve, reject) => {
-      output.write(line, (error) => (error ? reject(error) : resolve()));
+      let settled = false;
+      const finish = (error?: Error | null): void => {
+        if (settled) return;
+        settled = true;
+        if (abortPendingWrite === abort) abortPendingWrite = undefined;
+        if (error) reject(error);
+        else resolve();
+      };
+      const abort = (): void => finish(new Error("Aperture worker is stopping"));
+      abortPendingWrite = abort;
+      try {
+        output.write(line, finish);
+      } catch (error) {
+        finish(error instanceof Error ? error : new Error("Aperture worker output failed"));
+      }
     });
   };
   const writeError = async (code: string, message: string, recoverable: boolean): Promise<void> => {
@@ -63,107 +95,98 @@ export async function runNotificationWorkerStdio(
     return result;
   };
 
-  await write(notificationWorkerHello(options.packageVersion));
-  await write({ type: "engine", state: "restoring", acceptedSources: options.identities.length });
+  try {
+    await write(notificationWorkerHello(options.packageVersion));
+    await write({ type: "engine", state: "restoring", acceptedSources: options.identities.length });
 
-  const restored = await NotificationWorkerEngine.restore({
-    identities: options.identities,
-    stateDir: options.stateDir,
-    ...(options.now ? { now: options.now } : {}),
-  });
-  if (restored.recoveredCorruptState) {
-    await writeError(
-      "corrupt_state_recovered",
-      "Aperture recovered from an invalid local worker state file.",
-      true,
-    );
-  }
-
-  const emitSnapshot = async (): Promise<void> => {
-    const snapshot = restored.engine.snapshot();
-    const fingerprint = JSON.stringify({
-      sources: snapshot.sources,
-      totals: snapshot.totals,
-      view: snapshot.view,
+    const restored = await NotificationWorkerEngine.restore({
+      identities: options.identities,
+      stateDir: options.stateDir,
+      ...(options.now ? { now: options.now } : {}),
     });
-    if (fingerprint === lastProjection) return;
-    await write(snapshot);
-    lastProjection = fingerprint;
-  };
-  const focusCoordinator = new FocusCoordinator({
-    ...(options.now ? { now: options.now } : {}),
-    onDiagnostic: (stage) => {
-      diagnostic.write(`Aperture focus ${stage}\n`);
-    },
-    onInvalidated: (publicHandle) => {
-      void serialize(async () => {
-        if (restored.engine.removeFocusHandle(publicHandle)) await emitSnapshot();
-      });
-    },
-  });
-  let markDirectReady!: () => void;
-  const directReady = new Promise<void>((resolve) => {
-    markDirectReady = resolve;
-  });
-  if (options.socketPath) {
-    try {
-      socketServer = await startOmpAttentionSocketServer({
-        socketPath: options.socketPath,
-        diagnostic,
-        registerFocus: async (registration, signal) => {
-          await directReady;
-          if (signal.aborted) throw new Error("Aperture worker is stopping");
-          return focusCoordinator.register(registration, signal);
-        },
-        revokeFocus: async (revocation, signal) => {
-          await directReady;
-          if (signal.aborted) throw new Error("Aperture worker is stopping");
-          await focusCoordinator.revoke(revocation, signal);
-        },
-        handleAttention: async (event, signal) => {
-          await directReady;
-          if (signal.aborted) throw new Error("Aperture worker is stopping");
-          await serialize(async () => {
-            if (stopping || signal.aborted) throw new Error("Aperture worker is stopping");
-            const navigation = focusCoordinator.navigationFor(event.focus?.handle);
-            try {
-              await restored.engine.handleOmpAttention(event, navigation);
-            } catch {
-              throw new Error("Aperture attention engine failed");
-            }
-            try {
-              await emitSnapshot();
-            } catch {
-              diagnostic.write(
-                "Aperture committed direct attention but could not emit its snapshot\n",
-              );
-            }
-          });
-        },
-      });
-    } catch {
+    if (restored.recoveredCorruptState) {
       await writeError(
-        "direct_transport_unavailable",
-        "Aperture could not safely open the direct OMP transport.",
+        "corrupt_state_recovered",
+        "Aperture recovered from an invalid local worker state file.",
         true,
       );
     }
-  }
-  await write({
-    type: "engine",
-    state: options.identities.length > 0 ? "ready" : "degraded",
-    acceptedSources: restored.engine.getAcceptedSourceCount(),
-  });
-  await emitSnapshot();
-  markDirectReady();
 
-  const stop = () => {
-    stopping = true;
-    if ("destroy" in input && typeof input.destroy === "function") input.destroy();
-  };
-  process.once("SIGINT", stop);
-  process.once("SIGTERM", stop);
-  try {
+    const emitSnapshot = async (): Promise<void> => {
+      const snapshot = restored.engine.snapshot();
+      const fingerprint = JSON.stringify({
+        sources: snapshot.sources,
+        totals: snapshot.totals,
+        view: snapshot.view,
+      });
+      if (fingerprint === lastProjection) return;
+      await write(snapshot);
+      lastProjection = fingerprint;
+    };
+    const coordinator = new FocusCoordinator({
+      ...(options.now ? { now: options.now } : {}),
+      onDiagnostic: (stage) => {
+        diagnostic.write(`Aperture focus ${stage}\n`);
+      },
+      onInvalidated: (publicHandle) => {
+        void serialize(async () => {
+          if (restored.engine.removeFocusHandle(publicHandle)) await emitSnapshot();
+        });
+      },
+    });
+    focusCoordinator = coordinator;
+    if (options.socketPath) {
+      try {
+        socketServer = await startOmpAttentionSocketServer({
+          socketPath: options.socketPath,
+          diagnostic,
+          registerFocus: async (registration, signal) => {
+            await directReady;
+            if (signal.aborted) throw new Error("Aperture worker is stopping");
+            return coordinator.register(registration, signal);
+          },
+          revokeFocus: async (revocation, signal) => {
+            await directReady;
+            if (signal.aborted) throw new Error("Aperture worker is stopping");
+            await coordinator.revoke(revocation, signal);
+          },
+          handleAttention: async (event, signal) => {
+            await directReady;
+            if (signal.aborted) throw new Error("Aperture worker is stopping");
+            await serialize(async () => {
+              if (stopping || signal.aborted) throw new Error("Aperture worker is stopping");
+              const navigation = coordinator.navigationFor(event.focus?.handle);
+              try {
+                await restored.engine.handleOmpAttention(event, navigation);
+              } catch {
+                throw new Error("Aperture attention engine failed");
+              }
+              try {
+                await emitSnapshot();
+              } catch {
+                diagnostic.write(
+                  "Aperture committed direct attention but could not emit its snapshot\n",
+                );
+              }
+            });
+          },
+        });
+      } catch {
+        await writeError(
+          "direct_transport_unavailable",
+          "Aperture could not safely open the direct OMP transport.",
+          true,
+        );
+      }
+    }
+    await write({
+      type: "engine",
+      state: options.identities.length > 0 ? "ready" : "degraded",
+      acceptedSources: restored.engine.getAcceptedSourceCount(),
+    });
+    await emitSnapshot();
+    markDirectReady();
+
     for await (const decoded of boundedJsonLines(
       input,
       APERTURE_NOTIFICATION_WORKER_LIMITS.inputLineBytes,
@@ -177,7 +200,7 @@ export async function runNotificationWorkerStdio(
         const shouldContinue = await serialize(async () => {
           const event = parseNotificationWorkerInput(decoded.line);
           if (event.type === "focus.activate") {
-            const result = await focusCoordinator.activate(event.handle);
+            const result = await coordinator.activate(event.handle);
             await write({ type: "focus.result", requestId: event.requestId, result });
             return true;
           }
@@ -205,14 +228,28 @@ export async function runNotificationWorkerStdio(
   } catch (error) {
     if (!stopping) throw error;
   } finally {
-    stopping = true;
-    await socketServer?.close();
-    await focusCoordinator.close();
-    await operationQueue;
+    setStopping();
+    markDirectReady();
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);
+    await closeWorkerResources(socketServer, focusCoordinator, operationQueue);
     // The input stream owns its lifecycle; signal handling only requests its destruction.
   }
+}
+async function closeWorkerResources(
+  socketServer: OmpAttentionSocketServer | undefined,
+  focusCoordinator: FocusCoordinator | undefined,
+  operationQueue: Promise<void>,
+): Promise<void> {
+  const results = await Promise.allSettled([
+    socketServer?.close() ?? Promise.resolve(),
+    focusCoordinator?.close() ?? Promise.resolve(),
+    operationQueue,
+  ]);
+  const failure = results.find(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+  if (failure) throw failure.reason;
 }
 
 type DecodedLine = { line: string } | { error: string };

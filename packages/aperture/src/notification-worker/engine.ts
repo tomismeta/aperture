@@ -7,10 +7,9 @@ import {
   type SourceEvent,
 } from "@tomismeta/aperture-core";
 
-import { projectAttentionSurfaceView } from "../surface/projection.js";
-import type { ApertureSurfaceSnapshotMessage } from "../surface/protocol.js";
 import type { OmpAttentionEvent } from "../omp-attention-event.js";
-import type { ApertureSurfaceNavigation } from "../surface/protocol.js";
+import { projectNotificationWorkerSnapshot } from "./projection.js";
+import type { NotificationWorkerNavigation, NotificationWorkerSnapshot } from "./protocol.js";
 import {
   mapNotificationToSourceEvent,
   NOTIFICATION_PUBLIC_SUMMARY,
@@ -75,7 +74,7 @@ export class NotificationWorkerEngine {
   private directState: OmpDirectPersistedState;
   private readonly directByKey = new Map<string, PersistedOmpDirectEntry>();
   private readonly directCausality = new OmpDirectCausalityIndex();
-  private readonly navigationByTaskId = new Map<string, ApertureSurfaceNavigation>();
+  private readonly navigationByTaskId = new Map<string, NotificationWorkerNavigation>();
   private readonly notificationTaskIds = new Set<string>();
   private sequence = 0;
 
@@ -110,9 +109,9 @@ export class NotificationWorkerEngine {
     return this.identities.length;
   }
 
-  snapshot(): ApertureSurfaceSnapshotMessage {
+  snapshot(): NotificationWorkerSnapshot {
     this.sequence += 1;
-    return projectAttentionSurfaceView(
+    return projectNotificationWorkerSnapshot(
       {
         sources: this.identities.map((identity) => ({
           kind: identity.kind,
@@ -172,7 +171,7 @@ export class NotificationWorkerEngine {
 
   async handleOmpAttention(
     event: OmpAttentionEvent,
-    navigation?: ApertureSurfaceNavigation,
+    navigation?: NotificationWorkerNavigation,
   ): Promise<void> {
     const mapped = mapOmpDirectEvent(event);
     if (mapped.kind === "shutdown") {
@@ -399,7 +398,7 @@ export class NotificationWorkerEngine {
 
   private setDirectNavigation(
     taskId: string,
-    navigation: ApertureSurfaceNavigation | undefined,
+    navigation: NotificationWorkerNavigation | undefined,
   ): void {
     if (navigation) this.navigationByTaskId.set(taskId, navigation);
     else this.navigationByTaskId.delete(taskId);

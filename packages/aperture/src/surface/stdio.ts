@@ -1,8 +1,8 @@
 import type { Writable } from "node:stream";
 
 import {
-  APERTURE_SURFACE_LIMITS,
   apertureSurfaceHello,
+  serializeApertureSurfaceMessage,
   type ApertureSurfaceMessage,
 } from "./protocol.js";
 import { assertApertureSurfaceMessage } from "./protocol-validator.js";
@@ -56,10 +56,7 @@ async function writeJsonLine(
   signal: AbortSignal,
 ): Promise<void> {
   assertApertureSurfaceMessage(message);
-  const line = `${JSON.stringify(message)}\n`;
-  if (Buffer.byteLength(line, "utf8") > APERTURE_SURFACE_LIMITS.jsonLineBytes) {
-    throw new Error("Aperture surface protocol line exceeded the configured byte limit.");
-  }
+  const line = serializeApertureSurfaceMessage(message);
 
   if (signal.aborted) {
     throw abortReason(signal);

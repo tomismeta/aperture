@@ -11,11 +11,18 @@ type ArtifactFile = {
 
 type BuildInfoShape = {
   artifactType?: unknown;
+  aperturePackageVersion?: unknown;
+  apertureCoreVersion?: unknown;
+  ompPackageVersion?: unknown;
+  artifactLimits?: { maximumTextArtifactBytes?: unknown };
   minimumNodeMajor?: unknown;
+  workerContract?: unknown;
+  directSocketLifecycle?: unknown;
   workerBundle?: { sha256?: unknown; bytes?: unknown };
   integrations?: {
     omp?: {
       sha256?: unknown;
+      packageVersion?: unknown;
       bytes?: unknown;
       proofId?: unknown;
       validation?: unknown;
@@ -94,6 +101,37 @@ type FocusBackendReport = {
   checks?: unknown;
 };
 
+const maximumMarketplaceArtifactBytes = 524_288;
+const expectedJsonlHandshakes = {
+  privateWorker: {
+    protocolVersion: 4,
+    peer: "aperture-attention-engine",
+    framing: "jsonl",
+    outputEncoding: "ascii-json-escapes",
+    maximumLineBytes: 262_144,
+    navigation: "validated-opaque-focus-only",
+  },
+  publicSurface: {
+    protocolVersion: 4,
+    peer: "aperture-stdio",
+    framing: "jsonl",
+    outputEncoding: "ascii-json-escapes",
+    maximumLineBytes: 262_144,
+    navigation: "absent",
+  },
+};
+const expectedDirectSocketLifecycle = {
+  directoryMode: "0700",
+  socketMode: "0600",
+  lifecycleLockMode: "0600",
+  lifecycleSerialization: "hard-link-owner-lock",
+  cleanupDeadlineMs: 1_500,
+  cleanupExitCodes: {
+    removedOrAbsent: 0,
+    unsafe: 74,
+    transient: 75,
+  },
+};
 const options = parseOptions(process.argv.slice(2));
 const artifactRoot = path.resolve(options.artifactDir);
 const buildInfoPath = path.join(artifactRoot, "BUILDINFO.json");
@@ -101,17 +139,69 @@ const buildInfo = JSON.parse(await readFile(buildInfoPath, "utf8")) as BuildInfo
 const workerBundle = buildInfo.workerBundle;
 const ompIntegration = buildInfo.integrations?.omp;
 if (
+  workerBundle &&
+  typeof workerBundle.bytes === "number" &&
+  workerBundle.bytes > maximumMarketplaceArtifactBytes
+) {
+  throw new Error(
+    `attention worker is ${workerBundle.bytes} bytes; marketplace limit is ${maximumMarketplaceArtifactBytes} bytes`,
+  );
+}
+if (
+  ompIntegration &&
+  typeof ompIntegration.bytes === "number" &&
+  ompIntegration.bytes > maximumMarketplaceArtifactBytes
+) {
+  throw new Error(
+    `OMP extension is ${ompIntegration.bytes} bytes; marketplace limit is ${maximumMarketplaceArtifactBytes} bytes`,
+  );
+}
+if (
   buildInfo.artifactType !== "node-commonjs-bundle" ||
   buildInfo.minimumNodeMajor !== 22 ||
+  buildInfo.aperturePackageVersion !== "0.10.0" ||
+  buildInfo.apertureCoreVersion !== "0.9.0" ||
+  buildInfo.ompPackageVersion !== "0.1.0" ||
   !workerBundle ||
+  buildInfo.artifactLimits?.maximumTextArtifactBytes !== maximumMarketplaceArtifactBytes ||
+  JSON.stringify(
+    (buildInfo.workerContract as { jsonlHandshakes?: unknown } | undefined)?.jsonlHandshakes,
+  ) !== JSON.stringify(expectedJsonlHandshakes) ||
+  JSON.stringify(buildInfo.directSocketLifecycle) !==
+    JSON.stringify(expectedDirectSocketLifecycle) ||
   typeof workerBundle.sha256 !== "string" ||
   typeof workerBundle.bytes !== "number" ||
+  workerBundle.bytes < 1 ||
+  workerBundle.bytes > maximumMarketplaceArtifactBytes ||
   !ompIntegration ||
   ompIntegration.proofId !== "aperture-omp-adapter-conformance-v1" ||
   typeof ompIntegration.sha256 !== "string" ||
-  typeof ompIntegration.bytes !== "number"
+  ompIntegration.packageVersion !== "0.1.0" ||
+  typeof ompIntegration.bytes !== "number" ||
+  ompIntegration.bytes < 1 ||
+  ompIntegration.bytes > maximumMarketplaceArtifactBytes
 ) {
-  throw new Error("attention worker BUILDINFO is not finalizable");
+  throw new Error(
+    `attention worker BUILDINFO is not finalizable; worker and OMP extension must each be at most ${maximumMarketplaceArtifactBytes} bytes`,
+  );
+}
+const ompManifest = JSON.parse(
+  await readFile(path.join(artifactRoot, "integrations", "omp", "package.json"), "utf8"),
+) as {
+  name?: unknown;
+  version?: unknown;
+  private?: unknown;
+  type?: unknown;
+  omp?: { extensions?: unknown };
+};
+if (
+  ompManifest.name !== "@tomismeta/aperture-omp" ||
+  ompManifest.version !== buildInfo.ompPackageVersion ||
+  ompManifest.private !== true ||
+  ompManifest.type !== "module" ||
+  JSON.stringify(ompManifest.omp?.extensions) !== JSON.stringify(["./aperture-omp-extension.mjs"])
+) {
+  throw new Error("attention worker OMP manifest does not match BUILDINFO");
 }
 if (options.nodeReports.length < 3) {
   throw new Error("attention worker finalization requires Node 22, Node 24, and current reports");
@@ -145,7 +235,10 @@ const reports = await Promise.all(
       report.bundle.bytes !== workerBundle.bytes ||
       report.cleanDirectoryWithoutNodeModules !== true ||
       !Array.isArray(report.ambientCases) ||
-      !Array.isArray(report.checks)
+      !Array.isArray(report.checks) ||
+      !report.checks.includes("cleanup-mode-no-config-or-engine") ||
+      !report.checks.includes("canonical-handshake") ||
+      !report.checks.includes("bounded-ascii-output")
     ) {
       throw new Error(`invalid attention worker compatibility report: ${absolutePath}`);
     }
@@ -180,7 +273,8 @@ const directReports = await Promise.all(
       report.socket.directoryMode !== "0700" ||
       report.socket.socketMode !== "0600" ||
       report.socket.removedOnShutdown !== true ||
-      !Array.isArray(report.checks)
+      !Array.isArray(report.checks) ||
+      !report.checks.includes("private-output-v4-handshake")
     ) {
       throw new Error(`invalid direct OMP compatibility report: ${absolutePath}`);
     }

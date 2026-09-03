@@ -27,7 +27,9 @@ import {
   APERTURE_NOTIFICATION_WORKER_LIMITS,
   NotificationWorkerProtocolError,
   parseNotificationWorkerInput,
+  serializeNotificationWorkerOutput,
   type NotificationWorkerInput,
+  type NotificationWorkerOutput,
 } from "../src/notification-worker/protocol.js";
 import {
   emptyNotificationWorkerState,
@@ -99,7 +101,7 @@ test("notification worker schemas validate canonical input and output", async ()
   ) as object;
   const snapshot = JSON.parse(
     await readFile(
-      new URL("./fixtures/surface-protocol/snapshot-minimal.json", import.meta.url),
+      new URL("../fixtures/omp-direct/snapshot-now-next.json", import.meta.url),
       "utf8",
     ),
   ) as unknown;
@@ -134,6 +136,7 @@ test("notification worker schemas validate canonical input and output", async ()
   assert.equal(
     validateOutput({
       type: "hello",
+      protocolVersion: 4,
       packageVersion: "0.5.0",
       worker: "aperture-attention-engine",
       capabilities: {
@@ -146,6 +149,22 @@ test("notification worker schemas validate canonical input and output", async ()
     }),
     true,
     JSON.stringify(validateOutput.errors),
+  );
+  assert.equal(
+    validateOutput({
+      type: "hello",
+      protocolVersion: 3,
+      packageVersion: "0.5.0",
+      worker: "aperture-attention-engine",
+      capabilities: {
+        notificationInput: true,
+        ompDirectInput: true,
+        snapshots: true,
+        responses: false,
+        focusActivation: true,
+      },
+    }),
+    false,
   );
   assert.equal(
     validateOutput({ type: "engine", state: "ready", acceptedSources: 1 }),
@@ -200,6 +219,31 @@ test("notification worker schemas validate canonical input and output", async ()
     false,
   );
   assert.equal(validateOutput({ type: "engine", state: "unknown", acceptedSources: 1 }), false);
+});
+
+test("notification worker output is ASCII-only and capped after Unicode escaping", () => {
+  const message: NotificationWorkerOutput = {
+    type: "error",
+    code: "unicode",
+    message: "Résumé 😀",
+    recoverable: true,
+  };
+  const serialized = serializeNotificationWorkerOutput(message);
+  assert.match(serialized, /^[\u0000-\u007f]+$/);
+  assert.match(serialized, /R\\u00e9sum\\u00e9 \\ud83d\\ude00/);
+  assert.deepEqual(JSON.parse(serialized), message);
+  assert.equal(serialized.endsWith("\n"), true);
+
+  assert.throws(
+    () =>
+      serializeNotificationWorkerOutput({
+        type: "error",
+        code: "oversized",
+        message: "é".repeat(APERTURE_NOTIFICATION_WORKER_LIMITS.outputLineBytes),
+        recoverable: false,
+      }),
+    /output exceeded the byte limit/,
+  );
 });
 test("notification worker input parser accepts the closed fact contract", () => {
   const parsed = parseNotificationWorkerInput(JSON.stringify(notificationInput()));
@@ -542,12 +586,14 @@ test("stdio worker emits hello state snapshots and bounded errors", async () => 
       (line) =>
         JSON.parse(line) as {
           type?: string;
+          protocolVersion?: number;
           code?: string;
           requestId?: string;
           result?: string;
         },
     );
   assert.equal(messages[0]?.type, "hello");
+  assert.equal(messages[0]?.protocolVersion, 4);
   assert.equal(
     messages.some((message) => message.type === "engine"),
     true,

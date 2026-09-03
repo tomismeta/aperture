@@ -2,452 +2,205 @@
 
 ## Decision
 
-Ship one self-contained Omarchy plugin containing:
+Ship one self-contained Aperture-for-Omarchy plugin containing:
 
 ```text
 native Omarchy QML
-  + bundled aperture-attention-engine
-  + canonical worker schemas and fixtures
-  + machine-readable build provenance
+  + signed, dependency-free aperture-attention-engine.cjs
+  + signed, dependency-free aperture-omp-extension.mjs
+  + canonical schemas, fixtures, BUILDINFO, and provenance
 ```
 
-The user installs only the plugin:
+The plugin is a focused OMP delivery channel. It does not install, discover, or
+attach to the Aperture CLI or HTTP runtime. The worker owns `ApertureCore`, its
+persisted state, and `$XDG_RUNTIME_DIR/omarchy/aperture/attention.sock`. Omarchy
+supplies Node 22 or newer; the payload supplies every non-host runtime
+dependency.
 
-```bash
-omarchy plugin add <omarchy-aperture-repo> --enable
-```
+The upstream Aperture product remains Claude-first. This plugin is not a claim
+that Omarchy is the general Aperture product surface.
 
-The plugin must not require a separately installed Aperture CLI/runtime, Node,
-npm, Docker, first-run downloader, or harness adapters. It uses Node 22 or newer
-from a supported standard Omarchy installation.
-
-The bundled worker uses the real stateful `@tomismeta/aperture-core`. It is an
-isolated child process, not a QML reimplementation and not merely the stateless
-`@tomismeta/aperture-core/kernel` subpath.
-
-## Product scope
-
-V1 is notification-native attention:
+## Current architecture
 
 ```text
-Omarchy notification observer
-  -> bounded worker input
+OMP ExtensionAPI
+  -> private bounded OMP attention event v2
+  -> acknowledged worker-direct protocol v4 over the canonical Unix socket
   -> stateful ApertureCore
-  -> complete Now / Next / Ambient snapshots
+  -> private notification-worker output v4
   -> native Omarchy panel
 ```
 
-It is intentionally lower fidelity than direct harness adapters. It may support
-completion, needs-attention notifications, failures, review-ready work, and
-informational status. It cannot guarantee continuous agent lifecycle, stable
-native task identity, progress, typed approvals, response routing, or underlying
-resolution.
+The OMP extension sends typed events directly. The worker, not QML and not the
+extension, decides Now, Next, and Ambient. QML treats every snapshot as an
+atomic replacement and never ranks, promotes, deduplicates, or reconciles.
 
-Do not hide this limitation in product copy.
+A native OMP notification is a fail-open, outside-surface fallback. It is shown
+only when direct delivery was definitely not accepted. It is not observed back
+into the worker and cannot create an Ambient duplicate. Acceptance-unknown
+failures do not send a duplicate native notification.
 
-## Why this is good for Aperture
+## Protocol boundaries
 
-This creates two reusable host-neutral assets:
+The public companion surface and private worker output intentionally differ:
 
-1. a bounded desktop-notification ingestion contract
-2. a self-contained stateful ApertureCore worker contract
+- Public surface protocol is exact v4. Its hello requires
+  `protocolVersion: 4`. Its frame schema has no navigation property, and its
+  projection has no focus input.
+- Notification-worker input remains exact schema v2.
+- Private notification-worker output is exact v4. Its hello independently
+  requires `protocolVersion: 4`.
+- Private worker frames alone may carry navigation, and only as
+  `{ "kind": "opaque-focus", "handle": "<32 base64url characters>" }`.
+- OMP attention events are exact schema v2.
+- Worker-direct messages and acknowledgements are exact protocol v4.
 
-Other desktop shells can implement the same worker boundary without importing
-Aperture source or running the generic HTTP runtime.
+Package semver is independent from these wire versions. BUILDINFO records
+`aperturePackageVersion`, `apertureCoreVersion`, and `ompPackageVersion`
+separately. The private OMP manifest for this plugin release is
+`@tomismeta/aperture-omp@0.1.0`; it does not equal the Aperture product
+candidate version.
 
-Do not overload the existing `aperture surface --stdio` contract. That command
-is an output-only companion to an external runtime. The new worker is
-bidirectional and owns Core state. It gets its own package capability and
-schemas while reusing the existing bounded public snapshot/frame projection
-where shapes are identical.
+Common display semantics are implemented through the public display projection,
+then the private worker projection adds a validated volatile focus capability.
+The public serializer therefore cannot emit a focus handle. Session IDs,
+backend targets, socket paths, pane IDs, compositor identities, worker
+generations, and recovery markers never enter either surface frame.
 
-## Current baselines
+Snapshot totals describe the complete view. The visible source list and frame
+lists may be ordered prefixes after count or byte clipping, so
+`totals.sources >= sources.length` is valid and expected.
 
-- Aperture repository: `/Users/tom/dev/aperture`
-- Aperture commit: `ee92470`
-- `@tomismeta/aperture-core@0.9.0`
-- Omarchy renderer repository: `/Users/tom/dev/omarchy-aperture`
-- Omarchy architecture commit: `242be35`
-- Omarchy source: `omacom/omarchy@quattro`
+## JSONL framing
 
-The previous external-runtime bridge baseline `df1640f` remains reference
-material only.
+Both the private worker and public stdio surface use newline-delimited JSON.
+Each hello independently advertises protocol v4. Both output serializers:
+
+- emit every non-ASCII UTF-16 code unit as a JSON `\uXXXX` escape
+- preserve surrogate pairs as two escapes
+- cap each final encoded line, including its newline, at 256 KiB
+- never treat partial or unterminated output as a valid frame
+
+The downstream Quickshell reader consumes only the private worker stream. It
+uses raw chunks, keeps its own bounded ASCII line buffer, rejects a line
+immediately past 256 KiB, and rejects trailing unterminated data when the
+process exits. Diagnostics stay on stderr and must not disclose paths, UIDs,
+device numbers, inode numbers, or focus material.
+
+## Focus boundary
+
+Focus is live capability routing, not persisted navigation. A registration is
+bounded, same-user, lease-controlled, and tied to volatile worker ownership.
+Activation returns only `focused`, `stale`, or `missing`. Native fallback and
+restored persisted attention are non-navigable until a fresh live registration
+exists. The renderer receives no executable command or backend coordinates.
+
+## Worker lifecycle and cleanup
+
+One shell-owned service owns one worker across monitors. Service destruction
+must close stdin and terminate the child within the bounded shutdown policy.
+After destruction, the shell may launch a bounded cleanup capsule:
+
+```text
+aperture-attention-engine.cjs --config <plugin-identities> --cleanup-owned-socket
+```
+
+Cleanup mode ignores the config path, loads no config, and starts no Core,
+engine, or server. It resolves only the canonical XDG socket path. Startup,
+normal shutdown, and cleanup serialize every cooperating socket-path mutation
+through an atomic hard-link owner lock. The runtime root and package
+directories must be same-UID mode `0700`; lock and socket must be same-UID mode
+`0600`. A stale lock is reclaimed only after its recorded process no longer
+exists.
+
+While holding the lifecycle lock, cleanup proves the endpoint is inactive, a
+same-UID socket rather than a symlink, and unchanged by device/inode across the
+probe. The complete operation, including lock acquisition, has a hard 1,500 ms
+deadline. A cooperating rapid re-enable cannot replace the pathname until
+cleanup releases the lock, so cleanup can never unlink the replacement.
+
+Cleanup exit codes are part of the host contract:
+
+- `0`: endpoint absent, or the safely owned stale endpoint was removed
+- `75`: lifecycle lock or endpoint remained transient through the deadline;
+  safe retry outcome with no unsafe unlink
+- `74`: invalid path, unsafe parent/lock metadata, symlink, non-socket, foreign
+  owner, or unsafe probe failure; nonretryable
+
+The shell must not replace this mode with an unconditional `rm`.
+
+## Artifact and provenance contract
+
+Production payloads come only from trusted CI tied to the reviewed signed
+source tag. Required staged files include the worker, OMP extension, private OMP
+manifest, canonical schemas and fixtures, import audits, BUILDINFO, and evidence.
+Both executable text artifacts are minified and each must be at most 524,288
+bytes. Build, finalization, candidate, and release gates enforce the limit
+independently for the worker and extension.
+BUILDINFO pins `artifactLimits.maximumTextArtifactBytes: 524288`, and records
+the private OMP version both as top-level `ompPackageVersion` and
+`integrations.omp.packageVersion`.
+The release report mirrors those paths exactly. Release publication requires
+successful exact-commit Release Check, signed-tag Worker Artifact, Direct
+Release, and Release Evidence runs. The report is written only after Direct
+Release has completed; its finalizer identity deliberately has no
+self-conclusion. Payload/BUILDINFO/archive attestations are signed by Direct
+Release, while the report is signed by Release Evidence, all on the exact tag
+ref and source digest. The only `contents: write` job executes no checked-out
+repository dependencies and is protected by the `aperture-worker-release`
+environment.
+
+Downstream production vendoring is mechanical, not a manual copy:
+`.github/scripts/vendor-aperture-worker-release.mjs` pins the authorized SSH tag
+signer, authenticates all four completed runs and every attestation, validates
+safe archive membership, then installs the exact bytes and policy.
 
 ## Ownership
 
-### Aperture repository owns
-
-- worker source and Core composition
-- notification input DTO and adapter
-- worker output DTO and snapshot projection
-- strict schemas and generated fixtures
-- privacy/redaction and admission policy
-- persistence, replay, and corrupt-state behavior
-- dependency-free CommonJS worker build and trusted-CI provenance
-- artifact signing, attestation, and checksums
-- Core-to-worker conformance
-
-### Omarchy upstream owns
-
-- generic copied notification observations before DND suppression
-- replacement/update identity
-- close reasons
-- bounded allowlisted notification fields
-- non-mutating observer semantics
-
-No Aperture-specific field or judgment belongs in Omarchy.
-
-### `omarchy-aperture` owns
-
-- QML observer integration
-- exactly one worker across monitors
-- bounded stdin forwarding and coalescing
-- stdout parsing and visible worker states
-- native panel rendering
-- vendored worker and BUILDINFO verification
-- real Omarchy lifecycle and visual proof
-
-The plugin must not define worker fields independently.
-
-## Evidence gate
-
-Do not implement stronger-than-Ambient semantic mapping before receiving
-sanitized real notification samples from Claude, Codex, OpenCode, OMP, and Pi
-on Omarchy.
-
-For each source, record:
-
-- application name
-- desktop-entry/category fields
-- summary/body shape
-- urgency
-- replacement/update identity
-- DND behavior
-- close reason
-- structured hints
-
-Required outputs:
-
-- reviewed fixture corpus
-- exact known-agent identity allowlist
-- normalization precedence
-- evidence for every stronger-than-Ambient mapping
-- privacy review
-
-Unknown applications are ignored. Urgency alone never creates blocking work.
-Allowlisted prose without structured semantics is Ambient at most. If current
-notifications cannot produce trustworthy Now/Next decisions, stop and choose
-structured emitter hints, reviewed exact classifiers, an Ambient-only product,
-or a different integration source.
-
-## Canonical worker input
-
-The V1 contract is canonical in
-`packages/aperture/src/notification-worker-input.schema.json`:
-
-```ts
-type DesktopNotificationInput =
-  | {
-      type: "notification.observed" | "notification.updated";
-      key: string;
-      occurredAt: string;
-      application: {
-        name: string;
-        desktopEntry?: string;
-        category?: string;
-      };
-      summary: string;
-      body?: string;
-      urgency: "low" | "normal" | "critical";
-    }
-  | {
-      type: "notification.closed";
-      key: string;
-      occurredAt: string;
-      reason: "expired" | "dismissed" | "actioned" | "closed" | "unknown";
-    }
-  | {
-      type: "shutdown";
-    };
-```
-
-Requirements:
-
-- copied plain data, never live notification objects
-- bounded UTF-8 lines
-- strict validation before mutation
-- stable replacement identity
-- no executable actions
-- bodies are accepted only as bounded transient input and are never persisted
-- exact duplicate worker updates are suppressed; QML owns replacement
-  coalescing under backpressure
-
-The notification adapter maps accepted inputs to `SourceEvent` outside Core.
-Core remains host-neutral.
-
-## Worker output
-
-The worker emits:
-
-- hello/package/capabilities
-- restoring/ready/degraded engine state
-- complete bounded attention snapshots
-- recoverable/fatal errors
-
-Reuse the existing public surface frame/view projection for:
-
-- one nullable `now`
-- ordered `next`
-- ordered `ambient`
-- bounded source/application identity
-- bounded title, summary, context, and why-now
-- honest totals when clipping
-
-Snapshots are atomic replacements, not patches. QML never ranks, deduplicates,
-promotes, or reconciles.
-
-Worker and QML ship atomically, so compatibility follows the plugin artifact,
-worker capabilities, BUILDINFO, schemas, and fixtures. Do not create
-renderer-local aliases.
-
-## Privacy and persistence
-
-- unknown applications are dropped before Core
-- raw notification bodies are bounded to 8 KiB before processing
-- raw bodies are never persisted
-- persist only minimum normalized/redacted events
-- redact credential-like values, tokens, URL query/fragment data, control
-  characters, and private paths
-- omit a field when safe minimization is uncertain
-- state directory mode: `0700`
-- state file mode: `0600`
-- maximum ledger age: 24 hours
-- maximum records: 1,024
-- maximum encoded size: 4 MiB
-- oldest-first eviction when any limit is reached
-- atomic replacement and visible corrupt-state recovery
-
-Required tests include redaction canaries and proof that no raw body substring
-reaches persisted state.
-
-## Worker composition
-
-The worker contains:
-
-- stateful `ApertureCore`
-- notification adapter
-- bounded ledger
-- deterministic replay
-- stdin parser
-- output projection
-- diagnostics
-
-It excludes:
-
-- generic Aperture HTTP runtime
-- runtime discovery/registry/auth
-- generic CLI and TUI
-- harness hook installers
-- provider adapters
-
-The implementation is a dedicated build target in the Aperture product package
-and reuses Core directly. Do not fork Core.
-
-## Host-Node worker artifact
-
-Omarchy already installs Node through mise and exposes its shims to the
-UWSM/Quickshell environment. The plugin therefore ships the worker, not another
-copy of Node:
-
-```text
-TypeScript source
-  -> esbuild target node22
-  -> dependency-free aperture-attention-engine.cjs
-  -> Omarchy-provided Node >=22
-```
-
-The plugin invokes the bundle through a small plugin-relative launcher. The
-launcher may locate and version-check Node, but it must never install, download,
-or update it. CI exercises the bundle under Node 22, Node 24, and current Node.
-
-Required BUILDINFO:
-
-- artifact type `node-commonjs-bundle`
-- minimum Node version
-- Aperture commit and signed source tag
-- Aperture and ApertureCore versions
-- exact esbuild and build-Node versions
-- worker/schema contract versions
-- SHA-256, byte size, and file mode for every payload file
-- CI workflow/run identity
-- provenance attestation requirement
-- build timestamp
-
-The Omarchy repository accepts only a trusted-CI bundle tied to the reviewed
-source tag. No local/manual production artifact, runtime compilation, downloader,
-Git LFS, `node_modules`, source map, or first-use mutation of the plugin checkout
-is permitted.
-
-Signed releases use the `aperture-worker-v*` tag and artifact name. Internal
-source and package scripts may continue to call the runtime the attention
-worker; that implementation term is not part of the public release identity.
-
-Artifact review limits:
-
-- maximum worker bundle: 2 MiB
-- maximum plugin checkout: 25 MiB
-- one current worker bundle
-- cumulative Git-history growth reviewed each release
-
-## Worker lifecycle
-
-- one Omarchy service owns one worker across monitors
-- state lives outside the plugin checkout under XDG paths
-- shell restart reconstructs state deterministically
-- disabling/removing the plugin stops the worker
-- no worker survives plugin removal
-- restart uses bounded stable-uptime backoff
-- malformed input cannot crash Quickshell
-- worker failure cannot crash Quickshell
-- Aperture-generated desktop notifications remain disabled
-
-## Aperture implementation status — 2026-08-31
-
-Landed in this repository:
-
-- strict input/output schemas and runtime validators
-- exact allowlist admission with unknown-source rejection
-- semantic/display separation that prevents notification prose from influencing judgment
-- Ambient-only notification decisions through stateful `ApertureCore`
-- bounded JSONL, complete surface snapshots, and duplicate suppression
-- redaction plus private, atomic, bounded, deterministic persistence/replay
-- dependency-free CommonJS worker targeting Node 22
-- clean-room host-Node smoke and Node 22/24/current compatibility gates
-- atomic artifact staging with schema hashes and BUILDINFO
-- signed-tag trusted-CI artifact workflow with build-provenance attestation
-- package export and packed-install smoke coverage
-- first-class OMP adapter with runtime and Omarchy notification transports
-- dependency-free OMP extension bundle and artifact provenance fields
-
-Observed locally:
-
-- a 909,269-byte worker bundle ran outside the repository without `node_modules`
-- the exact bundle passed on Node 22.23.2, Node 24.13.0, and Node 26.4.0
-- eight adversarial failure/approval/blocking/permission/urgency cases stayed Ambient and low
-- observed and replacement-update history replayed byte-for-byte equivalent public views
-- an actioned close cleared Ambient and persisted only normalized feedback
-- body/credential/private-path canaries did not reach state
-- staged BUILDINFO SHA-256 matched the bundle and schemas
-- state directory/file modes were `0700`/`0600`
-- a 12,712-byte OMP extension loaded from a clean directory and registered 17
-  events
-- private OMP 18.0.11 proof on Omarchy passed exact identity, lifecycle,
-  fail-open fallback, replacement, privacy, replay, and Bun-free removal
-- signed component tag `aperture-worker-v0.1.0` produced the trusted combined
-  payload at CI run `33504485643` with provenance attestation `44397221`
-- trusted CI reproduced worker SHA-256
-  `a24ccd5f91c106a056ac48502e33cdfba85010efc7d2b54e085e915df2fbb294`
-  and OMP SHA-256
-  `4ed0828ece31c1d82c521c304b2670b6b6224359472dd9d2090cd01818c70268`
-
-This is not a releasable Omarchy plugin yet. The upstream observer, supported
-identity corpus, target QML singleton lifecycle, provenance-verified vendoring,
-and final installed visual proof remain gated.
-
-## Work packets
-
-### A. Evidence and admission
-
-- land generic Omarchy observer in a local upstream branch
-- capture sanitized real agent notifications
-- decide identity and semantic mapping
-- approve or stop notification-native V1
-
-### B. Canonical worker contracts
-
-- define input/output schemas
-- define lifecycle and capabilities
-- generate fixtures
-- define privacy/persistence contract
-
-### C. Core worker
-
-- compose `ApertureCore`
-- implement notification adapter
-- implement replay/persistence
-- implement bounded JSONL and errors
-
-### D. Host-Node worker artifact
-
-- build and test the CommonJS bundle under Node 22/24/current
-- produce attestation and BUILDINFO from a signed source tag
-- prove clean-directory execution without npm or `node_modules`
-
-### E. Omarchy integration
-
-- vendor artifact and BUILDINFO
-- add singleton notification forwarding
-- replace preserved bridge in one clean cutover
-- verify worker teardown and multi-monitor behavior
-
-### F. Release proof
-
-- clean installation with explicit OMP activation and verified pre-removal
-- native notifications unchanged under DND/replacement/close
-- deterministic Now/Next/Ambient
-- privacy and retention tests
-- theme/scale/keyboard/pointer/overflow checks
-- atomic update and rollback
-
-## Release gates
-
-Do not release until:
-
-- notification observer is available in a supported standard Omarchy
-- identity corpus supports trustworthy judgment
-- worker schemas and conformance fixtures are canonical
-- attested host-Node bundle from a signed source tag exists
-- QML and worker are tested together
-- no separately installed runtime or toolchain; the approved explicit OMP
-  registration is the only additional activation action
-- persistence/replay and removal are proven
-- actual Omarchy dogfood is quiet and useful
-
-## Stop conditions
-
-Stop rather than weakening boundaries if:
-
-- complete notification observation is unavailable
-- real notifications cannot support trustworthy judgment
-- supported Omarchy cannot guarantee a compatible Node runtime
-- state cannot be bounded safely
-- a downloader or separately installed runtime becomes necessary
-- typed approval responses become a V1 requirement
-
-## OMP adapter workstream
-
-Reliable OMP events require a first-class OMP extension adapter rather than
-depending on terminal notifications. The adapter follows the Claude Code,
-OpenCode, and Pi boundary pattern while keeping OMP-specific behavior out of
-Core.
-
-The canonical architecture, event mapping, artifact layout, activation gate,
-ownership, and acceptance plan are defined in
-[`omp-adapter-handoff.md`](./omp-adapter-handoff.md).
-
-The worker and OMP extension are separate runtime entry points shipped in one
-trusted payload. Production activation is an explicit, user-initiated
-`omp plugin link` of that payload, paired with verified Bun-free pre-removal.
-Never perform the link from shell startup or mutate OMP state without the
-activation action.
-
-## Coordination
-
-The Omarchy agent may prepare and test the generic upstream observer patch in an
-isolated Omarchy branch/fork, but public plugin release waits for upstream
-acceptance in a supported Omarchy version.
-
-The Aperture agent owns worker implementation. The plugin agent consumes only
-released schemas, fixtures, artifacts, and provenance.
-
-No private Omarchy fork may become a production dependency.
+### Aperture repository
+
+Owns worker/Core composition, typed OMP and worker-direct contracts, public and
+private projections, focus coordination, state migration, canonical socket
+lifecycle, strict schemas and fixtures, minified artifacts, BUILDINFO, and
+trusted-CI release verification.
+
+### Aperture-for-Omarchy repository
+
+Owns plugin lifecycle, one worker across monitors, bounded stdin/stdout handling,
+native panel rendering, artifact vendoring and signature/provenance verification,
+explicit OMP activation, visual proof, and removal.
+It consumes the upstream contract without renderer-local aliases.
+
+### OMP
+
+Owns its typed `ExtensionAPI` events, plugin loading, and bounded native
+fail-open alert. No hidden mutation of OMP configuration is allowed; activation
+is explicit and user-initiated.
+
+## Acceptance
+
+- installation requires only the plugin and the Node runtime already supplied by
+  supported Omarchy
+- the exact signed worker and extension fit the marketplace size ceiling
+- approval, input, failure, completion, resolution, shutdown, replay, and focus
+  are exercised through typed direct delivery
+- native fallback remains outside the Aperture surface and cannot duplicate an
+  accepted or acceptance-unknown direct event
+- public surface fixtures reject navigation; private worker fixtures accept only
+  opaque-focus navigation
+- stdout framing is ASCII-only, bounded, and fail-closed on partial data
+- disable, restart, replacement, and removal prove bounded worker teardown and
+  safe socket cleanup outcomes
+- no separate Aperture runtime, CLI install, downloader, or package-manager
+  action is required
+
+## Historical evidence
+
+Earlier observation and external-runtime prototypes are historical reference
+designs, not current architecture. `aperture-worker-v0.6.0` at
+`5e8a78f6cb94730c7748236b6c8585b047c83a4f` is immutable evidence for the
+previous stock contract, but its worker exceeds the current marketplace cap
+and it predates the public/private protocol-v4 split. It is not the current
+production payload. `aperture-worker-v0.5.2` remains rejected audit evidence,
+never a candidate or rollback. A replacement signed release and current stock
+proof remain mandatory.

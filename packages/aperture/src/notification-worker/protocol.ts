@@ -1,6 +1,12 @@
-import type { ApertureSurfaceSnapshotMessage } from "../surface/protocol.js";
+import { serializeAsciiJsonLine } from "../ascii-jsonl.js";
+
+import type {
+  ApertureSurfaceFrame,
+  ApertureSurfaceSnapshotMessage,
+  ApertureSurfaceView,
+} from "../surface/protocol.js";
 export const NOTIFICATION_WORKER_INPUT_SCHEMA_VERSION = 2;
-export const NOTIFICATION_WORKER_OUTPUT_SCHEMA_VERSION = 3;
+export const NOTIFICATION_WORKER_OUTPUT_SCHEMA_VERSION = 4;
 
 export const APERTURE_NOTIFICATION_WORKER_LIMITS = {
   inputLineBytes: 64 * 1024,
@@ -54,6 +60,7 @@ export type NotificationWorkerInput =
   | { type: "shutdown" };
 
 export type NotificationWorkerHello = {
+  protocolVersion: 4;
   type: "hello";
   packageVersion: string;
   worker: "aperture-attention-engine";
@@ -84,10 +91,29 @@ export type NotificationWorkerFocusResult = {
   result: "focused" | "stale" | "missing";
 };
 
+export type NotificationWorkerNavigation = {
+  kind: "opaque-focus";
+  handle: string;
+};
+
+export type NotificationWorkerFrame = ApertureSurfaceFrame & {
+  navigation?: NotificationWorkerNavigation;
+};
+
+export type NotificationWorkerView = Omit<ApertureSurfaceView, "now" | "next" | "ambient"> & {
+  now: NotificationWorkerFrame | null;
+  next: NotificationWorkerFrame[];
+  ambient: NotificationWorkerFrame[];
+};
+
+export type NotificationWorkerSnapshot = Omit<ApertureSurfaceSnapshotMessage, "view"> & {
+  view: NotificationWorkerView;
+};
+
 export type NotificationWorkerOutput =
   | NotificationWorkerHello
   | NotificationWorkerState
-  | ApertureSurfaceSnapshotMessage
+  | NotificationWorkerSnapshot
   | NotificationWorkerFocusResult
   | NotificationWorkerError;
 
@@ -105,6 +131,7 @@ export function notificationWorkerHello(packageVersion: string): NotificationWor
     "package version",
   );
   return {
+    protocolVersion: NOTIFICATION_WORKER_OUTPUT_SCHEMA_VERSION,
     type: "hello",
     packageVersion: version,
     worker: "aperture-attention-engine",
@@ -253,10 +280,9 @@ export function assertNotificationWorkerInput(value: unknown): NotificationWorke
     urgency,
   };
 }
-
 export function serializeNotificationWorkerOutput(message: NotificationWorkerOutput): string {
-  const line = `${JSON.stringify(message)}\n`;
-  if (Buffer.byteLength(line, "utf8") > APERTURE_NOTIFICATION_WORKER_LIMITS.outputLineBytes) {
+  const line = serializeAsciiJsonLine(message);
+  if (line.length > APERTURE_NOTIFICATION_WORKER_LIMITS.outputLineBytes) {
     throw new NotificationWorkerProtocolError("notification worker output exceeded the byte limit");
   }
   return line;

@@ -12,10 +12,14 @@ type ArtifactFile = {
 type BuildInfo = {
   apertureCommit: string;
   apertureSourceTag: string;
+  aperturePackageVersion: string;
+  apertureCoreVersion: string;
+  ompPackageVersion: string;
+  artifactLimits: { maximumTextArtifactBytes: number };
   sourceDirty: boolean;
   provenanceAttestationReference: string;
   workerBundle: { bytes: number; sha256: string };
-  integrations: { omp: { bytes: number; sha256: string } };
+  integrations: { omp: { packageVersion: string; bytes: number; sha256: string } };
   workerContract: {
     notificationInputSchemaVersion: number;
     notificationOutputSchemaVersion: number;
@@ -39,6 +43,7 @@ type BuildInfo = {
   };
   ci: { workflowRef: string; runId: string; runAttempt: string };
   files: ArtifactFile[];
+  directSocketLifecycle: Record<string, unknown>;
 };
 
 const options = parseOptions(process.argv.slice(2));
@@ -55,7 +60,7 @@ const ompCompatibility = JSON.parse(
 ) as { matrix: Array<{ ompVersion: string; status: string }> };
 
 const report = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   status: "passed",
   signedTag: buildInfo.apertureSourceTag,
   signedTagCommit: buildInfo.apertureCommit,
@@ -89,6 +94,13 @@ const report = {
       conclusion: "success",
     },
   },
+  finalization: {
+    runId: options.evidenceFinalizerRunId,
+    workflowName: "Aperture Worker Release Evidence",
+    event: "workflow_dispatch",
+    sourceRef: `refs/tags/${buildInfo.apertureSourceTag}`,
+    sourceDigest: buildInfo.apertureCommit,
+  },
   artifactUrl: options.artifactUrl,
   artifactArchiveSha256: sha256(archiveContent),
   archiveAttestationReference: options.archiveAttestationReference,
@@ -104,12 +116,23 @@ const report = {
     archiveSignerWorkflow:
       "tomismeta/aperture/.github/workflows/aperture-worker-direct-release.yml",
     releaseReportSignerWorkflow:
-      "tomismeta/aperture/.github/workflows/aperture-worker-direct-release.yml",
+      "tomismeta/aperture/.github/workflows/aperture-worker-release-evidence.yml",
   },
   workerBytes: buildInfo.workerBundle.bytes,
   workerSha256: buildInfo.workerBundle.sha256,
-  ompBytes: buildInfo.integrations.omp.bytes,
-  ompSha256: buildInfo.integrations.omp.sha256,
+  aperturePackageVersion: buildInfo.aperturePackageVersion,
+  apertureCoreVersion: buildInfo.apertureCoreVersion,
+  ompPackageVersion: buildInfo.ompPackageVersion,
+  artifactLimits: {
+    maximumTextArtifactBytes: buildInfo.artifactLimits.maximumTextArtifactBytes,
+  },
+  integrations: {
+    omp: {
+      packageVersion: buildInfo.integrations.omp.packageVersion,
+      bytes: buildInfo.integrations.omp.bytes,
+      sha256: buildInfo.integrations.omp.sha256,
+    },
+  },
   identityConfigSha256: findFile(buildInfo.files, "config/identities.json").sha256,
   nodeMatrix: buildInfo.validation.nodeCompatibility.map((entry) => ({
     version: entry.nodeVersion,
@@ -130,6 +153,7 @@ const report = {
     evidence: entry.reportPath,
   })),
   schemaVersions: buildInfo.workerContract,
+  directSocketLifecycle: buildInfo.directSocketLifecycle,
   buildInfoPath: "BUILDINFO.json",
   buildInfoSha256: sha256(buildInfoContent),
   filesManifestCount: buildInfo.files.length,
@@ -174,6 +198,7 @@ type Options = {
   releaseCheckRunId: string;
   workerArtifactRunId: string;
   directReleaseRunId: string;
+  evidenceFinalizerRunId: string;
 };
 
 function parseOptions(args: string[]): Options {
@@ -189,6 +214,7 @@ function parseOptions(args: string[]): Options {
       argument === "--release-check-run-id" ||
       argument === "--worker-artifact-run-id" ||
       argument === "--direct-release-run-id" ||
+      argument === "--evidence-finalizer-run-id" ||
       argument === "--artifact-url" ||
       argument === "--output"
     ) {
@@ -206,6 +232,8 @@ function parseOptions(args: string[]): Options {
         parsed.workerArtifactRunId = value;
       } else if (argument === "--direct-release-run-id") {
         parsed.directReleaseRunId = value;
+      } else if (argument === "--evidence-finalizer-run-id") {
+        parsed.evidenceFinalizerRunId = value;
       } else if (argument === "--artifact-url") parsed.artifactUrl = value;
       else parsed.output = value;
       index += 1;
@@ -226,5 +254,6 @@ function parseOptions(args: string[]): Options {
   if (!parsed.releaseCheckRunId) throw new Error("--release-check-run-id is required");
   if (!parsed.workerArtifactRunId) throw new Error("--worker-artifact-run-id is required");
   if (!parsed.directReleaseRunId) throw new Error("--direct-release-run-id is required");
+  if (!parsed.evidenceFinalizerRunId) throw new Error("--evidence-finalizer-run-id is required");
   return parsed as Options;
 }

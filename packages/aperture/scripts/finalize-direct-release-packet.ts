@@ -9,6 +9,7 @@ const DIRECT_PROOF = "aperture-omp-direct-transport-conformance-v1";
 const PRIVACY_PROOF = "aperture-omp-direct-privacy-v1";
 const NAVIGATION_PROOF = "aperture-opaque-focus-navigation-v4";
 const OMP_HOST_PROOF = "aperture-omp-host-direct-compatibility-v1";
+const MAXIMUM_MARKETPLACE_ARTIFACT_BYTES = 524_288;
 const ROOT_ENTRIES = [
   "BUILDINFO.json",
   "config",
@@ -123,7 +124,13 @@ async function validateMetadata(
   assert(buildInfo.sourceDirty === false, "combined release source must be clean");
   assert(buildInfo.apertureCommit === sourceCommit, "BUILDINFO source commit mismatch");
   assert(buildInfo.apertureSourceTag === sourceTag, "BUILDINFO source tag mismatch");
-  assertSemver(buildInfo.aperturePackageVersion, "invalid Aperture package version");
+  assert(buildInfo.aperturePackageVersion === "0.10.0", "invalid Aperture package version");
+  assert(buildInfo.ompPackageVersion === "0.1.0", "invalid private OMP package version");
+  const artifactLimits = record(buildInfo.artifactLimits, "missing artifact limits");
+  assert(
+    artifactLimits.maximumTextArtifactBytes === MAXIMUM_MARKETPLACE_ARTIFACT_BYTES,
+    "invalid marketplace text artifact limit",
+  );
   assert(
     buildInfo.releaseSeries === sourceTag.replace(/\.\d+$/, ""),
     "BUILDINFO release series mismatch",
@@ -138,12 +145,34 @@ async function validateMetadata(
   const workerContract = record(buildInfo.workerContract, "missing worker contract");
   assert(workerContract.notificationInputSchemaVersion === 2, "invalid notification input schema");
   assert(
-    workerContract.notificationOutputSchemaVersion === 3,
+    workerContract.notificationOutputSchemaVersion === 4,
     "invalid notification output schema",
   );
-  assert(workerContract.surfaceProtocolVersion === 3, "invalid surface protocol version");
+  assert(workerContract.surfaceProtocolVersion === 4, "invalid surface protocol version");
   assert(workerContract.ompAttentionEventSchemaVersion === 2, "invalid OMP event schema");
   assert(workerContract.workerDirectProtocolVersion === 4, "invalid worker direct protocol");
+  assert(
+    JSON.stringify(workerContract.jsonlHandshakes) ===
+      JSON.stringify({
+        privateWorker: {
+          protocolVersion: 4,
+          peer: "aperture-attention-engine",
+          framing: "jsonl",
+          outputEncoding: "ascii-json-escapes",
+          maximumLineBytes: 262_144,
+          navigation: "validated-opaque-focus-only",
+        },
+        publicSurface: {
+          protocolVersion: 4,
+          peer: "aperture-stdio",
+          framing: "jsonl",
+          outputEncoding: "ascii-json-escapes",
+          maximumLineBytes: 262_144,
+          navigation: "absent",
+        },
+      }),
+    "invalid JSONL handshake contract",
+  );
   const stateMigration = record(buildInfo.stateMigration, "missing state migration policy");
   const directMigration = record(stateMigration.ompDirect, "missing direct state migration");
   assert(
@@ -155,6 +184,22 @@ async function validateMetadata(
     JSON.stringify(directMigration.causalTombstones) ===
       JSON.stringify(["interaction-resolution", "session-shutdown"]),
     "invalid direct causal tombstones",
+  );
+  assert(
+    JSON.stringify(buildInfo.directSocketLifecycle) ===
+      JSON.stringify({
+        directoryMode: "0700",
+        socketMode: "0600",
+        lifecycleLockMode: "0600",
+        lifecycleSerialization: "hard-link-owner-lock",
+        cleanupDeadlineMs: 1_500,
+        cleanupExitCodes: {
+          removedOrAbsent: 0,
+          unsafe: 74,
+          transient: 75,
+        },
+      }),
+    "invalid direct socket lifecycle contract",
   );
   const focusCoordinator = record(buildInfo.focusCoordinator, "missing focus coordinator policy");
   assert(focusCoordinator.registrationTtlMs === 15_000, "invalid registration TTL");
@@ -214,6 +259,10 @@ async function validateMetadata(
   assert(worker.path === "lib/aperture-attention-engine.cjs", "invalid worker path");
   assert(typeof worker.bytes === "number" && worker.bytes > 0, "invalid worker byte size");
   assert(
+    worker.bytes <= MAXIMUM_MARKETPLACE_ARTIFACT_BYTES,
+    `worker exceeds ${MAXIMUM_MARKETPLACE_ARTIFACT_BYTES}-byte marketplace limit`,
+  );
+  assert(
     typeof worker.sha256 === "string" && /^[0-9a-f]{64}$/.test(worker.sha256),
     "invalid worker SHA-256",
   );
@@ -223,7 +272,12 @@ async function validateMetadata(
   assert(omp.artifactType === "omp-extension-module", "invalid OMP artifact type");
   assert(omp.path === "integrations/omp/aperture-omp-extension.mjs", "invalid OMP path");
   assert(omp.manifestPath === "integrations/omp/package.json", "invalid OMP manifest path");
+  assert(omp.packageVersion === buildInfo.ompPackageVersion, "invalid OMP integration version");
   assert(typeof omp.bytes === "number" && omp.bytes > 0, "invalid OMP byte size");
+  assert(
+    omp.bytes <= MAXIMUM_MARKETPLACE_ARTIFACT_BYTES,
+    `OMP extension exceeds ${MAXIMUM_MARKETPLACE_ARTIFACT_BYTES}-byte marketplace limit`,
+  );
   assert(
     typeof omp.sha256 === "string" && /^[0-9a-f]{64}$/.test(omp.sha256),
     "invalid OMP SHA-256",
@@ -300,8 +354,8 @@ async function validateMetadata(
 
   const schemas = record(buildInfo.schemas, "missing schemas");
   assertSchema(schemas.input, "schemas/notification-worker-input.schema.json", 2);
-  assertSchema(schemas.output, "schemas/notification-worker-output.schema.json", 3);
-  assertSchema(schemas.surface, "schemas/surface-protocol.schema.json", 3);
+  assertSchema(schemas.output, "schemas/notification-worker-output.schema.json", 4);
+  assertSchema(schemas.surface, "schemas/surface-protocol.schema.json", 4);
   assertSchema(schemas.ompAttentionEvent, "schemas/omp-attention-event.schema.json", 2);
   assertSchema(schemas.workerDirectMessage, "schemas/worker-direct-message.schema.json", 4);
   const fixtureMetadata = record(buildInfo.fixtures, "missing fixture metadata");
@@ -355,7 +409,8 @@ async function validateMetadata(
     await readFile(path.join(root, "integrations", "omp", "package.json"), "utf8"),
   ) as Record<string, unknown>;
   assert(manifest.name === "@tomismeta/aperture-omp", "invalid OMP package name");
-  assert(manifest.version === buildInfo.aperturePackageVersion, "OMP package version mismatch");
+  assert(manifest.version === buildInfo.ompPackageVersion, "OMP package version mismatch");
+  assert(manifest.private === true, "OMP package must be private");
   assert(manifest.type === "module", "OMP package must be an ES module");
   const ompManifest = record(manifest.omp, "missing OMP package manifest");
   assert(
@@ -527,10 +582,6 @@ function assertSafeRelativePath(value: string): void {
   assert(!components.includes(".") && !components.includes(".."), `unsafe artifact path: ${value}`);
 }
 
-function assertSemver(value: unknown, message: string): asserts value is string {
-  assert(typeof value === "string" && /^\d+\.\d+\.\d+$/.test(value), message);
-}
-
 function assertUtcTimestamp(value: unknown): void {
   assertNonempty(value, "missing build timestamp");
   assert(
@@ -594,6 +645,12 @@ function parseOptions(args: string[]): Options {
   if (!parsed.artifactDir) throw new Error("--artifact-dir is required");
   if (!parsed.sourceCommit) throw new Error("--source-commit is required");
   if (!parsed.sourceTag) throw new Error("--source-tag is required");
+  if (!/^[0-9a-f]{40}$/.test(parsed.sourceCommit)) {
+    throw new Error("--source-commit must be an exact lowercase Git SHA-1");
+  }
+  if (!/^aperture-worker-v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(parsed.sourceTag)) {
+    throw new Error("--source-tag must be an exact Aperture worker SemVer tag");
+  }
   if (!parsed.attestationReference && !parsed.verifyOnly) {
     throw new Error("--attestation-reference is required");
   }

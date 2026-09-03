@@ -28,7 +28,7 @@ import {
   type KnownFocusSurface,
   type PreparedFocusTarget,
 } from "./types.js";
-import type { ApertureSurfaceNavigation } from "../../surface/protocol.js";
+import type { NotificationWorkerNavigation } from "../protocol.js";
 
 const MAXIMUM_CANCELLATION_FENCES = FOCUS_LIMITS.activeRegistrations * 2;
 const NEVER_ABORTED = new AbortController().signal;
@@ -177,7 +177,7 @@ export class FocusCoordinator {
     );
   }
 
-  navigationFor(publicHandle: string | undefined): ApertureSurfaceNavigation | undefined {
+  navigationFor(publicHandle: string | undefined): NotificationWorkerNavigation | undefined {
     if (!publicHandle) return undefined;
     const record = this.registrations.get(publicHandle);
     if (!record || this.isCancelled(record)) return undefined;

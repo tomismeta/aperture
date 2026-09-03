@@ -1,31 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tomismeta:aperture:notification-worker-output:v3",
+  "$id": "urn:tomismeta:aperture:notification-worker-output:v4",
   "title": "Aperture Notification Worker Output",
   "oneOf": [
     { "$ref": "#/$defs/hello" },
     { "$ref": "#/$defs/engine" },
-    { "$ref": "#/$defs/error" },
+    { "$ref": "#/$defs/snapshot" },
     { "$ref": "#/$defs/focusResult" },
-    {
-      "allOf": [
-        { "$ref": "urn:tomismeta:aperture:surface-protocol:v3" },
-        {
-          "type": "object",
-          "properties": {
-            "type": { "const": "snapshot" }
-          }
-        }
-      ]
-    }
+    { "$ref": "#/$defs/error" }
   ],
   "$defs": {
+    "shortId": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "kind": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "label": { "type": "string", "minLength": 1, "maxLength": 120 },
     "hello": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "packageVersion", "worker", "capabilities"],
+      "required": ["type", "protocolVersion", "packageVersion", "worker", "capabilities"],
       "properties": {
         "type": { "const": "hello" },
+        "protocolVersion": { "const": 4 },
         "packageVersion": { "type": "string", "minLength": 1, "maxLength": 120 },
         "worker": { "const": "aperture-attention-engine" },
         "capabilities": {
@@ -56,6 +50,143 @@
         "type": { "const": "engine" },
         "state": { "enum": ["restoring", "ready", "degraded"] },
         "acceptedSources": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "label"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/kind" },
+        "label": { "$ref": "#/$defs/label" }
+      }
+    },
+    "navigation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "handle"],
+      "properties": {
+        "kind": { "const": "opaque-focus" },
+        "handle": {
+          "type": "string",
+          "minLength": 32,
+          "maxLength": 32,
+          "pattern": "^[A-Za-z0-9_-]{32}$"
+        }
+      }
+    },
+    "contextItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/shortId" },
+        "label": { "$ref": "#/$defs/label" },
+        "value": { "type": "string", "maxLength": 240 }
+      }
+    },
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "taskId",
+        "interactionId",
+        "version",
+        "mode",
+        "tone",
+        "consequence",
+        "title",
+        "timing"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/shortId" },
+        "taskId": { "$ref": "#/$defs/shortId" },
+        "interactionId": { "$ref": "#/$defs/shortId" },
+        "version": { "type": "integer", "minimum": 0 },
+        "mode": { "enum": ["status", "approval", "choice", "form"] },
+        "tone": { "enum": ["ambient", "focused", "critical"] },
+        "consequence": { "enum": ["low", "medium", "high"] },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "summary": { "type": "string", "maxLength": 600 },
+        "source": { "$ref": "#/$defs/source" },
+        "navigation": { "$ref": "#/$defs/navigation" },
+        "context": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "stage": { "type": "string", "maxLength": 120 },
+            "progress": { "type": "number" },
+            "items": {
+              "type": "array",
+              "maxItems": 8,
+              "items": { "$ref": "#/$defs/contextItem" }
+            }
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["whyNow"],
+          "properties": {
+            "whyNow": { "type": "string", "minLength": 1, "maxLength": 400 }
+          }
+        },
+        "timing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["createdAt", "updatedAt"],
+          "properties": {
+            "createdAt": { "type": "string", "format": "date-time" },
+            "updatedAt": { "type": "string", "format": "date-time" },
+            "expiresAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["now", "next", "ambient"],
+      "properties": {
+        "now": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/frame" }] },
+        "next": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/frame" }
+        },
+        "ambient": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/frame" }
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["now", "next", "ambient", "sources"],
+      "properties": {
+        "now": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "next": { "type": "integer", "minimum": 0 },
+        "ambient": { "type": "integer", "minimum": 0 },
+        "sources": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "sequence", "sources", "totals", "view"],
+      "properties": {
+        "type": { "const": "snapshot" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "sources": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/source" }
+        },
+        "totals": { "$ref": "#/$defs/totals" },
+        "view": { "$ref": "#/$defs/view" }
       }
     },
     "focusResult": {

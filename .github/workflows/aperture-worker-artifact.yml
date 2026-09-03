@@ -17,14 +17,17 @@ jobs:
 
     steps:
       - name: Checkout signed source tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Verify annotated tag signature
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          [[ "$GITHUB_REF_NAME" =~ ^aperture-worker-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          test "$GITHUB_REF" = "refs/tags/$GITHUB_REF_NAME"
           tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.sha')
           tag_type=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.type')
           tag_commit=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '.object.sha')
@@ -33,15 +36,18 @@ jobs:
           test "$tag_commit" = "$GITHUB_SHA"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test -z "$(git status --porcelain)"
+          git -c gpg.format=ssh \
+            -c gpg.ssh.allowedSignersFile="$GITHUB_WORKSPACE/.github/release-signers" \
+            verify-tag "$GITHUB_REF_NAME"
           test "$tag_verified" = "true"
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 10.29.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.23.2
           cache: pnpm
@@ -73,7 +79,7 @@ jobs:
           --report "$RUNNER_TEMP/reports/direct-node-22.json"
 
       - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24.13.0
           cache: pnpm
@@ -90,7 +96,7 @@ jobs:
           --report "$RUNNER_TEMP/reports/direct-node-24.json"
 
       - name: Setup current Omarchy Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 26.4.0
           cache: pnpm
@@ -117,7 +123,7 @@ jobs:
           --report "$RUNNER_TEMP/reports/focus-backends.json"
 
       - name: Setup Bun for OMP host matrix
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.14
 
@@ -132,7 +138,7 @@ jobs:
 
       - name: Attest worker and OMP extension provenance
         id: provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
           subject-path: |
             ${{ runner.temp }}/aperture-worker/lib/aperture-attention-engine.cjs
@@ -161,8 +167,10 @@ jobs:
             .apertureCommit == $commit and
             .apertureSourceTag == $tag and
             .trustedCi == true and
+            .aperturePackageVersion == "0.10.0" and
+            .apertureCoreVersion == "0.9.0" and
             .sourceDirty == false and
-            .workerBundle.bytes <= 8388608 and
+            .workerBundle.bytes <= 524288 and
             .validation.status == "passed" and
             .runtimeDependencies.status == "passed" and
             (.runtimeDependencies.imports | all(startswith("node:"))) and
@@ -174,19 +182,27 @@ jobs:
             .validation.directPrivacyProofId == "aperture-omp-direct-privacy-v1" and
             .validation.navigationProofId == "aperture-opaque-focus-navigation-v4" and
             .validation.focusBackendReport == "evidence/focus-backends.json" and
+            .ompPackageVersion == "0.1.0" and
+            .artifactLimits.maximumTextArtifactBytes == 524288 and
+            .integrations.omp.packageVersion == "0.1.0" and
+            .workerContract.notificationOutputSchemaVersion == 4 and
+            .workerContract.surfaceProtocolVersion == 4 and
             .workerContract.workerDirectProtocolVersion == 4 and
             .schemas.workerDirectMessage.version == 4 and
+            .schemas.output.version == 4 and
+            .schemas.surface.version == 4 and
             (.files | length) == 39 and
             any(.files[]; .path == "config/identities.json") and
             [.files[].path] == ([.files[].path] | sort) and
             .integrations.omp.validation.status == "passed" and
+            .integrations.omp.bytes <= 524288 and
             .integrations.omp.runtimeDependencies.status == "passed" and
             (.integrations.omp.runtimeDependencies.imports | all(startswith("node:"))) and
             (.provenanceAttestationReference | type) == "string" and
             (.provenanceAttestationReference | length) > 0
           ' "$RUNNER_TEMP/aperture-worker/BUILDINFO.json"
       - name: Upload atomic plugin payload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ github.ref_name }}
           path: ${{ runner.temp }}/aperture-worker

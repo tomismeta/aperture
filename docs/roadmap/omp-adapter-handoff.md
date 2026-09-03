@@ -2,127 +2,70 @@
 
 ## Decision
 
-Build a first-class `@aperture/omp` adapter as a sibling of the Claude Code,
-OpenCode, and Pi adapters.
-
-The adapter owns OMP-specific event normalization. `ApertureCore` remains
-host-neutral. The adapter is a separate OMP extension entry point; it is not
-embedded inside the notification worker main module.
-
-Two artifacts may ship in one trusted Omarchy payload:
+`@aperture/omp` remains the OMP-specific mapping package. The production
+Aperture-for-Omarchy path is a focused, self-contained OMP channel made from two
+signed artifacts built from one reviewed Aperture commit:
 
 ```text
 lib/aperture-attention-engine.cjs
 integrations/omp/aperture-omp-extension.mjs
 ```
 
-They share CI provenance and BUILDINFO, but have different process contracts:
+The extension is imported by OMP and default-exports an `ExtensionAPI` factory.
+The worker is a Node 22 CommonJS JSONL process that owns `ApertureCore`, state,
+and the canonical XDG socket. Neither artifact requires `node_modules`, npm,
+pnpm, a downloader, or a separately installed Aperture CLI/runtime.
 
-- `aperture-attention-engine.cjs` is a Node-executed JSONL worker.
-- `aperture-omp-extension.mjs` is imported by OMP and default-exports an
-  `ExtensionAPI` factory.
-
-## Why this is required
-
-Notification observation alone is not a reliable OMP event source. OMP's
-built-in completion, ask, and error notifications are mode-, configuration-,
-and terminal-dependent. Headless and noninteractive runs may emit no
-FreeDesktop event. The current Omarchy corpus observed no notification from its
-noninteractive OMP scenario.
-
-OMP already exposes typed extension events. A first-class adapter gives Aperture
-stable lifecycle, approval, input, execution, failure, and completion facts
-without parsing terminal text, logs, or session files.
-
-## Relationship to the notification worker
-
-The reviewed host-Node notification worker remains valid and separate:
-
-```text
-Aperture commit bb23e6e5d7a8ddd9c300cfd130dfa1490617b4cf
-```
-
-Do not reopen its canonical notification schema merely to carry OMP-native
-payloads. The OMP adapter translates at its own boundary.
-
-For normal Aperture, the adapter publishes canonical `SourceEvent` values to an
-`ApertureRuntimeAdapterClient`, matching the Claude Code and OpenCode adapter
-pattern.
-
-For the self-contained Omarchy V1, the adapter emits deterministic native
-Omarchy notifications. The generic Omarchy observer then feeds the existing
-Ambient-only notification worker contract.
-
-## Architecture
-
-### Normal Aperture runtime
+## Delivery architecture
 
 ```text
 OMP ExtensionAPI
-  -> @aperture/omp mapping
-  -> canonical SourceEvent
-  -> ApertureRuntimeAdapterClient
-  -> Aperture runtime
+  -> deterministic @aperture/omp mapping
+  -> OMP attention event schema v2
+  -> worker-direct protocol v4
+  -> $XDG_RUNTIME_DIR/omarchy/aperture/attention.sock
   -> stateful ApertureCore
+  -> private notification-worker output v4
+  -> Omarchy panel
 ```
 
-This path may support typed approval and input responses when a response-capable
-Aperture surface is attached.
+This path does not publish through an external runtime adapter and does not
+attach to an Aperture runtime. The extension sends bounded typed facts directly
+to the worker. The worker alone makes lane decisions.
 
-### Self-contained Omarchy plugin
+The generic runtime route remains useful to the upstream Aperture product,
+but it is not shipped or used by the self-contained Omarchy plugin. Aperture's
+upstream product remains Claude-first; Omarchy is this deliberately narrow OMP
+channel.
 
-```text
-OMP ExtensionAPI
-  -> @aperture/omp mapping
-  -> Omarchy notification transport
-  -> omarchy.notifications observer
-  -> singleton Service.qml
-  -> aperture-attention-engine.cjs
-  -> stateful ApertureCore
-  -> Ambient snapshot
+## Exact live contracts
+
+- OMP attention events: exact schema version `2`
+- worker-direct messages and acknowledgements: exact protocol version `4`
+- notification-worker input: exact schema version `2`
+- private notification-worker output: exact version `4`
+- public companion surface: exact protocol version `4`
+
+Both output hello frames carry `protocolVersion: 4` independently from package
+semver. Public surface frames contain no navigation field. Private worker frames
+may carry only the bounded volatile capability:
+
+```json
+{ "kind": "opaque-focus", "handle": "A23456789_-bcdefghijklmnopqrstuv" }
 ```
 
-Omarchy V1 advertises no response capability. OMP-derived notifications remain
-Ambient and observational. QML does not interpret OMP events or prose.
-
-## Aperture package layout
-
-```text
-packages/omp/
-├── package.json
-├── tsconfig.json
-├── src/
-│   ├── extension.ts
-│   ├── omarchy-extension.ts
-│   ├── mapping.ts
-│   ├── mapping-lifecycle.ts
-│   ├── mapping-tools.ts
-│   ├── mapping-approvals.ts
-│   ├── mapping-shared.ts
-│   ├── runtime-transport.ts
-│   ├── omarchy-notification-transport.ts
-│   └── types.ts
-└── test/
-    └── omp-adapter.test.ts
-```
-
-Pi and OMP remain separate adapters:
-
-```text
-@aperture/pi  -> upstream Pi
-@aperture/omp -> Oh My Pi
-```
-
-Shared pure mapping utilities may be extracted where behavior is genuinely
-identical. Do not alias OMP to Pi or silently ignore OMP-only event fields.
+No session ID, transcript path, executable argv, socket path, host generation,
+backend target, pane ID, compositor address, or recovery marker may be projected
+as navigation or persisted as focus state.
 
 ## OMP extension manifest
 
-The vendored integration directory contains a manifest that OMP can load:
+The staged private manifest is independently versioned:
 
 ```json
 {
   "name": "@tomismeta/aperture-omp",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "omp": {
@@ -131,322 +74,169 @@ The vendored integration directory contains a manifest that OMP can load:
 }
 ```
 
-The extension bundle contains all non-host dependencies and requires no runtime
-`node_modules`, npm, pnpm, or TypeScript compilation.
+BUILDINFO records `ompPackageVersion: "0.1.0"` separately from the Aperture
+product and Core versions, and repeats it at
+`integrations.omp.packageVersion`. Build and release checks compare the staged
+manifest to both fields and must not assume the OMP and product versions are
+equal.
 
-## Event mapping
+## Mapping contract
 
-| OMP event                                        | Canonical Aperture meaning                                   |
-| ------------------------------------------------ | ------------------------------------------------------------ |
-| `session_start`                                  | `task.started`                                               |
-| `before_agent_start` / `agent_start`             | `task.updated` running                                       |
-| `turn_start`                                     | `task.updated` running                                       |
-| `tool_execution_start` / `tool_execution_update` | `task.updated` running                                       |
-| `tool_execution_end` with `isError`              | typed failed update                                          |
-| `tool_approval_requested`                        | approval request or needs-attention status                   |
-| `tool_approval_resolved` approved                | running/resumed update                                       |
-| `tool_approval_resolved` denied                  | blocked/cancelled update according to observed OMP lifecycle |
-| ask/input request                                | question request or needs-input status                       |
-| `input`                                          | running/resumed update                                       |
-| `agent_end` with `willContinue: true`            | running; never completion                                    |
-| terminal `agent_end`                             | settled/completion candidate                                 |
-| `session_stop`                                   | authoritative main-session settle                            |
-| `session_shutdown`                               | cancelled or completed according to shutdown cause           |
+Typed OMP lifecycle events map deterministically to the narrow attention event
+DTO. Required families are:
 
-`session_stop` and `agent_end.willContinue` must prevent false completion during
-auto-retry, continuation, or pending background work.
-
-Explicit `tool_approval_requested` and `tool_approval_resolved` events take
-precedence over inferring approval from every `tool_call`.
-
-## Stable identity
-
-The adapter derives stable identities from OMP-owned facts:
-
-- OMP session ID/file
-- turn index
-- tool call ID
-- approval/request ID
-- interaction class
-
-No title substring, fuzzy project matching, or transcript parsing may create
-identity.
-
-The normal runtime source kind is `omp`. Pi remains `pi`.
-
-## Omarchy notification transport
-
-The initial Omarchy transport uses the standard `omarchy-notification-send`
-command as an argv vector, never a shell command string.
-
-Required behavior:
-
-- fixed exact `appName`: `aperture-omp`
-- bounded summary and body
-- no executable notification action
-- stable replacement IDs using `--print-id` and `--replace-id`
-- close or replace an adapter-owned notification when the OMP interaction
-  resolves
-- transport failure never blocks or fails the OMP session
-- no credential, prompt transcript, raw tool result, private path, or secret in
-  notification content
-
-Repeated identical upserts are accepted when they reuse the sender-owned native
-notification ID. Quickshell is not required to emit `notificationUpdated` when
-no observable property changed. A replacement-update assertion is required only
-when summary, body, urgency, or another forwarded display field changes.
-
-The Omarchy extension sets process-local `PI_NOTIFICATIONS=off` only after the
-configured notification sender resolves to an executable. OMP's built-in
-waiting/completion notices therefore do not duplicate adapter-owned
-notifications on a healthy transport, while an unavailable sender leaves the
-built-ins enabled. Delivery failure restores the prior value and disables
-adapter delivery for the rest of that OMP session so the two paths cannot mix;
-session shutdown also restores it. The extension never mutates OMP
-configuration.
-
-Session shutdown closes persistent approval/input notifications only. Expiring
-failure and completion notifications remain owned by the native notification
-server and expire normally.
-
-`credential_disabled` is proven with deterministic typed-event injection through
-the compiled extension and transport. Real-host acceptance must not invalidate a
-working credential merely to trigger this event.
-
-Emit only attention-relevant transitions:
-
-- approval requested
-- ask/input requested
+- approval requested and resolved
+- ask/input requested and resolved
 - terminal tool or provider failure
-- terminal session completion
-- resolution/replacement of one of those states
+- terminal completion
+- session stop failure and shutdown
+- bounded status updates used by the worker's state machine
 
-Do not emit every turn or tool lifecycle event as a desktop notification.
+Stable identity comes only from typed OMP session, turn, tool-call, request, and
+interaction fields. The adapter never parses terminal text, notification prose,
+transcripts, or private session files. Prompt text, raw tool input/output,
+approval reasons, credentials, private paths, and executable commands are
+forbidden from the direct event.
 
-The worker admits only the exact reviewed `aperture-omp` identity. OMP-derived
-notification text remains Ambient-only under the existing worker ceiling.
+## Delivery and fallback
 
-## Runtime transport
+Direct delivery is acknowledged and bounded. An accepted event suppresses its
+corresponding native notification. A definitely-pre-write failure may use the
+native OMP notification as a fail-open fallback outside the Aperture surface.
+An acceptance-unknown failure must not send a duplicate. The native fallback is
+non-navigable and is never looped through notification observation into the
+worker.
 
-The normal Aperture transport follows existing adapters:
+Transport failure never aborts, blocks, or corrupts the OMP session. Delivery
+queues, connection and acknowledgement deadlines, retry counts, and receipt
+records remain bounded. Resolution and shutdown tombstones dominate delayed
+replay.
+
+## Focus contract
+
+`focus.register` and `focus.revoke` are private worker-direct v4 messages. A
+registration carries one 32-character public handle and validated worker-private
+backend data. Handles are leased, volatile, capacity-bounded, and invalidated on
+revoke, expiry, backend loss, or worker replacement.
+
+Private snapshots receive navigation only after a live registration. Activation
+accepts a handle and returns exactly `focused`, `stale`, or `missing`. Persisted
+or native-fallback frames restore without navigation. The panel never receives
+an executable focus command.
+
+## JSONL framing
+
+Both the private worker output and public stdio surface are ASCII-only JSONL.
+Each serializer escapes every non-ASCII UTF-16 code unit as `\uXXXX`, including
+both code units of a surrogate pair, then enforces the 256 KiB limit on the
+final encoded line including its newline. The private Quickshell consumer owns
+a bounded raw-chunk line buffer and rejects overflow or unterminated trailing
+data. Public output uses the same byte-safe framing but can never carry
+navigation.
+
+## Socket lifecycle
+
+The extension and worker use only
+`$XDG_RUNTIME_DIR/omarchy/aperture/attention.sock`. Startup, normal shutdown,
+and cleanup serialize every cooperating pathname mutation with an atomic
+hard-link owner lock. Runtime/package directories are same-UID mode `0700`;
+lock and socket are same-UID mode `0600`. Startup refuses active or unsafe
+endpoints and reclaims only a fully validated stale lock whose recorded process
+no longer exists.
+
+After service destruction the Omarchy shell may run:
 
 ```text
-map OMP event
-  -> SourceEvent batch
-  -> ApertureRuntimeAdapterClient
+aperture-attention-engine.cjs --config <plugin-identities> --cleanup-owned-socket
 ```
 
-Adapter delivery is fail-open for OMP: inability to find or publish to an
-Aperture runtime may warn, but it must not abort, block, or corrupt the OMP
-session.
+Cleanup mode accepts but ignores the launcher-owned config argument and starts
+no Core, engine, or server. While holding the lifecycle lock, it proves the
+endpoint inactive, same-UID, a socket rather than a symlink, and unchanged by
+device/inode before unlink. The complete operation has a 1,500 ms deadline.
+Exit `0` means absent or removed, `75` means a safe transient timeout, and `74`
+means unsafe/nonretryable. A cooperating rapid re-enable waits for the lock, so
+the old cleanup invocation cannot unlink the replacement. Diagnostics contain
+no path or file metadata.
 
-Typed approval holding is opt-in and may engage only when a response-capable
-Aperture surface is attached. Timeout returns control to OMP's native approval
-path.
+## Artifact contract
 
-## Trusted artifact layout
+Trusted CI stages the worker, extension, manifest, schemas, canonical fixtures,
+runtime-import audits, compatibility evidence, and BUILDINFO. Production builds
+minify both text artifacts. Each staged artifact independently must be no larger
+than 524,288 bytes; build, finalizer, candidate, and release gates fail with a
+clear size error above that limit.
+BUILDINFO pins the ceiling at
+`artifactLimits.maximumTextArtifactBytes: 524288`.
+The signed release report mirrors the three exact package versions, artifact
+cap, two JSONL handshake contracts, and socket lifecycle contract. It is
+created by Release Evidence only after Release Check, Worker Artifact, and
+Direct Release have completed successfully; it never claims its own future
+conclusion. All attestations bind to the exact signed tag ref, source digest,
+and signer workflow.
 
-The Aperture artifact builder will stage:
+Both artifacts are dependency-free at runtime except for audited `node:`
+builtins. Every staged file has an exact SHA-256, byte count, and mode in
+BUILDINFO. Downstream production vendoring runs only through the
+downstream-pinned tag signer and authenticated release tool; locally built or
+manually copied bytes are never eligible.
 
-```text
-lib/aperture-attention-engine.cjs
-integrations/omp/package.json
-integrations/omp/aperture-omp-extension.mjs
-schemas/
-evidence/
-BUILDINFO.json
-```
+## Activation and removal
 
-BUILDINFO adds an OMP integration record containing:
+Shipping the manifest does not silently activate it. OMP activation is an
+explicit user action against the verified installed integration directory. The
+handoff does not prescribe a historical plugin ID or hard-coded checkout path.
+No shell startup hook or worker process may mutate OMP configuration.
 
-- path and manifest path
-- SHA-256 and byte count
-- minimum tested OMP version
-- adapter proof identity
-- runtime import audit
-- compatibility results
-
-The provenance attestation covers both the worker bundle and OMP extension
-bundle. A local extension build may support private proof but is never a
-production vendoring source.
-
-The public release tag and uploaded artifact use the concise
-`aperture-worker-v*` name. “Attention worker” remains an internal description
-of the runtime role, not the release product name.
-
-## Extension activation
-
-Shipping the extension file does not make OMP load it.
-
-The approved production activation path is the explicit, user-initiated
-equivalent of:
-
-```bash
-omp plugin link ~/.config/omarchy/plugins/aperture.attention/integrations/omp
-```
-
-Do not run this from the shell launcher or worker startup. The activation action
-must identify that it is registering the released Aperture integration with OMP
-and must operate on the trusted, attested payload.
-
-Standard Omarchy may not expose `bun` on `PATH`, while `omp plugin uninstall`
-currently delegates to Bun. Production pre-removal must therefore:
-
-1. disable `@tomismeta/aperture-omp`
-2. resolve exactly one active user plugin root
-3. verify that the package path is a symlink to the installed Aperture payload
-4. refuse a missing or mismatched owned target unless both link and lock state
-   are already absent
-5. remove only that verified symlink
-6. atomically delete only the plugin and settings entries from
-   `omp-plugins.lock.json`
-7. verify that a fresh `omp plugin list --json` no longer reports the package
-
-Run pre-removal before deleting the payload. Never invoke a package installer,
-mutate `package.json`, or depend on Bun. The private Omarchy proof at `cf63e1a`
-validated link, removal, mismatch refusal, absence, and reinstall with Bun
-absent.
-
-This selects the explicit second OMP activation action. Automatic one-command
-discovery remains future upstream work; it must not be approximated through
-hidden `~/.omp` mutation.
+Removal first stops the worker and runs bounded owned-socket cleanup, then
+disables and unlinks the exact verified OMP integration. It must not depend on
+Bun, invoke a package installer, or delete an unverified symlink or lock entry.
 
 ## Ownership
 
 ### Aperture repository
 
-Owns:
+Owns OMP types and mapping, direct transport, worker/Core implementation,
+private focus routing, protocols and schemas, fixtures and tests, minified
+artifact builds, BUILDINFO, evidence, and release verification.
 
-- `packages/omp`
-- OMP event types and mapping
-- runtime and Omarchy notification transports
-- adapter tests and compatibility fixtures
-- compiled OMP extension bundle
-- artifact hashes, BUILDINFO, and provenance
+### Aperture-for-Omarchy repository
 
-### Omarchy Aperture repository
-
-Owns:
-
-- vendoring the released integration artifact
-- production launcher and QML lifecycle
-- development-only OMP link/override proof
-- end-to-end OMP notification observation
-- plugin installation and removal documentation
+Owns authenticated vendoring, explicit OMP activation, service/process
+lifecycle, bounded stdout consumption, panel behavior, focus requests, visual
+proof, and safe removal. Native fallback presentation remains owned by OMP and
+outside the Aperture surface.
 
 ### OMP upstream
 
-Owns any future generic discovery or desktop-notification capability required to
-make activation automatic without mutating user configuration.
+Owns the typed extension event API and plugin loader. Aperture does not require
+OMP changes or hidden user-configuration mutation for this release.
 
-## Aperture implementation sequence
+## Acceptance
 
-1. Add `packages/omp` with structural OMP event types.
-2. Reuse or extract only genuinely shared Pi mapping utilities.
-3. Implement `agent_end.willContinue`, `session_stop`, approval, ask/input, and
-   execution mappings.
-4. Implement normal `ApertureRuntimeAdapterClient` delivery.
-5. Implement bounded Omarchy notification delivery with injectable process I/O
-   for tests.
-6. Add deterministic mapping and fail-open transport tests.
-7. Build a dependency-free OMP extension module.
-8. Add the extension and manifest to artifact staging and BUILDINFO.
-9. Run the extension against a supported OMP 18 release.
-10. Hand the local development integration to the Omarchy agent for private
-    end-to-end proof.
-11. Produce a new signed combined artifact only after that proof.
+- actual OMP loader imports the signed extension with no runtime package install
+- typed approval, input, failure, completion, resolution, and shutdown events
+  reach the worker through protocol v4
+- accepted direct events suppress duplicates; fallback stays outside the
+  Aperture surface
+- Core remains the sole lane authority
+- only private worker frames can carry a valid opaque-focus handle
+- public projection and schema reject navigation
+- state and focus privacy canaries do not reach persisted or projected output
+- stdout is ASCII-only and bounded after escaping
+- active, replaced, symlinked, non-socket, foreign, and invalid socket cleanup
+  cases fail with the specified codes and no unsafe unlink
+- worker and extension each fit the 524,288-byte marketplace ceiling
+- BUILDINFO records independent product, Core, and OMP package versions
+- no separate Aperture runtime, installer, downloader, or `node_modules` is
+  present
 
-The reviewed worker commit remains independently usable. The OMP adapter landed
-at `b1c92de`; proof-blocker fixes landed at `00e150a`. A production payload
-still requires a signed combined artifact built from the reviewed tag.
+## Historical evidence
 
-## Omarchy implementation sequence after delivery
-
-1. Verify adapter manifest, bytes, BUILDINFO, and provenance.
-2. Vendor the exact extension and worker payload.
-3. Link the extension explicitly in a development-only OMP profile.
-4. Exercise approval, ask/input, failure, completion, replacement, and close.
-5. Confirm only the exact `aperture-omp` application identity enters the worker.
-6. Confirm all notification-derived frames remain Ambient.
-7. Confirm adapter failure does not affect OMP.
-8. Confirm plugin disable/removal stops the worker and documents OMP unlinking.
-9. Decide the production activation mechanism before manifest cutover.
-
-## Acceptance criteria
-
-### OMP adapter
-
-- loads as an OMP extension with no runtime package install
-- maps supported events deterministically
-- never completes `agent_end.willContinue: true`
-- uses explicit approval events
-- preserves stable session and interaction identity
-- handles failures without crashing OMP
-- publishes canonical SourceEvents to a normal Aperture runtime
-
-### Omarchy transport
-
-- emits only attention-worthy notifications
-- uses exact fixed identity and bounded text
-- preserves replacement and close lifecycle
-- exposes no actions, secrets, or raw results
-- fails open when Omarchy notification transport is unavailable
-- produces Ambient-only worker output
-
-### Artifact
-
-- worker and OMP extension are built from one reviewed source commit/tag
-- every runtime file and schema is hashed
-- no runtime `node_modules`, npm, pnpm, source map, or downloader
-- compatibility and end-to-end evidence are included
-- trusted CI provenance covers both bundles
-
-## Stop conditions
-
-Stop rather than weaken the boundary if:
-
-- OMP events cannot provide stable session or interaction identity
-- the adapter must parse transcripts or private session files
-- transport failure can block or crash OMP
-- Omarchy requires hidden mutation of OMP configuration
-- unstructured notification prose can exceed Ambient
-- typed responses become required before a versioned worker response protocol
-- production would require a local/manual adapter artifact
-
-## Current status — 2026-08-31
-
-- Host-Node notification worker: implemented and previously reviewed at `bb23e6e`.
-- OMP adapter and proof fixes: implemented at `b1c92de` and `00e150a`.
-- Normal Aperture runtime transport: implemented and unit tested.
-- Omarchy notification transport: implemented with fixed `aperture-omp` identity,
-  replacement IDs, sender-owned close, bounded fixed bodies, and fail-open delivery.
-- OMP extension artifact: `integrations/omp/aperture-omp-extension.mjs`.
-- Clean extension bytes: `12712`.
-- Clean extension SHA-256:
-  `4ed0828ece31c1d82c521c304b2670b6b6224359472dd9d2090cd01818c70268`.
-- Adapter proof identity: `aperture-omp-adapter-conformance-v1`.
-- Clean-directory module load: passed with 17 registered OMP events.
-- Runtime import policy: passed; only `node:child_process`, `node:crypto`,
-  `node:fs`, `node:fs/promises`, `node:path`, and `node:util` remain external.
-- Omarchy private proof: passed at `cf63e1a` on OMP 18.0.11, Arch Linux
-  x86_64, and Node 26.7.0 against Aperture `00e150a`.
-- The proof passed exact identity, healthy-sender built-in suppression,
-  unavailable-sender built-in fallback, approval/input resolution, interactive
-  and noninteractive completion expiry, terminal failure survival, replacement,
-  credential/provider privacy, deterministic replay, and Ambient projection.
-- Omarchy observer `8e13ddaf` passed DND `Unknown`, normal close, and changed
-  replacement with exactly-once stable-key observations.
-- Bun-free explicit link/removal/reinstall passed, including refusal of a
-  deliberately mismatched symlink. The production packaging contract above is
-  approved; its Omarchy production implementation remains pending.
-- Trusted combined artifact: signed component tag `aperture-worker-v0.1.0` at
-  `bd74057`, CI run `33504485643`, artifact `9799041922`, and provenance
-  attestation `44397221`.
-- Trusted CI reproduced the privately proven worker and OMP byte identities,
-  finalized all three Node reports plus OMP evidence, and recorded
-  `trustedCi: true` from a clean source checkout.
-- The artifact is ready for Omarchy provenance verification but is not yet
-  vendored.
-- Production activation mechanism: decided; explicit user-initiated OMP link
-  plus verified Bun-free pre-removal.
-- Private OMP and observer end-to-end proof: accepted.
+Earlier runtime and observation routes remain historical engineering evidence,
+not the current Omarchy architecture. `aperture-worker-v0.6.0` at
+`5e8a78f6cb94730c7748236b6c8585b047c83a4f` is immutable evidence for the
+previous stock contract, but exceeds the current worker cap and predates the
+public/private protocol-v4 split. It is not the current production payload.
+`aperture-worker-v0.5.2` remains rejected and is neither a candidate nor a
+rollback. A replacement signed release and current stock proof are pending.

@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -20,15 +20,39 @@ const ambientCases = [
   "Critical urgent action required",
   "Same issue as before; this supersedes the previous request",
   "Review this error and approve the fix",
-  "Done and complete; needs input",
+  "Done and complete; needs input — Résumé 🚀",
 ];
 const checks: string[] = [];
 const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-attention-worker-smoke-"));
+const cleanupRuntime = await mkdtemp("/tmp/aperture-worker-cleanup-smoke-");
 try {
   const worker = path.join(temporaryRoot, "aperture-attention-engine.cjs");
   const config = path.join(temporaryRoot, "identities.json");
   const stateDir = path.join(temporaryRoot, "state");
   await copyFile(sourceBundle, worker);
+  const cleanup = spawnSync(
+    process.execPath,
+    [
+      worker,
+      "--config",
+      path.join(temporaryRoot, "missing-identities.json"),
+      "--cleanup-owned-socket",
+    ],
+    {
+      env: { ...process.env, XDG_RUNTIME_DIR: cleanupRuntime },
+      encoding: "utf8",
+      timeout: 5_000,
+    },
+  );
+  assert.equal(cleanup.status, 0, cleanup.stderr);
+  assert.equal(cleanup.signal, null);
+  assert.equal(cleanup.stdout, "");
+  await assert.rejects(
+    () => stat(path.join(cleanupRuntime, "omarchy")),
+    (error: unknown) =>
+      Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT"),
+  );
+  checks.push("cleanup-mode-no-config-or-engine");
   await writeFile(
     config,
     `${JSON.stringify({
@@ -78,6 +102,7 @@ try {
   ]);
   assert.equal(first.messages[0]?.type, "hello");
   assert.equal(first.messages[0]?.worker, "aperture-attention-engine");
+  assert.equal(first.messages[0]?.protocolVersion, 4);
   assert.deepEqual(first.messages[0]?.capabilities, {
     notificationInput: true,
     ompDirectInput: true,
@@ -127,7 +152,11 @@ try {
     first.lines.every((line) => Buffer.byteLength(`${line}\n`, "utf8") <= 256 * 1024),
     true,
   );
-  checks.push("malformed-input", "oversized-input", "bounded-output");
+  assert.equal(
+    first.lines.every((line) => /^[\x00-\x7f]*$/.test(line)),
+    true,
+  );
+  checks.push("malformed-input", "oversized-input", "bounded-ascii-output");
 
   const rawState = await readFile(path.join(stateDir, "state.json"), "utf8");
   for (const canary of [
@@ -201,6 +230,7 @@ try {
   process.stdout.write(`${JSON.stringify(report)}\n`);
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
+  await rm(cleanupRuntime, { recursive: true, force: true });
 }
 
 type SmokeOptions = {
@@ -210,6 +240,7 @@ type SmokeOptions = {
 
 type SmokeWorkerMessage = {
   type?: string;
+  protocolVersion?: number;
   worker?: string;
   state?: string;
   code?: string;

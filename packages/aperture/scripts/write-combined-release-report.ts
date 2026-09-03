@@ -64,15 +64,48 @@ const report = {
   runId: buildInfo.ci.runId,
   runAttempt: buildInfo.ci.runAttempt,
   workflowChain: {
-    releaseCheckRunId: options.releaseCheckRunId,
-    workerArtifactRunId: options.workerArtifactRunId,
-    directReleaseRunId: options.directReleaseRunId,
+    releaseCheck: {
+      runId: options.releaseCheckRunId,
+      workflowName: "Release Check",
+      event: "push",
+      sourceRef: "refs/heads/main",
+      sourceDigest: buildInfo.apertureCommit,
+      conclusion: "success",
+    },
+    workerArtifact: {
+      runId: options.workerArtifactRunId,
+      workflowName: "Aperture Worker Artifact",
+      event: "push",
+      sourceRef: `refs/tags/${buildInfo.apertureSourceTag}`,
+      sourceDigest: buildInfo.apertureCommit,
+      conclusion: "success",
+    },
+    directRelease: {
+      runId: options.directReleaseRunId,
+      workflowName: "Aperture Worker Direct Release",
+      event: "workflow_dispatch",
+      sourceRef: `refs/tags/${buildInfo.apertureSourceTag}`,
+      sourceDigest: buildInfo.apertureCommit,
+      conclusion: "success",
+    },
   },
   artifactUrl: options.artifactUrl,
   artifactArchiveSha256: sha256(archiveContent),
   archiveAttestationReference: options.archiveAttestationReference,
   buildInfoAttestationReference: options.buildInfoAttestationReference,
   provenanceAttestationReference: buildInfo.provenanceAttestationReference,
+  attestationPolicy: {
+    sourceRef: `refs/tags/${buildInfo.apertureSourceTag}`,
+    sourceDigest: buildInfo.apertureCommit,
+    payloadSignerWorkflow:
+      "tomismeta/aperture/.github/workflows/aperture-worker-direct-release.yml",
+    buildInfoSignerWorkflow:
+      "tomismeta/aperture/.github/workflows/aperture-worker-direct-release.yml",
+    archiveSignerWorkflow:
+      "tomismeta/aperture/.github/workflows/aperture-worker-direct-release.yml",
+    releaseReportSignerWorkflow:
+      "tomismeta/aperture/.github/workflows/aperture-worker-direct-release.yml",
+  },
   workerBytes: buildInfo.workerBundle.bytes,
   workerSha256: buildInfo.workerBundle.sha256,
   ompBytes: buildInfo.integrations.omp.bytes,

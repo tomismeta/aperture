@@ -18,8 +18,15 @@ export type FocusReplayResult =
   | "rejected"
   | "unknown-failure";
 
+type ReplayRequest = {
+  workerGeneration: string;
+  events: OmpAttentionEvent[];
+};
+
 export class FocusReplaySender {
-  private pending = false;
+  private queued: ReplayRequest | null = null;
+  private draining: Promise<void> | null = null;
+  private controller: AbortController | null = null;
   private active = true;
 
   constructor(
@@ -27,33 +34,54 @@ export class FocusReplaySender {
     private readonly onResult: (result: FocusReplayResult) => void,
   ) {}
 
-  send(events: OmpAttentionEvent[]): void {
+  send(workerGeneration: string, events: OmpAttentionEvent[]): void {
     if (
       !this.active ||
-      this.pending ||
+      !/^[A-Za-z0-9_-]{32}$/.test(workerGeneration) ||
       events.length === 0 ||
       events.length > MAXIMUM_REPLAY_EVENTS
     ) {
       return;
     }
-    this.pending = true;
-    void this.deliver([...events]).finally(() => {
-      this.pending = false;
-    });
+    this.queued = { workerGeneration, events: [...events] };
+    this.draining ??= this.drain();
   }
 
-  close(): void {
-    this.active = false;
+  async close(): Promise<void> {
+    if (this.active) {
+      this.active = false;
+      this.queued = null;
+      this.controller?.abort();
+    }
+    if (this.draining) await this.draining;
   }
 
-  private async deliver(events: OmpAttentionEvent[]): Promise<void> {
+  private async drain(): Promise<void> {
     try {
-      for (const event of events) {
-        await this.direct.send(event, REPLAY_RESPONSE_TIMEOUT_MS);
+      while (this.active && this.queued) {
+        const request = this.queued;
+        this.queued = null;
+        const controller = new AbortController();
+        this.controller = controller;
+        await this.deliver(request, controller.signal);
+        if (this.controller === controller) this.controller = null;
       }
-      if (this.active) this.onResult("succeeded");
+    } finally {
+      this.controller = null;
+      this.draining = null;
+      if (this.active && this.queued) this.draining = this.drain();
+    }
+  }
+
+  private async deliver(request: ReplayRequest, signal: AbortSignal): Promise<void> {
+    try {
+      for (const event of request.events) {
+        if (!this.active || signal.aborted) return;
+        await this.direct.send(event, REPLAY_RESPONSE_TIMEOUT_MS, signal);
+      }
+      if (this.active && !signal.aborted) this.onResult("succeeded");
     } catch (error) {
-      if (this.active) this.onResult(classifyReplayFailure(error));
+      if (this.active && !signal.aborted) this.onResult(classifyReplayFailure(error));
     }
   }
 }

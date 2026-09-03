@@ -1,0 +1,31 @@
+name: Aperture Worker Release Dispatch
+
+on:
+  workflow_run:
+    workflows:
+      - Aperture Worker Artifact
+    types:
+      - completed
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'aperture-worker-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch publisher on the signed tag ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_TAG: ${{ github.event.workflow_run.head_branch }}
+          ARTIFACT_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: >-
+          gh workflow run aperture-worker-direct-release.yml
+          --repo "$GITHUB_REPOSITORY"
+          --ref "$SOURCE_TAG"
+          -f artifact_run_id="$ARTIFACT_RUN_ID"

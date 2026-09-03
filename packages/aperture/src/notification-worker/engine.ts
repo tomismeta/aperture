@@ -18,7 +18,12 @@ import {
   type NotificationWorkerIdentity,
 } from "./adapter.js";
 import type { NotificationClosedInput, NotificationWorkerInput } from "./protocol.js";
-import { mapOmpDirectEvent, type MappedOmpDirectEvent } from "./omp-direct-adapter.js";
+import { mapOmpDirectEvent } from "./omp-direct-adapter.js";
+import {
+  latestOmpDirectRevision,
+  OmpDirectCausalityIndex,
+  persistedOmpDirectEntry,
+} from "./omp-direct-causality.js";
 import {
   emptyOmpDirectState,
   loadOmpDirectState,
@@ -69,6 +74,7 @@ export class NotificationWorkerEngine {
   private readonly displayTitleByTaskId = new Map<string, string>();
   private directState: OmpDirectPersistedState;
   private readonly directByKey = new Map<string, PersistedOmpDirectEntry>();
+  private readonly directCausality = new OmpDirectCausalityIndex();
   private readonly navigationByTaskId = new Map<string, ApertureSurfaceNavigation>();
   private readonly notificationTaskIds = new Set<string>();
   private sequence = 0;
@@ -170,25 +176,48 @@ export class NotificationWorkerEngine {
   ): Promise<void> {
     const mapped = mapOmpDirectEvent(event);
     if (mapped.kind === "shutdown") {
+      const previousShutdown = this.directCausality.session(mapped.sessionId);
+      if (previousShutdown && previousShutdown.occurredAt >= mapped.occurredAt) return;
       const active = this.directState.active.filter(
-        (entry) => entry.sessionId === mapped.sessionId,
+        (entry) =>
+          entry.sessionId === mapped.sessionId &&
+          latestOmpDirectRevision(entry).occurredAt <= mapped.occurredAt,
       );
       for (const entry of active) {
         this.cancelDirect(entry, mapped.eventId, mapped.occurredAt, "OMP session shut down");
       }
-      if (active.length > 0) await this.persistDirect();
+      this.directCausality.remember(this.directState, {
+        kind: "session",
+        sessionId: mapped.sessionId,
+        eventId: mapped.eventId,
+        occurredAt: mapped.occurredAt,
+      });
+      await this.persistDirect();
       return;
     }
 
     const previous = this.directByKey.get(mapped.key);
     if (mapped.kind === "resolve") {
-      if (!previous) return;
-      this.cancelDirect(previous, mapped.eventId, mapped.occurredAt, "OMP request resolved");
+      const previousResolution = this.directCausality.interaction(mapped.key);
+      if (previousResolution && previousResolution.occurredAt >= mapped.occurredAt) return;
+      if (previous && latestOmpDirectRevision(previous).occurredAt <= mapped.occurredAt) {
+        this.cancelDirect(previous, mapped.eventId, mapped.occurredAt, "OMP request resolved");
+      }
+      this.directCausality.remember(this.directState, {
+        kind: "interaction",
+        key: mapped.key,
+        eventId: mapped.eventId,
+        occurredAt: mapped.occurredAt,
+      });
       await this.persistDirect();
       return;
     }
 
-    const previousRevision = previous ? latestDirectRevision(previous) : undefined;
+    const sessionShutdown = this.directCausality.session(mapped.sessionId);
+    if (sessionShutdown && sessionShutdown.occurredAt >= mapped.occurredAt) return;
+    const interactionResolution = this.directCausality.interaction(mapped.key);
+    if (interactionResolution && interactionResolution.occurredAt >= mapped.occurredAt) return;
+    const previousRevision = previous ? latestOmpDirectRevision(previous) : undefined;
     if (
       previousRevision &&
       previousRevision.displayTitle === mapped.displayTitle &&
@@ -197,10 +226,11 @@ export class NotificationWorkerEngine {
       this.setDirectNavigation(mapped.taskId, navigation);
       return;
     }
+    if (previousRevision && previousRevision.occurredAt > mapped.occurredAt) return;
 
     this.setClock(mapped.occurredAt);
     this.core.publishSourceEvent(mapped.sourceEvent);
-    const active = persistedDirect(mapped, previous);
+    const active = persistedOmpDirectEntry(mapped, previous);
     const index = this.directState.active.findIndex((entry) => entry.key === mapped.key);
     if (index === -1) this.directState.active.push(active);
     else this.directState.active[index] = active;
@@ -270,9 +300,7 @@ export class NotificationWorkerEngine {
     this.core = this.createCore();
     this.activeByKey.clear();
     this.directByKey.clear();
-    this.displayTitleByTaskId.clear();
-    this.navigationByTaskId.clear();
-    this.notificationTaskIds.clear();
+    this.directCausality.rebuild(this.directState.tombstones);
     const replay = [
       ...this.state.active.flatMap((entry) =>
         entry.revisions.map((revision, index) => ({
@@ -341,6 +369,7 @@ export class NotificationWorkerEngine {
     const volatileNavigation = new Map(this.navigationByTaskId);
     this.activeByKey.clear();
     this.directByKey.clear();
+    this.directCausality.rebuild(this.directState.tombstones);
     this.displayTitleByTaskId.clear();
     this.navigationByTaskId.clear();
     this.notificationTaskIds.clear();
@@ -351,7 +380,7 @@ export class NotificationWorkerEngine {
     }
     for (const active of this.directState.active) {
       this.directByKey.set(active.key, active);
-      this.displayTitleByTaskId.set(active.taskId, latestDirectRevision(active).displayTitle);
+      this.displayTitleByTaskId.set(active.taskId, latestOmpDirectRevision(active).displayTitle);
       const navigation = volatileNavigation.get(active.taskId);
       if (navigation) this.navigationByTaskId.set(active.taskId, navigation);
     }
@@ -392,32 +421,6 @@ function persistedActive(
     interactionId: mapped.interactionId,
     revisions: [...(previous?.revisions ?? []), revision],
   };
-}
-
-function persistedDirect(
-  mapped: Extract<MappedOmpDirectEvent, { kind: "upsert" }>,
-  previous: PersistedOmpDirectEntry | undefined,
-): PersistedOmpDirectEntry {
-  return {
-    key: mapped.key,
-    taskId: mapped.taskId,
-    interactionId: mapped.interactionId,
-    sessionId: mapped.sessionId,
-    revisions: [
-      ...(previous?.revisions ?? []),
-      {
-        occurredAt: mapped.occurredAt,
-        displayTitle: mapped.displayTitle,
-        sourceEvent: mapped.sourceEvent,
-      },
-    ],
-  };
-}
-
-function latestDirectRevision(active: PersistedOmpDirectEntry) {
-  const revision = active.revisions.at(-1);
-  if (!revision) throw new Error("OMP direct active state has no revision");
-  return revision;
 }
 
 function latestRevision(active: PersistedActiveNotification): PersistedNotificationRevision {

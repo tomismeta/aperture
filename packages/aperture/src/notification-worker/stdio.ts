@@ -87,8 +87,8 @@ export async function runNotificationWorkerStdio(
       view: snapshot.view,
     });
     if (fingerprint === lastProjection) return;
-    lastProjection = fingerprint;
     await write(snapshot);
+    lastProjection = fingerprint;
   };
   const focusCoordinator = new FocusCoordinator({
     ...(options.now ? { now: options.now } : {}),
@@ -131,11 +131,12 @@ export async function runNotificationWorkerStdio(
             } catch {
               throw new Error("Aperture attention engine failed");
             }
-            if (signal.aborted) throw new Error("Aperture attention operation was cancelled");
             try {
               await emitSnapshot();
             } catch {
-              throw new Error("Aperture attention snapshot failed");
+              diagnostic.write(
+                "Aperture committed direct attention but could not emit its snapshot\n",
+              );
             }
           });
         },

@@ -1,11 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { chmod, lstat, mkdir, open, readFile, readdir, rename, rm } from "node:fs/promises";
 import path from "node:path";
+import type { SourceEvent } from "@tomismeta/aperture-core";
 
-import { type SourceEvent } from "@tomismeta/aperture-core";
-import { assertValidSourceEvent } from "@tomismeta/aperture-core/internal";
-
-import { assertOmpAttentionDisplayText, assertOmpSessionId } from "../omp-attention-event.js";
+import { assertOmpDirectState, decodeOmpDirectState } from "./omp-direct-state-validation.js";
+export { migrateOmpDirectStateV1, migrateOmpDirectStateV2 } from "./omp-direct-state-validation.js";
 
 const STATE_FILE_NAME = "omp-direct-state.json";
 const MAXIMUM_AGE_MS = 24 * 60 * 60 * 1000;
@@ -25,10 +24,24 @@ export type PersistedOmpDirectEntry = {
   sessionId: string;
   revisions: PersistedOmpDirectRevision[];
 };
+export type PersistedOmpDirectTombstone =
+  | {
+      kind: "interaction";
+      key: string;
+      eventId: string;
+      occurredAt: string;
+    }
+  | {
+      kind: "session";
+      sessionId: string;
+      eventId: string;
+      occurredAt: string;
+    };
 
 export type OmpDirectPersistedState = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   active: PersistedOmpDirectEntry[];
+  tombstones: PersistedOmpDirectTombstone[];
 };
 
 export type OmpDirectStateLoad = {
@@ -37,7 +50,7 @@ export type OmpDirectStateLoad = {
 };
 
 export function emptyOmpDirectState(): OmpDirectPersistedState {
-  return { schemaVersion: 2, active: [] };
+  return { schemaVersion: 3, active: [], tombstones: [] };
 }
 
 export async function loadOmpDirectState(
@@ -97,7 +110,10 @@ export async function saveOmpDirectState(
 }
 
 export function ompDirectRecordCount(state: OmpDirectPersistedState): number {
-  return state.active.reduce((total, entry) => total + entry.revisions.length, 0);
+  return (
+    state.tombstones.length +
+    state.active.reduce((total, entry) => total + entry.revisions.length, 0)
+  );
 }
 
 export function pruneOmpDirectState(
@@ -111,209 +127,67 @@ export function pruneOmpDirectState(
       revisions: entry.revisions.filter((revision) => Date.parse(revision.occurredAt) >= cutoff),
     }))
     .filter((entry) => entry.revisions.length > 0);
-  while (active.reduce((total, entry) => total + entry.revisions.length, 0) > MAXIMUM_RECORDS) {
-    removeOldest(active);
+  const tombstones = state.tombstones.filter(
+    (tombstone) => Date.parse(tombstone.occurredAt) >= cutoff,
+  );
+  while (recordCount(active, tombstones) > MAXIMUM_RECORDS) {
+    removeOldest(active, tombstones);
   }
-  return { schemaVersion: 2, active };
+  return { schemaVersion: 3, active, tombstones };
 }
 
 function fitStateToBounds(state: OmpDirectPersistedState): OmpDirectPersistedState {
   const active = state.active.map((entry) => ({ ...entry, revisions: [...entry.revisions] }));
+  const tombstones = state.tombstones.map((tombstone) => ({ ...tombstone }));
   while (
-    Buffer.byteLength(`${JSON.stringify({ schemaVersion: 2, active })}\n`, "utf8") > MAXIMUM_BYTES
+    Buffer.byteLength(`${JSON.stringify({ schemaVersion: 3, active, tombstones })}\n`, "utf8") >
+    MAXIMUM_BYTES
   ) {
-    if (!removeOldest(active)) throw new Error("OMP direct state cannot fit within the byte limit");
+    if (!removeOldest(active, tombstones)) {
+      throw new Error("OMP direct state cannot fit within the byte limit");
+    }
   }
-  return { schemaVersion: 2, active };
+  return { schemaVersion: 3, active, tombstones };
 }
 
-function removeOldest(active: PersistedOmpDirectEntry[]): boolean {
-  let oldestIndex = -1;
+function recordCount(
+  active: PersistedOmpDirectEntry[],
+  tombstones: PersistedOmpDirectTombstone[],
+): number {
+  return tombstones.length + active.reduce((total, entry) => total + entry.revisions.length, 0);
+}
+
+function removeOldest(
+  active: PersistedOmpDirectEntry[],
+  tombstones: PersistedOmpDirectTombstone[],
+): boolean {
+  let oldestActiveIndex = -1;
   let oldestTimestamp: string | undefined;
   for (let index = 0; index < active.length; index += 1) {
     const timestamp = active[index]?.revisions[0]?.occurredAt;
     if (timestamp !== undefined && (oldestTimestamp === undefined || timestamp < oldestTimestamp)) {
       oldestTimestamp = timestamp;
-      oldestIndex = index;
+      oldestActiveIndex = index;
     }
   }
-  if (oldestIndex === -1) return false;
-  const revisions = active[oldestIndex]!.revisions;
+  let oldestTombstoneIndex = -1;
+  for (let index = 0; index < tombstones.length; index += 1) {
+    const timestamp = tombstones[index]!.occurredAt;
+    if (oldestTimestamp === undefined || timestamp < oldestTimestamp) {
+      oldestTimestamp = timestamp;
+      oldestActiveIndex = -1;
+      oldestTombstoneIndex = index;
+    }
+  }
+  if (oldestTombstoneIndex !== -1) {
+    tombstones.splice(oldestTombstoneIndex, 1);
+    return true;
+  }
+  if (oldestActiveIndex === -1) return false;
+  const revisions = active[oldestActiveIndex]!.revisions;
   revisions.shift();
-  if (revisions.length === 0) active.splice(oldestIndex, 1);
+  if (revisions.length === 0) active.splice(oldestActiveIndex, 1);
   return true;
-}
-
-export function migrateOmpDirectStateV1(value: unknown): OmpDirectPersistedState {
-  const state = asRecord(value, "OMP direct state");
-  assertExactKeys(state, ["schemaVersion", "active"], "OMP direct state");
-  if (state.schemaVersion !== 1 || !Array.isArray(state.active)) {
-    throw new Error("OMP direct v1 state schema is unsupported");
-  }
-  const active = state.active.map((rawEntry) => {
-    const entry = asRecord(rawEntry, "OMP direct v1 active entry");
-    assertExactKeys(
-      entry,
-      ["key", "taskId", "interactionId", "navigation", "revisions"],
-      "OMP direct v1 active entry",
-    );
-    const navigation = asRecord(entry.navigation, "OMP direct v1 navigation");
-    assertExactKeys(navigation, ["kind", "sessionId"], "OMP direct v1 navigation");
-    if (navigation.kind !== "omp-session") {
-      throw new Error("OMP direct v1 navigation kind is invalid");
-    }
-    const migrated: PersistedOmpDirectEntry = {
-      key: storedText(entry.key, 160, "OMP direct key"),
-      taskId: storedText(entry.taskId, 160, "OMP direct taskId"),
-      interactionId: storedText(entry.interactionId, 160, "OMP direct interactionId"),
-      sessionId: assertOmpSessionId(navigation.sessionId),
-      revisions: Array.isArray(entry.revisions)
-        ? (entry.revisions as PersistedOmpDirectRevision[])
-        : [],
-    };
-    assertOmpDirectEntry(migrated);
-    return migrated;
-  });
-  return { schemaVersion: 2, active };
-}
-
-function decodeOmpDirectState(value: unknown): {
-  state: OmpDirectPersistedState;
-  migrated: boolean;
-} {
-  const record = asRecord(value, "OMP direct state");
-  if (record.schemaVersion === 1) {
-    return { state: migrateOmpDirectStateV1(value), migrated: true };
-  }
-  return { state: assertOmpDirectState(value), migrated: false };
-}
-
-function assertOmpDirectState(value: unknown): OmpDirectPersistedState {
-  const state = asRecord(value, "OMP direct state");
-  assertExactKeys(state, ["schemaVersion", "active"], "OMP direct state");
-  if (state.schemaVersion !== 2 || !Array.isArray(state.active)) {
-    throw new Error("OMP direct state schema is unsupported");
-  }
-  for (const entry of state.active) assertOmpDirectEntry(entry);
-  return value as OmpDirectPersistedState;
-}
-
-function assertOmpDirectEntry(value: unknown): void {
-  const entry = asRecord(value, "OMP direct active entry");
-  assertExactKeys(
-    entry,
-    ["key", "taskId", "interactionId", "sessionId", "revisions"],
-    "OMP direct active entry",
-  );
-  storedText(entry.key, 160, "OMP direct key");
-  const taskId = storedText(entry.taskId, 160, "OMP direct taskId");
-  const interactionId = storedText(entry.interactionId, 160, "OMP direct interactionId");
-  const sessionId = assertOmpSessionId(entry.sessionId);
-  if (!Array.isArray(entry.revisions) || entry.revisions.length === 0) {
-    throw new Error("OMP direct revisions are invalid");
-  }
-  let previousTimestamp = "";
-  for (const revision of entry.revisions) {
-    const timestamp = assertOmpDirectRevision(revision, taskId, interactionId, sessionId);
-    if (previousTimestamp && timestamp < previousTimestamp) {
-      throw new Error("OMP direct revisions are out of order");
-    }
-    previousTimestamp = timestamp;
-  }
-}
-
-function assertOmpDirectRevision(
-  value: unknown,
-  taskId: string,
-  interactionId: string,
-  sessionId: string,
-): string {
-  const revision = asRecord(value, "OMP direct revision");
-  assertExactKeys(revision, ["occurredAt", "displayTitle", "sourceEvent"], "OMP direct revision");
-  const occurredAt = storedTimestamp(revision.occurredAt, "OMP direct occurrence");
-  assertOmpAttentionDisplayText(revision.displayTitle, 160, "persisted display title");
-  const sourceEventRecord = asRecord(revision.sourceEvent, "OMP direct source event");
-  assertDirectSourceEventFields(sourceEventRecord);
-  const sourceEvent = revision.sourceEvent as SourceEvent;
-  assertValidSourceEvent(sourceEvent);
-  if (sourceEvent.taskId !== taskId || sourceEvent.timestamp !== occurredAt) {
-    throw new Error("OMP direct source event identity is invalid");
-  }
-  if (sourceEvent.type === "human.input.requested" && sourceEvent.interactionId !== interactionId) {
-    throw new Error("OMP direct interaction identity is invalid");
-  }
-  const source = asRecord(sourceEvent.source, "OMP direct source");
-  assertExactKeys(source, ["id", "kind", "label"], "OMP direct source");
-  if (source.kind !== "omp" || source.label !== "OMP") {
-    throw new Error("OMP direct source is invalid");
-  }
-  const metadata = asRecord(sourceEvent.metadata, "OMP direct metadata");
-  assertExactKeys(metadata, ["ompDirect"], "OMP direct metadata");
-  const direct = asRecord(metadata.ompDirect, "OMP direct metadata facts");
-  assertExactKeys(direct, ["classification", "sessionId"], "OMP direct metadata facts");
-  if (direct.sessionId !== sessionId || typeof direct.classification !== "string") {
-    throw new Error("OMP direct metadata identity is invalid");
-  }
-  if ("title" in sourceEvent) {
-    assertOmpAttentionDisplayText(sourceEvent.title, 160, "persisted event title");
-  }
-  if ("summary" in sourceEvent && sourceEvent.summary !== undefined) {
-    assertOmpAttentionDisplayText(sourceEvent.summary, 320, "persisted event summary");
-  }
-  return occurredAt;
-}
-
-function assertDirectSourceEventFields(event: Record<string, unknown>): void {
-  switch (event.type) {
-    case "human.input.requested":
-      assertExactKeys(
-        event,
-        [
-          "id",
-          "taskId",
-          "timestamp",
-          "source",
-          "metadata",
-          "type",
-          "interactionId",
-          "activityClass",
-          "title",
-          "summary",
-          "request",
-          "riskHint",
-        ],
-        "OMP direct human input event",
-      );
-      return;
-    case "task.updated":
-      assertExactKeys(
-        event,
-        [
-          "id",
-          "taskId",
-          "timestamp",
-          "source",
-          "metadata",
-          "type",
-          "title",
-          "summary",
-          "status",
-          "activityClass",
-          "semanticHints",
-        ],
-        "OMP direct task update",
-      );
-      return;
-    case "task.completed":
-      assertExactKeys(
-        event,
-        ["id", "taskId", "timestamp", "source", "metadata", "type", "summary"],
-        "OMP direct task completion",
-      );
-      return;
-    default:
-      throw new Error("OMP direct source event type is invalid");
-  }
 }
 
 async function recoverInvalidState(statePath: string): Promise<OmpDirectStateLoad> {
@@ -333,35 +207,6 @@ async function removeStaleTemporaryFiles(rootDir: string): Promise<void> {
       .filter((entry) => /^\.omp-direct-state-[0-9a-f-]+\.tmp$/i.test(entry))
       .map((entry) => rm(path.join(rootDir, entry), { force: true })),
   );
-}
-
-function asRecord(value: unknown, label: string): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} must be an object`);
-  }
-  return value as Record<string, unknown>;
-}
-
-function assertExactKeys(value: Record<string, unknown>, keys: string[], label: string): void {
-  const actual = Object.keys(value).sort();
-  const expected = [...keys].sort();
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(`${label} fields are invalid`);
-  }
-}
-
-function storedText(value: unknown, maximum: number, label: string): string {
-  if (typeof value !== "string" || !value.trim() || /[\u0000-\u001f\u007f]/.test(value)) {
-    throw new Error(`${label} is invalid`);
-  }
-  if (Array.from(value).length > maximum) throw new Error(`${label} exceeded its limit`);
-  return value;
-}
-
-function storedTimestamp(value: unknown, label: string): string {
-  const timestamp = storedText(value, 64, label);
-  if (Number.isNaN(Date.parse(timestamp))) throw new Error(`${label} is invalid`);
-  return timestamp;
 }
 
 function isMissing(error: unknown): boolean {

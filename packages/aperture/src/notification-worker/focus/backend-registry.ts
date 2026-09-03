@@ -8,6 +8,7 @@ import type {
   FocusBackendRegistry,
   FocusLease,
   FocusMember,
+  KnownFocusSurface,
   PreparedDirectTerminalTarget,
   PreparedFocusTarget,
   PreparedHerdrTarget,
@@ -65,22 +66,22 @@ export class ClosedFocusBackendRegistry {
 
   async acquire(
     prepared: PreparedFocusTarget,
-    knownMarkerTitles: ReadonlySet<string>,
+    knownSurfaces: readonly KnownFocusSurface[],
     randomToken: () => string,
     signal: AbortSignal,
   ): Promise<FocusLease> {
     switch (prepared.kind) {
       case "herdr":
-        return this.backends.herdr.acquire(prepared, knownMarkerTitles, randomToken, signal);
+        return this.backends.herdr.acquire(prepared, knownSurfaces, randomToken, signal);
       case "direct-terminal":
         return this.backends["direct-terminal"].acquire(
           prepared,
-          knownMarkerTitles,
+          knownSurfaces,
           randomToken,
           signal,
         );
       case "tmux":
-        return this.backends.tmux.acquire(prepared, knownMarkerTitles, randomToken, signal);
+        return this.backends.tmux.acquire(prepared, knownSurfaces, randomToken, signal);
     }
   }
 

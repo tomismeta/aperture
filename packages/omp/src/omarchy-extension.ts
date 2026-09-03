@@ -81,8 +81,9 @@ export function createApertureOmarchyOmpExtension(
               transport: direct,
               ...focusHostOptions,
               ...(capabilities.terminalTitle ? { terminalTitle: capabilities.terminalTitle } : {}),
-              onRegistered: (publicHandle) => {
+              onRegistered: (publicHandle, workerGeneration) => {
                 transport.replayFocus(
+                  workerGeneration,
                   [...focusReplayCache.values()].map((cached) => ({
                     ...cached,
                     focus: { kind: "opaque-focus", handle: publicHandle },

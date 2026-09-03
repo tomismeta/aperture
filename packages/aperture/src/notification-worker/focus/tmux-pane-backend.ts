@@ -16,6 +16,7 @@ import {
 import {
   type FocusBackend,
   type FocusMember,
+  type KnownFocusSurface,
   type PreparedTmuxTarget,
   type TmuxPaneLease,
   paneMember,
@@ -74,7 +75,7 @@ export class TmuxPaneBackend implements FocusBackend<"tmux"> {
 
   async acquire(
     prepared: PreparedTmuxTarget,
-    knownMarkerTitles: ReadonlySet<string>,
+    knownSurfaces: readonly KnownFocusSurface[],
     randomToken: () => string,
     signal: AbortSignal,
   ): Promise<TmuxPaneLease> {
@@ -107,7 +108,7 @@ export class TmuxPaneBackend implements FocusBackend<"tmux"> {
 
     await this.surfaceController.assertNoUnknownMarkers(
       prepared.hyprlandInstance,
-      knownMarkerTitles,
+      knownSurfaces,
       signal,
     );
     const marker = randomToken();

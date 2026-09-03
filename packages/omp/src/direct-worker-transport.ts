@@ -1,28 +1,35 @@
 import { createConnection } from "node:net";
 
-import {
-  directMessageRequestId,
-  parseWorkerDirectAcknowledgement,
-  serializeWorkerDirectMessage,
-  WorkerDirectRejectedError,
-  type FocusRegistration,
-  type FocusRegistrationResult,
-  type FocusRevocation,
-  type WorkerDirectAcknowledgement,
-  type WorkerDirectMessage,
+import type {
+  FocusRegistration,
+  FocusRegistrationResult,
+  FocusRevocation,
+  WorkerDirectAcknowledgement,
+  WorkerDirectMessage,
 } from "@tomismeta/aperture/worker-direct-message";
 import { resolveOmpAttentionSocketPath } from "@tomismeta/aperture/omp-attention-event";
+import {
+  OmpDirectDeliveryError,
+  probeDirectWorkerSocket,
+  sendDirectWorkerMessage,
+  type DirectSocketConnector,
+} from "./direct-worker-socket.js";
 import { focusRegistrationResult } from "./focus-registration-response.js";
 
+export {
+  OmpDirectDeliveryError,
+  ompDirectDeliveryDisposition,
+  type OmpDirectDeliveryDisposition,
+} from "./direct-worker-socket.js";
+
 const CONNECT_TIMEOUT_MS = 75;
-const RESPONSE_TIMEOUT_MS = 200;
+const RESPONSE_TIMEOUT_MS = 1_000;
 const FOCUS_REGISTRATION_RESPONSE_TIMEOUT_MS = 2_000;
-const MAXIMUM_RESPONSE_BYTES = 4 * 1024;
 
 export type OmpDirectWorkerTransportOptions = {
   socketPath?: string;
   environment?: NodeJS.ProcessEnv;
-  connect?: typeof createConnection;
+  connect?: DirectSocketConnector;
   connectTimeoutMs?: number;
   responseTimeoutMs?: number;
   focusRegistrationResponseTimeoutMs?: number;
@@ -30,7 +37,7 @@ export type OmpDirectWorkerTransportOptions = {
 
 export class OmpDirectWorkerTransport {
   private readonly socketPath: string | undefined;
-  private readonly connect: typeof createConnection;
+  private readonly connect: DirectSocketConnector;
   private readonly connectTimeoutMs: number;
   private readonly responseTimeoutMs: number;
   private readonly focusRegistrationResponseTimeoutMs: number;
@@ -47,107 +54,27 @@ export class OmpDirectWorkerTransport {
 
   async isAvailable(): Promise<boolean> {
     if (!this.socketPath) return false;
-    return new Promise<boolean>((resolve) => {
-      const socket = this.connect({ path: this.socketPath! });
-      const timeout = setTimeout(() => finish(false), this.connectTimeoutMs);
-      const finish = (available: boolean): void => {
-        clearTimeout(timeout);
-        socket.removeAllListeners();
-        socket.destroy();
-        resolve(available);
-      };
-      socket.once("connect", () => finish(true));
-      socket.once("error", () => finish(false));
-    });
+    return probeDirectWorkerSocket(this.socketPath, this.connect, this.connectTimeoutMs);
   }
 
   async send(
     message: WorkerDirectMessage,
     responseTimeoutMs = this.responseTimeoutMs,
+    signal?: AbortSignal,
   ): Promise<WorkerDirectAcknowledgement> {
-    if (!this.socketPath) throw new Error("Aperture worker socket is unavailable");
-    const line = serializeWorkerDirectMessage(message);
-    const requestId = directMessageRequestId(message);
-    return new Promise<WorkerDirectAcknowledgement>((resolve, reject) => {
-      const socket = this.connect({ path: this.socketPath! });
-      let settled = false;
-      let response = Buffer.alloc(0);
-      let responseTimer: NodeJS.Timeout | undefined;
-      const connectTimer = setTimeout(
-        () => finish(undefined, new Error("Aperture worker socket connection timed out")),
-        this.connectTimeoutMs,
+    if (!this.socketPath) {
+      throw new OmpDirectDeliveryError(
+        "definitely-not-accepted",
+        "Aperture worker socket is unavailable",
       );
-
-      const finish = (acknowledgement?: WorkerDirectAcknowledgement, error?: Error): void => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(connectTimer);
-        clearTimeout(responseTimer);
-        socket.removeAllListeners();
-        socket.destroy();
-        if (error) reject(error);
-        else if (acknowledgement) resolve(acknowledgement);
-        else reject(new Error("Aperture worker acknowledgement was missing"));
-      };
-
-      socket.once("connect", () => {
-        clearTimeout(connectTimer);
-        responseTimer = setTimeout(
-          () => finish(undefined, new Error("Aperture worker socket response timed out")),
-          responseTimeoutMs,
-        );
-        socket.write(line, "utf8", (error) => {
-          if (error) finish(undefined, new Error("Aperture worker socket write failed"));
-        });
-      });
-      socket.on("data", (chunk: Buffer) => {
-        if (response.byteLength + chunk.byteLength > MAXIMUM_RESPONSE_BYTES) {
-          finish(undefined, new Error("Aperture worker socket response exceeded the byte limit"));
-          return;
-        }
-        response = Buffer.concat([response, chunk]);
-        const newline = response.indexOf(0x0a);
-        if (newline === -1) return;
-        try {
-          const acknowledgement = parseWorkerDirectAcknowledgement(
-            response.subarray(0, newline).toString("utf8"),
-          );
-          if (acknowledgement.requestId !== requestId) {
-            finish(undefined, new Error("Aperture worker acknowledgement identity mismatch"));
-            return;
-          }
-          if (acknowledgement.status === "rejected") {
-            finish(undefined, new WorkerDirectRejectedError(acknowledgement.code));
-            return;
-          }
-          finish(acknowledgement);
-        } catch (error) {
-          if (error instanceof WorkerDirectRejectedError) {
-            finish(undefined, error);
-            return;
-          }
-          try {
-            const rejected = JSON.parse(response.subarray(0, newline).toString("utf8")) as {
-              status?: unknown;
-            };
-            if (rejected.status === "rejected") {
-              finish(undefined, new Error("Aperture worker rejected direct message"));
-              return;
-            }
-          } catch {
-            // The bounded response remains classified without exposing its content.
-          }
-          finish(undefined, new Error("Aperture worker acknowledgement was invalid"));
-        }
-      });
-      socket.once("error", () =>
-        finish(undefined, new Error("Aperture worker socket delivery failed")),
-      );
-      socket.once("close", () => {
-        if (!settled) {
-          finish(undefined, new Error("Aperture worker socket closed before acknowledgement"));
-        }
-      });
+    }
+    return sendDirectWorkerMessage({
+      socketPath: this.socketPath,
+      connect: this.connect,
+      connectTimeoutMs: this.connectTimeoutMs,
+      responseTimeoutMs,
+      message,
+      ...(signal ? { signal } : {}),
     });
   }
 

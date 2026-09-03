@@ -65,6 +65,12 @@ export type TmuxPaneLease = BaseFocusLease & {
 };
 
 export type FocusLease = HerdrPaneLease | DirectTerminalLease | TmuxPaneLease;
+export type KnownFocusSurface = {
+  backend: FocusLease["kind"];
+  leaseKey: string;
+  epoch: string;
+  surface: FootSurface;
+};
 
 export type FocusRegistrationRecord = {
   publicHandle: string;
@@ -125,7 +131,7 @@ export interface FocusBackend<K extends FocusTarget["kind"]> {
   ): Promise<PreparedFor<K>>;
   acquire(
     prepared: PreparedFor<K>,
-    knownMarkerTitles: ReadonlySet<string>,
+    knownSurfaces: readonly KnownFocusSurface[],
     randomToken: () => string,
     signal: AbortSignal,
   ): Promise<LeaseFor<K>>;

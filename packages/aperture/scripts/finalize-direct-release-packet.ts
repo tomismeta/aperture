@@ -144,10 +144,35 @@ async function validateMetadata(
   assert(workerContract.surfaceProtocolVersion === 3, "invalid surface protocol version");
   assert(workerContract.ompAttentionEventSchemaVersion === 2, "invalid OMP event schema");
   assert(workerContract.workerDirectProtocolVersion === 4, "invalid worker direct protocol");
+  const stateMigration = record(buildInfo.stateMigration, "missing state migration policy");
+  const directMigration = record(stateMigration.ompDirect, "missing direct state migration");
+  assert(
+    JSON.stringify(directMigration.fromSchemaVersions) === JSON.stringify([1, 2]) &&
+      directMigration.toSchemaVersion === 3,
+    "invalid direct state migration",
+  );
+  assert(
+    JSON.stringify(directMigration.causalTombstones) ===
+      JSON.stringify(["interaction-resolution", "session-shutdown"]),
+    "invalid direct causal tombstones",
+  );
   const focusCoordinator = record(buildInfo.focusCoordinator, "missing focus coordinator policy");
   assert(focusCoordinator.registrationTtlMs === 15_000, "invalid registration TTL");
   assert(focusCoordinator.shutdownTimeoutMs === 3_000, "invalid focus shutdown bound");
   assert(focusCoordinator.maximumDirectClients === 32, "invalid direct client cap");
+  assert(
+    focusCoordinator.attentionAcknowledgementTimeoutMs === 1_000,
+    "invalid attention acknowledgement bound",
+  );
+  assert(focusCoordinator.maximumDirectReceipts === 1_024, "invalid direct receipt cap");
+  assert(
+    focusCoordinator.maximumAmbiguousDeliveryAttempts === 3,
+    "invalid ambiguous delivery retry cap",
+  );
+  assert(
+    focusCoordinator.nativeFallbackPolicy === "definite-pre-write-only",
+    "invalid native fallback policy",
+  );
   assert(focusCoordinator.maximumQueuedFocusOperations === 64, "invalid focus operation cap");
   assert(focusCoordinator.maximumActiveRegistrations === 128, "invalid focus registration cap");
   assert(focusCoordinator.maximumLeaseMembers === 32, "invalid lease-member cap");
@@ -165,8 +190,12 @@ async function validateMetadata(
     "invalid focus replay concurrency cap",
   );
   assert(
-    focusCoordinator.titleOwnership === "backend-cas-host-recovery-generation-fenced",
+    focusCoordinator.titleOwnership === "tmux-cas-herdr-retain-no-conditional-clear",
     "invalid focus ownership policy",
+  );
+  assert(
+    focusCoordinator.herdrTitleRelease === "retained-no-conditional-clear",
+    "invalid Herdr title release policy",
   );
   assert(
     focusCoordinator.workerGeneration === "volatile-per-worker",

@@ -309,6 +309,75 @@ test("direct OMP events produce canonical NOW and NEXT with replayable navigatio
   assert.deepEqual(shutdown.view.next, []);
   assert.equal(JSON.stringify(shutdown).includes(sessionId), false);
 });
+test("resolution and shutdown tombstones dominate delayed replay", async () => {
+  for (const family of ["approval", "input"] as const) {
+    const root = await mkdtemp(path.join(os.tmpdir(), `aperture-omp-${family}-causal-`));
+    const resolutionTime = "2026-09-01T16:00:01.000Z";
+    const request = directEvent({
+      eventId: `${family}-request`,
+      interactionId: `${family}-interaction`,
+      classification: family === "approval" ? "approval_requested" : "input_requested",
+      transition: "requested",
+      title: `OMP needs ${family}`,
+    });
+    const resolution = directEvent({
+      eventId: `${family}-resolution`,
+      occurredAt: resolutionTime,
+      interactionId: `${family}-interaction`,
+      classification: family === "approval" ? "approval_resolved" : "input_resolved",
+      transition: "resolved",
+      title: `OMP resolved ${family}`,
+      focus: undefined,
+    });
+    const restored = await NotificationWorkerEngine.restore({
+      identities: [identity],
+      stateDir: root,
+      now: () => Date.parse(resolutionTime),
+    });
+    await restored.engine.handleOmpAttention(resolution);
+    await restored.engine.handleOmpAttention(request, {
+      kind: "opaque-focus",
+      handle: focusHandle,
+    });
+    assert.equal(restored.engine.snapshot().view.now, null);
+    assert.deepEqual(restored.engine.snapshot().view.next, []);
+
+    const replayed = await NotificationWorkerEngine.restore({
+      identities: [identity],
+      stateDir: root,
+      now: () => Date.parse(resolutionTime),
+    });
+    await replayed.engine.handleOmpAttention(request, {
+      kind: "opaque-focus",
+      handle: focusHandle,
+    });
+    assert.equal(replayed.engine.snapshot().view.now, null);
+    assert.deepEqual(replayed.engine.snapshot().view.next, []);
+  }
+
+  const shutdownRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-shutdown-causal-"));
+  const shutdownTime = "2026-09-01T16:00:03.000Z";
+  const shutdown = directEvent({
+    eventId: "session-shutdown",
+    occurredAt: shutdownTime,
+    classification: "session_shutdown",
+    transition: "shutdown",
+    focus: undefined,
+  });
+  const shutdownEngine = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: shutdownRoot,
+    now: () => Date.parse(shutdownTime),
+  });
+  await shutdownEngine.engine.handleOmpAttention(shutdown);
+  await shutdownEngine.engine.handleOmpAttention(directEvent(), {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
+  assert.equal(shutdownEngine.engine.snapshot().view.now, null);
+  assert.deepEqual(shutdownEngine.engine.snapshot().view.next, []);
+});
+
 test("direct navigation expires with bounded private persisted state", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-direct-expiry-"));
   let now = Date.parse(occurredAt);
@@ -354,7 +423,7 @@ test("notification fallback remains Ambient and cannot manufacture navigation", 
   assert.equal(snapshot.view.ambient[0]?.navigation, undefined);
 });
 
-test("v1 direct state migrates atomically to non-navigable v2 and rejects rollback", async () => {
+test("v1 direct state migrates atomically to causal v3 and rejects rollback", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-v1-migration-"));
   const original = await NotificationWorkerEngine.restore({
     identities: [identity],
@@ -384,7 +453,7 @@ test("v1 direct state migrates atomically to non-navigable v2 and rejects rollba
   assert.equal(migrated.engine.snapshot().view.now?.title, directEvent().title);
   assert.equal(migrated.engine.snapshot().view.now?.navigation, undefined);
   const canonical = await readFile(statePath, "utf8");
-  assert.match(canonical, /\"schemaVersion\":2/);
+  assert.match(canonical, /"schemaVersion":3/);
   assert.doesNotMatch(canonical, /navigation|focusHandle|marker|socketPath|compositor/);
   assert.equal((await stat(statePath)).mode & 0o777, 0o600);
 
@@ -394,7 +463,10 @@ test("v1 direct state migrates atomically to non-navigable v2 and rejects rollba
     now: () => Date.parse(occurredAt),
   });
   assert.equal(await readFile(statePath, "utf8"), canonical);
-  assert.throws(() => migrateOmpDirectStateV1(JSON.parse(canonical)), /v1 state schema/);
+  assert.throws(
+    () => migrateOmpDirectStateV1(JSON.parse(canonical)),
+    /state fields|v1 state schema/,
+  );
 
   const malformed = {
     ...v1,
@@ -533,9 +605,150 @@ test("direct server rejects client cap plus one and closes bounded state", async
   overflow.on("error", () => undefined);
   await once(overflow, "close");
   assert.equal(held.destroyed, false);
+  const heldClosed = once(held, "close");
   await server.close();
+  await heldClosed;
   assert.equal(held.destroyed, true);
   await assert.rejects(() => lstat(socketPath), /ENOENT/);
+});
+
+test("read timeout rejection is terminal for a half-open client", async () => {
+  const runtimeRoot = await mkdtemp("/tmp/ap-direct-read-timeout-");
+  const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
+  let handlerCalls = 0;
+  const server = await startOmpAttentionSocketServer({
+    socketPath,
+    handleAttention: async () => {
+      handlerCalls += 1;
+    },
+    registerFocus: async () => {
+      handlerCalls += 1;
+      return undefined;
+    },
+    revokeFocus: async () => {
+      handlerCalls += 1;
+    },
+  });
+  const client = createConnection({ path: socketPath, allowHalfOpen: true });
+  client.on("error", () => undefined);
+  const connected = once(client, "connect");
+  const response = once(client, "data");
+  const closed = new Promise<void>((resolve) => client.once("close", () => resolve()));
+  await connected;
+  const [chunk] = await response;
+  assert.match(String(chunk), /"status":"rejected"/);
+  client.write(`${JSON.stringify(directEvent())}\n`);
+  await closed;
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(handlerCalls, 0);
+  assert.equal(client.destroyed, true);
+  await server.close();
+});
+
+test("direct attention receipts settle late handlers without duplicate commits", async () => {
+  for (const processingMilliseconds of [150, 250, 600]) {
+    const runtimeRoot = await mkdtemp("/tmp/ap-direct-receipt-timing-");
+    const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
+    let commits = 0;
+    const server = await startOmpAttentionSocketServer({
+      socketPath,
+      handleAttention: async () => {
+        await new Promise<void>((resolve) => setTimeout(resolve, processingMilliseconds));
+        commits += 1;
+      },
+      registerFocus: async () => undefined,
+      revokeFocus: async () => undefined,
+    });
+    const client = new OmpDirectWorkerTransport({ socketPath });
+    const acknowledgement = await client.send(directEvent());
+    assert.equal(acknowledgement.status, "accepted");
+    assert.equal(commits, 1);
+    await server.close();
+  }
+});
+
+test("post-write timeout and lost acknowledgement reuse one durable receipt", async () => {
+  const runtimeRoot = await mkdtemp("/tmp/ap-direct-receipt-retry-");
+  const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
+  const events = new EventEmitter();
+  let commits = 0;
+  const server = await startOmpAttentionSocketServer({
+    socketPath,
+    handleAttention: async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 300));
+      commits += 1;
+      events.emit("committed");
+    },
+    registerFocus: async () => undefined,
+    revokeFocus: async () => undefined,
+  });
+  const event = directEvent();
+  const client = new OmpDirectWorkerTransport({ socketPath });
+  await assert.rejects(
+    () => client.send(event, 100),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.name === "OmpDirectDeliveryError" &&
+      (error as Error & { disposition?: unknown }).disposition === "acceptance-unknown",
+  );
+  const retry = await client.send(event, 1_000);
+  assert.equal(retry.status, "accepted");
+  assert.equal(commits, 1);
+
+  const lostEvent = { ...directEvent(), eventId: "approval-event-ack-lost" };
+  const committed = once(events, "committed");
+  const lostClient = createConnection({ path: socketPath });
+  lostClient.on("error", () => undefined);
+  await once(lostClient, "connect");
+  lostClient.write(`${JSON.stringify(lostEvent)}\n`, () => lostClient.destroy());
+  await committed;
+  const recovered = await client.send(lostEvent, 1_000);
+  assert.equal(recovered.status, "accepted");
+  assert.equal(commits, 2);
+  await server.close();
+});
+
+test("pending direct receipts enforce capacity and settled receipts evict", async () => {
+  const runtimeRoot = await mkdtemp("/tmp/ap-direct-receipt-cap-");
+  const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
+  const events = new EventEmitter();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let commits = 0;
+  const server = await startOmpAttentionSocketServer({
+    socketPath,
+    maximumReceipts: 1,
+    handleAttention: async (event) => {
+      if (event.eventId === "receipt-one") {
+        events.emit("started");
+        await gate;
+      }
+      commits += 1;
+    },
+    registerFocus: async () => undefined,
+    revokeFocus: async () => undefined,
+  });
+  const client = new OmpDirectWorkerTransport({ socketPath });
+  const started = once(events, "started");
+  const first = client.send({ ...directEvent(), eventId: "receipt-one" });
+  await started;
+  await assert.rejects(
+    () => client.send({ ...directEvent(), eventId: "receipt-overflow" }),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.name === "WorkerDirectRejectedError" &&
+      (error as Error & { code?: unknown }).code === "capacity",
+  );
+  release();
+  assert.equal((await first).status, "accepted");
+  assert.equal(
+    (await client.send({ ...directEvent(), eventId: "receipt-after-eviction" })).status,
+    "accepted",
+  );
+  assert.equal(commits, 2);
+  await server.close();
 });
 
 test("direct server aborts a stalled focus operation during shutdown", async () => {
@@ -598,7 +811,7 @@ test("worker shutdown removes its direct OMP socket", async () => {
   });
   const ready = once(messages, "ready");
   const running = runNotificationWorkerStdio({
-    packageVersion: "0.9.0",
+    packageVersion: "0.10.0",
     identities: [identity],
     stateDir,
     socketPath,

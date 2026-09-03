@@ -17,6 +17,7 @@ let tmuxSetTitles = "off";
 let tmuxTitle = "tmux-original";
 let tokenSerial = 0;
 const confirmations = { herdr: 0, tmux: 0 };
+let herdrClearCalls = 0;
 
 const coordinator = new FocusCoordinator({
   randomToken: () => `smoke-${tokenSerial++}`.padEnd(32, "X").slice(0, 32),
@@ -37,6 +38,7 @@ const coordinator = new FocusCoordinator({
       return { type: "client_window_title", changed, reason: "set" };
     }
     if (method === "client.window_title.clear") {
+      herdrClearCalls += 1;
       clients[0]!.title = "herdr-original";
       return { type: "client_window_title", changed: true, reason: "clear" };
     }
@@ -117,6 +119,12 @@ if (confirmations.herdr < 2 || confirmations.tmux < 2) {
   throw new Error("inner focus was not confirmed before and after outer focus");
 }
 await coordinator.close();
+if (herdrClearCalls !== 0 || !clients[0]!.title.startsWith("Aperture Focus ")) {
+  throw new Error("Herdr cleanup did not retain its exact marker");
+}
+if (tmuxSetTitles !== "off" || tmuxTitle !== "tmux-original") {
+  throw new Error("tmux cleanup did not restore its owned options");
+}
 
 const report = {
   schemaVersion: 1,
@@ -128,7 +136,8 @@ const report = {
     "positive-inner-focus",
     "positive-outer-focus",
     "post-outer-inner-reconfirmation",
-    "compare-and-restore-close",
+    "herdr-marker-retained-no-conditional-clear",
+    "tmux-compare-and-restore-close",
   ],
 };
 if (reportPath) {

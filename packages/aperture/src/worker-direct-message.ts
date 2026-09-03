@@ -16,6 +16,7 @@ export const WORKER_DIRECT_LIMITS = {
   compositorAddressCharacters: 160,
   clientNameCharacters: 160,
   optionValueCharacters: 512,
+  receiptRecords: 1_024,
 } as const;
 
 export type FocusTarget =
@@ -86,6 +87,7 @@ export type WorkerDirectRejectionCode =
   | "marker_ambiguous"
   | "invalid_context"
   | "capacity"
+  | "request_identity_conflict"
   | "processing_failed"
   | "processing_timeout"
   | "attention_engine_failed"
@@ -95,6 +97,7 @@ const WORKER_DIRECT_REJECTION_CODES: Readonly<Record<WorkerDirectRejectionCode, 
   marker_missing: true,
   marker_ambiguous: true,
   invalid_context: true,
+  request_identity_conflict: true,
   capacity: true,
   processing_failed: true,
   processing_timeout: true,

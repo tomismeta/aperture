@@ -9,9 +9,9 @@ import {
   type FocusBackend,
   type FocusMember,
   type HerdrPaneLease,
+  type KnownFocusSurface,
   type PreparedHerdrTarget,
   paneMember,
-  runBoundedCleanup,
   throwIfAborted,
 } from "./types.js";
 
@@ -56,7 +56,7 @@ export class HerdrPaneBackend implements FocusBackend<"herdr"> {
 
   async acquire(
     prepared: PreparedHerdrTarget,
-    knownMarkerTitles: ReadonlySet<string>,
+    knownSurfaces: readonly KnownFocusSurface[],
     randomToken: () => string,
     signal: AbortSignal,
   ): Promise<HerdrPaneLease> {
@@ -73,7 +73,6 @@ export class HerdrPaneBackend implements FocusBackend<"herdr"> {
         signal,
         false,
       );
-      await this.probeOwnedTitle(prepared.socketPath, markerTitle, signal);
       await this.surfaceController.validate(surface, signal);
       return {
         kind: "herdr",
@@ -87,52 +86,39 @@ export class HerdrPaneBackend implements FocusBackend<"herdr"> {
 
     await this.surfaceController.assertNoUnknownMarkers(
       prepared.hyprlandInstance,
-      knownMarkerTitles,
+      knownSurfaces,
       signal,
     );
-    let titleSet = false;
-    try {
-      const result = await this.herdrRequest(
-        prepared.socketPath,
-        "client.window_title.set",
-        { title: markerTitle },
-        signal,
-      );
-      if (
-        result.type !== "client_window_title" ||
-        result.changed !== true ||
-        result.reason !== "set"
-      ) {
-        throw new Error("Herdr did not establish focus marker ownership");
-      }
-      titleSet = true;
-      const surface = await this.surfaceController.resolveMarker(
-        prepared.hyprlandInstance,
-        marker,
-        signal,
-      );
-      throwIfAborted(signal);
-      return {
-        kind: "herdr",
-        key: prepared.leaseKey,
-        epoch,
-        socketPath: prepared.socketPath,
-        surface,
-        members: new Map<string, FocusMember>(),
-      };
-    } catch (error) {
-      if (titleSet) {
-        await runBoundedCleanup((cleanupSignal) =>
-          this.clearIfOwned(prepared.socketPath, prepared.hyprlandInstance, marker, cleanupSignal),
-        );
-      }
-      throw error;
+    const result = await this.herdrRequest(
+      prepared.socketPath,
+      "client.window_title.set",
+      { title: markerTitle },
+      signal,
+    );
+    if (
+      result.type !== "client_window_title" ||
+      result.changed !== true ||
+      result.reason !== "set"
+    ) {
+      throw new Error("Herdr did not establish focus marker ownership");
     }
+    const surface = await this.surfaceController.resolveMarker(
+      prepared.hyprlandInstance,
+      marker,
+      signal,
+    );
+    throwIfAborted(signal);
+    return {
+      kind: "herdr",
+      key: prepared.leaseKey,
+      epoch,
+      socketPath: prepared.socketPath,
+      surface,
+      members: new Map<string, FocusMember>(),
+    };
   }
 
   async validate(lease: HerdrPaneLease, signal: AbortSignal): Promise<void> {
-    await this.surfaceController.validate(lease.surface, signal);
-    await this.probeOwnedTitle(lease.socketPath, lease.surface.markerTitle, signal);
     await this.surfaceController.validate(lease.surface, signal);
   }
 
@@ -145,8 +131,6 @@ export class HerdrPaneBackend implements FocusBackend<"herdr"> {
     if (prepared.recovery && prepared.recovery.marker !== lease.surface.marker) {
       throw new Error("Herdr recovery marker changed");
     }
-    await this.surfaceController.validate(lease.surface, signal);
-    await this.probeOwnedTitle(lease.socketPath, lease.surface.markerTitle, signal);
     await this.surfaceController.validate(lease.surface, signal);
   }
 
@@ -173,47 +157,13 @@ export class HerdrPaneBackend implements FocusBackend<"herdr"> {
   }
 
   async release(lease: HerdrPaneLease, signal: AbortSignal): Promise<void> {
+    // Herdr has no conditional clear tied to an expected title and client.
+    // Retain the marker rather than risk clearing a newly foregrounded client.
     await this.surfaceController.validate(lease.surface, signal);
-    throwIfAborted(signal);
-    await this.herdrRequest(lease.socketPath, "client.window_title.clear", {}, signal);
   }
 
   recovery(lease: HerdrPaneLease): Extract<FocusRecovery, { kind: "herdr" }> {
     return { kind: "herdr", marker: lease.surface.marker };
-  }
-
-  private async probeOwnedTitle(
-    socketPath: string,
-    markerTitle: string,
-    signal: AbortSignal,
-  ): Promise<void> {
-    const result = await this.herdrRequest(
-      socketPath,
-      "client.window_title.set",
-      { title: markerTitle },
-      signal,
-    );
-    if (
-      result.type !== "client_window_title" ||
-      typeof result.changed !== "boolean" ||
-      result.reason !== "set"
-    ) {
-      throw new Error("Herdr focus marker probe failed");
-    }
-  }
-
-  private async clearIfOwned(
-    socketPath: string,
-    hyprlandInstance: string,
-    marker: string,
-    signal: AbortSignal,
-  ): Promise<void> {
-    try {
-      await this.surfaceController.resolveMarker(hyprlandInstance, marker, signal, false);
-      await this.herdrRequest(socketPath, "client.window_title.clear", {}, signal);
-    } catch {
-      // Failed acquisition never clears a missing, changed, or ambiguous title.
-    }
   }
 }
 

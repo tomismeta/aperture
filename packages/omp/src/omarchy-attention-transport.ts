@@ -12,7 +12,6 @@ import type { OmpEvent, OmpMappingContext } from "./types.js";
 
 const MAXIMUM_QUEUED_DELIVERIES = 64;
 const SHUTDOWN_TIMEOUT_MS = 3_000;
-
 export type OmarchyAttentionTransportOptions = {
   direct: OmpDirectWorkerTransport;
   notification: OmarchyNotificationTransport;
@@ -28,13 +27,13 @@ export class OmarchyAttentionTransport implements OmpEventSink {
   private readonly onFailure: (error: unknown) => void;
   private readonly focusReplay: FocusReplaySender;
   private readonly shutdownTimeoutMs: number;
-  private readonly waitForShutdown: (
-    operation: Promise<unknown>,
-    milliseconds: number,
-  ) => Promise<void>;
+  private readonly waitForShutdown: NonNullable<
+    OmarchyAttentionTransportOptions["waitForShutdown"]
+  >;
   private readonly queue: QueuedAttentionDelivery[] = [];
   private draining: Promise<void> | null = null;
   private active = true;
+  private closed = false;
 
   constructor(options: OmarchyAttentionTransportOptions) {
     this.direct = options.direct;
@@ -68,19 +67,20 @@ export class OmarchyAttentionTransport implements OmpEventSink {
     this.enqueue({ kind: "event", event, context, directEvents: [...directEvents] });
   }
 
-  replayFocus(events: OmpAttentionEvent[]): void {
-    if (this.active) this.focusReplay.send(events);
+  replayFocus(workerGeneration: string, events: OmpAttentionEvent[]): void {
+    if (this.active) this.focusReplay.send(workerGeneration, events);
   }
 
   async close(): Promise<void> {
-    if (!this.active) return;
+    if (this.closed) return;
+    this.closed = true;
     this.active = false;
-    this.focusReplay.close();
+    const replayClosing = this.focusReplay.close();
     this.queue.length = 0;
     const deadline = Date.now() + this.shutdownTimeoutMs;
-    if (this.draining) {
-      await this.waitForShutdown(this.draining, Math.max(0, deadline - Date.now()));
-    }
+    const pending: Promise<unknown>[] = [replayClosing];
+    if (this.draining) pending.push(this.draining);
+    await this.waitForShutdown(Promise.allSettled(pending), Math.max(0, deadline - Date.now()));
     await this.waitForShutdown(
       Promise.allSettled([this.direct.close(), this.notification.close()]),
       Math.max(0, deadline - Date.now()),
@@ -89,7 +89,7 @@ export class OmarchyAttentionTransport implements OmpEventSink {
 
   disable(): void {
     this.active = false;
-    this.focusReplay.close();
+    void this.focusReplay.close();
     this.queue.length = 0;
   }
 

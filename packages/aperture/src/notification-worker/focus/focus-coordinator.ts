@@ -25,6 +25,7 @@ import {
   type FocusDiagnosticStage,
   type FocusLease,
   type FocusRegistrationRecord,
+  type KnownFocusSurface,
   type PreparedFocusTarget,
 } from "./types.js";
 import type { ApertureSurfaceNavigation } from "../../surface/protocol.js";
@@ -321,7 +322,7 @@ export class FocusCoordinator {
     } else {
       lease = await this.backends.acquire(
         prepared,
-        this.knownMarkerTitles(),
+        this.knownFocusSurfaces(),
         this.randomToken,
         signal,
       );
@@ -480,8 +481,13 @@ export class FocusCoordinator {
     return count;
   }
 
-  private knownMarkerTitles(): ReadonlySet<string> {
-    return new Set([...this.leases.values()].map((lease) => lease.surface.markerTitle));
+  private knownFocusSurfaces(): readonly KnownFocusSurface[] {
+    return [...this.leases.values()].map((lease) => ({
+      backend: lease.kind,
+      leaseKey: lease.key,
+      epoch: lease.epoch,
+      surface: lease.surface,
+    }));
   }
 
   private scheduleExpiry(delay?: number): void {

@@ -12,6 +12,10 @@ import {
   FocusCoordinator,
   type FocusCoordinatorOptions,
 } from "../src/notification-worker/focus/focus-coordinator.js";
+import {
+  HyprlandFootSurfaceController,
+  markerTitleFor,
+} from "../src/notification-worker/focus/hyprland-foot-surface-controller.js";
 import { FocusRegistrationError } from "../src/notification-worker/focus/types.js";
 
 type Client = { address: string; class: string; title: string };
@@ -61,6 +65,7 @@ class NativeHarness {
   nativeCalls = 0;
   tmuxClientOutput = `${this.tmux.clientName}\n`;
   duplicateHerdrTitle = false;
+  herdrClearCalls = 0;
   failTmuxTitleWrite = false;
   innerConfirmationMutation: (() => void) | undefined;
   outerMutation: (() => void) | undefined;
@@ -87,6 +92,7 @@ class NativeHarness {
         return { type: "client_window_title", changed, reason: "set" };
       }
       if (method === "client.window_title.clear") {
+        this.herdrClearCalls += 1;
         this.client("0x101").title = "herdr-original";
         return { type: "client_window_title", changed: true, reason: "clear" };
       }
@@ -263,6 +269,48 @@ for (const [first, second] of orderedPairs(["herdr", "direct-terminal", "tmux"] 
   });
 }
 
+test("known marker ownership is scoped to exact instance address and class", async () => {
+  const marker = "K".repeat(32);
+  const markerTitle = markerTitleFor(marker);
+  const ownership = [
+    {
+      backend: "herdr" as const,
+      leaseKey: "herdr\u0000socket\u0000instance-A",
+      epoch: "E".repeat(32),
+      surface: {
+        hyprlandInstance: "instance-A",
+        address: "0x101",
+        className: "foot" as const,
+        marker,
+        markerTitle,
+      },
+    },
+  ];
+  let clients: Client[] = [{ address: "0x101", class: "foot", title: markerTitle }];
+  const controller = new HyprlandFootSurfaceController({
+    hyprctlRequest: async () => clients.map((client) => ({ ...client })),
+  });
+  const signal = new AbortController().signal;
+  await controller.assertNoUnknownMarkers("instance-A", ownership, signal);
+  await assert.rejects(
+    () => controller.assertNoUnknownMarkers("instance-B", ownership, signal),
+    /unknown or duplicated/,
+  );
+  clients = [
+    { address: "0x101", class: "foot", title: markerTitle },
+    { address: "0x202", class: "foot", title: markerTitle },
+  ];
+  await assert.rejects(
+    () => controller.assertNoUnknownMarkers("instance-A", ownership, signal),
+    /unknown or duplicated/,
+  );
+  clients = [{ address: "0x101", class: "footclient", title: markerTitle }];
+  await assert.rejects(
+    () => controller.assertNoUnknownMarkers("instance-A", ownership, signal),
+    /unknown or duplicated/,
+  );
+});
+
 test("all three backends coexist and one mutation stays isolated", async () => {
   const native = new NativeHarness();
   const coordinator = new FocusCoordinator(native.options);
@@ -384,7 +432,7 @@ test("aborted registration cannot commit after native completion", async () => {
   await coordinator.close();
 });
 
-test("aborted acquisition rolls back an owned Herdr marker without late commit", async () => {
+test("aborted Herdr acquisition retains its marker instead of unsafe clear", async () => {
   const native = new NativeHarness();
   let release!: () => void;
   native.stalledClientQuery = 2;
@@ -401,7 +449,8 @@ test("aborted acquisition rolls back an owned Herdr marker without late commit",
   release();
   await assert.rejects(pending);
   assert.equal(coordinator.navigationFor(registration.publicHandle), undefined);
-  assert.equal(native.clients[0]!.title, "herdr-original");
+  assert.match(native.clients[0]!.title, /^Aperture Focus /);
+  assert.equal(native.herdrClearCalls, 0);
   await coordinator.close();
 });
 
@@ -440,7 +489,7 @@ test("partial tmux setup restores set-titles after title write failure", async (
   await coordinator.close();
 });
 
-test("Herdr worker crash recovery restores server-owned original title", async () => {
+test("Herdr worker recovery retains marker when conditional clear is unavailable", async () => {
   const native = new NativeHarness();
   const registration = native.registration("herdr");
   const crashed = new FocusCoordinator({ ...native.options, ttlMs: 1_000_000 });
@@ -452,8 +501,22 @@ test("Herdr worker crash recovery restores server-owned original title", async (
   const restarted = new FocusCoordinator(native.options);
   await restarted.register({ ...registration, requestId: "recovered-herdr", recovery });
   await restarted.revoke(native.revoke(registration));
-  assert.equal(native.clients[0]!.title, "herdr-original");
+  assert.match(native.clients[0]!.title, /^Aperture Focus /);
+  assert.equal(native.herdrClearCalls, 0);
   await restarted.close();
+});
+
+test("Herdr release never clears a newly foregrounded client", async () => {
+  const native = new NativeHarness();
+  const registration = native.registration("herdr");
+  const coordinator = new FocusCoordinator(native.options);
+  await coordinator.register(registration);
+  native.clients[1]!.title = "user-owned-second-client";
+  await coordinator.revoke(native.revoke(registration));
+  assert.match(native.clients[0]!.title, /^Aperture Focus /);
+  assert.equal(native.clients[1]!.title, "user-owned-second-client");
+  assert.equal(native.herdrClearCalls, 0);
+  await coordinator.close();
 });
 
 test("tmux worker crash recovery restores true original options and title", async () => {
@@ -479,10 +542,7 @@ test("unknown orphan marker blocks fresh native acquisition but not its exact di
   const native = new NativeHarness();
   native.clients[1]!.title = `Aperture Focus ${DIRECT_MARKER}`;
   const coordinator = new FocusCoordinator(native.options);
-  await assert.rejects(
-    () => coordinator.register(native.registration("herdr")),
-    /unknown focus marker/,
-  );
+  await assert.rejects(() => coordinator.register(native.registration("herdr")), /unknown.*marker/);
   const direct = native.registration("direct-terminal");
   await coordinator.register(direct);
   assert.ok(coordinator.navigationFor(direct.publicHandle));

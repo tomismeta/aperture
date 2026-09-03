@@ -1,11 +1,12 @@
 name: Aperture Worker Direct Release
 
 on:
-  workflow_run:
-    workflows:
-      - Aperture Worker Artifact
-    types:
-      - completed
+  workflow_dispatch:
+    inputs:
+      artifact_run_id:
+        description: Successful signed-tag Worker Artifact run
+        required: true
+        type: string
 
 permissions:
   actions: read
@@ -15,15 +16,13 @@ permissions:
 
 jobs:
   release:
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      startsWith(github.event.workflow_run.head_branch, 'aperture-worker-v')
+    if: startsWith(github.ref, 'refs/tags/aperture-worker-v')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      SOURCE_TAG: ${{ github.event.workflow_run.head_branch }}
-      SOURCE_COMMIT: ${{ github.event.workflow_run.head_sha }}
-      ARTIFACT_RUN_ID: ${{ github.event.workflow_run.id }}
+      SOURCE_TAG: ${{ github.ref_name }}
+      SOURCE_COMMIT: ${{ github.sha }}
+      ARTIFACT_RUN_ID: ${{ inputs.artifact_run_id }}
 
     steps:
       - name: Checkout exact artifact source commit
@@ -56,11 +55,22 @@ jobs:
           tag_verified=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq '.verification.verified')
           test "$tag_commit" = "$SOURCE_COMMIT"
           test "$tag_verified" = "true"
+          artifact_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ARTIFACT_RUN_ID")
+          test "$(jq -r '.name' <<<"$artifact_run")" = "Aperture Worker Artifact"
+          test "$(jq -r '.event' <<<"$artifact_run")" = "push"
+          test "$(jq -r '.conclusion' <<<"$artifact_run")" = "success"
+          test "$(jq -r '.head_branch' <<<"$artifact_run")" = "$SOURCE_TAG"
+          test "$(jq -r '.head_sha' <<<"$artifact_run")" = "$SOURCE_COMMIT"
           release_check_run=$(gh api \
             "repos/$GITHUB_REPOSITORY/actions/workflows/release-check.yml/runs?head_sha=$SOURCE_COMMIT&status=success&per_page=20" \
             --jq '.workflow_runs | map(select(.conclusion == "success")) | first | .id')
           test -n "$release_check_run"
           printf 'RELEASE_CHECK_RUN_ID=%s\n' "$release_check_run" >> "$GITHUB_ENV"
+          release_check=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$release_check_run")
+          test "$(jq -r '.name' <<<"$release_check")" = "Release Check"
+          test "$(jq -r '.event' <<<"$release_check")" = "push"
+          test "$(jq -r '.conclusion' <<<"$release_check")" = "success"
+          test "$(jq -r '.head_sha' <<<"$release_check")" = "$SOURCE_COMMIT"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -106,9 +116,15 @@ jobs:
             .validation.status == "passed"
           ' "$PAYLOAD_DIR/BUILDINFO.json"
           gh attestation verify "$PAYLOAD_DIR/lib/aperture-attention-engine.cjs" \
-            --repo "$GITHUB_REPOSITORY"
+            --repo "$GITHUB_REPOSITORY" \
+            --source-ref "$GITHUB_REF" \
+            --source-digest "$SOURCE_COMMIT" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/aperture-worker-artifact.yml"
           gh attestation verify "$PAYLOAD_DIR/integrations/omp/aperture-omp-extension.mjs" \
-            --repo "$GITHUB_REPOSITORY"
+            --repo "$GITHUB_REPOSITORY" \
+            --source-ref "$GITHUB_REF" \
+            --source-digest "$SOURCE_COMMIT" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/aperture-worker-artifact.yml"
           pnpm exec tsx packages/aperture/scripts/finalize-direct-release-packet.ts -- \
             --artifact-dir "$PAYLOAD_DIR" \
             --source-commit "$SOURCE_COMMIT" \
@@ -196,11 +212,31 @@ jobs:
             --source-commit "$SOURCE_COMMIT" \
             --source-tag "$SOURCE_TAG" \
             --verify-only
+      - name: Verify every payload attestation is tag-bound
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          while IFS= read -r relative; do
+            gh attestation verify "$PAYLOAD_DIR/$relative" \
+              --repo "$GITHUB_REPOSITORY" \
+              --source-ref "$GITHUB_REF" \
+              --source-digest "$SOURCE_COMMIT" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/aperture-worker-direct-release.yml"
+          done < <(jq -r '.files[].path' "$PAYLOAD_DIR/BUILDINFO.json")
       - name: Attest finalized BUILDINFO
         id: buildinfo-provenance
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: ${{ runner.temp }}/aperture-worker/BUILDINFO.json
+      - name: Verify finalized BUILDINFO attestation is tag-bound
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh attestation verify "$PAYLOAD_DIR/BUILDINFO.json"
+          --repo "$GITHUB_REPOSITORY"
+          --source-ref "$GITHUB_REF"
+          --source-digest "$SOURCE_COMMIT"
+          --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/aperture-worker-direct-release.yml"
 
       - name: Create deterministic complete archive and checksums
         run: |
@@ -225,6 +261,15 @@ jobs:
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: ${{ runner.temp }}/release-packet/*.tar.gz
+      - name: Verify archive attestation is tag-bound
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh attestation verify "$PACKET_DIR/$ARCHIVE_NAME"
+          --repo "$GITHUB_REPOSITORY"
+          --source-ref "$GITHUB_REF"
+          --source-digest "$SOURCE_COMMIT"
+          --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/aperture-worker-direct-release.yml"
 
       - name: Write trusted release verification report
         run: >-
@@ -238,6 +283,21 @@ jobs:
           --direct-release-run-id "$GITHUB_RUN_ID"
           --artifact-url "$RELEASE_URL"
           --output "$PACKET_DIR/release-report.json"
+      - name: Attest release acceptance report
+        id: report-provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ runner.temp }}/release-packet/release-report.json
+
+      - name: Verify release report attestation is tag-bound
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh attestation verify "$PACKET_DIR/release-report.json"
+          --repo "$GITHUB_REPOSITORY"
+          --source-ref "$GITHUB_REF"
+          --source-digest "$SOURCE_COMMIT"
+          --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/aperture-worker-direct-release.yml"
 
       - name: Upload release packet evidence
         uses: actions/upload-artifact@v4
@@ -262,6 +322,7 @@ jobs:
           Direct Release: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           Payload attestation: ${{ steps.payload-provenance.outputs.attestation-url }}
           BUILDINFO attestation: ${{ steps.buildinfo-provenance.outputs.attestation-url }}
+          Release report attestation: ${{ steps.report-provenance.outputs.attestation-url }}
           Archive attestation: ${{ steps.archive-provenance.outputs.attestation-url }}
           EOF
           gh release create "$SOURCE_TAG" \

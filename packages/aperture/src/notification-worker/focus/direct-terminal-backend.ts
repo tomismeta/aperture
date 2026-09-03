@@ -4,6 +4,7 @@ import {
   type DirectTerminalLease,
   type FocusBackend,
   type FocusMember,
+  type KnownFocusSurface,
   type PreparedDirectTerminalTarget,
   throwIfAborted,
 } from "./types.js";
@@ -41,7 +42,7 @@ export class DirectTerminalBackend implements FocusBackend<"direct-terminal"> {
 
   async acquire(
     prepared: PreparedDirectTerminalTarget,
-    _knownMarkerTitles: ReadonlySet<string>,
+    _knownSurfaces: readonly KnownFocusSurface[],
     randomToken: () => string,
     signal: AbortSignal,
   ): Promise<DirectTerminalLease> {

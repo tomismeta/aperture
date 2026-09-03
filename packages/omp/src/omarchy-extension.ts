@@ -76,7 +76,7 @@ export function createApertureOmarchyOmpExtension(
       {
         handle: async (event, context, capabilities) => {
           if (!deliveryActive) return;
-          if (!focusHost && (isFocusCandidateEvent(event) || isFocusPrewarmEvent(event))) {
+          if (!focusHost && isFocusCandidateEvent(event)) {
             focusHost = FocusHost.create({
               transport: direct,
               ...focusHostOptions,
@@ -129,14 +129,6 @@ function isFocusCandidateEvent(event: OmpEvent): boolean {
     event.type === "tool_approval_requested" ||
     ((event.type === "tool_call" || event.type === "tool_execution_start") &&
       event.toolName === "ask")
-  );
-}
-
-function isFocusPrewarmEvent(event: OmpEvent): boolean {
-  return (
-    event.type === "session_start" ||
-    event.type === "before_agent_start" ||
-    event.type === "turn_start"
   );
 }
 

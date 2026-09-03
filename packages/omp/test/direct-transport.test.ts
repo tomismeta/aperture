@@ -246,6 +246,81 @@ test("300 ms and 2 s focus registration never delay attention delivery", async (
   }
 });
 
+test("direct Foot waits for actionable attention before claiming the OMP title", async () => {
+  let currentTitle = "π";
+  class TitleAwareTransport extends FakeDirectTransport {
+    registrationCalls = 0;
+    override async registerFocus(
+      registration: FocusRegistration,
+    ): Promise<FocusRegistrationResult> {
+      this.registrationCalls += 1;
+      assert.equal(registration.target.kind, "direct-terminal");
+      assert.equal(currentTitle, `Aperture Focus ${registration.target.marker}`);
+      return { workerGeneration: "W".repeat(32) };
+    }
+    override async revokeFocus(): Promise<void> {}
+  }
+  const direct = new TitleAwareTransport();
+  const handlers = new Map<
+    string,
+    (event: OmpEvent, context: OmpExtensionContext) => Promise<void> | void
+  >();
+  await createApertureOmarchyOmpExtension({
+    directTransport: direct,
+    availabilityCheck: async () => true,
+    commandRunner: async () => ({ stdout: "", stderr: "" }),
+    focusHostOptions: {
+      environment: {
+        TERM: "foot",
+        HYPRLAND_INSTANCE_SIGNATURE: "instance_1",
+      },
+      stdoutIsTTY: true,
+      randomToken: tokenFactory(),
+      heartbeatIntervalMs: 60_000,
+    },
+  })({
+    on(name, handler) {
+      handlers.set(name, handler);
+    },
+  });
+  const extensionContext: OmpExtensionContext = {
+    ui: {
+      setTitle(title) {
+        currentTitle = title;
+      },
+    },
+    sessionManager: { getSessionId: () => "session-1" },
+  };
+
+  await handlers.get("session_start")?.({ type: "session_start" }, extensionContext);
+  await flushMicrotasks();
+  assert.equal(direct.registrationCalls, 0);
+  assert.equal(currentTitle, "π");
+
+  currentTitle = "π · OMP generated title";
+  await handlers.get("tool_approval_requested")?.(
+    {
+      type: "tool_approval_requested",
+      sessionId: "session-1",
+      toolCallId: "tool-1",
+      toolName: "bash",
+      approvalMode: "write",
+    },
+    extensionContext,
+  );
+  await flushMicrotasks();
+
+  assert.equal(direct.registrationCalls, 1);
+  assert.match(currentTitle, /^Aperture Focus [A-Za-z0-9_-]{32}$/);
+  assert.equal(direct.sent[0]?.focus, undefined);
+  assert.equal(
+    direct.sent.some((event) => event.focus?.kind === "opaque-focus"),
+    true,
+  );
+
+  await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, extensionContext);
+});
+
 test("worker generation change replays active requests with the same opaque handle", async () => {
   class GenerationTransport extends FakeDirectTransport {
     workerGeneration = "W".repeat(32);
@@ -304,16 +379,19 @@ test("worker generation change replays active requests with the same opaque hand
     extensionContext,
   );
   await flushMicrotasks();
-  assert.equal(direct.sent.length, 1);
-  const originalHandle = direct.sent[0]?.focus?.handle;
+  assert.equal(direct.sent.length, 2);
+  assert.equal(direct.sent[0]?.focus, undefined);
+  const originalHandle = direct.sent[1]?.focus?.handle;
   assert.match(originalHandle ?? "", /^[A-Za-z0-9_-]{32}$/);
+  assert.equal(direct.sent[1]?.eventId, direct.sent[0]?.eventId);
+  assert.equal(direct.sent[1]?.occurredAt, direct.sent[0]?.occurredAt);
   direct.workerGeneration = "X".repeat(32);
   timers.runNext();
   await flushMicrotasks();
-  assert.equal(direct.sent.length, 2);
-  assert.equal(direct.sent[1]?.eventId, direct.sent[0]?.eventId);
-  assert.equal(direct.sent[1]?.occurredAt, direct.sent[0]?.occurredAt);
-  assert.equal(direct.sent[1]?.focus?.handle, originalHandle);
+  assert.equal(direct.sent.length, 3);
+  assert.equal(direct.sent[2]?.eventId, direct.sent[0]?.eventId);
+  assert.equal(direct.sent[2]?.occurredAt, direct.sent[0]?.occurredAt);
+  assert.equal(direct.sent[2]?.focus?.handle, originalHandle);
   assert.equal(mappingClockCalls, 2);
 
   await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, extensionContext);

@@ -45,12 +45,18 @@ jobs:
           test "$GITHUB_REF" = "refs/tags/$SOURCE_TAG"
           test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
           test -z "$(git status --porcelain)"
-          git -c gpg.format=ssh \
-            -c gpg.ssh.allowedSignersFile="$GITHUB_WORKSPACE/.github/release-signers" \
-            verify-tag "$SOURCE_TAG"
           tag_object=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$SOURCE_TAG" --jq '.object.sha')
           tag_type=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$SOURCE_TAG" --jq '.object.type')
           test "$tag_type" = "tag"
+          verification_ref="refs/tags/release-verification/$SOURCE_TAG"
+          git fetch --no-tags --force origin \
+            "refs/tags/$SOURCE_TAG:$verification_ref"
+          test "$(git rev-parse "$verification_ref")" = "$tag_object"
+          test "$(git cat-file -t "$verification_ref")" = "tag"
+          test "$(git rev-parse "$verification_ref^{}")" = "$SOURCE_COMMIT"
+          git -c gpg.format=ssh \
+            -c gpg.ssh.allowedSignersFile="$GITHUB_WORKSPACE/.github/release-signers" \
+            verify-tag "$verification_ref"
           tag_commit=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq '.object.sha')
           tag_verified=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq '.verification.verified')
           test "$tag_commit" = "$SOURCE_COMMIT"

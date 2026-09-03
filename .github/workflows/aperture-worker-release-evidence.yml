@@ -26,8 +26,6 @@ jobs:
       SOURCE_TAG: ${{ github.ref_name }}
       SOURCE_COMMIT: ${{ github.sha }}
       DIRECT_RELEASE_RUN_ID: ${{ inputs.direct_release_run_id }}
-      PACKET_DIR: ${{ runner.temp }}/direct-release-packet
-      PAYLOAD_DIR: ${{ runner.temp }}/aperture-worker
 
     steps:
       - name: Checkout exact release source commit
@@ -36,6 +34,11 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Initialize evidence paths
+        run: |
+          printf 'PACKET_DIR=%s/direct-release-packet\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'PAYLOAD_DIR=%s/aperture-worker\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
 
       - name: Verify authorized signed tag and completed direct run
         env:
@@ -317,9 +320,11 @@ jobs:
     env:
       SOURCE_TAG: ${{ github.ref_name }}
       SOURCE_COMMIT: ${{ github.sha }}
-      RELEASE_DIR: ${{ runner.temp }}/final-release
 
     steps:
+      - name: Initialize publisher path
+        run: printf 'RELEASE_DIR=%s/final-release\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+
       - name: Download exact finalized packet
         env:
           GH_TOKEN: ${{ github.token }}

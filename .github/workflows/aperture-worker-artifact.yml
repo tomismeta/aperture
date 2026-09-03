@@ -36,9 +36,15 @@ jobs:
           test "$tag_commit" = "$GITHUB_SHA"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test -z "$(git status --porcelain)"
+          verification_ref="refs/tags/release-verification/$GITHUB_REF_NAME"
+          git fetch --no-tags --force origin \
+            "refs/tags/$GITHUB_REF_NAME:$verification_ref"
+          test "$(git rev-parse "$verification_ref")" = "$tag_sha"
+          test "$(git cat-file -t "$verification_ref")" = "tag"
+          test "$(git rev-parse "$verification_ref^{}")" = "$GITHUB_SHA"
           git -c gpg.format=ssh \
             -c gpg.ssh.allowedSignersFile="$GITHUB_WORKSPACE/.github/release-signers" \
-            verify-tag "$GITHUB_REF_NAME"
+            verify-tag "$verification_ref"
           test "$tag_verified" = "true"
 
       - name: Setup pnpm

@@ -49,6 +49,9 @@ try {
   );
 
   const first = startWorker(sourceBundle, configPath, stateDir, runtimeDir);
+  const firstHello = await first.waitFor((message) => message.type === "hello");
+  assert.equal(firstHello.protocolVersion, 4);
+  checks.push("private-output-v4-handshake");
   await first.waitFor((message) => message.type === "engine" && message.state === "ready");
   await first.waitFor((message) => message.type === "snapshot");
   assert.equal((await stat(socketPath)).mode & 0o777, 0o600);
@@ -115,6 +118,8 @@ try {
   await first.shutdown();
   await assert.rejects(() => stat(socketPath), /ENOENT/);
   const second = startWorker(sourceBundle, configPath, stateDir, runtimeDir);
+  const secondHello = await second.waitFor((message) => message.type === "hello");
+  assert.equal(secondHello.protocolVersion, 4);
   await second.waitFor((message) => message.type === "engine" && message.state === "ready");
   const replayed = await second.waitFor(
     (message) => message.type === "snapshot" && message.view?.now?.title === changed.title,
@@ -201,6 +206,7 @@ type SmokeOptions = { worker?: string; report?: string };
 
 type WorkerMessage = {
   type?: string;
+  protocolVersion?: number;
   state?: string;
   totals?: { now?: number; next?: number; ambient?: number };
   view?: {
@@ -212,7 +218,7 @@ type WorkerMessage = {
 
 type WorkerFrame = {
   title?: string;
-  navigation?: { kind?: string; sessionId?: string };
+  navigation?: { kind?: string; handle?: string };
 };
 
 type WorkerHarness = {

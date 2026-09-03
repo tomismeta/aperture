@@ -7,7 +7,7 @@ import { projectSurfaceSnapshot } from "../../src/surface/projection.js";
 
 export function canonicalSurfaceFixtures(): Record<string, ApertureSurfaceMessage> {
   return {
-    "hello.json": apertureSurfaceHello("0.5.0"),
+    "hello.json": apertureSurfaceHello("0.10.0"),
     "connection-connecting.json": { type: "connection", state: "connecting" },
     "connection-connected.json": {
       type: "connection",

@@ -16,12 +16,9 @@ import type { OmpAttentionEvent } from "../omp-attention-event.js";
 import { DirectReceiptLedger } from "./direct-receipt-ledger.js";
 import { FOCUS_LIMITS, FocusRegistrationError } from "./focus/types.js";
 import {
-  closeServer,
+  closeOwnedSocketServer,
   currentUid,
-  listen,
-  prepareSocketPath,
-  removeOwnedSocket,
-  secureListeningSocket,
+  listenOnOwnedSocket,
 } from "./direct-socket-lifecycle.js";
 
 const ATTENTION_PROCESSING_TIMEOUT_MS = 500;
@@ -68,8 +65,7 @@ export async function startOmpAttentionSocketServer(
   if (!Number.isSafeInteger(maximumReceipts) || maximumReceipts < 1) {
     throw new Error("Aperture direct receipt limit was invalid");
   }
-  if (options.probe) await prepareSocketPath(options.socketPath, uid, options.probe);
-  else await prepareSocketPath(options.socketPath, uid);
+  const probe = options.probe;
 
   const clients = new Set<Socket>();
   const activeOperations = new Set<AbortController>();
@@ -92,8 +88,9 @@ export async function startOmpAttentionSocketServer(
       clients.delete(socket);
     });
   });
-  await listen(server, options.socketPath);
-  const socketIdentity = await secureListeningSocket(options.socketPath, uid);
+  const socketIdentity = probe
+    ? await listenOnOwnedSocket(server, options.socketPath, uid, probe)
+    : await listenOnOwnedSocket(server, options.socketPath, uid);
 
   return {
     path: options.socketPath,
@@ -102,8 +99,13 @@ export async function startOmpAttentionSocketServer(
       closing = true;
       for (const client of clients) client.destroy();
       for (const operation of activeOperations) operation.abort();
-      await closeServer(server, shutdownTimeoutMs);
-      await removeOwnedSocket(options.socketPath, uid, socketIdentity);
+      await closeOwnedSocketServer(
+        server,
+        options.socketPath,
+        uid,
+        socketIdentity,
+        shutdownTimeoutMs,
+      );
       attentionReceipts.clear();
     },
   };

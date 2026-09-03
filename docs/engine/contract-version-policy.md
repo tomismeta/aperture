@@ -21,9 +21,26 @@ they must be isolated from live ingestion and named as archival behavior.
 - OpenCode connection config: version `1`
 - Session bundles: version `1`
 - Current Lab decision projection: version `2`
+- Public surface protocol: exact version `4`; hello requires
+  `protocolVersion: 4`, and public frames contain no navigation
+- Notification-worker input: exact schema version `2`
+- Private notification-worker output: exact version `4`; hello requires
+  `protocolVersion: 4`, and only private frames may carry the exact
+  `{ kind: "opaque-focus", handle }` navigation capability
+- OMP attention event: exact schema version `2`
+- Private worker-direct message and acknowledgement protocol: exact version `4`
+- OMP direct persisted state: exact version `3`, with explicit migration from
+  versions `1` and `2`
 
 The kernel explanation is an ephemeral result, not a persisted compatibility
 boundary; package semver governs changes to it.
+
+Package semver does not stand in for a protocol version. In particular, the
+private `@tomismeta/aperture-omp` manifest has its own release version and need
+not equal the `@tomismeta/aperture` product version; BUILDINFO records both.
+Artifact BUILDINFO independently pins
+`artifactLimits.maximumTextArtifactBytes: 524288` and repeats the private
+version at `integrations.omp.packageVersion`.
 
 ## Enforcement
 

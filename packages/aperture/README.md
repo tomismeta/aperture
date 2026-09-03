@@ -14,12 +14,15 @@
 
 </div>
 
-`@tomismeta/aperture` is the live attention surface for humans working with
-agents like Claude Code, OpenCode, and opt-in experimental Codex sessions.
+`@tomismeta/aperture` is the Claude-first live attention surface, with OpenCode
+supported and Codex available as an opt-in experimental product path.
 
 It runs as a local CLI/TUI product. Start it with `aperture`, connect your
 agent surfaces, and keep approvals, follow-up questions, failures, and blocked
 work in one place.
+
+The latest npm release is `0.5.0`. This `main` README describes the `0.10.0`
+release candidate and can lead the published package until that candidate ships.
 
 ## Start Here
 
@@ -169,11 +172,12 @@ companion renderers such as desktop bars. Aperture owns runtime discovery,
 authentication, companion attachment, reconnection, and the projection from its
 internal `AttentionView`.
 
-The hello message reports the installed Aperture package version and supported
-surface capabilities. The initial capability set emits snapshots and does not
-accept responses or engagement; later package releases can extend those
-capabilities without renaming the command or protocol. Arbitrary frame metadata,
-runtime URLs, token paths, and bearer tokens never cross the boundary.
+The public surface hello reports `protocolVersion: 4` independently from the
+installed package semver. Surface protocol v4 emits snapshots but accepts no
+responses or engagement, and its frame schema contains no navigation property.
+Any contract change requires a new exact protocol version. Arbitrary frame
+metadata, focus handles, runtime URLs, token paths, and bearer tokens never
+cross this public boundary.
 
 Start an Aperture runtime first, then run:
 
@@ -184,11 +188,11 @@ aperture surface --stdio --label omarchy-attention
 The process stays alive and reports an honest disconnected state while no local
 runtime is available.
 
-Desktop-shell integrations that own `ApertureCore` state use a separate
-bidirectional notification-worker contract rather than attach to an existing
-runtime. The dependency-free `dist/aperture-attention-engine.cjs` bundle targets
-Node 22 and is intended to run on the Node runtime supplied by the host
-platform. Its canonical schemas are exported as:
+The self-contained Omarchy integration uses a separate bidirectional worker
+contract. It does not attach to, discover, or require an Aperture runtime. The
+dependency-free `dist/aperture-attention-engine.cjs` owns `ApertureCore`, state,
+and the canonical XDG socket and targets the Node 22 runtime supplied by
+Omarchy. Its canonical schemas are exported as:
 
 - `@tomismeta/aperture/notification-worker-input.schema.json`
 - `@tomismeta/aperture/notification-worker-output.schema.json`
@@ -205,34 +209,43 @@ For an unsigned local development payload, use
 Its BUILDINFO records `payloadProfile: "development"` and the exact volatile
 focus-coordinator contract.
 
-
-The staged payload also includes
-`integrations/omp/aperture-omp-extension.mjs`, a first-class OMP extension. When
+The staged payload also includes a private `@tomismeta/aperture-omp@0.1.0`
+manifest and `integrations/omp/aperture-omp-extension.mjs`, a first-class OMP
+extension. When
 the worker owns `$XDG_RUNTIME_DIR/omarchy/aperture/attention.sock`, the extension
-sends bounded typed session events directly and suppresses the duplicate native
+sends bounded typed OMP events directly and suppresses the corresponding native
 notification only after worker acknowledgement. The worker alone feeds those
-facts into `ApertureCore`; Core remains the lane authority. If the socket is
-unavailable, the extension fails open to the existing `aperture-omp`
-notification transport, whose projection remains Ambient-only and non-navigable.
-Shipping the extension does not automatically activate it in OMP.
+facts into `ApertureCore`; Core remains the lane authority. If direct delivery
+is unavailable, OMP falls back to its native notification outside the Aperture
+surface. Shipping the extension does not automatically activate it in OMP.
 
-The direct cutover uses notification input schema `2`, notification output
-schema `3`, surface protocol `3`, OMP attention event schema `2`, and private
-worker direct protocol `4`. OMP attention events remain OMP-specific; generic
-`focus.register` and `focus.revoke` messages carry bounded volatile focus control.
-Navigable frames carry only `{ "kind": "opaque-focus", "handle": "…" }`;
-activation returns only `focused`, `stale`, or `missing`. Session identity
-remains a private event fact and is never executable navigation.
+The direct cutover uses notification input schema `2`, private notification
+worker output schema `4`, public surface protocol `4`, OMP attention event
+schema `2`, and private worker-direct protocol `4`. Both hello frames require
+`protocolVersion: 4` independently from package semver. Only private worker
+snapshots may carry navigation, and the exact shape is
+`{ "kind": "opaque-focus", "handle": "…" }`; public surface frames cannot carry
+focus handles. Activation returns only `focused`, `stale`, or `missing`.
+Session identity remains a private event fact and is never executable
+navigation.
 
-Upgrade from the v0.2 worker migrates unresolved OMP direct state schema `1`
-to schema `2` atomically with mode `0600`, preserving session, interaction,
-revision, and event order while dropping executable session navigation and all
-focus-private facts. Migrated attention restores non-navigable until a live
-focus capability registers. Rolling a schema-2 state directory back to v0.2 is
-unsupported and fail-visible: the legacy worker reports corrupt-state recovery
-before removing the unsupported file. Do not start v0.2 against a migrated
-state directory; take an operator backup before rollback, then restore it and
-roll forward to the next fully accepted signed worker release. v0.4.0 remains dogfood evidence.
+Upgrade from older direct workers migrates unresolved OMP direct state schemas
+`1` and `2` to schema `3` atomically with mode `0600`, while dropping executable
+session navigation and all persisted focus-private facts. Migrated attention
+restores non-navigable until a live focus capability registers.
+
+Worker stdout is ASCII-only JSONL with non-ASCII JSON code units escaped and a
+256 KiB encoded-line limit. Production worker and OMP extension artifacts are
+minified and each must fit the 524,288-byte marketplace limit. BUILDINFO pins
+this as `artifactLimits.maximumTextArtifactBytes: 524288` and records the
+private version both at `ompPackageVersion` and
+`integrations.omp.packageVersion`.
+
+A host can run
+`aperture-attention-engine.cjs --cleanup-owned-socket` after service teardown;
+the mode starts no Core, engine, or server, retries active/replaced transient
+states for at most 1,500 ms, and touches only an inactive, same-UID, unchanged
+socket at the canonical XDG path.
 
 ## Product State
 

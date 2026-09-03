@@ -9,8 +9,8 @@ canonical Aperture `SourceEvent` values, and keeps OMP-specific behavior outside
 Exports:
 
 - `@aperture/omp/extension` connects OMP to a normal Aperture runtime.
-- `@aperture/omp/omarchy-extension` emits bounded adapter-owned Omarchy
-  notifications for the self-contained Omarchy attention plugin.
+- `@aperture/omp/omarchy-extension` sends bounded typed facts to the
+  self-contained Omarchy worker, with native notification as outside-surface fallback.
 
 The Omarchy extension emits only approval, input, terminal failure, completion,
 and resolution transitions. It never includes prompt transcripts, tool results,
@@ -21,10 +21,11 @@ When the Aperture worker owns
 bounded typed OMP attention facts over that same-user Unix socket. The worker
 feeds those facts into `ApertureCore`; neither the adapter nor the downstream
 panel chooses a lane. Acknowledged direct delivery suppresses the corresponding
-native `aperture-omp` notification. Socket failure falls back to the existing
-Ambient-only native notification path without blocking OMP.
+native `aperture-omp` notification. A definite pre-write socket failure falls
+back to a native notification outside the Aperture surface without blocking
+OMP; acceptance-unknown failures do not duplicate the event.
 
-Navigable worker frames expose only a bounded opaque focus capability:
+Only private notification-worker v4 frames may expose a bounded opaque focus capability:
 
 ```json
 { "navigation": { "kind": "opaque-focus", "handle": "<32-character opaque handle>" } }
@@ -48,6 +49,13 @@ OMP's built-in notifications process-locally to avoid duplicates. It restores
 the prior setting and disables adapter delivery for the rest of the session on
 delivery failure; shutdown also restores it. If the sender is unavailable,
 built-in notifications remain enabled.
+
+The staged private OMP manifest is version `0.1.0`, independently from the
+Aperture product package version.
+
+BUILDINFO records that version both at `ompPackageVersion` and
+`integrations.omp.packageVersion`; it pins the worker/extension text ceiling as
+`artifactLimits.maximumTextArtifactBytes: 524288`.
 
 The trusted Omarchy payload vendors the compiled extension as:
 

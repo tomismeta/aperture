@@ -1,6 +1,7 @@
 {
+  "protocolVersion": 4,
   "type": "hello",
-  "packageVersion": "0.5.0",
+  "packageVersion": "0.10.0",
   "surface": "aperture-stdio",
   "capabilities": {
     "snapshots": true,

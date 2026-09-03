@@ -13,12 +13,16 @@
 <p></p>
 </div>
 
-Aperture is the live attention surface for humans working with agents like
-Claude Code and OpenCode.
+Aperture is the live attention surface for humans working with agents, with
+Claude Code as the primary product path and OpenCode as a supported integration.
 
 It keeps the agent work that needs you in one place, decides what should be
 `now`, what should wait until `next`, and what should stay `ambient`, and sends
 your answer back into the same loop.
+
+The latest published `@tomismeta/aperture` release is `0.5.0`; `main` is the
+`0.10.0` release candidate. Repository documentation may describe candidate
+behavior that is not yet available from npm.
 
 ## Getting Started
 
@@ -153,7 +157,11 @@ If you only remember one thing, remember this:
 - optional tool-call hold policy through the Aperture response loop
 - intentionally not wired into the published product launcher yet
 
-Claude Code and OpenCode are the mainline live paths today. Codex is included as an opt-in experimental product path; Pi remains source-only.
+Claude Code is the primary live product path. OpenCode remains supported, Codex
+is opt-in and experimental, and Pi remains source-only.
+Omarchy is a separate focused OMP delivery channel: its self-contained plugin
+ships a signed worker and OMP extension and does not require the Aperture CLI or
+runtime to be installed.
 
 ## Common Product Commands
 
@@ -208,7 +216,7 @@ Repo-level examples and capture-review quickstarts live in
 
 - Product package: [`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture)
 - SDK package: [`@tomismeta/aperture-core`](https://www.npmjs.com/package/@tomismeta/aperture-core)
-- Product release notes: [docs/releases/aperture-v0.5.0.md](./docs/releases/aperture-v0.5.0.md)
+- Latest published product notes (`0.5.0`): [docs/releases/aperture-v0.5.0.md](./docs/releases/aperture-v0.5.0.md)
 - SDK release notes: [docs/releases/aperture-core-v0.9.0.md](./docs/releases/aperture-core-v0.9.0.md)
 - Architecture overview: [docs/product/architecture-overview.md](./docs/product/architecture-overview.md)
 - Host-neutral ingestion contract: [docs/product/host-neutral-ingestion-contract.md](./docs/product/host-neutral-ingestion-contract.md)

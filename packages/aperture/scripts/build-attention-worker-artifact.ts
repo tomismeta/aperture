@@ -26,8 +26,7 @@ const ompRuntimeImportReport = path.join(
   "dist",
   "aperture-omp-extension.runtime-imports.json",
 );
-const maximumOmpExtensionBytes = 1024 * 1024;
-const maximumBundleBytes = 2 * 1024 * 1024;
+const maximumMarketplaceArtifactBytes = 524_288;
 const minimumNodeVersion = "22.0.0";
 const schemaNames = [
   "notification-worker-input.schema.json",
@@ -71,25 +70,32 @@ const outputRoot = path.resolve(
   options.outputDir ?? path.join(workspaceRoot, "dist", "aperture-attention-worker"),
 );
 assertSafeOutputDirectory(outputRoot);
+const trustedSourceTag = process.env.APERTURE_SOURCE_TAG;
 const trustedCi =
   !options.allowUnsignedLocal &&
   process.env.CI === "true" &&
   process.env.APERTURE_TRUSTED_CI === "1" &&
-  Boolean(process.env.APERTURE_SOURCE_TAG);
+  typeof trustedSourceTag === "string" &&
+  /^aperture-worker-v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(trustedSourceTag) &&
+  process.env.GITHUB_REF_TYPE === "tag" &&
+  process.env.GITHUB_REF_NAME === trustedSourceTag &&
+  process.env.GITHUB_REF === `refs/tags/${trustedSourceTag}`;
 if (!options.allowUnsignedLocal && !trustedCi) {
   throw new Error(
-    "release worker build requires APERTURE_SOURCE_TAG and APERTURE_TRUSTED_CI=1 in trusted CI",
+    "release worker build requires an exact Aperture worker SemVer tag and trusted tag-ref CI context",
   );
 }
 
 const bundle = await readFile(workerBundle);
-if (bundle.byteLength > maximumBundleBytes) {
-  throw new Error(`attention worker bundle exceeds the ${maximumBundleBytes}-byte artifact limit`);
+if (bundle.byteLength > maximumMarketplaceArtifactBytes) {
+  throw new Error(
+    `attention worker bundle is ${bundle.byteLength} bytes; marketplace limit is ${maximumMarketplaceArtifactBytes} bytes`,
+  );
 }
 const ompBundle = await readFile(ompExtension);
-if (ompBundle.byteLength > maximumOmpExtensionBytes) {
+if (ompBundle.byteLength > maximumMarketplaceArtifactBytes) {
   throw new Error(
-    `OMP extension bundle exceeds the ${maximumOmpExtensionBytes}-byte artifact limit`,
+    `OMP extension bundle is ${ompBundle.byteLength} bytes; marketplace limit is ${maximumMarketplaceArtifactBytes} bytes`,
   );
 }
 
@@ -181,12 +187,14 @@ const packageMetadata = JSON.parse(
 const ompManifestMetadata = JSON.parse(await readFile(stagedOmpManifest, "utf8")) as {
   name?: unknown;
   version?: unknown;
+  private?: unknown;
   type?: unknown;
   omp?: { extensions?: unknown };
 };
 if (
   ompManifestMetadata.name !== "@tomismeta/aperture-omp" ||
-  ompManifestMetadata.version !== packageMetadata.version ||
+  ompManifestMetadata.version !== "0.1.0" ||
+  ompManifestMetadata.private !== true ||
   ompManifestMetadata.type !== "module" ||
   !Array.isArray(ompManifestMetadata.omp?.extensions) ||
   ompManifestMetadata.omp.extensions.length !== 1 ||
@@ -197,6 +205,12 @@ if (
 const coreMetadata = JSON.parse(
   await readFile(path.join(workspaceRoot, "packages", "core", "package.json"), "utf8"),
 ) as { version?: unknown };
+if (packageMetadata.version !== "0.10.0") {
+  throw new Error("Aperture worker payload requires @tomismeta/aperture 0.10.0");
+}
+if (coreMetadata.version !== "0.9.0") {
+  throw new Error("Aperture worker payload requires @tomismeta/aperture-core 0.9.0");
+}
 const esbuildMetadata = JSON.parse(
   await readFile(requireFromScript.resolve("esbuild/package.json"), "utf8"),
 ) as { version?: unknown };
@@ -228,6 +242,16 @@ const workerDirectSchema = requiredFile("schemas/worker-direct-message.schema.js
 const ompAttentionSchema = requiredFile("schemas/omp-attention-event.schema.json");
 const workerImportEvidence = requiredFile("evidence/runtime-imports.json");
 const ompExtensionFile = requiredFile(`integrations/omp/${ompExtensionName}`);
+if (workerFile.bytes > maximumMarketplaceArtifactBytes) {
+  throw new Error(
+    `staged attention worker is ${workerFile.bytes} bytes; marketplace limit is ${maximumMarketplaceArtifactBytes} bytes`,
+  );
+}
+if (ompExtensionFile.bytes > maximumMarketplaceArtifactBytes) {
+  throw new Error(
+    `staged OMP extension is ${ompExtensionFile.bytes} bytes; marketplace limit is ${maximumMarketplaceArtifactBytes} bytes`,
+  );
+}
 const ompManifestFile = requiredFile("integrations/omp/package.json");
 const ompImportEvidence = requiredFile("evidence/omp-runtime-imports.json");
 const apertureSourceTag = process.env.APERTURE_SOURCE_TAG || null;
@@ -245,7 +269,11 @@ const buildInfo = {
   sourceDirty,
   payloadProfile: options.allowUnsignedLocal ? "development" : "release",
   aperturePackageVersion: String(packageMetadata.version || ""),
+  artifactLimits: {
+    maximumTextArtifactBytes: maximumMarketplaceArtifactBytes,
+  },
   apertureCoreVersion: String(coreMetadata.version || ""),
+  ompPackageVersion: String(ompManifestMetadata.version),
   builder: {
     name: "esbuild",
     version: String(esbuildMetadata.version || ""),
@@ -253,10 +281,28 @@ const buildInfo = {
   },
   workerContract: {
     notificationInputSchemaVersion: 2,
-    notificationOutputSchemaVersion: 3,
-    surfaceProtocolVersion: 3,
+    notificationOutputSchemaVersion: 4,
+    surfaceProtocolVersion: 4,
     ompAttentionEventSchemaVersion: 2,
     workerDirectProtocolVersion: 4,
+    jsonlHandshakes: {
+      privateWorker: {
+        protocolVersion: 4,
+        peer: "aperture-attention-engine",
+        framing: "jsonl",
+        outputEncoding: "ascii-json-escapes",
+        maximumLineBytes: 262_144,
+        navigation: "validated-opaque-focus-only",
+      },
+      publicSurface: {
+        protocolVersion: 4,
+        peer: "aperture-stdio",
+        framing: "jsonl",
+        outputEncoding: "ascii-json-escapes",
+        maximumLineBytes: 262_144,
+        navigation: "absent",
+      },
+    },
   },
   stateMigration: {
     ompDirect: {
@@ -298,6 +344,18 @@ const buildInfo = {
     clientPolicy: "backend-scoped-single-client-admission",
     persistence: "volatile-only",
   },
+  directSocketLifecycle: {
+    directoryMode: "0700",
+    socketMode: "0600",
+    lifecycleLockMode: "0600",
+    lifecycleSerialization: "hard-link-owner-lock",
+    cleanupDeadlineMs: 1_500,
+    cleanupExitCodes: {
+      removedOrAbsent: 0,
+      unsafe: 74,
+      transient: 75,
+    },
+  },
   focusBackends: ["herdr-0.8.2", "foot-1.27", "tmux-3.7c"],
   schemas: {
     input: {
@@ -306,12 +364,12 @@ const buildInfo = {
       sha256: notificationInputSchema.sha256,
     },
     output: {
-      version: 3,
+      version: 4,
       path: notificationOutputSchema.path,
       sha256: notificationOutputSchema.sha256,
     },
     surface: {
-      version: 3,
+      version: 4,
       path: surfaceSchema.path,
       sha256: surfaceSchema.sha256,
     },
@@ -347,6 +405,7 @@ const buildInfo = {
   },
   integrations: {
     omp: {
+      packageVersion: String(ompManifestMetadata.version),
       artifactType: "omp-extension-module",
       path: ompExtensionFile.path,
       manifestPath: ompManifestFile.path,

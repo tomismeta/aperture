@@ -1,4 +1,6 @@
-export const APERTURE_SURFACE_PROTOCOL_VERSION = 3;
+import { serializeAsciiJsonLine } from "../ascii-jsonl.js";
+
+export const APERTURE_SURFACE_PROTOCOL_VERSION = 4;
 export const APERTURE_SURFACE_LIMITS = {
   sources: 32,
   nextFrames: 32,
@@ -25,11 +27,6 @@ export type ApertureSurfaceFrameSource = {
   label: string;
 };
 
-export type ApertureSurfaceNavigation = {
-  kind: "opaque-focus";
-  handle: string;
-};
-
 export type ApertureSurfaceContextItem = {
   id: string;
   label: string;
@@ -47,7 +44,6 @@ export type ApertureSurfaceFrame = {
   title: string;
   summary?: string;
   source?: ApertureSurfaceFrameSource;
-  navigation?: ApertureSurfaceNavigation;
   context?: {
     stage?: string;
     progress?: number;
@@ -89,6 +85,7 @@ export const APERTURE_STDIO_CAPABILITIES: Readonly<ApertureSurfaceCapabilities> 
 
 export type ApertureSurfaceHelloMessage = {
   type: "hello";
+  protocolVersion: 4;
   packageVersion: string;
   surface: "aperture-stdio";
   capabilities: ApertureSurfaceCapabilities;
@@ -145,9 +142,18 @@ export function apertureSurfaceHello(
     throw new Error("Aperture package version must contain 1 to 80 visible characters.");
   }
   return {
+    protocolVersion: APERTURE_SURFACE_PROTOCOL_VERSION,
     type: "hello",
     packageVersion: normalizedVersion,
     surface: "aperture-stdio",
     capabilities: { ...capabilities },
   };
+}
+
+export function serializeApertureSurfaceMessage(message: ApertureSurfaceMessage): string {
+  const line = serializeAsciiJsonLine(message);
+  if (line.length > APERTURE_SURFACE_LIMITS.jsonLineBytes) {
+    throw new Error("Aperture surface protocol line exceeded the configured byte limit.");
+  }
+  return line;
 }

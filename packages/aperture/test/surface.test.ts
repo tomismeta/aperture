@@ -15,6 +15,7 @@ import { assertApertureSurfaceMessage } from "../src/surface/protocol-validator.
 import {
   APERTURE_STDIO_CAPABILITIES,
   APERTURE_SURFACE_LIMITS,
+  serializeApertureSurfaceMessage,
   type ApertureSurfaceMessage,
 } from "../src/surface/protocol.js";
 import { projectSurfaceSnapshot } from "../src/surface/projection.js";
@@ -67,6 +68,7 @@ test("surface projection is bounded and omits internal metadata and response spe
   assert.equal(projected.view.now?.source?.label, "Codex");
   assert.equal(projected.view.now?.context?.items?.length, 1);
   assert.doesNotMatch(serialized, /metadata|responseSpec|private-value/);
+  assert.equal("navigation" in (projected.view.now ?? {}), false);
 });
 
 test("surface projection preserves opaque identity and normalizes display data", () => {
@@ -101,6 +103,29 @@ test("surface projection preserves opaque identity and normalizes display data",
   );
 });
 
+test("surface validator applies strict RFC3339 date-time semantics without ajv-formats", () => {
+  const projected = projectSurfaceSnapshot(
+    runtimeSnapshot({ now: attentionFrame(), next: [], ambient: [] }),
+    1,
+  );
+  const validOffset = structuredClone(projected);
+  assert.ok(validOffset.view.now);
+  validOffset.view.now.timing.createdAt = "2026-08-30T16:00:00+02:30";
+  assert.doesNotThrow(() => assertApertureSurfaceMessage(validOffset));
+
+  for (const timestamp of [
+    "2026-02-30T16:00:00Z",
+    "2026-08-30 16:00:00Z",
+    "2026-08-30T24:00:00Z",
+    "2026-08-30T16:00:00+24:00",
+  ]) {
+    const invalid = structuredClone(projected);
+    assert.ok(invalid.view.now);
+    invalid.view.now.timing.createdAt = timestamp;
+    assert.throws(() => assertApertureSurfaceMessage(invalid));
+  }
+});
+
 test("surface projection discloses totals while fitting an ordered prefix under 256 KiB", () => {
   const frames = Array.from({ length: APERTURE_SURFACE_LIMITS.ambientFrames }, (_, index) => ({
     ...attentionFrame(),
@@ -128,10 +153,10 @@ test("surface projection discloses totals while fitting an ordered prefix under 
   );
 
   assert.ok(
-    Buffer.byteLength(`${JSON.stringify(projected)}\n`, "utf8") <=
-      APERTURE_SURFACE_LIMITS.jsonLineBytes,
+    serializeApertureSurfaceMessage(projected).length <= APERTURE_SURFACE_LIMITS.jsonLineBytes,
   );
   assert.equal(projected.totals.next, APERTURE_SURFACE_LIMITS.nextFrames);
+  assert.ok(projected.totals.sources >= projected.sources.length);
   assert.equal(projected.totals.ambient, APERTURE_SURFACE_LIMITS.ambientFrames);
   assert.ok(projected.view.ambient.length < projected.totals.ambient);
   assert.deepEqual(
@@ -160,6 +185,10 @@ test("canonical surface fixtures preserve the bounded initial capability set", a
     assertApertureSurfaceMessage(value);
     assert.ok(value && typeof value === "object" && "type" in value, `${fixtureName} type`);
     assert.equal(typeof value.type, "string");
+    if (value.type === "hello") {
+      assert.ok("protocolVersion" in value);
+      assert.equal(value.protocolVersion, 4);
+    }
     assert.doesNotMatch(raw, /metadata|responseSpec|tokenPath|controlUrl|authToken/);
 
     if (value.type === "snapshot") {
@@ -182,13 +211,16 @@ test("canonical surface fixtures preserve the bounded initial capability set", a
   assert.ok(schemaValue && typeof schemaValue === "object" && "title" in schemaValue);
   assert.equal(schemaValue.title, "Aperture Surface Protocol");
   assert.doesNotMatch(schemaRaw, /responseSpec|metadata/);
+  assert.doesNotMatch(schemaRaw, /navigation|opaque-focus/);
 });
 
 test("stdio protocol emits hello, connection, and a complete companion snapshot in order", async () => {
   const controller = new AbortController();
   const stdout = new LineCollector();
   const stderr = new LineCollector();
-  const snapshot = runtimeSnapshot({ now: attentionFrame(), next: [], ambient: [] });
+  const frame = attentionFrame();
+  frame.title = "Résumé 🚀";
+  const snapshot = runtimeSnapshot({ now: frame, next: [], ambient: [] });
   const client = fakeRuntimeClient(snapshot);
   const registration = runtimeRegistration();
   let connectOptions: ApertureRuntimeClientOptions | null = null;
@@ -233,15 +265,28 @@ test("stdio protocol emits hello, connection, and a complete companion snapshot 
     ["hello", "connection:connecting", "connection:connected", "snapshot"],
   );
   assert.equal(messages[0]?.packageVersion, "0.5.0");
+  assert.equal(messages[0]?.protocolVersion, 4);
   const helloValue: unknown = JSON.parse(stdout.lines[0] ?? "");
   assert.ok(helloValue && typeof helloValue === "object" && "capabilities" in helloValue);
   assert.deepEqual(Object.keys(helloValue).sort(), [
     "capabilities",
     "packageVersion",
+    "protocolVersion",
     "surface",
     "type",
   ]);
   assert.deepEqual(helloValue.capabilities, APERTURE_STDIO_CAPABILITIES);
+  assert.equal(
+    stdout.lines.every((line) => /^[\x00-\x7f]*$/.test(line)),
+    true,
+  );
+  const emittedSnapshot = stdout.lines
+    .map((line) => JSON.parse(line) as ApertureSurfaceMessage)
+    .find((message) => message.type === "snapshot");
+  assert.equal(emittedSnapshot?.type, "snapshot");
+  if (emittedSnapshot?.type === "snapshot") {
+    assert.equal(emittedSnapshot.view.now?.title, "Résumé 🚀");
+  }
   assert.equal(connectOptions?.surfaceRole, "companion");
   assert.equal(connectOptions?.acceptsResponses, APERTURE_STDIO_CAPABILITIES.responses);
   assert.equal(connectOptions?.signal, controller.signal);
@@ -695,6 +740,7 @@ type ObservedMessage = {
   type: string;
   state?: string;
   packageVersion?: string;
+  protocolVersion?: number;
 };
 
 function parseObservedMessage(line: string): ObservedMessage {
@@ -705,10 +751,13 @@ function parseObservedMessage(line: string): ObservedMessage {
   assert.ok(state === undefined || typeof state === "string");
   const packageVersion = "packageVersion" in value ? value.packageVersion : undefined;
   assert.ok(packageVersion === undefined || typeof packageVersion === "string");
+  const protocolVersion = "protocolVersion" in value ? value.protocolVersion : undefined;
+  assert.ok(protocolVersion === undefined || typeof protocolVersion === "number");
   return {
     type: value.type,
     ...(state !== undefined ? { state } : {}),
     ...(packageVersion !== undefined ? { packageVersion } : {}),
+    ...(protocolVersion !== undefined ? { protocolVersion } : {}),
   };
 }
 

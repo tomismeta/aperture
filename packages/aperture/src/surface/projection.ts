@@ -1,3 +1,5 @@
+import { serializeAsciiJsonLine, stringifyAsciiJson } from "../ascii-jsonl.js";
+
 import type { AttentionFrame, AttentionView } from "@tomismeta/aperture-core";
 import type { ApertureRuntimeSnapshot } from "@aperture/runtime";
 
@@ -5,7 +7,6 @@ import {
   APERTURE_SURFACE_LIMITS,
   type ApertureSurfaceContextItem,
   type ApertureSurfaceFrame,
-  type ApertureSurfaceNavigation,
   type ApertureSurfaceSnapshotMessage,
   type ApertureSurfaceSource,
 } from "./protocol.js";
@@ -27,7 +28,6 @@ export type ApertureSurfaceProjectionSource = {
 export type ApertureSurfaceProjectionInput = {
   sources: ApertureSurfaceProjectionSource[];
   attentionView: AttentionView;
-  navigationByTaskId?: ReadonlyMap<string, ApertureSurfaceNavigation>;
 };
 
 export function projectSurfaceSnapshot(
@@ -64,15 +64,11 @@ export function projectAttentionSurfaceView(
       sources: input.sources.length,
     },
     view: {
-      now: input.attentionView.now
-        ? projectFrame(input.attentionView.now, input.navigationByTaskId)
-        : null,
-      next: input.attentionView.next
-        .slice(0, APERTURE_SURFACE_LIMITS.nextFrames)
-        .map((frame) => projectFrame(frame, input.navigationByTaskId)),
+      now: input.attentionView.now ? projectFrame(input.attentionView.now) : null,
+      next: input.attentionView.next.slice(0, APERTURE_SURFACE_LIMITS.nextFrames).map(projectFrame),
       ambient: input.attentionView.ambient
         .slice(0, APERTURE_SURFACE_LIMITS.ambientFrames)
-        .map((frame) => projectFrame(frame, input.navigationByTaskId)),
+        .map(projectFrame),
     },
   };
   const fitted = fitSurfaceSnapshot(projected);
@@ -95,10 +91,7 @@ function projectSource(source: ApertureSurfaceProjectionSource): ApertureSurface
   };
 }
 
-function projectFrame(
-  frame: AttentionFrame,
-  navigationByTaskId?: ReadonlyMap<string, ApertureSurfaceNavigation>,
-): ApertureSurfaceFrame {
+function projectFrame(frame: AttentionFrame): ApertureSurfaceFrame {
   const sourceKind =
     frame.source?.kind && frame.source.kind.trim()
       ? projectSurfaceIdentifier(
@@ -119,7 +112,6 @@ function projectFrame(
   const summary = optionalDisplayText(frame.summary, APERTURE_SURFACE_LIMITS.summary);
   const context = projectContext(frame);
   const whyNow = optionalDisplayText(frame.provenance?.whyNow, APERTURE_SURFACE_LIMITS.whyNow);
-  const navigation = projectNavigation(frame, navigationByTaskId);
 
   return {
     id: projectSurfaceIdentifier(frame.id, APERTURE_SURFACE_LIMITS.id, "frame id"),
@@ -136,7 +128,6 @@ function projectFrame(
     title: requiredDisplayText(frame.title, APERTURE_SURFACE_LIMITS.title, "frame title"),
     ...(summary ? { summary } : {}),
     ...(source ? { source } : {}),
-    ...(navigation ? { navigation } : {}),
     ...(context ? { context } : {}),
     ...(whyNow ? { provenance: { whyNow } } : {}),
     timing: {
@@ -147,22 +138,6 @@ function projectFrame(
         : {}),
     },
   };
-}
-
-function projectNavigation(
-  frame: AttentionFrame,
-  navigationByTaskId: ReadonlyMap<string, ApertureSurfaceNavigation> | undefined,
-): ApertureSurfaceNavigation | undefined {
-  const navigation = navigationByTaskId?.get(frame.taskId);
-  if (!navigation) return undefined;
-  if (
-    frame.source?.kind !== "omp" ||
-    navigation.kind !== "opaque-focus" ||
-    !/^[A-Za-z0-9_-]{32}$/.test(navigation.handle)
-  ) {
-    throw new ApertureSurfaceProjectionError("surface navigation source is invalid");
-  }
-  return { kind: "opaque-focus", handle: navigation.handle };
 }
 
 function projectContext(frame: AttentionFrame): ApertureSurfaceFrame["context"] | undefined {
@@ -249,7 +224,7 @@ function fitSurfaceSnapshot(
       ambient: [],
     },
   };
-  let bytes = Buffer.byteLength(`${JSON.stringify(fitted)}\n`, "utf8");
+  let bytes = serializeAsciiJsonLine(fitted).length;
   if (bytes > APERTURE_SURFACE_LIMITS.jsonLineBytes) {
     throw new ApertureSurfaceProjectionError(
       "surface Now frame could not fit within the JSONL byte limit",
@@ -259,7 +234,7 @@ function fitSurfaceSnapshot(
   const appendPrefix = <T>(target: T[], candidates: T[]): void => {
     for (const candidate of candidates) {
       const separatorBytes = target.length === 0 ? 0 : 1;
-      const candidateBytes = Buffer.byteLength(JSON.stringify(candidate), "utf8");
+      const candidateBytes = stringifyAsciiJson(candidate).length;
       if (bytes + separatorBytes + candidateBytes > APERTURE_SURFACE_LIMITS.jsonLineBytes) {
         break;
       }

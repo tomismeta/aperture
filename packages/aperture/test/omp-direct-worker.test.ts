@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { EventEmitter, once } from "node:events";
-import { chmod, lstat, mkdir, mkdtemp, readFile, stat, symlink, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  lstat,
+  link,
+  mkdir,
+  mkdtemp,
+  readFile,
+  stat,
+  symlink,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { createConnection, createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -23,7 +35,11 @@ import type { NotificationWorkerIdentity } from "../src/notification-worker/adap
 import { startOmpAttentionSocketServer } from "../src/notification-worker/direct-server.js";
 import {
   assertOwnedSocketMetadata,
-  prepareSocketPath,
+  cleanupOwnedSocket,
+  closeOwnedSocketServer,
+  listenOnOwnedSocket,
+  OwnedSocketCleanupError,
+  OWNED_SOCKET_CLEANUP_DEADLINE_MS,
 } from "../src/notification-worker/direct-socket-lifecycle.js";
 import { NotificationWorkerEngine } from "../src/notification-worker/engine.js";
 import type { NotificationWorkerInput } from "../src/notification-worker/protocol.js";
@@ -165,7 +181,7 @@ test("private focus control v4 is generic, exact, and recovery-bounded", () => {
   assert.equal(acknowledgement.workerGeneration, "W".repeat(32));
 });
 
-test("surface navigation is closed, bounded, and absent without a worker route", () => {
+test("public surface rejects private focus navigation", () => {
   const frame = {
     id: "frame-1",
     taskId: "task-1",
@@ -178,34 +194,28 @@ test("surface navigation is closed, bounded, and absent without a worker route",
     source: { kind: "omp", label: "OMP" },
     timing: { createdAt: occurredAt, updatedAt: occurredAt },
   };
-  assertApertureSurfaceMessage({
-    type: "snapshot",
-    sequence: 1,
-    sources: [{ kind: "omp", label: "OMP" }],
-    totals: { now: 1, next: 0, ambient: 0, sources: 1 },
-    view: {
-      now: { ...frame, navigation: { kind: "opaque-focus", handle: focusHandle } },
-      next: [],
-      ambient: [],
-    },
-  });
-  for (const navigation of [
-    { kind: "unknown", handle: focusHandle },
-    { kind: "opaque-focus", handle: "" },
-    { kind: "opaque-focus", handle: "bad\nhandle" },
-    { kind: "opaque-focus", handle: "x".repeat(31) },
-    { kind: "opaque-focus", handle: "x".repeat(33) },
-  ]) {
-    assert.throws(() =>
-      assertApertureSurfaceMessage({
-        type: "snapshot",
-        sequence: 1,
-        sources: [{ kind: "omp", label: "OMP" }],
-        totals: { now: 1, next: 0, ambient: 0, sources: 1 },
-        view: { now: { ...frame, navigation }, next: [], ambient: [] },
-      }),
-    );
-  }
+  assert.throws(() =>
+    assertApertureSurfaceMessage({
+      type: "snapshot",
+      sequence: 1,
+      sources: [{ kind: "omp", label: "OMP" }],
+      totals: { now: 1, next: 0, ambient: 0, sources: 1 },
+      view: {
+        now: { ...frame, navigation: { kind: "opaque-focus", handle: focusHandle } },
+        next: [],
+        ambient: [],
+      },
+    }),
+  );
+  assert.doesNotThrow(() =>
+    assertApertureSurfaceMessage({
+      type: "snapshot",
+      sequence: 1,
+      sources: [{ kind: "omp", label: "OMP" }],
+      totals: { now: 1, next: 0, ambient: 0, sources: 2 },
+      view: { now: frame, next: [], ambient: [] },
+    }),
+  );
 });
 
 test("direct OMP events produce canonical NOW and NEXT with replayable navigation", async () => {
@@ -825,7 +835,49 @@ test("worker shutdown removes its direct OMP socket", async () => {
   await assert.rejects(() => lstat(socketPath), /ENOENT/);
 });
 
-test("socket path rejects symlinks and recovers an unchanged stale socket", async () => {
+test("worker closes a published socket when readiness output fails", async () => {
+  const runtimeRoot = await mkdtemp("/tmp/ap-omp-worker-ready-failure-");
+  const stateDir = path.join(runtimeRoot, "state");
+  const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
+  const input = new PassThrough();
+  let outputCount = 0;
+  let markReadyWrite!: () => void;
+  let releaseReadyWrite!: () => void;
+  const readyWrite = new Promise<void>((resolve) => {
+    markReadyWrite = resolve;
+  });
+  const readyWriteCanFail = new Promise<void>((resolve) => {
+    releaseReadyWrite = resolve;
+  });
+  const output = new Writable({
+    write(_chunk, _encoding, callback) {
+      outputCount += 1;
+      if (outputCount !== 3) {
+        callback();
+        return;
+      }
+      markReadyWrite();
+      void readyWriteCanFail.then(() => callback(new Error("ready output failed")));
+    },
+  });
+  output.on("error", () => undefined);
+  const running = runNotificationWorkerStdio({
+    packageVersion: "0.10.0",
+    identities: [identity],
+    stateDir,
+    socketPath,
+    input,
+    output,
+  });
+  await readyWrite;
+  assert.equal((await lstat(socketPath)).isSocket(), true);
+  releaseReadyWrite();
+  await assert.rejects(running, /ready output failed/);
+  await assert.rejects(() => lstat(socketPath), /ENOENT/);
+});
+
+test("socket startup rejects unsafe paths and recovers an inactive owned socket", async () => {
+  const uid = process.getuid!();
   const runtimeRoot = await mkdtemp("/tmp/ap-omp-safety-");
   const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
   await mkdir(path.dirname(socketPath), { recursive: true, mode: 0o700 });
@@ -834,13 +886,7 @@ test("socket path rejects symlinks and recovers an unchanged stale socket", asyn
   const target = path.join(runtimeRoot, "target");
   await writeFile(target, "not a socket", "utf8");
   await symlink(target, socketPath);
-  await assert.rejects(() => prepareSocketPath(socketPath, process.getuid!()), /symlink/);
-
-  const staleRuntimeRoot = await mkdtemp("/tmp/ap-omp-stale-");
-  const stalePath = path.join(staleRuntimeRoot, "omarchy", "aperture", "attention.sock");
-  await mkdir(path.dirname(stalePath), { recursive: true, mode: 0o700 });
-  await chmod(path.join(staleRuntimeRoot, "omarchy"), 0o700);
-  await chmod(path.dirname(stalePath), 0o700);
+  await assert.rejects(() => listenOnOwnedSocket(createServer(), socketPath, uid), /symlink/);
 
   const fileRuntimeRoot = await mkdtemp("/tmp/ap-omp-file-");
   const filePath = path.join(fileRuntimeRoot, "omarchy", "aperture", "attention.sock");
@@ -848,14 +894,297 @@ test("socket path rejects symlinks and recovers an unchanged stale socket", asyn
   await chmod(path.join(fileRuntimeRoot, "omarchy"), 0o700);
   await chmod(path.dirname(filePath), 0o700);
   await writeFile(filePath, "unsafe replacement", "utf8");
-  await assert.rejects(() => prepareSocketPath(filePath, process.getuid!()), /not a socket/);
+  await assert.rejects(() => listenOnOwnedSocket(createServer(), filePath, uid), /not a socket/);
+
+  const staleRuntimeRoot = await mkdtemp("/tmp/ap-omp-stale-");
+  const stalePath = path.join(staleRuntimeRoot, "omarchy", "aperture", "attention.sock");
+  await mkdir(path.dirname(stalePath), { recursive: true, mode: 0o700 });
+  await chmod(path.join(staleRuntimeRoot, "omarchy"), 0o700);
+  await chmod(path.dirname(stalePath), 0o700);
+  const staleProcess = spawn(
+    process.execPath,
+    [
+      "-e",
+      "const net=require('node:net');const server=net.createServer();" +
+        "server.listen(process.argv[1],()=>process.stdout.write('ready\\n'));" +
+        "setInterval(()=>{},1000)",
+      stalePath,
+    ],
+    { stdio: ["ignore", "pipe", "inherit"] },
+  );
+  await once(staleProcess.stdout!, "data");
+  staleProcess.kill("SIGKILL");
+  await once(staleProcess, "exit");
+  assert.equal((await lstat(stalePath)).isSocket(), true);
+
+  const replacementServer = createServer();
+  const replacementIdentity = await listenOnOwnedSocket(
+    replacementServer,
+    stalePath,
+    uid,
+    async () => false,
+  );
+  assert.equal((await lstat(stalePath)).isSocket(), true);
+  await closeOwnedSocketServer(replacementServer, stalePath, uid, replacementIdentity, 1_500);
+  await assert.rejects(() => lstat(stalePath), /ENOENT/);
+});
+
+test("owned socket cleanup distinguishes absent, stale, active, replaced, and unsafe paths", async () => {
+  const uid = process.getuid!();
+  const absentRoot = await mkdtemp("/tmp/ap-omp-cleanup-absent-");
+  const absentPath = path.join(absentRoot, "omarchy", "aperture", "attention.sock");
+  assert.equal(await cleanupOwnedSocket(absentPath, uid), "absent");
+
+  const staleRoot = await mkdtemp("/tmp/ap-omp-cleanup-stale-");
+  const stalePath = path.join(staleRoot, "omarchy", "aperture", "attention.sock");
+  await mkdir(path.dirname(stalePath), { recursive: true, mode: 0o700 });
   const staleServer = createServer();
   staleServer.listen(stalePath);
   await once(staleServer, "listening");
-  await prepareSocketPath(stalePath, process.getuid!(), async () => false);
-  await assert.rejects(() => lstat(stalePath), /ENOENT/);
+  assert.equal(await cleanupOwnedSocket(stalePath, uid, async () => false), "removed");
   staleServer.close();
   await once(staleServer, "close");
+
+  const activeRoot = await mkdtemp("/tmp/ap-omp-cleanup-active-");
+  const activePath = path.join(activeRoot, "omarchy", "aperture", "attention.sock");
+  await mkdir(path.dirname(activePath), { recursive: true, mode: 0o700 });
+  const activeServer = createServer();
+  activeServer.listen(activePath);
+  await once(activeServer, "listening");
+  let activeElapsed = 0;
+  await assert.rejects(
+    () =>
+      cleanupOwnedSocket(activePath, uid, async () => true, {
+        now: () => activeElapsed,
+        sleep: async (milliseconds) => {
+          activeElapsed += milliseconds;
+        },
+      }),
+    (error: unknown) => error instanceof OwnedSocketCleanupError && error.exitCode === 75,
+  );
+  assert.equal(activeElapsed, OWNED_SOCKET_CLEANUP_DEADLINE_MS);
+  activeServer.close();
+  await once(activeServer, "close");
+
+  const retryRoot = await mkdtemp("/tmp/ap-omp-cleanup-retry-");
+  const retryPath = path.join(retryRoot, "omarchy", "aperture", "attention.sock");
+  await mkdir(path.dirname(retryPath), { recursive: true, mode: 0o700 });
+  const retryServer = createServer();
+  retryServer.listen(retryPath);
+  await once(retryServer, "listening");
+  let retryElapsed = 0;
+  let probeCount = 0;
+  assert.equal(
+    await cleanupOwnedSocket(
+      retryPath,
+      uid,
+      async () => {
+        probeCount += 1;
+        return probeCount === 1;
+      },
+      {
+        now: () => retryElapsed,
+        sleep: async (milliseconds) => {
+          retryElapsed += milliseconds;
+        },
+      },
+    ),
+    "removed",
+  );
+  assert.equal(retryElapsed, 50);
+  retryServer.close();
+  await once(retryServer, "close");
+
+  const replacedRoot = await mkdtemp("/tmp/ap-omp-cleanup-replaced-");
+  const replacedPath = path.join(replacedRoot, "omarchy", "aperture", "attention.sock");
+  await mkdir(path.dirname(replacedPath), { recursive: true, mode: 0o700 });
+  const replacedServer = createServer();
+  replacedServer.listen(replacedPath);
+  await once(replacedServer, "listening");
+  let replacedElapsed = 0;
+  await assert.rejects(
+    () =>
+      cleanupOwnedSocket(
+        replacedPath,
+        uid,
+        async () => {
+          await unlink(replacedPath);
+          await writeFile(replacedPath, "replacement", "utf8");
+          return false;
+        },
+        {
+          now: () => replacedElapsed,
+          sleep: async (milliseconds) => {
+            replacedElapsed += milliseconds;
+          },
+        },
+      ),
+    (error: unknown) => error instanceof OwnedSocketCleanupError && error.exitCode === 75,
+  );
+  assert.equal(replacedElapsed, OWNED_SOCKET_CLEANUP_DEADLINE_MS);
+  replacedServer.close();
+  await once(replacedServer, "close");
+
+  const unsafeRoot = await mkdtemp("/tmp/ap-omp-cleanup-unsafe-");
+  const unsafePath = path.join(unsafeRoot, "omarchy", "aperture", "attention.sock");
+  await mkdir(path.dirname(unsafePath), { recursive: true, mode: 0o700 });
+  await writeFile(unsafePath, "not a socket", "utf8");
+  await assert.rejects(
+    () => cleanupOwnedSocket(unsafePath, uid),
+    (error: unknown) => error instanceof OwnedSocketCleanupError && error.exitCode === 74,
+  );
+  const symlinkRoot = await mkdtemp("/tmp/ap-omp-cleanup-symlink-");
+  const symlinkPath = path.join(symlinkRoot, "omarchy", "aperture", "attention.sock");
+  await mkdir(path.dirname(symlinkPath), { recursive: true, mode: 0o700 });
+  await symlink(unsafePath, symlinkPath);
+  await assert.rejects(
+    () => cleanupOwnedSocket(symlinkPath, uid),
+    (error: unknown) => error instanceof OwnedSocketCleanupError && error.exitCode === 74,
+  );
+  const parentSymlinkRoot = await mkdtemp("/tmp/ap-omp-cleanup-parent-link-");
+  const parentSymlinkTarget = await mkdtemp("/tmp/ap-omp-cleanup-parent-target-");
+  await mkdir(path.join(parentSymlinkTarget, "aperture"), { recursive: true, mode: 0o700 });
+  await symlink(parentSymlinkTarget, path.join(parentSymlinkRoot, "omarchy"));
+  await assert.rejects(
+    () =>
+      cleanupOwnedSocket(
+        path.join(parentSymlinkRoot, "omarchy", "aperture", "attention.sock"),
+        uid,
+      ),
+    (error: unknown) => error instanceof OwnedSocketCleanupError && error.exitCode === 74,
+  );
+
+  const foreignRoot = await mkdtemp("/tmp/ap-omp-cleanup-foreign-");
+  const foreignPath = path.join(foreignRoot, "omarchy", "aperture", "attention.sock");
+  await mkdir(path.dirname(foreignPath), { recursive: true, mode: 0o700 });
+  const foreignServer = createServer();
+  foreignServer.listen(foreignPath);
+  await once(foreignServer, "listening");
+  await assert.rejects(
+    () => cleanupOwnedSocket(foreignPath, uid + 1, async () => false),
+    (error: unknown) => error instanceof OwnedSocketCleanupError && error.exitCode === 74,
+  );
+  foreignServer.close();
+  await once(foreignServer, "close");
+});
+
+test("cleanup serializes a cooperating socket replacement", async () => {
+  const uid = process.getuid!();
+  const runtimeRoot = await mkdtemp("/tmp/ap-omp-cleanup-lock-");
+  const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
+  await mkdir(path.dirname(socketPath), { recursive: true, mode: 0o700 });
+  await chmod(path.join(runtimeRoot, "omarchy"), 0o700);
+  await chmod(path.dirname(socketPath), 0o700);
+  const staleProcess = spawn(
+    process.execPath,
+    [
+      "-e",
+      "const net=require('node:net');const server=net.createServer();" +
+        "server.listen(process.argv[1],()=>process.stdout.write('ready\\n'));" +
+        "setInterval(()=>{},1000)",
+      socketPath,
+    ],
+    { stdio: ["ignore", "pipe", "inherit"] },
+  );
+  await once(staleProcess.stdout!, "data");
+  staleProcess.kill("SIGKILL");
+  await once(staleProcess, "exit");
+
+  let releaseProbe!: () => void;
+  let markProbeEntered!: () => void;
+  const probeEntered = new Promise<void>((resolve) => {
+    markProbeEntered = resolve;
+  });
+  const probeCanFinish = new Promise<void>((resolve) => {
+    releaseProbe = resolve;
+  });
+  const cleanup = cleanupOwnedSocket(socketPath, uid, async () => {
+    markProbeEntered();
+    await probeCanFinish;
+    return false;
+  });
+  await probeEntered;
+
+  const replacementServer = createServer();
+  let replacementStarted = false;
+  const replacement = listenOnOwnedSocket(
+    replacementServer,
+    socketPath,
+    uid,
+    async () => false,
+  ).then((replacementSocketIdentity) => {
+    replacementStarted = true;
+    return replacementSocketIdentity;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert.equal(replacementStarted, false);
+
+  releaseProbe();
+  assert.equal(await cleanup, "removed");
+  const replacementIdentity = await replacement;
+  assert.equal(replacementStarted, true);
+  assert.equal((await lstat(socketPath)).isSocket(), true);
+  await closeOwnedSocketServer(replacementServer, socketPath, uid, replacementIdentity, 1_500);
+  await assert.rejects(
+    () => lstat(path.join(path.dirname(socketPath), ".attention.sock.lifecycle.lock")),
+    /ENOENT/,
+  );
+});
+
+test("cleanup recovers the hard-link lock publication crash window", async () => {
+  const uid = process.getuid!();
+  const runtimeRoot = await mkdtemp("/tmp/ap-omp-cleanup-lock-crash-");
+  const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
+  const socketDirectory = path.dirname(socketPath);
+  await mkdir(socketDirectory, { recursive: true, mode: 0o700 });
+  await chmod(path.join(runtimeRoot, "omarchy"), 0o700);
+  await chmod(socketDirectory, 0o700);
+  const deadPid = 2_147_483_647;
+  const token = "A".repeat(24);
+  const ownerPath = path.join(
+    socketDirectory,
+    `.attention.sock.lifecycle.owner-${deadPid}-${token}`,
+  );
+  const lockPath = path.join(socketDirectory, ".attention.sock.lifecycle.lock");
+  await writeFile(ownerPath, `${JSON.stringify({ pid: deadPid, token })}\n`, {
+    mode: 0o600,
+  });
+  await chmod(ownerPath, 0o600);
+  await link(ownerPath, lockPath);
+  assert.equal((await lstat(lockPath)).nlink, 2);
+
+  assert.equal(await cleanupOwnedSocket(socketPath, uid), "absent");
+  await assert.rejects(() => lstat(ownerPath), /ENOENT/);
+  await assert.rejects(() => lstat(lockPath), /ENOENT/);
+});
+
+test("cleanup retains a socket when its activity probe is inconclusive", async () => {
+  const uid = process.getuid!();
+  const runtimeRoot = await mkdtemp("/tmp/ap-omp-cleanup-inconclusive-");
+  const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
+  const server = createServer();
+  const identityBefore = await listenOnOwnedSocket(server, socketPath, uid);
+
+  await assert.rejects(
+    () => cleanupOwnedSocket(socketPath, uid, () => new Promise<boolean>(() => undefined)),
+    (error: unknown) => error instanceof OwnedSocketCleanupError && error.exitCode === 75,
+  );
+  const identityAfter = await lstat(socketPath);
+  assert.equal(identityAfter.dev, identityBefore.dev);
+  assert.equal(identityAfter.ino, identityBefore.ino);
+  await closeOwnedSocketServer(server, socketPath, uid, identityBefore, 1_500);
+});
+
+test("cleanup rejects non-private socket directories", async () => {
+  const uid = process.getuid!();
+  const runtimeRoot = await mkdtemp("/tmp/ap-omp-cleanup-mode-");
+  const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
+  await mkdir(path.dirname(socketPath), { recursive: true, mode: 0o700 });
+  await chmod(path.join(runtimeRoot, "omarchy"), 0o755);
+  await assert.rejects(
+    () => cleanupOwnedSocket(socketPath, uid),
+    (error: unknown) => error instanceof OwnedSocketCleanupError && error.exitCode === 74,
+  );
 });
 
 test("socket resolver uses only an absolute XDG runtime directory", () => {

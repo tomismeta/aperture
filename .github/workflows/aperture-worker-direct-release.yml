@@ -82,7 +82,7 @@ jobs:
           test "$(jq -r '.head_sha' <<<"$release_check")" = "$SOURCE_COMMIT"
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0c5077e51419868618aeaa5fe8019c62421857d6 # v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 10.29.1
 
@@ -195,7 +195,7 @@ jobs:
             --report "$REPORT_DIR/omp-adapter.json"
 
       - name: Setup Bun for actual OMP matrix
-        uses: oven-sh/setup-bun@e8998f949152b193b063cb0ec769d69d929409be # v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.14
 
@@ -210,7 +210,7 @@ jobs:
 
       - name: Attest every declared payload file
         id: payload-provenance
-        uses: actions/attest-build-provenance@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
           subject-path: |
             ${{ runner.temp }}/aperture-worker/config/*.json
@@ -247,7 +247,7 @@ jobs:
 
       - name: Attest finalized BUILDINFO
         id: buildinfo-provenance
-        uses: actions/attest-build-provenance@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
           subject-path: ${{ runner.temp }}/aperture-worker/BUILDINFO.json
 
@@ -281,7 +281,7 @@ jobs:
 
       - name: Attest complete release archive
         id: archive-provenance
-        uses: actions/attest-build-provenance@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
           subject-path: ${{ runner.temp }}/release-packet/*.tar.gz
 

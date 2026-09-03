@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { FocusHost, type FocusHostOptions } from "@tomismeta/aperture/focus-host";
 import type { OmpAttentionEvent } from "@tomismeta/aperture/omp-attention-event";
 
@@ -84,10 +86,9 @@ export function createApertureOmarchyOmpExtension(
               onRegistered: (publicHandle, workerGeneration) => {
                 transport.replayFocus(
                   workerGeneration,
-                  [...focusReplayCache.values()].map((cached) => ({
-                    ...cached,
-                    focus: { kind: "opaque-focus", handle: publicHandle },
-                  })),
+                  [...focusReplayCache.values()].map((cached) =>
+                    focusReplayEvent(cached, publicHandle),
+                  ),
                 );
               },
               onStatus: (status) => {
@@ -133,6 +134,17 @@ function isFocusCandidateEvent(event: OmpEvent): boolean {
 }
 
 const MAXIMUM_FOCUS_REPLAY_EVENTS = 64;
+function focusReplayEvent(event: OmpAttentionEvent, publicHandle: string): OmpAttentionEvent {
+  const replayIdentity = createHash("sha256")
+    .update(event.eventId)
+    .update("\u0000focus")
+    .digest("hex");
+  return {
+    ...event,
+    eventId: `omp-focus:${replayIdentity}`,
+    focus: { kind: "opaque-focus", handle: publicHandle },
+  };
+}
 
 function updateFocusReplayCache(
   cache: Map<string, OmpAttentionEvent>,

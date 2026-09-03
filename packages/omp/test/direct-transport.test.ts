@@ -250,6 +250,17 @@ test("direct Foot waits for actionable attention before claiming the OMP title",
   let currentTitle = "π";
   class TitleAwareTransport extends FakeDirectTransport {
     registrationCalls = 0;
+    private readonly receipts = new Map<string, string>();
+    override async send(message: WorkerDirectMessage): Promise<WorkerDirectAcknowledgement> {
+      const requestId = directMessageRequestId(message);
+      const fingerprint = JSON.stringify(message);
+      const existing = this.receipts.get(requestId);
+      if (existing !== undefined && existing !== fingerprint) {
+        throw new WorkerDirectRejectedError("request_identity_conflict");
+      }
+      this.receipts.set(requestId, fingerprint);
+      return super.send(message);
+    }
     override async registerFocus(
       registration: FocusRegistration,
     ): Promise<FocusRegistrationResult> {
@@ -313,10 +324,10 @@ test("direct Foot waits for actionable attention before claiming the OMP title",
   assert.equal(direct.registrationCalls, 1);
   assert.match(currentTitle, /^Aperture Focus [A-Za-z0-9_-]{32}$/);
   assert.equal(direct.sent[0]?.focus, undefined);
-  assert.equal(
-    direct.sent.some((event) => event.focus?.kind === "opaque-focus"),
-    true,
-  );
+  assert.equal(direct.sent.length, 2);
+  assert.match(direct.sent[1]?.eventId ?? "", /^omp-focus:[a-f0-9]{64}$/);
+  assert.notEqual(direct.sent[1]?.eventId, direct.sent[0]?.eventId);
+  assert.equal(direct.sent[1]?.focus?.kind, "opaque-focus");
 
   await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, extensionContext);
 });
@@ -383,13 +394,13 @@ test("worker generation change replays active requests with the same opaque hand
   assert.equal(direct.sent[0]?.focus, undefined);
   const originalHandle = direct.sent[1]?.focus?.handle;
   assert.match(originalHandle ?? "", /^[A-Za-z0-9_-]{32}$/);
-  assert.equal(direct.sent[1]?.eventId, direct.sent[0]?.eventId);
+  assert.match(direct.sent[1]?.eventId ?? "", /^omp-focus:[a-f0-9]{64}$/);
   assert.equal(direct.sent[1]?.occurredAt, direct.sent[0]?.occurredAt);
   direct.workerGeneration = "X".repeat(32);
   timers.runNext();
   await flushMicrotasks();
   assert.equal(direct.sent.length, 3);
-  assert.equal(direct.sent[2]?.eventId, direct.sent[0]?.eventId);
+  assert.equal(direct.sent[2]?.eventId, direct.sent[1]?.eventId);
   assert.equal(direct.sent[2]?.occurredAt, direct.sent[0]?.occurredAt);
   assert.equal(direct.sent[2]?.focus?.handle, originalHandle);
   assert.equal(mappingClockCalls, 2);

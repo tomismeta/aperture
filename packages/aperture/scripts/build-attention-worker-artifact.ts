@@ -383,7 +383,7 @@ const buildInfo = {
       sha256: surfaceSchema.sha256,
     },
     ompAttentionEvent: {
-      version: 2,
+      version: 3,
       path: ompAttentionSchema.path,
       sha256: ompAttentionSchema.sha256,
     },

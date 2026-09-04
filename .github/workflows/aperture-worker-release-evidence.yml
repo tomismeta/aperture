@@ -446,10 +446,6 @@ jobs:
               (.finalization | has("conclusion") | not)
             ' "$report"
           (cd "$RELEASE_DIR" && sha256sum -c "$SOURCE_TAG.tar.gz.sha256")
-          immutable_policy=$(gh api \
-            -H "X-GitHub-Api-Version: 2026-03-10" \
-            "repos/$GITHUB_REPOSITORY/immutable-releases")
-          test "$(jq -r '.enabled' <<<"$immutable_policy")" = "true"
           if existing_release=$(gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isImmutable 2>/dev/null); then
             test "$(jq -r '.isDraft' <<<"$existing_release")" = "true" || {
               echo "published release already exists for $SOURCE_TAG" >&2
@@ -486,7 +482,7 @@ jobs:
             ' <<<"$release"
           gh release edit "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
           published=$(gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isImmutable,isPrerelease,tagName,assets)
-          jq -e \
+          if ! jq -e \
             --arg tag "$SOURCE_TAG" '
               .isDraft == false and
               .isImmutable == true and
@@ -494,4 +490,10 @@ jobs:
               .tagName == $tag and
               ([.assets[].name] | sort) ==
                 (["BUILDINFO.sha256", "release-metadata.json", "release-report.json", ($tag + ".tar.gz"), ($tag + ".tar.gz.sha256")] | sort)
-            ' <<<"$published"
+            ' <<<"$published"; then
+            if jq -e '.isDraft == false and .isImmutable == false' <<<"$published" >/dev/null; then
+              gh release delete "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --yes
+            fi
+            echo "published release did not satisfy the immutable release contract" >&2
+            exit 1
+          fi

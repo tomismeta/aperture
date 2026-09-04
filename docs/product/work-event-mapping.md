@@ -33,39 +33,39 @@ formal contract.
 
 ## Event Metadata Mapping
 
-| `WorkEvent` field | `SourceEvent` field | Notes |
-| --- | --- | --- |
-| `specVersion` | n/a | Optional on ingress. Aperture defaults it to `1.0` when omitted and rejects versions other than `1.0`. |
-| `id` | `id` | Passed through unchanged when present. Aperture generates one when omitted. |
-| `source` | `source.kind` | Optional on ingress. Aperture defaults it to `urn:aperture:work` when omitted. |
-| `type` | n/a | Optional interoperability field. Aperture routes on `kind` and derives `io.agent.<kind>.v1` when this is omitted. |
-| `time` | `timestamp` | If absent, runtime uses receive-time as the timestamp. |
-| `source` + `actor` | `source` | `source.id = actor.id ?? event.source`, `source.kind = event.source`, `source.label = actor.label` when present. |
-| `work.id` | `taskId` | Passed through unchanged. |
+| `WorkEvent` field  | `SourceEvent` field | Notes                                                                                                             |
+| ------------------ | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `specVersion`      | n/a                 | Optional on ingress. Aperture defaults it to `1.0` when omitted and rejects versions other than `1.0`.            |
+| `id`               | `id`                | Passed through unchanged when present. Aperture generates one when omitted.                                       |
+| `source`           | `source.kind`       | Optional on ingress. Aperture defaults it to `urn:aperture:work` when omitted.                                    |
+| `type`             | n/a                 | Optional interoperability field. Aperture routes on `kind` and derives `io.agent.<kind>.v1` when this is omitted. |
+| `time`             | `timestamp`         | If absent, runtime uses receive-time as the timestamp.                                                            |
+| `source` + `actor` | `source`            | `source.id = actor.id ?? event.source`, `source.kind = event.source`, `source.label = actor.label` when present.  |
+| `work.id`          | `taskId`            | Passed through unchanged.                                                                                         |
 
 `kind` is the routing field Aperture actually uses.
 `type` is for interoperability and external event metadata, not internal routing.
 
 ## Kind Mapping
 
-| `WorkEvent.kind` | `SourceEvent.type` | Required fields | Notes |
-| --- | --- | --- | --- |
-| `work.started` | `task.started` | `work.id` | `title` falls back to `work.title`, then `work.summary`, then `work.id`. |
-| `work.updated` | `task.updated` | `work.id`, `work.status` | `status` must be `running`, `waiting`, `blocked`, `failed`, or `completed`. |
-| `work.completed` | `task.completed` | `work.id` | `summary` is preserved when present. |
-| `work.cancelled` | `task.cancelled` | `work.id` | `reason` prefers `work.reason`, then falls back to `work.summary`. |
-| `input.requested` | `human.input.requested` | `work.id`, `interaction.id`, `request` | This is the operator-facing input path. |
+| `WorkEvent.kind`  | `SourceEvent.type`      | Required fields                        | Notes                                                                       |
+| ----------------- | ----------------------- | -------------------------------------- | --------------------------------------------------------------------------- |
+| `work.started`    | `task.started`          | `work.id`                              | `title` falls back to `work.title`, then `work.summary`, then `work.id`.    |
+| `work.updated`    | `task.updated`          | `work.id`, `work.status`               | `status` must be `running`, `waiting`, `blocked`, `failed`, or `completed`. |
+| `work.completed`  | `task.completed`        | `work.id`                              | `summary` is preserved when present.                                        |
+| `work.cancelled`  | `task.cancelled`        | `work.id`                              | `reason` prefers `work.reason`, then falls back to `work.summary`.          |
+| `input.requested` | `human.input.requested` | `work.id`, `interaction.id`, `request` | This is the operator-facing input path.                                     |
 
 ## Facts And Hints
 
-| External field | Internal field | Behavior |
-| --- | --- | --- |
-| `facts.capabilityFamily` | `toolFamily` | Treated as an explicit source fact. |
-| `facts.activityCategory` | `activityClass` | Mapped only when the category matches a known alias. Unknown values are ignored. |
-| `hints.capabilityFamily` | `semanticHints.toolFamily` | Treated as a suggestion, not an explicit fact. |
-| `hints.activityCategory` | `semanticHints.activityClass` | Mapped only when the category matches a known alias. Unknown values are ignored. |
-| `hints.requestKind` | `semanticHints.intentFrame` | `approval -> approval_request`, `choice -> question_request`, `form -> form_request`. Useful even on `work.updated` when the host is signaling the likely next request family. |
-| `hints.consequence` | `riskHint` or `semanticHints.consequence` | For `input.requested`, it becomes `riskHint`. For other kinds, it becomes `semanticHints.consequence`. |
+| External field           | Internal field                            | Behavior                                                                                                                                                                       |
+| ------------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `facts.capabilityFamily` | `toolFamily`                              | Treated as an explicit source fact.                                                                                                                                            |
+| `facts.activityCategory` | `activityClass`                           | Mapped only when the category matches a known alias. Unknown values are ignored.                                                                                               |
+| `hints.capabilityFamily` | `semanticHints.toolFamily`                | Treated as a suggestion, not an explicit fact.                                                                                                                                 |
+| `hints.activityCategory` | `semanticHints.activityClass`             | Mapped only when the category matches a known alias. Unknown values are ignored.                                                                                               |
+| `hints.requestKind`      | `semanticHints.intentFrame`               | `approval -> approval_request`, `choice -> question_request`, `form -> form_request`. Useful even on `work.updated` when the host is signaling the likely next request family. |
+| `hints.consequence`      | `riskHint` or `semanticHints.consequence` | For `input.requested`, it becomes `riskHint`. For other kinds, it becomes `semanticHints.consequence`.                                                                         |
 
 This is the main reason the external contract stays useful:
 
@@ -78,12 +78,12 @@ This is the main reason the external contract stays useful:
 These optional objects are preserved as factual metadata rather than translated
 into new routing rules.
 
-| External field | Internal field | Behavior |
-| --- | --- | --- |
-| `automation` | `SourceEvent.metadata.automation` | Preserved for audit, background-work review, and capture/export. |
-| `execution` | `SourceEvent.metadata.execution` | Preserved so review surfaces can inspect where and how the work ran. |
-| `governance` | `SourceEvent.metadata.governance` | Preserved for policy and approval lineage without forcing new core semantics. |
-| `usage` | `SourceEvent.metadata.usage` | Preserved for model-routing, token, and cost visibility. |
+| External field | Internal field                    | Behavior                                                                      |
+| -------------- | --------------------------------- | ----------------------------------------------------------------------------- |
+| `automation`   | `SourceEvent.metadata.automation` | Preserved for audit, background-work review, and capture/export.              |
+| `execution`    | `SourceEvent.metadata.execution`  | Preserved so review surfaces can inspect where and how the work ran.          |
+| `governance`   | `SourceEvent.metadata.governance` | Preserved for policy and approval lineage without forcing new core semantics. |
+| `usage`        | `SourceEvent.metadata.usage`      | Preserved for model-routing, token, and cost visibility.                      |
 
 For surfaced `task.started`, `task.updated`, and `input.requested` frames, this
 metadata is also carried into `AttentionFrame.metadata`.
@@ -98,10 +98,10 @@ rather than producing a new visible frame.
 request families.
 
 | External request | Internal request |
-| --- | --- |
-| `approval` | `approval` |
-| `choice` | `choice` |
-| `form` | `form` |
+| ---------------- | ---------------- |
+| `approval`       | `approval`       |
+| `choice`         | `choice`         |
+| `form`           | `form`           |
 
 Important details:
 
@@ -158,6 +158,7 @@ The current mapper recognizes these external `activityCategory` values:
 - `approval_request`
 - `question_request`
 - `follow_up`
+- `result_ready`
 - `tool_completion`
 - `completion`
 - `tool_failure`
@@ -172,14 +173,14 @@ These map into Aperture's existing `activityClass` vocabulary.
 
 These are the main host shapes the current contract is designed to fit.
 
-| Host shape | Example | Why it fits |
-| --- | --- | --- |
-| coding-agent status stream | [coding-agent-status-waiting.json](../../schemas/examples/work-event/coding-agent-status-waiting.json) | Represents a durable task moving through running/waiting/blocked state without inventing judgment. |
-| coding-agent approval gate | [coding-agent-approval-request.json](../../schemas/examples/work-event/coding-agent-approval-request.json) | Fits hosts like Claude Code or Codex when they need an explicit human approval. |
-| remote review or plan selection | [remote-review-choice-request.json](../../schemas/examples/work-event/remote-review-choice-request.json) | Fits remote agent surfaces that need the operator to choose between structured options. |
+| Host shape                                 | Example                                                                                                          | Why it fits                                                                                                                                                   |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| coding-agent status stream                 | [coding-agent-status-waiting.json](../../schemas/examples/work-event/coding-agent-status-waiting.json)           | Represents a durable task moving through running/waiting/blocked state without inventing judgment.                                                            |
+| coding-agent approval gate                 | [coding-agent-approval-request.json](../../schemas/examples/work-event/coding-agent-approval-request.json)       | Fits hosts like Claude Code or Codex when they need an explicit human approval.                                                                               |
+| remote review or plan selection            | [remote-review-choice-request.json](../../schemas/examples/work-event/remote-review-choice-request.json)         | Fits remote agent surfaces that need the operator to choose between structured options.                                                                       |
 | scheduled background run awaiting approval | [scheduled-background-maintenance.json](../../schemas/examples/work-event/scheduled-background-maintenance.json) | Fits always-on or scheduled agents that need portable automation, execution, governance, and usage metadata without becoming a host-specific workflow format. |
-| subagent or tool runner failure | [subagent-failure-update.json](../../schemas/examples/work-event/subagent-failure-update.json) | Fits delegated or child execution without forcing the host to publish raw logs. |
-| workflow or task runner completion | [workflow-completed.json](../../schemas/examples/work-event/workflow-completed.json) | Fits CI, deploy, or automation systems reporting durable work completion with optional scheduling, execution, and usage metadata. |
+| subagent or tool runner failure            | [subagent-failure-update.json](../../schemas/examples/work-event/subagent-failure-update.json)                   | Fits delegated or child execution without forcing the host to publish raw logs.                                                                               |
+| workflow or task runner completion         | [workflow-completed.json](../../schemas/examples/work-event/workflow-completed.json)                             | Fits CI, deploy, or automation systems reporting durable work completion with optional scheduling, execution, and usage metadata.                             |
 
 These examples are intentionally scenario-based rather than vendor-branded.
 They should be reusable across hosts with similar shapes.

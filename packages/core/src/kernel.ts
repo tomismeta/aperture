@@ -19,6 +19,7 @@ export type ApertureKernelActivityCategory =
   | "permission_request"
   | "question_request"
   | "follow_up"
+  | "result_ready"
   | "tool_completion"
   | "tool_failure"
   | "session_status"

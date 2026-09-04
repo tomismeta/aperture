@@ -226,7 +226,7 @@ jobs:
             .schemas.workerDirectMessage.version == 4 and
             .schemas.output.version == 4 and
             .schemas.surface.version == 4 and
-            (.files | length) == 38 and
+            (.files | length) == 40 and
             any(.files[]; .path == "config/identities.json") and
             any(.files[]; .path == "evidence/omp-only-worker.json") and
             ([.files[].path] | index("evidence/ambient-ceiling.json")) == null and

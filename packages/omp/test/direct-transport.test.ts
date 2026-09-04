@@ -65,7 +65,7 @@ const omp18LifecycleFixture = JSON.parse(
 
 function replayEvent(eventId: string): OmpAttentionEvent {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     type: "omp.attention-event",
     eventId,
     occurredAt: "2026-09-01T16:00:00.000Z",
@@ -437,13 +437,11 @@ test("direct Foot waits for actionable attention before claiming the OMP title",
   assert.equal(currentTitle, "π");
 
   currentTitle = "π · OMP generated title";
-  await handlers.get("tool_approval_requested")?.(
+  await handlers.get("session_stop")?.(
     {
-      type: "tool_approval_requested",
-      sessionId: "session-1",
-      toolCallId: "tool-1",
-      toolName: "bash",
-      approvalMode: "write",
+      type: "session_stop",
+      session_id: "session-1",
+      turn_id: 1,
     },
     extensionContext,
   );
@@ -452,6 +450,7 @@ test("direct Foot waits for actionable attention before claiming the OMP title",
   assert.equal(direct.registrationCalls, 1);
   assert.match(currentTitle, /^Aperture Focus [A-Za-z0-9_-]{32}$/);
   assert.equal(direct.sent[0]?.focus, undefined);
+  assert.equal(direct.sent[0]?.classification, "turn_completed");
   assert.equal(direct.sent.length, 2);
   assert.match(direct.sent[1]?.eventId ?? "", /^omp-focus:[a-f0-9]{64}$/);
   assert.notEqual(direct.sent[1]?.eventId, direct.sent[0]?.eventId);
@@ -859,9 +858,33 @@ test("repeated OMP turn indexes retain distinct direct receipt identities", () =
 
   assert.ok(first);
   assert.ok(second);
-  assert.equal(first.interactionId, second.interactionId);
+  assert.notEqual(first.interactionId, second.interactionId);
   assert.notEqual(first.occurredAt, second.occurredAt);
   assert.notEqual(first.eventId, second.eventId);
+});
+
+test("new interactive activity emits completion-family resolution facts", () => {
+  const interactive = mapOmpDirectAttentionEvents(
+    { type: "input", text: "Continue", source: "interactive" },
+    context,
+  );
+  assert.equal(interactive[0]?.classification, "completion_resolved");
+  assert.equal(interactive[0]?.transition, "resolved");
+  assert.equal(interactive[0]?.interactionId, undefined);
+
+  const resumed = mapOmpDirectAttentionEvents(
+    { type: "before_agent_start", prompt: "Continue" },
+    context,
+  );
+  assert.equal(resumed[0]?.classification, "completion_resolved");
+  assert.deepEqual(
+    mapOmpDirectAttentionEvents({ type: "input", text: "Continue", source: "extension" }, context),
+    [],
+  );
+  assert.deepEqual(
+    mapOmpDirectAttentionEvents({ type: "before_agent_start", prompt: "Continue" }, {}),
+    [],
+  );
 });
 
 test("direct mapping emits bounded typed facts without private OMP payloads", () => {

@@ -15,6 +15,7 @@ export class CausalAttentionState {
   private readonly directEventIds = new Map<string, true>();
   private readonly nativeEventIds = new Map<string, true>();
   private readonly activeRequests = new Map<string, OmpAttentionEvent>();
+  private readonly completionKeyBySession = new Map<string, string>();
 
   routeFor(event: OmpAttentionEvent): AttentionDeliveryRoute {
     if (this.nativeEventIds.has(event.eventId)) return "native";
@@ -28,11 +29,21 @@ export class CausalAttentionState {
       this.deleteSession(event.sessionId);
       return false;
     }
+    if (event.classification === "completion_resolved") {
+      this.deleteCompletion(event.sessionId);
+      return false;
+    }
     if (!event.interactionId) return false;
     const key = interactionKey(event);
     if (event.classification === "approval_resolved" || event.classification === "input_resolved") {
-      this.activeRequests.delete(key);
+      this.deleteActive(key);
       return false;
+    }
+    if (event.classification === "turn_completed") {
+      this.deleteCompletion(event.sessionId);
+      this.rememberActive(key, event);
+      this.completionKeyBySession.set(event.sessionId, key);
+      return true;
     }
     if (
       event.classification !== "approval_requested" &&
@@ -40,12 +51,7 @@ export class CausalAttentionState {
     ) {
       return false;
     }
-    const { focus: _focus, ...withoutFocus } = event;
-    if (!this.activeRequests.has(key) && this.activeRequests.size >= MAXIMUM_QUEUED_DELIVERIES) {
-      const oldest = this.activeRequests.keys().next().value;
-      if (typeof oldest === "string") this.activeRequests.delete(oldest);
-    }
-    this.activeRequests.set(key, withoutFocus);
+    this.rememberActive(key, event);
     return true;
   }
 
@@ -62,9 +68,33 @@ export class CausalAttentionState {
     this.directEventIds.clear();
     this.nativeEventIds.clear();
     this.activeRequests.clear();
+    this.completionKeyBySession.clear();
+  }
+
+  private rememberActive(key: string, event: OmpAttentionEvent): void {
+    if (!this.activeRequests.has(key) && this.activeRequests.size >= MAXIMUM_QUEUED_DELIVERIES) {
+      const oldest = this.activeRequests.keys().next().value;
+      if (typeof oldest === "string") this.deleteActive(oldest);
+    }
+    const { focus: _focus, ...withoutFocus } = event;
+    this.activeRequests.set(key, withoutFocus);
+  }
+
+  private deleteActive(key: string): void {
+    this.activeRequests.delete(key);
+    for (const [sessionId, completionKey] of this.completionKeyBySession) {
+      if (completionKey === key) this.completionKeyBySession.delete(sessionId);
+    }
+  }
+
+  private deleteCompletion(sessionId: string): void {
+    const key = this.completionKeyBySession.get(sessionId);
+    if (key) this.activeRequests.delete(key);
+    this.completionKeyBySession.delete(sessionId);
   }
 
   private deleteSession(sessionId: string): void {
+    this.deleteCompletion(sessionId);
     const prefix = `${sessionId}\u0000`;
     for (const key of this.activeRequests.keys()) {
       if (key.startsWith(prefix)) this.activeRequests.delete(key);

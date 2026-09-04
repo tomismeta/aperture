@@ -1838,6 +1838,32 @@ test("completed task updates stay status candidates without clearing state", () 
   assert.equal(result.candidate.judgmentInput.ontology.activity, "task_completion");
 });
 
+test("result-ready completions become focused review candidates without requiring response", () => {
+  const result = evaluation.evaluate(
+    normalizeSourceEvent({
+      id: "evt:result-ready",
+      taskId: "task:result-ready",
+      timestamp: "2026-03-08T12:03:40.000Z",
+      type: "task.updated",
+      title: "Agent turn completed",
+      summary: "A completed result is ready for review.",
+      status: "completed",
+      activityClass: "result_ready",
+    }),
+  );
+
+  assert.equal(result.kind, "candidate");
+  if (result.kind !== "candidate") return;
+
+  assert.equal(result.candidate.mode, "status");
+  assert.equal(result.candidate.priority, "normal");
+  assert.equal(result.candidate.tone, "focused");
+  assert.equal(result.candidate.consequence, "low");
+  assert.equal(result.candidate.responseSpec.kind, "none");
+  assert.equal(result.candidate.activityClass, "result_ready");
+  assert.equal(result.candidate.judgmentInput.ontology.activity, "task_completion");
+});
+
 test("completed tasks clear current interaction state", () => {
   const result = evaluation.evaluate({
     id: "evt:complete",

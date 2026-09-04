@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 3,
+  "type": "omp.attention-event",
+  "eventId": "fixture:completion:resolved",
+  "occurredAt": "2026-09-01T16:00:05.000Z",
+  "sessionId": "01a0123456789abcdef",
+  "classification": "completion_resolved",
+  "title": "OMP started new agent work",
+  "summary": "New agent work superseded the previous completed result.",
+  "transition": "resolved",
+  "focus": {
+    "kind": "opaque-focus",
+    "handle": "A23456789_-bcdefghijklmnopqrstuv"
+  }
+}

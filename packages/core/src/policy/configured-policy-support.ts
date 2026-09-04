@@ -87,6 +87,7 @@ function isToolPolicyActivity(activityClass: AttentionActivityClass): boolean {
       return true;
     case "question_request":
     case "follow_up":
+    case "result_ready":
     case "tool_completion":
     case "tool_failure":
     case "session_status":

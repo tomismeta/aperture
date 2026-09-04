@@ -187,7 +187,7 @@ jobs:
             .validation.navigationProofId == "aperture-opaque-focus-navigation-v4" and
             .validation.focusBackendReport == "evidence/focus-backends.json" and
             .validation.status == "passed" and
-            (.files | length) == 38 and
+            (.files | length) == 40 and
             any(.files[]; .path == "evidence/omp-only-worker.json") and
             ([.files[].path] | index("evidence/ambient-ceiling.json")) == null and
             ([.files[].path] | index("fixtures/omp-direct/notification-fallback-ambient.json")) == null

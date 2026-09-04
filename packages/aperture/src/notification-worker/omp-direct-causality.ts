@@ -1,4 +1,5 @@
-import type { MappedOmpDirectEvent } from "./omp-direct-adapter.js";
+import { directKey, type MappedOmpDirectEvent } from "./omp-direct-adapter.js";
+import type { NotificationWorkerNavigation } from "./protocol.js";
 import type {
   OmpDirectPersistedState,
   PersistedOmpDirectEntry,
@@ -30,6 +31,13 @@ export class OmpDirectCausalityIndex {
     return this.interactions.get(key);
   }
 
+  family(
+    sessionId: string,
+    family: string,
+  ): Extract<PersistedOmpDirectTombstone, { kind: "interaction" }> | undefined {
+    return this.interactions.get(directKey(sessionId, family, ""));
+  }
+
   session(
     sessionId: string,
   ): Extract<PersistedOmpDirectTombstone, { kind: "session" }> | undefined {
@@ -46,6 +54,136 @@ export class OmpDirectCausalityIndex {
     if (tombstone.kind === "interaction") this.interactions.set(tombstone.key, tombstone);
     else this.sessions.set(tombstone.sessionId, tombstone);
   }
+}
+
+export function applyMappedOmpDirectEvent(
+  candidate: OmpDirectPersistedState,
+  causality: OmpDirectCausalityIndex,
+  mapped: MappedOmpDirectEvent,
+  previous: PersistedOmpDirectEntry | undefined,
+  nextNavigation: Map<string, NotificationWorkerNavigation>,
+  navigation: NotificationWorkerNavigation | undefined,
+): "persist" | "navigation-only" | "ignored" {
+  if (mapped.kind === "shutdown") {
+    const shutdown = causality.session(mapped.sessionId);
+    if (shutdown && shutdown.occurredAt >= mapped.occurredAt) return "ignored";
+    candidate.active = candidate.active.filter((entry) => {
+      const cancelled =
+        entry.sessionId === mapped.sessionId &&
+        latestOmpDirectRevision(entry).occurredAt <= mapped.occurredAt;
+      if (cancelled) nextNavigation.delete(entry.taskId);
+      return !cancelled;
+    });
+    causality.remember(candidate, {
+      kind: "session",
+      sessionId: mapped.sessionId,
+      eventId: mapped.eventId,
+      occurredAt: mapped.occurredAt,
+    });
+    return "persist";
+  }
+
+  if (mapped.kind === "resolve-family") {
+    const resolution = causality.family(mapped.sessionId, mapped.family);
+    if (resolution && resolution.occurredAt >= mapped.occurredAt) return "ignored";
+    candidate.active = candidate.active.filter((entry) => {
+      const cancelled =
+        entry.sessionId === mapped.sessionId &&
+        isOmpCompletionEntry(entry) &&
+        latestOmpDirectRevision(entry).occurredAt <= mapped.occurredAt;
+      if (cancelled) nextNavigation.delete(entry.taskId);
+      return !cancelled;
+    });
+    causality.remember(candidate, {
+      kind: "interaction",
+      key: directKey(mapped.sessionId, mapped.family, ""),
+      eventId: mapped.eventId,
+      occurredAt: mapped.occurredAt,
+    });
+    return "persist";
+  }
+
+  if (mapped.kind === "resolve") {
+    const resolution = causality.interaction(mapped.key);
+    if (resolution && resolution.occurredAt >= mapped.occurredAt) return "ignored";
+    if (previous && latestOmpDirectRevision(previous).occurredAt <= mapped.occurredAt) {
+      candidate.active = candidate.active.filter((entry) => entry.key !== previous.key);
+      nextNavigation.delete(previous.taskId);
+    }
+    causality.remember(candidate, {
+      kind: "interaction",
+      key: mapped.key,
+      eventId: mapped.eventId,
+      occurredAt: mapped.occurredAt,
+    });
+    return "persist";
+  }
+
+  const sessionShutdown = causality.session(mapped.sessionId);
+  if (sessionShutdown && sessionShutdown.occurredAt >= mapped.occurredAt) return "ignored";
+  const familyResolution = causality.family(mapped.sessionId, mapped.family);
+  if (familyResolution && familyResolution.occurredAt >= mapped.occurredAt) return "ignored";
+  const interactionResolution = causality.interaction(mapped.key);
+  if (interactionResolution && interactionResolution.occurredAt >= mapped.occurredAt) {
+    return "ignored";
+  }
+  const previousRevision = previous ? latestOmpDirectRevision(previous) : undefined;
+  if (
+    previousRevision &&
+    previousRevision.displayTitle === mapped.displayTitle &&
+    JSON.stringify(previousRevision.sourceEvent) === JSON.stringify(mapped.sourceEvent)
+  ) {
+    return "navigation-only";
+  }
+  if (previousRevision && previousRevision.occurredAt > mapped.occurredAt) return "ignored";
+
+  if (mapped.family === "completion") {
+    const newer = candidate.active.find(
+      (entry) =>
+        entry.sessionId === mapped.sessionId &&
+        entry.key !== mapped.key &&
+        isOmpCompletionEntry(entry) &&
+        latestOmpDirectRevision(entry).occurredAt > mapped.occurredAt,
+    );
+    if (newer) return "ignored";
+    const superseded = candidate.active.filter(
+      (entry) =>
+        entry.sessionId === mapped.sessionId &&
+        entry.key !== mapped.key &&
+        isOmpCompletionEntry(entry),
+    );
+    for (const entry of superseded) {
+      nextNavigation.delete(entry.taskId);
+      causality.remember(candidate, {
+        kind: "interaction",
+        key: entry.key,
+        eventId: mapped.sourceEvent.id,
+        occurredAt: mapped.occurredAt,
+      });
+    }
+    if (superseded.length > 0) {
+      const supersededKeys = new Set(superseded.map((entry) => entry.key));
+      candidate.active = candidate.active.filter((entry) => !supersededKeys.has(entry.key));
+    }
+  }
+
+  const active = persistedOmpDirectEntry(mapped, previous);
+  const index = candidate.active.findIndex((entry) => entry.key === mapped.key);
+  if (index === -1) candidate.active.push(active);
+  else candidate.active[index] = active;
+  if (navigation) nextNavigation.set(mapped.taskId, navigation);
+  else nextNavigation.delete(mapped.taskId);
+  return "persist";
+}
+
+export function isOmpCompletionEntry(entry: PersistedOmpDirectEntry): boolean {
+  const direct = latestOmpDirectRevision(entry).sourceEvent.metadata?.ompDirect;
+  return (
+    typeof direct === "object" &&
+    direct !== null &&
+    "classification" in direct &&
+    direct.classification === "turn_completed"
+  );
 }
 
 export function persistedOmpDirectEntry(

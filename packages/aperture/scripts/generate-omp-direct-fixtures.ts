@@ -62,15 +62,23 @@ const completion = event({
   eventId: "fixture:completion:1",
   occurredAt: "2026-09-01T16:00:04.000Z",
   turnId: "4",
-  interactionId: "turn:4",
+  interactionId: "completion:fixture-4",
   classification: "turn_completed",
   title: "OMP completed a turn",
-  summary: "OMP settled the main agent session.",
+  summary: "OMP stopped after completing the main agent turn.",
   transition: "completed",
+});
+const completionResolved = event({
+  eventId: "fixture:completion:resolved",
+  occurredAt: "2026-09-01T16:00:05.000Z",
+  classification: "completion_resolved",
+  title: "OMP started new agent work",
+  summary: "New agent work superseded the previous completed result.",
+  transition: "resolved",
 });
 const status = event({
   eventId: "fixture:status:1",
-  occurredAt: "2026-09-01T16:00:05.000Z",
+  occurredAt: "2026-09-01T16:00:06.000Z",
   classification: "status_updated",
   title: "OMP is waiting",
   summary: "OMP is waiting for the authoritative session stop event.",
@@ -160,12 +168,30 @@ try {
   const failureSnapshot = await snapshotFor("failure", failure);
   const completionSnapshot = await snapshotFor("completion", completion);
   const statusSnapshot = await snapshotFor("status", status);
+  const completionResolvedEngine = await NotificationWorkerEngine.restoreOmpOnly({
+    identities: [identity],
+    stateDir: path.join(stateRoot, "completion-resolved"),
+    now: () => Date.parse(completionResolved.occurredAt),
+  });
+  await completionResolvedEngine.engine.handleOmpAttention(completion, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
+  await completionResolvedEngine.engine.handleOmpAttention(completionResolved);
+  const completionResolvedSnapshot = completionResolvedEngine.engine.snapshot();
   assert.equal(nowNext.view.now?.title, approval.title);
   assert.equal(nowNext.view.next[0]?.title, input.title);
   assert.equal(failureSnapshot.view.now?.title, failure.title);
-  assert.equal(completionSnapshot.view.now, null);
+  assert.equal(completionSnapshot.view.now?.title, completion.title);
+  assert.deepEqual(completionSnapshot.view.now?.navigation, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
   assert.deepEqual(completionSnapshot.view.next, []);
-  assert.equal(completionSnapshot.view.ambient[0]?.title, completion.title);
+  assert.deepEqual(completionSnapshot.view.ambient, []);
+  assert.equal(completionResolvedSnapshot.view.now, null);
+  assert.deepEqual(completionResolvedSnapshot.view.next, []);
+  assert.deepEqual(completionResolvedSnapshot.view.ambient, []);
   assert.equal(statusSnapshot.view.ambient[0]?.title, status.title);
 
   const fixtures = new Map<string, unknown>([
@@ -173,11 +199,13 @@ try {
     ["input-request.json", input],
     ["failure-event.json", failure],
     ["completion-event.json", completion],
+    ["completion-resolved-event.json", completionResolved],
     ["status-event.json", status],
     ["snapshot-now-next.json", nowNext],
     ["snapshot-resolved.json", resolved],
     ["snapshot-failure.json", failureSnapshot],
     ["snapshot-completion.json", completionSnapshot],
+    ["snapshot-completion-resolved.json", completionResolvedSnapshot],
     ["focus-registration.json", focusRegistration],
     ["focus-registration-direct-terminal.json", focusDirectFootRegistration],
     ["focus-registration-tmux.json", focusTmuxRegistration],
@@ -212,7 +240,7 @@ function event(
 ): OmpAttentionEvent {
   const { eventId, occurredAt: eventOccurredAt, ...rest } = facts;
   return assertOmpAttentionEvent({
-    schemaVersion: 2,
+    schemaVersion: 3,
     type: "omp.attention-event",
     eventId,
     occurredAt: eventOccurredAt ?? occurredAt,

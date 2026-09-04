@@ -1,6 +1,6 @@
 import path from "node:path";
 
-export const OMP_ATTENTION_EVENT_SCHEMA_VERSION = 2;
+export const OMP_ATTENTION_EVENT_SCHEMA_VERSION = 3;
 export const OMP_ATTENTION_SOCKET_RELATIVE_PATH = "omarchy/aperture/attention.sock";
 export const OMP_ATTENTION_LIMITS = {
   jsonLineBytes: 64 * 1024,
@@ -18,6 +18,7 @@ export type OmpAttentionClassification =
   | "tool_failure"
   | "provider_failure"
   | "turn_completed"
+  | "completion_resolved"
   | "session_stop_failure"
   | "session_shutdown"
   | "status_updated";
@@ -38,7 +39,7 @@ export type OmpAttentionFocus = {
 };
 
 export type OmpAttentionEvent = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   type: "omp.attention-event";
   eventId: string;
   occurredAt: string;
@@ -68,6 +69,7 @@ const CLASSIFICATIONS = new Set<OmpAttentionClassification>([
   "tool_failure",
   "provider_failure",
   "turn_completed",
+  "completion_resolved",
   "session_stop_failure",
   "session_shutdown",
   "status_updated",
@@ -92,6 +94,7 @@ const REQUIRED_INTERACTION = new Set<OmpAttentionClassification>([
   "approval_requested",
   "approval_resolved",
   "input_requested",
+  "turn_completed",
   "input_resolved",
 ]);
 const EXPECTED_TRANSITION: Readonly<Record<OmpAttentionClassification, OmpAttentionTransition>> = {
@@ -102,6 +105,7 @@ const EXPECTED_TRANSITION: Readonly<Record<OmpAttentionClassification, OmpAttent
   tool_failure: "failed",
   provider_failure: "failed",
   turn_completed: "completed",
+  completion_resolved: "resolved",
   session_stop_failure: "failed",
   session_shutdown: "shutdown",
   status_updated: "updated",
@@ -155,7 +159,7 @@ export function assertOmpAttentionEvent(value: unknown): OmpAttentionEvent {
 
   const focus = optionalFocus(record.focus);
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     type: "omp.attention-event",
     eventId: opaqueId(record.eventId, "eventId"),
     occurredAt: timestamp(record.occurredAt),

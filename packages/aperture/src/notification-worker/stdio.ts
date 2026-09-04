@@ -274,6 +274,17 @@ export async function runNotificationWorkerStdio(
           }
           if (event.type === "focus.activate") {
             const result = await coordinator.activate(event.handle);
+            if (result === "focused") {
+              try {
+                const changed = await restored.engine.resolveOmpCompletionByFocusHandle(
+                  event.handle,
+                  new Date(wallNow()).toISOString(),
+                );
+                if (changed) await emitSnapshot();
+              } catch {
+                diagnostic.write("Could not resolve completion\n");
+              }
+            }
             await write({ type: "focus.result", requestId: event.requestId, result });
             return true;
           }

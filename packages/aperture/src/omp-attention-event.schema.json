@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tomismeta:aperture:omp-attention-event:v2",
+  "$id": "urn:tomismeta:aperture:omp-attention-event:v3",
   "title": "Aperture OMP Attention Event",
   "type": "object",
   "additionalProperties": false,
@@ -16,7 +16,7 @@
     "transition"
   ],
   "properties": {
-    "schemaVersion": { "const": 2 },
+    "schemaVersion": { "const": 3 },
     "type": { "const": "omp.attention-event" },
     "eventId": { "$ref": "#/$defs/opaqueId" },
     "occurredAt": { "type": "string", "format": "date-time" },
@@ -32,6 +32,7 @@
         "tool_failure",
         "provider_failure",
         "turn_completed",
+        "completion_resolved",
         "session_stop_failure",
         "session_shutdown",
         "status_updated"
@@ -60,7 +61,13 @@
       "if": {
         "properties": {
           "classification": {
-            "enum": ["approval_requested", "approval_resolved", "input_requested", "input_resolved"]
+            "enum": [
+              "approval_requested",
+              "approval_resolved",
+              "input_requested",
+              "input_resolved",
+              "turn_completed"
+            ]
           }
         },
         "required": ["classification"]
@@ -97,7 +104,9 @@
     {
       "if": {
         "properties": {
-          "classification": { "enum": ["approval_resolved", "input_resolved"] }
+          "classification": {
+            "enum": ["approval_resolved", "input_resolved", "completion_resolved"]
+          }
         },
         "required": ["classification"]
       },

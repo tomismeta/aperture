@@ -330,7 +330,7 @@ function event(
   },
 ): OmpAttentionEvent {
   return assertOmpAttentionEvent({
-    schemaVersion: 2,
+    schemaVersion: 3,
     type: "omp.attention-event",
     occurredAt: facts.occurredAt ?? occurredAt,
     sessionId,

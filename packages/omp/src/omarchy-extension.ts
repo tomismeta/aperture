@@ -135,15 +135,13 @@ export function createApertureOmarchyOmpExtension(
 
 function isFocusCandidateEvent(event: OmpEvent): boolean {
   return (
+    event.type === "session_stop" ||
     event.type === "tool_approval_requested" ||
     (event.type === "tool_call" && event.toolName === "ask")
   );
 }
 
-function sessionIdForHeartbeat(
-  event: OmpEvent,
-  context: OmpMappingContext,
-): string | undefined {
+function sessionIdForHeartbeat(event: OmpEvent, context: OmpMappingContext): string | undefined {
   if (event.type === "session_stop") return event.session_id;
   if (event.type === "tool_approval_requested" || event.type === "tool_approval_resolved") {
     return event.sessionId;

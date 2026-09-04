@@ -205,7 +205,7 @@ test("notification worker schemas validate canonical input and output", async ()
   assert.equal(validateOutput(snapshot), true, JSON.stringify(validateOutput.errors));
   assert.equal(
     validateOmpAttention({
-      schemaVersion: 2,
+      schemaVersion: 3,
       type: "omp.attention-event",
       eventId: "event-1",
       occurredAt: observedAt,
@@ -221,7 +221,7 @@ test("notification worker schemas validate canonical input and output", async ()
   );
   assert.equal(
     validateOmpAttention({
-      schemaVersion: 2,
+      schemaVersion: 3,
       type: "omp.attention-event",
       eventId: "event-1",
       occurredAt: observedAt,

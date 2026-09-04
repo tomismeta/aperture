@@ -8,38 +8,39 @@
     }
   ],
   "totals": {
-    "now": 0,
+    "now": 1,
     "next": 0,
-    "ambient": 1,
+    "ambient": 0,
     "sources": 1
   },
   "view": {
-    "now": null,
-    "next": [],
-    "ambient": [
-      {
-        "id": "frame:interaction:omp-direct:1b8a5871187955c2b2033c15290be7df:status",
-        "taskId": "omp-direct:1b8a5871187955c2b2033c15290be7df",
-        "interactionId": "interaction:omp-direct:1b8a5871187955c2b2033c15290be7df:status",
-        "version": 1,
-        "mode": "status",
-        "tone": "ambient",
-        "consequence": "low",
-        "title": "OMP completed a turn",
-        "summary": "OMP settled the main agent session.",
-        "source": {
-          "kind": "omp",
-          "label": "OMP"
-        },
-        "navigation": {
-          "kind": "opaque-focus",
-          "handle": "A23456789_-bcdefghijklmnopqrstuv"
-        },
-        "timing": {
-          "createdAt": "2026-09-01T16:00:04.000Z",
-          "updatedAt": "2026-09-01T16:00:04.000Z"
-        }
+    "now": {
+      "id": "frame:interaction:omp-direct:1000ad0410a2f29e9b469567e5dcd352:status",
+      "taskId": "omp-direct:1000ad0410a2f29e9b469567e5dcd352",
+      "interactionId": "interaction:omp-direct:1000ad0410a2f29e9b469567e5dcd352:status",
+      "version": 1,
+      "mode": "status",
+      "tone": "focused",
+      "consequence": "low",
+      "title": "OMP completed a turn",
+      "summary": "OMP stopped after completing the main agent turn.",
+      "source": {
+        "kind": "omp",
+        "label": "OMP"
+      },
+      "navigation": {
+        "kind": "opaque-focus",
+        "handle": "A23456789_-bcdefghijklmnopqrstuv"
+      },
+      "provenance": {
+        "whyNow": "OMP result ready."
+      },
+      "timing": {
+        "createdAt": "2026-09-01T16:00:04.000Z",
+        "updatedAt": "2026-09-01T16:00:04.000Z"
       }
-    ]
+    },
+    "next": [],
+    "ambient": []
   }
 }

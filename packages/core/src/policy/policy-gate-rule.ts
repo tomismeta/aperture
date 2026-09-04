@@ -6,6 +6,7 @@ import type { AttentionPolicyVerdict } from "../attention-policy.js";
 export type PolicyGateRuleName =
   | "configured_policy"
   | "blocking"
+  | "result_ready"
   | "background"
   | "peripheral_status"
   | "interruptive_default";

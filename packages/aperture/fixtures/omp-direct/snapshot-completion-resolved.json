@@ -1,0 +1,21 @@
+{
+  "type": "snapshot",
+  "sequence": 1,
+  "sources": [
+    {
+      "kind": "omp",
+      "label": "OMP"
+    }
+  ],
+  "totals": {
+    "now": 0,
+    "next": 0,
+    "ambient": 0,
+    "sources": 1
+  },
+  "view": {
+    "now": null,
+    "next": [],
+    "ambient": []
+  }
+}

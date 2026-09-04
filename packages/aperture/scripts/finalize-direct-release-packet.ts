@@ -35,7 +35,9 @@ const FIXED_FILES = [
   "fixtures/omp-direct/focus-registration.json",
   "fixtures/omp-direct/focus-result.json",
   "fixtures/omp-direct/input-request.json",
+  "fixtures/omp-direct/completion-resolved-event.json",
   "fixtures/omp-direct/snapshot-completion.json",
+  "fixtures/omp-direct/snapshot-completion-resolved.json",
   "fixtures/omp-direct/focus-registration-direct-terminal.json",
   "fixtures/omp-direct/focus-registration-tmux.json",
   "fixtures/omp-direct/snapshot-failure.json",
@@ -149,7 +151,7 @@ async function validateMetadata(
     "invalid notification output schema",
   );
   assert(workerContract.surfaceProtocolVersion === 4, "invalid surface protocol version");
-  assert(workerContract.ompAttentionEventSchemaVersion === 2, "invalid OMP event schema");
+  assert(workerContract.ompAttentionEventSchemaVersion === 3, "invalid OMP event schema");
   assert(workerContract.workerDirectProtocolVersion === 4, "invalid worker direct protocol");
   assert(
     JSON.stringify(workerContract.jsonlHandshakes) ===
@@ -400,7 +402,7 @@ async function validateMetadata(
   assertSchema(schemas.input, "schemas/notification-worker-input.schema.json", 2);
   assertSchema(schemas.output, "schemas/notification-worker-output.schema.json", 4);
   assertSchema(schemas.surface, "schemas/surface-protocol.schema.json", 4);
-  assertSchema(schemas.ompAttentionEvent, "schemas/omp-attention-event.schema.json", 2);
+  assertSchema(schemas.ompAttentionEvent, "schemas/omp-attention-event.schema.json", 3);
   assertSchema(schemas.workerDirectMessage, "schemas/worker-direct-message.schema.json", 4);
   const fixtureMetadata = record(buildInfo.fixtures, "missing fixture metadata");
   const ompFixtures = record(fixtureMetadata.ompDirect, "missing OMP direct fixtures");

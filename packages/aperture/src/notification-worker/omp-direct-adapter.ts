@@ -8,6 +8,7 @@ export type MappedOmpDirectEvent =
   | {
       kind: "upsert";
       key: string;
+      family: string;
       taskId: string;
       interactionId: string;
       sessionId: string;
@@ -22,6 +23,13 @@ export type MappedOmpDirectEvent =
       occurredAt: string;
     }
   | {
+      kind: "resolve-family";
+      family: "completion";
+      sessionId: string;
+      eventId: string;
+      occurredAt: string;
+    }
+  | {
       kind: "shutdown";
       sessionId: string;
       eventId: string;
@@ -32,6 +40,16 @@ export function mapOmpDirectEvent(event: OmpAttentionEvent): MappedOmpDirectEven
   if (event.classification === "session_shutdown") {
     return {
       kind: "shutdown",
+      sessionId: event.sessionId,
+      eventId: boundedEventId(event.eventId),
+      occurredAt: event.occurredAt,
+    };
+  }
+
+  if (event.classification === "completion_resolved") {
+    return {
+      kind: "resolve-family",
+      family: "completion",
       sessionId: event.sessionId,
       eventId: boundedEventId(event.eventId),
       occurredAt: event.occurredAt,
@@ -105,8 +123,13 @@ export function mapOmpDirectEvent(event: OmpAttentionEvent): MappedOmpDirectEven
         title: event.title,
         summary: event.summary,
         status: "completed",
-        activityClass: "session_status",
-        semanticHints: { activityClass: "session_status" },
+        activityClass: "result_ready",
+        semanticHints: {
+          intentFrame: "completion",
+          activityClass: "result_ready",
+          consequence: "low",
+          whyNow: "OMP result ready.",
+        },
       };
       break;
     case "status_updated":
@@ -124,6 +147,7 @@ export function mapOmpDirectEvent(event: OmpAttentionEvent): MappedOmpDirectEven
 
   return {
     kind: "upsert",
+    family,
     key,
     taskId,
     interactionId,
@@ -177,6 +201,7 @@ function interactionFamily(classification: OmpAttentionEvent["classification"]):
     case "session_stop_failure":
       return "failure";
     case "turn_completed":
+    case "completion_resolved":
       return "completion";
     case "status_updated":
       return "status";
@@ -185,7 +210,7 @@ function interactionFamily(classification: OmpAttentionEvent["classification"]):
   }
 }
 
-function directKey(sessionId: string, family: string, interactionId: string): string {
+export function directKey(sessionId: string, family: string, interactionId: string): string {
   return `omp:${digest(`${sessionId}|${family}|${interactionId}`, 32)}`;
 }
 

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "type": "omp.attention-event",
   "eventId": "fixture:input:1",
   "occurredAt": "2026-09-01T16:00:01.000Z",

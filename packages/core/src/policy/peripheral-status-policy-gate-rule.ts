@@ -11,6 +11,16 @@ import { isSoftenedFailureStatusCandidate } from "./peripheral-status-candidate.
 
 export const evaluatePeripheralStatusPolicyGateRule: PolicyGateRule = (input) => {
   const { candidate } = input;
+  if (candidate.activityClass === "result_ready") {
+    return verdictPolicyGateRule("result_ready", {
+      autoApprove: false,
+      mayInterrupt: false,
+      requiresOperatorResponse: false,
+      minimumLane: "next",
+      minimumLaneIsSticky: true,
+      rationale: ["completed result is ready for review"],
+    });
+  }
   if (
     candidate.mode !== "status" ||
     candidate.consequence === "high" ||

@@ -14,9 +14,10 @@ import { feedbackSignal, latestRevision, persistedActive } from "./notification-
 import { projectWorkerDisplayView } from "./notification-projection.js";
 import { mapOmpDirectEvent } from "./omp-direct-adapter.js";
 import {
+  applyMappedOmpDirectEvent,
+  isOmpCompletionEntry,
   latestOmpDirectRevision,
   OmpDirectCausalityIndex,
-  persistedOmpDirectEntry,
 } from "./omp-direct-causality.js";
 import {
   emptyOmpDirectState,
@@ -248,67 +249,57 @@ export class NotificationWorkerEngine {
     candidateCausality.rebuild(candidate.tombstones);
     const nextNavigation = new Map(this.navigationByTaskId);
 
-    if (mapped.kind === "shutdown") {
-      const previousShutdown = this.directCausality.session(mapped.sessionId);
-      if (previousShutdown && previousShutdown.occurredAt >= mapped.occurredAt) return;
-      candidate.active = candidate.active.filter((entry) => {
-        const cancelled =
-          entry.sessionId === mapped.sessionId &&
-          latestOmpDirectRevision(entry).occurredAt <= mapped.occurredAt;
-        if (cancelled) nextNavigation.delete(entry.taskId);
-        return !cancelled;
-      });
-      candidateCausality.remember(candidate, {
-        kind: "session",
-        sessionId: mapped.sessionId,
-        eventId: mapped.eventId,
-        occurredAt: mapped.occurredAt,
-      });
-      await this.persistDirect(candidate, nextNavigation, signal);
-      return;
-    }
-
-    const previous = this.directByKey.get(mapped.key);
-    if (mapped.kind === "resolve") {
-      const previousResolution = this.directCausality.interaction(mapped.key);
-      if (previousResolution && previousResolution.occurredAt >= mapped.occurredAt) return;
-      if (previous && latestOmpDirectRevision(previous).occurredAt <= mapped.occurredAt) {
-        candidate.active = candidate.active.filter((entry) => entry.key !== previous.key);
-        nextNavigation.delete(previous.taskId);
+    const previous = "key" in mapped ? this.directByKey.get(mapped.key) : undefined;
+    const result = applyMappedOmpDirectEvent(
+      candidate,
+      candidateCausality,
+      mapped,
+      previous,
+      nextNavigation,
+      navigation,
+    );
+    if (result === "ignored") return;
+    if (result === "navigation-only") {
+      if (mapped.kind === "upsert") {
+        signal?.throwIfAborted();
+        this.setDirectNavigation(mapped.taskId, navigation);
       }
-      candidateCausality.remember(candidate, {
-        kind: "interaction",
-        key: mapped.key,
-        eventId: mapped.eventId,
-        occurredAt: mapped.occurredAt,
-      });
-      await this.persistDirect(candidate, nextNavigation, signal);
       return;
     }
-
-    const sessionShutdown = this.directCausality.session(mapped.sessionId);
-    if (sessionShutdown && sessionShutdown.occurredAt >= mapped.occurredAt) return;
-    const interactionResolution = this.directCausality.interaction(mapped.key);
-    if (interactionResolution && interactionResolution.occurredAt >= mapped.occurredAt) return;
-    const previousRevision = previous ? latestOmpDirectRevision(previous) : undefined;
-    if (
-      previousRevision &&
-      previousRevision.displayTitle === mapped.displayTitle &&
-      JSON.stringify(previousRevision.sourceEvent) === JSON.stringify(mapped.sourceEvent)
-    ) {
-      signal?.throwIfAborted();
-      this.setDirectNavigation(mapped.taskId, navigation);
-      return;
-    }
-    if (previousRevision && previousRevision.occurredAt > mapped.occurredAt) return;
-
-    const active = persistedOmpDirectEntry(mapped, previous);
-    const index = candidate.active.findIndex((entry) => entry.key === mapped.key);
-    if (index === -1) candidate.active.push(active);
-    else candidate.active[index] = active;
-    if (navigation) nextNavigation.set(mapped.taskId, navigation);
-    else nextNavigation.delete(mapped.taskId);
     await this.persistDirect(candidate, nextNavigation, signal);
+  }
+
+  async resolveOmpCompletionByFocusHandle(
+    handle: string,
+    occurredAt: string,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    const completion = this.directState.active.find((entry) => {
+      const navigation = this.navigationByTaskId.get(entry.taskId);
+      return (
+        isOmpCompletionEntry(entry) &&
+        navigation?.kind === "opaque-focus" &&
+        navigation.handle === handle
+      );
+    });
+    if (!completion) return false;
+    const completedAt = latestOmpDirectRevision(completion).occurredAt;
+    await this.handleOmpAttention(
+      {
+        schemaVersion: 3,
+        type: "omp.attention-event",
+        eventId: `${completion.key}:focused`,
+        occurredAt: completedAt > occurredAt ? completedAt : occurredAt,
+        sessionId: completion.sessionId,
+        classification: "completion_resolved",
+        title: "Result opened",
+        summary: "Opened.",
+        transition: "resolved",
+      },
+      undefined,
+      signal,
+    );
+    return true;
   }
 
   private async closeNotification(input: NotificationClosedInput): Promise<void> {

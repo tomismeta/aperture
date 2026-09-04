@@ -226,6 +226,16 @@ export class EventEvaluator {
       };
     }
 
+    if (event.status === "completed" && event.activityClass === "result_ready") {
+      return {
+        priority: "normal",
+        tone: "focused",
+        consequence: "low",
+        responseSpec: { kind: "none" },
+        includeFailureProvenance: false,
+      };
+    }
+
     switch (event.status) {
       case "failed":
         return statusDispositionForFailedStatus(event, judgmentInput);

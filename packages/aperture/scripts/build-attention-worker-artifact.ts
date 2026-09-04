@@ -45,9 +45,11 @@ const ompFixtureNames = [
   "focus-activation.json",
   "focus-result.json",
   "completion-event.json",
+  "completion-resolved-event.json",
   "status-event.json",
   "snapshot-failure.json",
   "snapshot-completion.json",
+  "snapshot-completion-resolved.json",
   "snapshot-status.json",
   "snapshot-now-next.json",
   "snapshot-resolved.json",
@@ -284,7 +286,7 @@ const buildInfo = {
     notificationInputSchemaVersion: 2,
     notificationOutputSchemaVersion: 4,
     surfaceProtocolVersion: 4,
-    ompAttentionEventSchemaVersion: 2,
+    ompAttentionEventSchemaVersion: 3,
     workerDirectProtocolVersion: 4,
     jsonlHandshakes: {
       privateWorker: {

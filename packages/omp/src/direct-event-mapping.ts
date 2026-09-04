@@ -30,7 +30,7 @@ export function mapOmpDirectAttentionEvents(
       status: facts.status ?? null,
     });
     return assertOmpAttentionEvent({
-      schemaVersion: 2,
+      schemaVersion: 3,
       type: "omp.attention-event",
       eventId: `omp:${createHash("sha256").update(identity).digest("hex")}`,
       ...facts,
@@ -112,14 +112,15 @@ export function mapOmpDirectAttentionEvents(
           transition: "failed",
         }),
       ];
-    case "session_stop":
+    case "session_stop": {
+      const interactionId = completionInteractionId(sessionId, event.turn_id, occurredAt);
       return readStopReason(event.last_assistant_message) === "error"
         ? [
             directEvent({
               occurredAt,
               sessionId,
               turnId: String(event.turn_id),
-              interactionId: `turn:${event.turn_id}`,
+              interactionId,
               classification: "session_stop_failure",
               title: "OMP agent turn failed",
               summary: "OMP stopped after a provider or model error.",
@@ -131,13 +132,38 @@ export function mapOmpDirectAttentionEvents(
               occurredAt,
               sessionId,
               turnId: String(event.turn_id),
-              interactionId: `turn:${event.turn_id}`,
+              interactionId,
               classification: "turn_completed",
               title: "OMP completed a turn",
-              summary: "OMP settled the main agent session.",
+              summary: "OMP stopped after completing the main agent turn.",
               transition: "completed",
             }),
           ];
+    }
+    case "before_agent_start":
+      return [
+        directEvent({
+          occurredAt,
+          sessionId,
+          classification: "completion_resolved",
+          title: "OMP started new agent work",
+          summary: "New agent work superseded the previous completed result.",
+          transition: "resolved",
+        }),
+      ];
+    case "input":
+      return event.source === "interactive"
+        ? [
+            directEvent({
+              occurredAt,
+              sessionId,
+              classification: "completion_resolved",
+              title: "OMP received new operator input",
+              summary: "Operator input superseded the previous completed result.",
+              transition: "resolved",
+            }),
+          ]
+        : [];
     case "session_shutdown":
       return [
         directEvent({
@@ -150,14 +176,12 @@ export function mapOmpDirectAttentionEvents(
         }),
       ];
     case "session_start":
-    case "before_agent_start":
     case "agent_start":
     case "turn_start":
     case "turn_end":
     case "tool_execution_start":
     case "tool_execution_update":
     case "tool_execution_end":
-    case "input":
     case "agent_end":
       return [];
   }
@@ -205,6 +229,17 @@ function eventTimestamp(event: OmpEvent, context: OmpMappingContext): string {
 function safeToken(value: string, fallback: string): string {
   const normalized = value.trim();
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(normalized) ? normalized : fallback;
+}
+
+function completionInteractionId(sessionId: string, turnId: number, occurredAt: string): string {
+  return `completion:${createHash("sha256")
+    .update(sessionId)
+    .update("\u0000")
+    .update(String(turnId))
+    .update("\u0000")
+    .update(occurredAt)
+    .digest("hex")
+    .slice(0, 32)}`;
 }
 
 function readStopReason(value: unknown): string | undefined {

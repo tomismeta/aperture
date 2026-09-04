@@ -12,9 +12,12 @@ Exports:
 - `@aperture/omp/omarchy-extension` sends bounded typed facts to the
   self-contained Omarchy worker, with native notification as outside-surface fallback.
 
-The Omarchy extension emits only approval, input, terminal failure, completion,
-and resolution transitions. It never includes prompt transcripts, tool results,
-credentials, private paths, or executable notification actions.
+The Omarchy extension emits only approval, input, terminal failure, provisional
+completion, and resolution transitions. A successful `session_stop` means that
+a result may now be ready for review; subsequent same-session activity
+self-corrects that provisional completion. The extension never includes prompt
+transcripts, tool results, credentials, private paths, or executable
+notification actions.
 
 When the Aperture worker owns
 `$XDG_RUNTIME_DIR/omarchy/aperture/attention.sock`, the Omarchy extension sends

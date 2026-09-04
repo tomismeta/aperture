@@ -71,7 +71,7 @@ const identity: NotificationWorkerIdentity = {
 
 function directEvent(overrides: Partial<OmpAttentionEvent> = {}): OmpAttentionEvent {
   return assertOmpAttentionEvent({
-    schemaVersion: 2,
+    schemaVersion: 3,
     type: "omp.attention-event",
     eventId: "event:approval:1",
     occurredAt,
@@ -110,7 +110,7 @@ test("direct OMP contract rejects private or malformed payloads and preserves op
     /classification/,
   );
   assert.throws(() => parseOmpAttentionEvent("{"), OmpAttentionEventError);
-  assert.throws(() => directEvent({ schemaVersion: 1 as 2 }), /schema version/);
+  assert.throws(() => directEvent({ schemaVersion: 1 as 3 }), /schema version/);
   assert.throws(() => directEvent({ type: "unknown" as "omp.attention-event" }), /type/);
   assert.throws(() => directEvent({ sessionId: "" }), /sessionId/);
   assert.throws(() => directEvent({ sessionId: "bad\nsession" }), /sessionId/);
@@ -128,6 +128,24 @@ test("direct OMP contract rejects private or malformed payloads and preserves op
         rawToolOutput: "secret",
       }),
     /unknown field/,
+  );
+  assert.throws(
+    () =>
+      directEvent({
+        interactionId: undefined,
+        classification: "turn_completed",
+        transition: "completed",
+      }),
+    /interactionId/,
+  );
+  assert.throws(
+    () =>
+      directEvent({
+        interactionId: undefined,
+        classification: "completion_resolved",
+        transition: "completed",
+      }),
+    /transition/,
   );
   assert.throws(
     () => parseOmpAttentionEvent(JSON.stringify({ ...directEvent(), summary: "x".repeat(70_000) })),
@@ -435,7 +453,7 @@ test("direct OMP events produce canonical NOW and NEXT with replayable navigatio
   assert.equal(JSON.stringify(shutdown).includes(sessionId), false);
 });
 
-test("completed OMP turns remain visible as AMBIENT context", async () => {
+test("completed OMP turns become NOW-eligible review results with navigation", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-completion-"));
   const restored = await NotificationWorkerEngine.restore({
     identities: [identity],
@@ -445,24 +463,171 @@ test("completed OMP turns remain visible as AMBIENT context", async () => {
   const completion = directEvent({
     eventId: "event:completion:1",
     occurredAt: "2026-09-04T11:30:20.604Z",
-    focus: undefined,
     turnId: "0",
-    interactionId: "turn:0",
+    interactionId: "completion:first",
     classification: "turn_completed",
     title: "OMP completed a turn",
-    summary: "OMP settled the main agent session.",
+    summary: "OMP stopped after completing the main agent turn.",
     transition: "completed",
   });
 
-  await restored.engine.handleOmpAttention(completion);
+  await restored.engine.handleOmpAttention(completion, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
   const snapshot = restored.engine.snapshot();
 
-  assert.equal(snapshot.view.now, null);
+  assert.equal(snapshot.view.now?.title, completion.title);
+  assert.equal(snapshot.view.now?.tone, "focused");
+  assert.deepEqual(snapshot.view.now?.navigation, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
   assert.deepEqual(snapshot.view.next, []);
-  assert.equal(snapshot.view.ambient.length, 1);
-  assert.equal(snapshot.view.ambient[0]?.title, completion.title);
-  assert.equal(snapshot.view.ambient[0]?.tone, "ambient");
-  assert.equal(snapshot.view.ambient[0]?.navigation, undefined);
+  assert.deepEqual(snapshot.view.ambient, []);
+});
+
+test("completion lifecycle supersedes, resolves, and fences delayed replay", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-completion-causal-"));
+  const restored = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => Date.parse("2026-09-04T11:31:00.000Z"),
+  });
+  const completionSessionId = "s".repeat(160);
+  const first = directEvent({
+    eventId: "event:completion:first",
+    sessionId: completionSessionId,
+    occurredAt: "2026-09-04T11:30:20.000Z",
+    turnId: "0",
+    interactionId: "completion:first",
+    classification: "turn_completed",
+    title: "First OMP result",
+    summary: "The first result is ready.",
+    transition: "completed",
+  });
+  const second = directEvent({
+    eventId: "event:completion:second",
+    sessionId: completionSessionId,
+    occurredAt: "2026-09-04T11:30:30.000Z",
+    turnId: "0",
+    interactionId: "completion:second",
+    classification: "turn_completed",
+    title: "Second OMP result",
+    summary: "The second result is ready.",
+    transition: "completed",
+  });
+
+  await restored.engine.handleOmpAttention(first, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
+  await restored.engine.handleOmpAttention(second, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
+  assert.equal(restored.engine.snapshot().view.now?.title, second.title);
+
+  await restored.engine.handleOmpAttention(first, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
+  assert.equal(restored.engine.snapshot().view.now?.title, second.title);
+  assert.equal(
+    await restored.engine.resolveOmpCompletionByFocusHandle(
+      "B23456789_-bcdefghijklmnopqrstuv",
+      "2026-09-04T11:30:40.000Z",
+    ),
+    false,
+  );
+  assert.equal(restored.engine.snapshot().view.now?.title, second.title);
+  assert.equal(
+    await restored.engine.resolveOmpCompletionByFocusHandle(
+      focusHandle,
+      "2026-09-04T11:30:40.000Z",
+    ),
+    true,
+  );
+  assert.equal(restored.engine.snapshot().view.now, null);
+
+  await restored.engine.handleOmpAttention(second, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
+  assert.equal(restored.engine.snapshot().view.now, null);
+
+  const third = directEvent({
+    eventId: "event:completion:third",
+    sessionId: completionSessionId,
+    occurredAt: "2026-09-04T11:30:50.000Z",
+    turnId: "1",
+    interactionId: "completion:third",
+    classification: "turn_completed",
+    title: "Third OMP result",
+    summary: "The third result is ready.",
+    transition: "completed",
+  });
+  await restored.engine.handleOmpAttention(third);
+  assert.equal(restored.engine.snapshot().view.now?.title, third.title);
+
+  const delayedResolution = directEvent({
+    sessionId: completionSessionId,
+    eventId: "event:completion:delayed-resolution",
+    occurredAt: "2026-09-04T11:30:45.000Z",
+    focus: undefined,
+    interactionId: undefined,
+    classification: "completion_resolved",
+    title: "Delayed OMP activity",
+    summary: "An older activity event arrived late.",
+    transition: "resolved",
+  });
+  await restored.engine.handleOmpAttention(delayedResolution);
+  await restored.engine.handleOmpAttention(delayedResolution);
+  assert.equal(restored.engine.snapshot().view.now?.title, third.title);
+
+  await restored.engine.handleOmpAttention(
+    directEvent({
+      sessionId: completionSessionId,
+      eventId: "event:completion:resolved",
+      occurredAt: "2026-09-04T11:31:00.000Z",
+      focus: undefined,
+      interactionId: undefined,
+      classification: "completion_resolved",
+      title: "OMP started new work",
+      summary: "New work superseded the completed result.",
+      transition: "resolved",
+    }),
+  );
+  assert.equal(restored.engine.snapshot().view.now, null);
+  await restored.engine.handleOmpAttention(third);
+  assert.equal(restored.engine.snapshot().view.now, null);
+});
+
+test("stronger OMP requests keep completed results in NEXT", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-completion-next-"));
+  const restored = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => Date.parse("2026-09-01T16:00:01.000Z"),
+  });
+  const approval = directEvent({ eventId: "event:approval:stronger" });
+  const completion = directEvent({
+    eventId: "event:completion:queued",
+    occurredAt: "2026-09-01T16:00:01.000Z",
+    sessionId: "01a0123456789abcdeff",
+    turnId: "0",
+    interactionId: "completion:queued",
+    classification: "turn_completed",
+    title: "Queued OMP result",
+    summary: "The result is ready.",
+    transition: "completed",
+  });
+  await restored.engine.handleOmpAttention(approval);
+  await restored.engine.handleOmpAttention(completion);
+
+  const snapshot = restored.engine.snapshot();
+  assert.equal(snapshot.view.now?.title, approval.title);
+  assert.equal(snapshot.view.next[0]?.title, completion.title);
 });
 
 test("direct persistence failures preserve request resolution shutdown and compaction state", async () => {

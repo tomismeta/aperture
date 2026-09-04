@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "type": "omp.attention-event",
   "eventId": "fixture:status:1",
-  "occurredAt": "2026-09-01T16:00:05.000Z",
+  "occurredAt": "2026-09-01T16:00:06.000Z",
   "sessionId": "01a0123456789abcdef",
   "classification": "status_updated",
   "title": "OMP is waiting",

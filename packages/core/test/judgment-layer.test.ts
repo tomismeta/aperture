@@ -716,6 +716,28 @@ test("configured lowRiskRead policy does not match passive status updates with e
   assert.ok(verdict.rationale.includes("background work should remain peripheral by default"));
 });
 
+test("result-ready status stays in the actionable queue without interrupting active work", () => {
+  const verdict = new AttentionPolicy().evaluateGates(
+    createCandidate({
+      mode: "status",
+      blocking: false,
+      consequence: "low",
+      priority: "normal",
+      tone: "focused",
+      title: "Agent turn completed",
+      summary: "A completed result is ready for review.",
+      activityClass: "result_ready",
+      responseSpec: { kind: "none" },
+    }),
+  );
+
+  assert.equal(verdict.minimumLane, "next");
+  assert.equal(verdict.minimumLaneIsSticky, true);
+  assert.equal(verdict.mayInterrupt, false);
+  assert.equal(verdict.requiresOperatorResponse, false);
+  assert.ok(verdict.rationale.includes("completed result is ready for review"));
+});
+
 test("only permission-request status enters the tool policy path", () => {
   const gates = new AttentionPolicy({
     policyConfig: {

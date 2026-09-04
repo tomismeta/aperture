@@ -101,8 +101,12 @@ export function mapOmpDirectEvent(event: OmpAttentionEvent): MappedOmpDirectEven
     case "turn_completed":
       sourceEvent = {
         ...base,
-        type: "task.completed",
+        type: "task.updated",
+        title: event.title,
         summary: event.summary,
+        status: "completed",
+        activityClass: "session_status",
+        semanticHints: { activityClass: "session_status" },
       };
       break;
     case "status_updated":

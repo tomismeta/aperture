@@ -439,10 +439,12 @@ function boundedText(value: string, maximum: number): string {
 }
 
 function readSessionFile(value: unknown): string | undefined {
+  const sessionFile = readSessionManagerMethod(value, "getSessionFile");
+  if (sessionFile) return sessionFile;
   if (!value || typeof value !== "object") return undefined;
   if ("sessionFile" in value) {
-    const sessionFile = readNonEmptyString(value.sessionFile);
-    if (sessionFile) return sessionFile;
+    const storedSessionFile = readNonEmptyString(value.sessionFile);
+    if (storedSessionFile) return storedSessionFile;
   }
   if ("currentSessionFile" in value) {
     const currentSessionFile = readNonEmptyString(value.currentSessionFile);
@@ -452,12 +454,29 @@ function readSessionFile(value: unknown): string | undefined {
 }
 
 function readSessionId(value: unknown): string | undefined {
+  const sessionId = readSessionManagerMethod(value, "getSessionId");
+  if (sessionId) return sessionId;
   if (!value || typeof value !== "object") return undefined;
   if ("sessionId" in value) {
-    const sessionId = readNonEmptyString(value.sessionId);
-    if (sessionId) return sessionId;
+    const storedSessionId = readNonEmptyString(value.sessionId);
+    if (storedSessionId) return storedSessionId;
   }
   return "id" in value ? readNonEmptyString(value.id) : undefined;
+}
+
+function readSessionManagerMethod(
+  value: unknown,
+  methodName: "getSessionFile" | "getSessionId",
+): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  try {
+    const method = Reflect.get(value, methodName);
+    return typeof method === "function"
+      ? readNonEmptyString(Reflect.apply(method, value, []))
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function readNonEmptyString(value: unknown): string | undefined {

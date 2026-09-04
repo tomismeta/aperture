@@ -51,7 +51,7 @@ try {
     const wrapper = path.join(temporaryRoot, `wrapper-${version}.mjs`);
     await writeFile(
       wrapper,
-      `import { writeFileSync } from "node:fs";\nimport extension from ${JSON.stringify(pathToFileURL(extension).href)};\nexport default async function proof(pi) {\n  const handlers = new Map();\n  await extension({ logger: pi.logger, on(event, handler) { handlers.set(event, handler); pi.on(event, handler); } });\n  const context = { sessionManager: { sessionId: ${JSON.stringify(sessionId)} } };\n  await handlers.get("tool_approval_requested")?.({ type: "tool_approval_requested", sessionId: ${JSON.stringify(sessionId)}, toolCallId: "tool-host", toolName: "bash", approvalMode: "write" }, context);\n  await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, context);\n  writeFileSync(${JSON.stringify(marker)}, "loaded\\n", "utf8");\n}\n`,
+      `import { writeFileSync } from "node:fs";\nimport extension from ${JSON.stringify(pathToFileURL(extension).href)};\nexport default async function proof(pi) {\n  const handlers = new Map();\n  await extension({ logger: pi.logger, on(event, handler) { handlers.set(event, handler); pi.on(event, handler); } });\n  const context = { sessionManager: { getSessionId() { return ${JSON.stringify(sessionId)}; }, getSessionFile() { return ${JSON.stringify(path.join(temporaryRoot, `session-${version}.jsonl`))}; } } };\n  await handlers.get("tool_call")?.({ type: "tool_call", toolCallId: "ask-host", toolName: "ask", input: {} }, context);\n  await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, context);\n  writeFileSync(${JSON.stringify(marker)}, "loaded\\n", "utf8");\n}\n`,
       "utf8",
     );
     const before = workerHarness.messageCount();
@@ -81,14 +81,15 @@ try {
     const projected = await workerHarness.waitForFrom(
       before,
       (message) =>
-        message.type === "snapshot" &&
-        message.view?.now?.title === "OMP needs approval for bash",
+        message.type === "snapshot" && message.view?.now?.title === "OMP needs your input",
     );
     assert.equal(projected.view?.now?.navigation, undefined);
     matrix.push({
       ompVersion: version,
       status: "passed",
       actualExtensionLoader: true,
+      stockSessionMethods: true,
+      attentionClassification: "input_requested",
       rpcReady: true,
       directSocketDelivered: true,
       navigation: "absent-rpc-headless",

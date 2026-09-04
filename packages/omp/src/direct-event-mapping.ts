@@ -19,6 +19,7 @@ export function mapOmpDirectAttentionEvents(
   const occurredAt = eventTimestamp(event, context);
   const directEvent = (facts: DirectEventFacts): OmpAttentionEvent => {
     const identity = JSON.stringify({
+      occurredAt: facts.occurredAt,
       sessionId: facts.sessionId,
       turnId: facts.turnId ?? null,
       interactionId: facts.interactionId ?? null,
@@ -38,7 +39,6 @@ export function mapOmpDirectAttentionEvents(
         : {}),
     });
   };
-
 
   switch (event.type) {
     case "tool_approval_requested":
@@ -186,7 +186,6 @@ type DirectEventFacts = {
   transition: OmpAttentionTransition;
   status?: OmpAttentionStatus;
 };
-
 
 function sessionIdForEvent(event: OmpEvent, context: OmpMappingContext): string | undefined {
   if (event.type === "session_stop") return event.session_id;

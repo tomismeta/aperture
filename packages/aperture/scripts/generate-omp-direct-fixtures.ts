@@ -165,7 +165,7 @@ try {
   assert.equal(failureSnapshot.view.now?.title, failure.title);
   assert.equal(completionSnapshot.view.now, null);
   assert.deepEqual(completionSnapshot.view.next, []);
-  assert.deepEqual(completionSnapshot.view.ambient, []);
+  assert.equal(completionSnapshot.view.ambient[0]?.title, completion.title);
   assert.equal(statusSnapshot.view.ambient[0]?.title, status.title);
 
   const fixtures = new Map<string, unknown>([

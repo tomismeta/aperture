@@ -2,7 +2,7 @@
 
 # Aperture
 
-**The attention surface for agent work.**
+**The human-attention system for agent work.**
 
 [![npm aperture](https://img.shields.io/npm/v/%40tomismeta%2Faperture?label=npm&color=2563eb)](https://www.npmjs.com/package/@tomismeta/aperture)
 [![npm core](https://img.shields.io/npm/v/%40tomismeta%2Faperture-core?label=npm%20core&color=0f766e)](https://www.npmjs.com/package/@tomismeta/aperture-core)
@@ -13,12 +13,13 @@
 <p></p>
 </div>
 
-Aperture is the live attention surface for humans working with agents, with
-Claude Code as the primary product path and OpenCode as a supported integration.
+**Agent work runs in parallel. Human attention stays finite.**
 
-It keeps the agent work that needs you in one place, decides what should be
-`now`, what should wait until `next`, and what should stay `ambient`, and sends
-your answer back into the same loop.
+Aperture is the human-attention system for people working with agents, with
+Claude Code as the primary product path and OpenCode as a supported integration.
+It keeps work that needs a person in one place, decides what belongs `now`, what
+can wait until `next`, and what should stay `ambient`, then carries the response
+back into the same loop.
 
 The latest published `@tomismeta/aperture` release is `0.5.0`; `main` is the
 `0.10.0` release candidate. Repository documentation may describe candidate

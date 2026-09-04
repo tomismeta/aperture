@@ -46,9 +46,15 @@ import type { NotificationWorkerInput } from "../src/notification-worker/protoco
 import {
   loadOmpDirectState,
   ompDirectRecordCount,
+  pruneOmpDirectState,
   saveOmpDirectState,
   migrateOmpDirectStateV1,
+  type OmpDirectPersistedState,
 } from "../src/notification-worker/omp-direct-state-store.js";
+import {
+  OmpSessionCapacityError,
+  OmpSessionLiveness,
+} from "../src/notification-worker/session-liveness.js";
 import { runNotificationWorkerStdio } from "../src/notification-worker/stdio.js";
 import { assertApertureSurfaceMessage } from "../src/surface/protocol-validator.js";
 import { OmpDirectWorkerTransport } from "../../omp/src/direct-worker-transport.js";
@@ -179,6 +185,115 @@ test("private focus control v4 is generic, exact, and recovery-bounded", () => {
   if (acknowledgement.status !== "accepted") throw new Error("expected accepted acknowledgement");
   assert.equal(acknowledgement.recovery?.kind, "herdr");
   assert.equal(acknowledgement.workerGeneration, "W".repeat(32));
+});
+
+test("session heartbeat protocol and monotonic lease capacity are exact", () => {
+  const heartbeat = {
+    schemaVersion: 4,
+    type: "omp.session-heartbeat",
+    requestId: "heartbeat-1",
+    sessionId: "session-live",
+  };
+  assert.deepEqual(assertWorkerDirectMessage(heartbeat), heartbeat);
+  assert.throws(
+    () => assertWorkerDirectMessage({ ...heartbeat, extra: true }),
+    /unsupported fields/,
+  );
+  assert.throws(
+    () =>
+      assertWorkerDirectMessage({
+        ...heartbeat,
+        sessionId: "/home/operator/private-session.jsonl",
+      }),
+    /filesystem path/,
+  );
+
+  let monotonicNow = 0;
+  const liveness = new OmpSessionLiveness({
+    monotonicNow: () => monotonicNow,
+    reconnectGraceMilliseconds: 50,
+    leaseMilliseconds: 100,
+    maximumSessions: 2,
+  });
+  assert.deepEqual(liveness.seed(["session-live", "session-dead", "session-overflow"]), [
+    "session-overflow",
+  ]);
+  monotonicNow = 49;
+  liveness.observe("session-live");
+  monotonicNow = 50;
+  const expired = liveness.expired();
+  assert.deepEqual(
+    expired.map((entry) => entry.sessionId),
+    ["session-dead"],
+  );
+  liveness.commitExpired(expired);
+  assert.equal(liveness.size, 1);
+  monotonicNow = 148;
+  assert.deepEqual(liveness.expired(), []);
+  monotonicNow = 149;
+  assert.deepEqual(
+    liveness.expired().map((entry) => entry.sessionId),
+    ["session-live"],
+  );
+  liveness.observe("session-third");
+  assert.throws(() => liveness.observe("session-fourth"), OmpSessionCapacityError);
+});
+
+test("live restored sessions survive grace while dead sessions expire causally", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-session-lease-"));
+  let wallNow = Date.parse(occurredAt);
+  const initial = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => wallNow,
+  });
+  await initial.engine.handleOmpAttention(directEvent());
+
+  const restored = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => wallNow,
+  });
+  let monotonicNow = 0;
+  const liveness = new OmpSessionLiveness({
+    monotonicNow: () => monotonicNow,
+    reconnectGraceMilliseconds: 10,
+    leaseMilliseconds: 20,
+    maximumSessions: 2,
+  });
+  assert.deepEqual(liveness.seed(restored.engine.activeOmpSessionIds()), []);
+  const statePath = path.join(root, "omp-direct-state.json");
+  const beforeHeartbeat = await readFile(statePath, "utf8");
+  monotonicNow = 9;
+  liveness.observe(sessionId);
+  assert.equal(await readFile(statePath, "utf8"), beforeHeartbeat);
+
+  monotonicNow = 11;
+  assert.deepEqual(liveness.expired(), []);
+  assert.equal(restored.engine.snapshot().view.now?.title, directEvent().title);
+
+  monotonicNow = 30;
+  const expired = liveness.expired();
+  wallNow += 30_000;
+  assert.equal(
+    await restored.engine.expireOmpSessions(
+      expired.map((entry) => entry.sessionId),
+      new Date(wallNow).toISOString(),
+    ),
+    true,
+  );
+  liveness.commitExpired(expired);
+  assert.equal(restored.engine.snapshot().view.now, null);
+  assert.equal(liveness.size, 0);
+
+  await restored.engine.handleOmpAttention(directEvent());
+  assert.equal(restored.engine.snapshot().view.now, null);
+  const replayed = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => wallNow,
+  });
+  assert.equal(replayed.engine.snapshot().view.now, null);
 });
 
 test("public surface rejects private focus navigation", () => {
@@ -319,6 +434,110 @@ test("direct OMP events produce canonical NOW and NEXT with replayable navigatio
   assert.deepEqual(shutdown.view.next, []);
   assert.equal(JSON.stringify(shutdown).includes(sessionId), false);
 });
+
+test("direct persistence failures preserve request resolution shutdown and compaction state", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-transaction-"));
+  let failStorage = false;
+  const inMemorySave = async (
+    _rootDir: string,
+    state: OmpDirectPersistedState,
+    _now = Date.now(),
+    signal?: AbortSignal,
+  ): Promise<OmpDirectPersistedState> => {
+    signal?.throwIfAborted();
+    if (failStorage) throw new Error("injected storage failure");
+    return structuredClone(state);
+  };
+  const restored = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => Date.parse(occurredAt),
+    saveDirectState: inMemorySave,
+  });
+  const request = directEvent({ eventId: "transaction-request" });
+
+  failStorage = true;
+  await assert.rejects(
+    () => restored.engine.handleOmpAttention(request),
+    /injected storage failure/,
+  );
+  assert.equal(restored.engine.snapshot().view.now, null);
+
+  failStorage = false;
+  await restored.engine.handleOmpAttention(request, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
+  assert.equal(restored.engine.snapshot().view.now?.title, request.title);
+
+  failStorage = true;
+  const resolution = directEvent({
+    eventId: "transaction-resolution",
+    occurredAt: "2026-09-01T16:00:01.000Z",
+    classification: "approval_resolved",
+    title: "OMP approval resolved",
+    summary: "OMP resumed after operator approval.",
+    transition: "resolved",
+    focus: undefined,
+  });
+  await assert.rejects(
+    () => restored.engine.handleOmpAttention(resolution),
+    /injected storage failure/,
+  );
+  assert.equal(restored.engine.snapshot().view.now?.title, request.title);
+  assert.deepEqual(restored.engine.snapshot().view.now?.navigation, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
+
+  const shutdown = directEvent({
+    eventId: "transaction-shutdown",
+    occurredAt: "2026-09-01T16:00:02.000Z",
+    interactionId: undefined,
+    classification: "session_shutdown",
+    title: "OMP session shut down",
+    summary: "OMP closed the originating agent session.",
+    transition: "shutdown",
+    focus: undefined,
+  });
+  await assert.rejects(
+    () => restored.engine.handleOmpAttention(shutdown),
+    /injected storage failure/,
+  );
+  assert.equal(restored.engine.snapshot().view.now?.title, request.title);
+
+  let clock = Date.parse(occurredAt);
+  let failCompaction = false;
+  const compacting = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: await mkdtemp(path.join(os.tmpdir(), "aperture-omp-compaction-")),
+    now: () => clock,
+    saveDirectState: async (_rootDir, state, now, signal) => {
+      signal?.throwIfAborted();
+      const bounded = pruneOmpDirectState(state, now);
+      if (failCompaction && ompDirectRecordCount(bounded) !== ompDirectRecordCount(state)) {
+        throw new Error("injected compaction failure");
+      }
+      return structuredClone(bounded);
+    },
+  });
+  await compacting.engine.handleOmpAttention(request);
+  clock += 25 * 60 * 60 * 1000;
+  failCompaction = true;
+  await assert.rejects(
+    () =>
+      compacting.engine.handleOmpAttention(
+        directEvent({
+          eventId: "transaction-after-cutoff",
+          occurredAt: new Date(clock).toISOString(),
+          interactionId: "transaction-after-cutoff",
+        }),
+      ),
+    /injected compaction failure/,
+  );
+  assert.equal(compacting.engine.snapshot().view.now?.title, request.title);
+});
+
 test("resolution and shutdown tombstones dominate delayed replay", async () => {
   for (const family of ["approval", "input"] as const) {
     const root = await mkdtemp(path.join(os.tmpdir(), `aperture-omp-${family}-causal-`));
@@ -655,8 +874,8 @@ test("read timeout rejection is terminal for a half-open client", async () => {
   await server.close();
 });
 
-test("direct attention receipts settle late handlers without duplicate commits", async () => {
-  for (const processingMilliseconds of [150, 250, 600]) {
+test("direct attention deadlines reject before commit and receipts stay terminal", async () => {
+  for (const processingMilliseconds of [150, 250]) {
     const runtimeRoot = await mkdtemp("/tmp/ap-direct-receipt-timing-");
     const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
     let commits = 0;
@@ -670,11 +889,49 @@ test("direct attention receipts settle late handlers without duplicate commits",
       revokeFocus: async () => undefined,
     });
     const client = new OmpDirectWorkerTransport({ socketPath });
-    const acknowledgement = await client.send(directEvent());
-    assert.equal(acknowledgement.status, "accepted");
+    assert.equal((await client.send(directEvent())).status, "accepted");
     assert.equal(commits, 1);
     await server.close();
   }
+
+  const runtimeRoot = await mkdtemp("/tmp/ap-direct-processing-deadline-");
+  const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
+  let calls = 0;
+  let commits = 0;
+  const server = await startOmpAttentionSocketServer({
+    socketPath,
+    handleAttention: async (_event, signal) => {
+      calls += 1;
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(resolve, 750);
+        signal.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(timer);
+            reject(signal.reason);
+          },
+          { once: true },
+        );
+      });
+      commits += 1;
+    },
+    registerFocus: async () => undefined,
+    revokeFocus: async () => undefined,
+  });
+  const client = new OmpDirectWorkerTransport({ socketPath });
+  const event = { ...directEvent(), eventId: "deadline-event" };
+  const startedAt = Date.now();
+  const timedOut = (error: unknown) =>
+    error instanceof Error &&
+    error.name === "WorkerDirectRejectedError" &&
+    (error as Error & { code?: unknown }).code === "processing_timeout";
+  await assert.rejects(() => client.send(event), timedOut);
+  assert(Date.now() - startedAt < 700);
+  assert.equal(commits, 0);
+  await assert.rejects(() => client.send(event), timedOut);
+  assert.equal(calls, 1);
+  assert.equal(commits, 0);
+  await server.close();
 });
 
 test("post-write timeout and lost acknowledgement reuse one durable receipt", async () => {
@@ -833,6 +1090,93 @@ test("worker shutdown removes its direct OMP socket", async () => {
   input.end(`${JSON.stringify({ type: "shutdown" })}\n`);
   await running;
   await assert.rejects(() => lstat(socketPath), /ENOENT/);
+});
+
+test("OMP-only worker rejects generic notifications and removes only regular legacy state", async () => {
+  const runtimeRoot = await mkdtemp("/tmp/ap-omp-only-worker-");
+  const stateDir = path.join(runtimeRoot, "state");
+  await mkdir(stateDir, { mode: 0o700 });
+  await writeFile(path.join(stateDir, "state.json"), "legacy-notification-state\n", {
+    mode: 0o600,
+  });
+  const input = new PassThrough();
+  const messages: Array<Record<string, unknown>> = [];
+  const output = new Writable({
+    write(chunk, _encoding, callback) {
+      messages.push(JSON.parse(String(chunk)) as Record<string, unknown>);
+      callback();
+    },
+  });
+  const running = runNotificationWorkerStdio({
+    packageVersion: "0.10.0",
+    identities: [identity],
+    stateDir,
+    mode: "omp-only",
+    input,
+    output,
+  });
+  input.end(
+    `${JSON.stringify(notificationInput("generic notification must remain disabled"))}\n${JSON.stringify(
+      { type: "shutdown" },
+    )}\n`,
+  );
+  await running;
+  const hello = messages.find((message) => message.type === "hello");
+  assert.deepEqual(hello?.capabilities, {
+    notificationInput: false,
+    ompDirectInput: true,
+    snapshots: true,
+    responses: false,
+    focusActivation: true,
+  });
+  assert.equal(
+    messages.some(
+      (message) =>
+        message.type === "error" &&
+        message.code === "invalid_input" &&
+        String(message.message).includes("disabled in OMP-only mode"),
+    ),
+    true,
+  );
+  assert.equal(
+    messages
+      .filter((message) => message.type === "snapshot")
+      .every((message) => {
+        const totals = message.totals;
+        return Boolean(
+          totals && typeof totals === "object" && "ambient" in totals && totals.ambient === 0,
+        );
+      }),
+    true,
+  );
+  await assert.rejects(() => lstat(path.join(stateDir, "state.json")), /ENOENT/);
+
+  const unsafeRoot = await mkdtemp("/tmp/ap-omp-only-state-link-");
+  const unsafeStateDir = path.join(unsafeRoot, "state");
+  const externalState = path.join(unsafeRoot, "external-state");
+  await mkdir(unsafeStateDir, { mode: 0o700 });
+  await writeFile(externalState, "must-survive\n", { mode: 0o600 });
+  await symlink(externalState, path.join(unsafeStateDir, "state.json"));
+  const unsafeInput = new PassThrough();
+  unsafeInput.end(`${JSON.stringify({ type: "shutdown" })}\n`);
+  const discardedOutput = new Writable({
+    write(_chunk, _encoding, callback) {
+      callback();
+    },
+  });
+  await assert.rejects(
+    () =>
+      runNotificationWorkerStdio({
+        packageVersion: "0.10.0",
+        identities: [identity],
+        stateDir: unsafeStateDir,
+        mode: "omp-only",
+        input: unsafeInput,
+        output: discardedOutput,
+      }),
+    /not an owned regular file/,
+  );
+  assert.equal(await readFile(externalState, "utf8"), "must-survive\n");
 });
 
 test("worker closes a published socket when readiness output fails", async () => {

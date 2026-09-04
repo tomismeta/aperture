@@ -182,7 +182,6 @@ export class FocusCoordinator {
     const record = this.registrations.get(publicHandle);
     if (!record || this.isCancelled(record)) return undefined;
     if (record.expiresAt <= this.now()) {
-      this.rememberCancellation(record.publicHandle, record.hostGeneration);
       this.scheduleExpiry(0);
       return undefined;
     }
@@ -508,7 +507,6 @@ export class FocusCoordinator {
     const expired = [...this.registrations.values()].filter((record) => record.expiresAt <= now);
     await Promise.allSettled(
       expired.map(async (record) => {
-        this.rememberCancellation(record.publicHandle, record.hostGeneration);
         try {
           await this.scheduler.run(
             compositorQueueKey(record.lease.surface.hyprlandInstance),

@@ -7,6 +7,10 @@ on:
         description: Successful signed-tag Direct Release run
         required: true
         type: string
+      direct_release_run_attempt:
+        description: Exact attempt of the successful Direct Release run
+        required: true
+        type: string
 
 concurrency:
   group: aperture-worker-release-evidence-${{ github.ref }}
@@ -26,6 +30,7 @@ jobs:
       SOURCE_TAG: ${{ github.ref_name }}
       SOURCE_COMMIT: ${{ github.sha }}
       DIRECT_RELEASE_RUN_ID: ${{ inputs.direct_release_run_id }}
+      DIRECT_RELEASE_RUN_ATTEMPT: ${{ inputs.direct_release_run_attempt }}
 
     steps:
       - name: Checkout exact release source commit
@@ -40,14 +45,29 @@ jobs:
           printf 'PACKET_DIR=%s/direct-release-packet\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
           printf 'PAYLOAD_DIR=%s/aperture-worker\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
 
-      - name: Verify authorized signed tag and completed direct run
+      - name: Verify protected-main source and completed direct run
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           [[ "$SOURCE_TAG" =~ ^aperture-worker-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$DIRECT_RELEASE_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$DIRECT_RELEASE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           test "$GITHUB_REF" = "refs/tags/$SOURCE_TAG"
           test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
           test -z "$(git status --porcelain)"
+
+          protected_main=$(gh api "repos/$GITHUB_REPOSITORY/branches/main")
+          test "$(jq -r '.protected' <<<"$protected_main")" = "true"
+          jq -e '.protection.required_status_checks.contexts | index("release-check") != null' \
+            <<<"$protected_main"
+          main_ref="refs/remotes/origin/release-main"
+          git fetch --no-tags --force origin "refs/heads/main:$main_ref"
+          git merge-base --is-ancestor "$SOURCE_COMMIT" "$main_ref"
+          git show "$main_ref:.github/release-signers" > "$RUNNER_TEMP/release-signers"
+          test -s "$RUNNER_TEMP/release-signers"
+
           tag_object=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$SOURCE_TAG" --jq '.object.sha')
           tag_type=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$SOURCE_TAG" --jq '.object.type')
           test "$tag_type" = "tag"
@@ -58,12 +78,13 @@ jobs:
           test "$(git cat-file -t "$verification_ref")" = "tag"
           test "$(git rev-parse "$verification_ref^{}")" = "$SOURCE_COMMIT"
           git -c gpg.format=ssh \
-            -c gpg.ssh.allowedSignersFile="$GITHUB_WORKSPACE/.github/release-signers" \
+            -c gpg.ssh.allowedSignersFile="$RUNNER_TEMP/release-signers" \
             verify-tag "$verification_ref"
           tag_commit=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq '.object.sha')
           tag_verified=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq '.verification.verified')
           test "$tag_commit" = "$SOURCE_COMMIT"
           test "$tag_verified" = "true"
+
           direct_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DIRECT_RELEASE_RUN_ID")
           test "$(jq -r '.name' <<<"$direct_run")" = "Aperture Worker Direct Release"
           test "$(jq -r '.path' <<<"$direct_run")" = ".github/workflows/aperture-worker-direct-release.yml"
@@ -71,11 +92,14 @@ jobs:
           test "$(jq -r '.conclusion' <<<"$direct_run")" = "success"
           test "$(jq -r '.head_branch' <<<"$direct_run")" = "$SOURCE_TAG"
           test "$(jq -r '.head_sha' <<<"$direct_run")" = "$SOURCE_COMMIT"
-          if existing_release=$(gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft 2>/dev/null); then
+          test "$(jq -r '.run_attempt' <<<"$direct_run")" = "$DIRECT_RELEASE_RUN_ATTEMPT"
+          test "$(jq -r '.head_repository.full_name' <<<"$direct_run")" = "$GITHUB_REPOSITORY"
+          if existing_release=$(gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isImmutable 2>/dev/null); then
             test "$(jq -r '.isDraft' <<<"$existing_release")" = "true" || {
               echo "published release already exists for $SOURCE_TAG" >&2
               exit 1
             }
+            test "$(jq -r '.isImmutable' <<<"$existing_release")" = "false"
           fi
 
       - name: Download exact direct release packet
@@ -96,13 +120,21 @@ jobs:
           jq -e \
             --arg tag "$SOURCE_TAG" \
             --arg commit "$SOURCE_COMMIT" \
-            --arg directRun "$DIRECT_RELEASE_RUN_ID" '
-              .schemaVersion == 1 and
+            --arg directRun "$DIRECT_RELEASE_RUN_ID" \
+            --arg directAttempt "$DIRECT_RELEASE_RUN_ATTEMPT" '
+              .schemaVersion == 2 and
               .sourceTag == $tag and
               .sourceCommit == $commit and
-              .directReleaseRunId == $directRun and
-              (.releaseCheckRunId | type == "string" and length > 0) and
-              (.workerArtifactRunId | type == "string" and length > 0) and
+              .protectedMainRef == "refs/heads/main" and
+              .workflowRuns.directRelease.id == $directRun and
+              .workflowRuns.directRelease.attempt == $directAttempt and
+              ([.workflowRuns.releaseCheck.id,
+                .workflowRuns.releaseCheck.attempt,
+                .workflowRuns.workerArtifact.id,
+                .workflowRuns.workerArtifact.attempt] |
+                all(type == "string" and test("^[1-9][0-9]*$"))) and
+              .releasePolicy.environment == "aperture-worker-release" and
+              .releasePolicy.immutableReleasesRequired == true and
               (.archive.name == ($tag + ".tar.gz")) and
               (.archive.bytes | type == "number" and . > 0) and
               (.archive.sha256 | test("^[0-9a-f]{64}$")) and
@@ -111,8 +143,10 @@ jobs:
               ([.attestations.payload, .attestations.buildInfo, .attestations.archive] |
                 all(test("^https://github.com/[^/]+/[^/]+/attestations/[0-9]+$")))
             ' "$metadata"
-          release_check_run_id=$(jq -r '.releaseCheckRunId' "$metadata")
-          artifact_run_id=$(jq -r '.workerArtifactRunId' "$metadata")
+          release_check_run_id=$(jq -r '.workflowRuns.releaseCheck.id' "$metadata")
+          release_check_run_attempt=$(jq -r '.workflowRuns.releaseCheck.attempt' "$metadata")
+          artifact_run_id=$(jq -r '.workflowRuns.workerArtifact.id' "$metadata")
+          artifact_run_attempt=$(jq -r '.workflowRuns.workerArtifact.attempt' "$metadata")
           release_check=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$release_check_run_id")
           test "$(jq -r '.name' <<<"$release_check")" = "Release Check"
           test "$(jq -r '.path' <<<"$release_check")" = ".github/workflows/release-check.yml"
@@ -120,6 +154,8 @@ jobs:
           test "$(jq -r '.conclusion' <<<"$release_check")" = "success"
           test "$(jq -r '.head_branch' <<<"$release_check")" = "main"
           test "$(jq -r '.head_sha' <<<"$release_check")" = "$SOURCE_COMMIT"
+          test "$(jq -r '.run_attempt' <<<"$release_check")" = "$release_check_run_attempt"
+          test "$(jq -r '.head_repository.full_name' <<<"$release_check")" = "$GITHUB_REPOSITORY"
           artifact_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$artifact_run_id")
           test "$(jq -r '.name' <<<"$artifact_run")" = "Aperture Worker Artifact"
           test "$(jq -r '.path' <<<"$artifact_run")" = ".github/workflows/aperture-worker-artifact.yml"
@@ -127,6 +163,8 @@ jobs:
           test "$(jq -r '.conclusion' <<<"$artifact_run")" = "success"
           test "$(jq -r '.head_branch' <<<"$artifact_run")" = "$SOURCE_TAG"
           test "$(jq -r '.head_sha' <<<"$artifact_run")" = "$SOURCE_COMMIT"
+          test "$(jq -r '.run_attempt' <<<"$artifact_run")" = "$artifact_run_attempt"
+          test "$(jq -r '.head_repository.full_name' <<<"$artifact_run")" = "$GITHUB_REPOSITORY"
           archive="$PACKET_DIR/$SOURCE_TAG.tar.gz"
           test "$(wc -c < "$archive" | tr -d '[:space:]')" = "$(jq -r '.archive.bytes' "$metadata")"
           test "$(sha256sum "$archive" | cut -d' ' -f1)" = "$(jq -r '.archive.sha256' "$metadata")"
@@ -215,33 +253,53 @@ jobs:
             --archive "$PACKET_DIR/$SOURCE_TAG.tar.gz" \
             --archive-attestation-reference "$(jq -r '.attestations.archive' "$metadata")" \
             --buildinfo-attestation-reference "$(jq -r '.attestations.buildInfo' "$metadata")" \
-            --release-check-run-id "$(jq -r '.releaseCheckRunId' "$metadata")" \
-            --worker-artifact-run-id "$(jq -r '.workerArtifactRunId' "$metadata")" \
+            --release-check-run-id "$(jq -r '.workflowRuns.releaseCheck.id' "$metadata")" \
+            --release-check-run-attempt "$(jq -r '.workflowRuns.releaseCheck.attempt' "$metadata")" \
+            --worker-artifact-run-id "$(jq -r '.workflowRuns.workerArtifact.id' "$metadata")" \
+            --worker-artifact-run-attempt "$(jq -r '.workflowRuns.workerArtifact.attempt' "$metadata")" \
             --direct-release-run-id "$DIRECT_RELEASE_RUN_ID" \
+            --direct-release-run-attempt "$DIRECT_RELEASE_RUN_ATTEMPT" \
             --evidence-finalizer-run-id "$GITHUB_RUN_ID" \
+            --evidence-finalizer-run-attempt "$GITHUB_RUN_ATTEMPT" \
             --artifact-url "https://github.com/$GITHUB_REPOSITORY/releases/download/$SOURCE_TAG/$SOURCE_TAG.tar.gz" \
             --output "$PACKET_DIR/release-report.json"
           jq -e \
             --arg tag "$SOURCE_TAG" \
             --arg commit "$SOURCE_COMMIT" \
             --arg directRun "$DIRECT_RELEASE_RUN_ID" \
-            --arg evidenceRun "$GITHUB_RUN_ID" '
-              .schemaVersion == 2 and
+            --arg directAttempt "$DIRECT_RELEASE_RUN_ATTEMPT" \
+            --arg evidenceRun "$GITHUB_RUN_ID" \
+            --arg evidenceAttempt "$GITHUB_RUN_ATTEMPT" '
+              .schemaVersion == 3 and
               .status == "passed" and
               .signedTag == $tag and
               .signedTagCommit == $commit and
+              .sourceTrust.protectedMainRef == "refs/heads/main" and
+              .sourceTrust.requiredStatusCheck == "release-check" and
+              .sourceTrust.signerAllowlistSource == "protected-main" and
               .workflowChain.directRelease.runId == $directRun and
+              .workflowChain.directRelease.runAttempt == $directAttempt and
               .workflowChain.directRelease.conclusion == "success" and
               .finalization.runId == $evidenceRun and
+              .finalization.runAttempt == $evidenceAttempt and
               .finalization.workflowName == "Aperture Worker Release Evidence" and
               .finalization.event == "workflow_dispatch" and
               (.finalization | has("conclusion") | not) and
+              .releasePolicy.environment == "aperture-worker-release" and
+              .releasePolicy.immutableReleasesRequired == true and
               .attestationPolicy.releaseReportSignerWorkflow ==
                 "tomismeta/aperture/.github/workflows/aperture-worker-release-evidence.yml" and
+              .artifactMode == "omp-only" and
+              .notificationInput == false and
+              .legacyNotificationState == "removed-without-restore" and
+              .ompOnlyWorkerProof == "aperture-omp-only-worker-conformance-v1" and
+              .ompOnlyWorkerEvidence == "evidence/omp-only-worker.json" and
+              (has("ambientCeilingProof") | not) and
               .ompPackageVersion == "0.1.0" and
               .aperturePackageVersion == "0.10.0" and
               .apertureCoreVersion == "0.9.0" and
               .artifactLimits.maximumTextArtifactBytes == 524288 and
+              .schemaVersions.notificationInput == false and
               .schemaVersions.notificationOutputSchemaVersion == 4 and
               .schemaVersions.surfaceProtocolVersion == 4 and
               .schemaVersions.workerDirectProtocolVersion == 4 and
@@ -278,14 +336,22 @@ jobs:
             --arg sourceTag "$SOURCE_TAG" \
             --arg sourceCommit "$SOURCE_COMMIT" \
             --arg evidenceFinalizerRunId "$GITHUB_RUN_ID" \
+            --arg evidenceFinalizerRunAttempt "$GITHUB_RUN_ATTEMPT" \
             --arg reportSha256 "$report_sha" \
             --arg reportAttestationReference "${{ steps.report-provenance.outputs.attestation-url }}" \
             --argjson reportBytes "$report_bytes" \
             '{
-              schemaVersion: 1,
+              schemaVersion: 2,
               sourceTag: $sourceTag,
               sourceCommit: $sourceCommit,
-              evidenceFinalizerRunId: $evidenceFinalizerRunId,
+              evidenceFinalizer: {
+                id: $evidenceFinalizerRunId,
+                attempt: $evidenceFinalizerRunAttempt
+              },
+              releasePolicy: {
+                environment: "aperture-worker-release",
+                immutableReleasesRequired: true
+              },
               releaseReport: {
                 path: "release-report.json",
                 bytes: $reportBytes,
@@ -344,11 +410,15 @@ jobs:
           jq -e \
             --arg tag "$SOURCE_TAG" \
             --arg commit "$SOURCE_COMMIT" \
-            --arg run "$GITHUB_RUN_ID" '
-              .schemaVersion == 1 and
+            --arg run "$GITHUB_RUN_ID" \
+            --arg attempt "$GITHUB_RUN_ATTEMPT" '
+              .schemaVersion == 2 and
               .sourceTag == $tag and
               .sourceCommit == $commit and
-              .evidenceFinalizerRunId == $run and
+              .evidenceFinalizer.id == $run and
+              .evidenceFinalizer.attempt == $attempt and
+              .releasePolicy.environment == "aperture-worker-release" and
+              .releasePolicy.immutableReleasesRequired == true and
               .releaseReport.path == "release-report.json" and
               (.releaseReport.bytes | type == "number" and . > 0) and
               (.releaseReport.sha256 | test("^[0-9a-f]{64}$")) and
@@ -360,21 +430,32 @@ jobs:
           jq -e \
             --arg tag "$SOURCE_TAG" \
             --arg commit "$SOURCE_COMMIT" \
-            --arg run "$GITHUB_RUN_ID" '
-              .schemaVersion == 2 and
+            --arg run "$GITHUB_RUN_ID" \
+            --arg attempt "$GITHUB_RUN_ATTEMPT" '
+              .schemaVersion == 3 and
               .status == "passed" and
               .signedTag == $tag and
               .signedTagCommit == $commit and
               .finalization.runId == $run and
+              .finalization.runAttempt == $attempt and
               .finalization.event == "workflow_dispatch" and
+              .releasePolicy.environment == "aperture-worker-release" and
+              .releasePolicy.immutableReleasesRequired == true and
+              .artifactMode == "omp-only" and
+              .notificationInput == false and
               (.finalization | has("conclusion") | not)
             ' "$report"
           (cd "$RELEASE_DIR" && sha256sum -c "$SOURCE_TAG.tar.gz.sha256")
-          if existing_release=$(gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft 2>/dev/null); then
+          immutable_policy=$(gh api \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GITHUB_REPOSITORY/immutable-releases")
+          test "$(jq -r '.enabled' <<<"$immutable_policy")" = "true"
+          if existing_release=$(gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isImmutable 2>/dev/null); then
             test "$(jq -r '.isDraft' <<<"$existing_release")" = "true" || {
               echo "published release already exists for $SOURCE_TAG" >&2
               exit 1
             }
+            test "$(jq -r '.isImmutable' <<<"$existing_release")" = "false"
             gh release delete "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --yes
           fi
           gh release create "$SOURCE_TAG" \
@@ -382,7 +463,7 @@ jobs:
             --verify-tag \
             --draft \
             --title "Aperture Worker" \
-            --notes "Signed production worker payload for Aperture. Verify the tag, completed workflow chain, attestations, release report, and every archive member before vendoring." \
+            --notes "Signed production OMP-only worker payload for Aperture. Verify the protected-main source, completed workflow run IDs and attempts, attestations, release report, and every archive member before vendoring." \
             "$RELEASE_DIR/$SOURCE_TAG.tar.gz" \
             "$RELEASE_DIR/$SOURCE_TAG.tar.gz.sha256" \
             "$RELEASE_DIR/BUILDINFO.sha256" \
@@ -393,13 +474,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          release=$(gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName,targetCommitish,assets)
+          release=$(gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isImmutable,isPrerelease,tagName,targetCommitish,assets)
           jq -e \
             --arg tag "$SOURCE_TAG" '
               .isDraft == true and
+              .isImmutable == false and
               .isPrerelease == false and
               .tagName == $tag and
               ([.assets[].name] | sort) ==
                 (["BUILDINFO.sha256", "release-metadata.json", "release-report.json", ($tag + ".tar.gz"), ($tag + ".tar.gz.sha256")] | sort)
             ' <<<"$release"
           gh release edit "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+          published=$(gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isImmutable,isPrerelease,tagName,assets)
+          jq -e \
+            --arg tag "$SOURCE_TAG" '
+              .isDraft == false and
+              .isImmutable == true and
+              .isPrerelease == false and
+              .tagName == $tag and
+              ([.assets[].name] | sort) ==
+                (["BUILDINFO.sha256", "release-metadata.json", "release-report.json", ($tag + ".tar.gz"), ($tag + ".tar.gz.sha256")] | sort)
+            ' <<<"$published"

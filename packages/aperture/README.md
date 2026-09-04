@@ -219,9 +219,13 @@ facts into `ApertureCore`; Core remains the lane authority. If direct delivery
 is unavailable, OMP falls back to its native notification outside the Aperture
 surface. Shipping the extension does not automatically activate it in OMP.
 
-The direct cutover uses notification input schema `2`, private notification
-worker output schema `4`, public surface protocol `4`, OMP attention event
-schema `2`, and private worker-direct protocol `4`. Both hello frames require
+The production bundle is fixed to `artifactMode: "omp-only"`. Its hello reports
+`notificationInput: false`; generic notification inputs are rejected, legacy
+notification state is removed without restore, and native fallback remains
+outside the Aperture surface. The payload retains notification input schema `2`
+only as a canonical protocol artifact. It uses private notification-worker
+output schema `4`, public surface protocol `4`, OMP attention event schema `2`,
+and private worker-direct protocol `4`. Both hello frames require
 `protocolVersion: 4` independently from package semver. Only private worker
 snapshots may carry navigation, and the exact shape is
 `{ "kind": "opaque-focus", "handle": "…" }`; public surface frames cannot carry

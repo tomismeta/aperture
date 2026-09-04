@@ -2,7 +2,7 @@
   "name": "@tomismeta/aperture",
   "version": "0.10.0",
   "private": false,
-  "description": "The live attention surface for humans working with agents.",
+  "description": "The human-attention system for agent work.",
   "author": "tomismeta <tomismeta@gmail.com>",
   "license": "MIT",
   "homepage": "https://github.com/tomismeta/aperture#readme",

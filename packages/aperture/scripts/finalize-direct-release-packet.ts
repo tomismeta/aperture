@@ -2,8 +2,7 @@ import { createHash } from "node:crypto";
 import { chmod, lstat, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const WORKER_PROOF = "aperture-attention-worker-conformance-v1";
-const AMBIENT_PROOF = "notification-worker-ambient-ceiling-v1";
+const WORKER_PROOF = "aperture-omp-only-worker-conformance-v1";
 const OMP_PROOF = "aperture-omp-adapter-conformance-v1";
 const DIRECT_PROOF = "aperture-omp-direct-transport-conformance-v1";
 const PRIVACY_PROOF = "aperture-omp-direct-privacy-v1";
@@ -21,7 +20,6 @@ const ROOT_ENTRIES = [
 ] as const;
 const FIXED_FILES = [
   "config/identities.json",
-  "evidence/ambient-ceiling.json",
   "evidence/direct-privacy.json",
   "evidence/direct-transport.json",
   "evidence/focus-backends.json",
@@ -36,7 +34,6 @@ const FIXED_FILES = [
   "fixtures/omp-direct/focus-registration.json",
   "fixtures/omp-direct/focus-result.json",
   "fixtures/omp-direct/input-request.json",
-  "fixtures/omp-direct/notification-fallback-ambient.json",
   "fixtures/omp-direct/snapshot-completion.json",
   "fixtures/omp-direct/focus-registration-direct-terminal.json",
   "fixtures/omp-direct/focus-registration-tmux.json",
@@ -120,6 +117,7 @@ async function validateMetadata(
   assert(buildInfo.worker === "aperture-attention-engine", "invalid worker identity");
   assert(buildInfo.minimumNodeVersion === "22.0.0", "invalid minimum Node version");
   assert(buildInfo.minimumNodeMajor === 22, "invalid minimum Node major");
+  assert(buildInfo.artifactMode === "omp-only", "invalid artifact mode");
   assert(buildInfo.trustedCi === true, "combined release requires trusted CI");
   assert(buildInfo.sourceDirty === false, "combined release source must be clean");
   assert(buildInfo.apertureCommit === sourceCommit, "BUILDINFO source commit mismatch");
@@ -143,6 +141,7 @@ async function validateMetadata(
   assertNonempty(builder.version, "missing esbuild version");
   assertNonempty(builder.nodeVersion, "missing build Node version");
   const workerContract = record(buildInfo.workerContract, "missing worker contract");
+  assert(workerContract.notificationInput === false, "notification input must be disabled");
   assert(workerContract.notificationInputSchemaVersion === 2, "invalid notification input schema");
   assert(
     workerContract.notificationOutputSchemaVersion === 4,
@@ -186,6 +185,10 @@ async function validateMetadata(
     "invalid direct causal tombstones",
   );
   assert(
+    stateMigration.legacyNotificationState === "removed-without-restore",
+    "invalid legacy notification state policy",
+  );
+  assert(
     JSON.stringify(buildInfo.directSocketLifecycle) ===
       JSON.stringify({
         directoryMode: "0700",
@@ -203,11 +206,30 @@ async function validateMetadata(
   );
   const focusCoordinator = record(buildInfo.focusCoordinator, "missing focus coordinator policy");
   assert(focusCoordinator.registrationTtlMs === 15_000, "invalid registration TTL");
+  assert(focusCoordinator.heartbeatIntervalMs === 5_000, "invalid focus heartbeat interval");
+  assert(focusCoordinator.retryInitialMs === 250, "invalid focus retry floor");
+  assert(focusCoordinator.retryMaximumMs === 5_000, "invalid focus retry ceiling");
   assert(focusCoordinator.shutdownTimeoutMs === 3_000, "invalid focus shutdown bound");
   assert(focusCoordinator.maximumDirectClients === 32, "invalid direct client cap");
   assert(
     focusCoordinator.attentionAcknowledgementTimeoutMs === 1_000,
     "invalid attention acknowledgement bound",
+  );
+  assert(
+    focusCoordinator.focusAcknowledgementTimeoutMs === 2_750,
+    "invalid focus acknowledgement bound",
+  );
+  assert(
+    focusCoordinator.focusServerProcessingTimeoutMs === 2_250,
+    "invalid focus server processing bound",
+  );
+  assert(
+    focusCoordinator.activeWindowConfirmationIntervalMs === 25,
+    "invalid focus confirmation interval",
+  );
+  assert(
+    focusCoordinator.activeWindowConfirmationTimeoutMs === 1_000,
+    "invalid focus confirmation bound",
   );
   assert(focusCoordinator.maximumDirectReceipts === 1_024, "invalid direct receipt cap");
   assert(
@@ -218,6 +240,13 @@ async function validateMetadata(
     focusCoordinator.nativeFallbackPolicy === "definite-pre-write-only",
     "invalid native fallback policy",
   );
+  assert(
+    focusCoordinator.sessionHeartbeatIntervalMs === 5_000,
+    "invalid session heartbeat interval",
+  );
+  assert(focusCoordinator.sessionLeaseMs === 20_000, "invalid session lease");
+  assert(focusCoordinator.sessionReconnectGraceMs === 10_000, "invalid reconnect grace");
+  assert(focusCoordinator.maximumSessionLeaseRecords === 128, "invalid session lease cap");
   assert(focusCoordinator.maximumQueuedFocusOperations === 64, "invalid focus operation cap");
   assert(focusCoordinator.maximumActiveRegistrations === 128, "invalid focus registration cap");
   assert(focusCoordinator.maximumLeaseMembers === 32, "invalid lease-member cap");
@@ -246,13 +275,27 @@ async function validateMetadata(
     focusCoordinator.workerGeneration === "volatile-per-worker",
     "invalid worker generation policy",
   );
+  assert(
+    focusCoordinator.clientPolicy === "backend-scoped-single-client-admission",
+    "invalid focus client admission policy",
+  );
+  assert(
+    focusCoordinator.markerAdmission === "exact-marker-and-live-address-only",
+    "invalid direct marker admission policy",
+  );
+  assert(focusCoordinator.persistence === "volatile-only", "focus targets must remain volatile");
 
   const ci = record(buildInfo.ci, "missing CI metadata");
   assertNonempty(ci.workflowRef, "missing CI workflowRef");
-  assert(ci.runId !== null && ci.runId !== undefined && ci.runId !== "", "missing CI runId");
   assert(
-    ci.runAttempt !== null && ci.runAttempt !== undefined && ci.runAttempt !== "",
-    "missing CI runAttempt",
+    ci.workflowRef ===
+      `tomismeta/aperture/.github/workflows/aperture-worker-artifact.yml@refs/tags/${sourceTag}`,
+    "invalid CI workflowRef",
+  );
+  assert(typeof ci.runId === "string" && /^[1-9]\d*$/.test(ci.runId), "invalid CI runId");
+  assert(
+    typeof ci.runAttempt === "string" && /^[1-9]\d*$/.test(ci.runAttempt),
+    "invalid CI runAttempt",
   );
 
   const worker = record(buildInfo.workerBundle, "missing worker identity");
@@ -291,7 +334,7 @@ async function validateMetadata(
   const validation = record(buildInfo.validation, "missing validation metadata");
   assert(validation.status === "passed", "worker validation did not pass");
   assert(validation.conformanceProofId === WORKER_PROOF, "invalid worker proof identity");
-  assert(validation.ambientCeilingProofId === AMBIENT_PROOF, "invalid Ambient proof identity");
+  assert(validation.ompOnlyReport === "evidence/omp-only-worker.json", "invalid OMP-only report");
   assert(validation.ompAdapterProofId === OMP_PROOF, "invalid OMP adapter proof identity");
   assert(validation.directTransportProofId === DIRECT_PROOF, "invalid direct transport proof");
   assert(validation.directPrivacyProofId === PRIVACY_PROOF, "invalid direct privacy proof");
@@ -378,24 +421,36 @@ async function validateMetadata(
   assert(nextFrames.length === 1, "NEXT fixture must contain one queued frame");
   assertNavigation(nowFrame.navigation, "NOW fixture");
   assertNavigation(record(nextFrames[0], "invalid NEXT fixture frame").navigation, "NEXT fixture");
-  const fallbackFixture = JSON.parse(
-    await readFile(
-      path.join(root, "fixtures", "omp-direct", "notification-fallback-ambient.json"),
-      "utf8",
-    ),
+  const ompOnlyEvidence = JSON.parse(
+    await readFile(path.join(root, "evidence", "omp-only-worker.json"), "utf8"),
   ) as Record<string, unknown>;
-  const fallbackView = record(fallbackFixture.view, "invalid fallback fixture");
-  assert(fallbackView.now === null, "fallback fixture must not contain NOW");
+  assert(ompOnlyEvidence.schemaVersion === 1, "invalid OMP-only evidence schema");
+  assert(ompOnlyEvidence.proofId === WORKER_PROOF, "invalid OMP-only evidence proof");
+  assert(ompOnlyEvidence.status === "passed", "OMP-only evidence did not pass");
+  assert(ompOnlyEvidence.artifactMode === "omp-only", "invalid OMP-only evidence mode");
+  assert(ompOnlyEvidence.notificationInput === false, "OMP-only evidence enables notifications");
   assert(
-    array(fallbackView.next, "invalid fallback NEXT").length === 0,
-    "fallback NEXT is not empty",
+    ompOnlyEvidence.legacyNotificationState === "removed-without-restore",
+    "invalid legacy notification state policy",
   );
-  const fallbackAmbient = array(fallbackView.ambient, "invalid fallback Ambient");
-  assert(fallbackAmbient.length === 1, "fallback fixture must contain one Ambient frame");
   assert(
-    !("navigation" in record(fallbackAmbient[0], "invalid fallback frame")),
-    "fallback fixture must not contain navigation",
+    !array(ompOnlyEvidence.checks, "missing OMP-only checks").includes(
+      "ambient-notification-ceiling",
+    ),
+    "OMP-only evidence retained notification projection",
   );
+  const ompOnlyChecks = array(ompOnlyEvidence.checks, "missing OMP-only checks");
+  for (const requiredCheck of [
+    "cleanup-mode-no-config-or-engine",
+    "omp-only-handshake",
+    "generic-notification-input-disabled",
+    "calm-snapshot-only",
+    "legacy-notification-state-removed",
+    "no-generic-state-persistence",
+    "bounded-ascii-output",
+  ]) {
+    assert(ompOnlyChecks.includes(requiredCheck), `missing OMP-only check: ${requiredCheck}`);
+  }
 
   const identityConfig = JSON.parse(
     await readFile(path.join(root, "config", "identities.json"), "utf8"),

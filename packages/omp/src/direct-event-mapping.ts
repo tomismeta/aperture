@@ -68,7 +68,6 @@ export function mapOmpDirectAttentionEvents(
         }),
       ];
     case "tool_call":
-    case "tool_execution_start":
       return event.toolName === "ask"
         ? [
             directEvent({
@@ -82,37 +81,25 @@ export function mapOmpDirectAttentionEvents(
             }),
           ]
         : [];
-    case "tool_execution_end":
-      if (event.toolName === "ask") {
-        return [
-          directEvent({
-            occurredAt,
-            sessionId,
-            interactionId: event.toolCallId,
-            classification: "input_resolved",
-            title: "OMP input request resolved",
-            summary: "OMP finished the requested input interaction.",
-            transition: "resolved",
-          }),
-          ...(event.isError ? [toolFailure(event.toolCallId, event.toolName)] : []),
-        ];
-      }
-      return event.isError ? [toolFailure(event.toolCallId, event.toolName)] : [];
-    case "tool_result":
-      if (event.toolName === "ask" && !event.isError) {
-        return [
-          directEvent({
-            occurredAt,
-            sessionId,
-            interactionId: event.toolCallId,
-            classification: "input_resolved",
-            title: "OMP input request resolved",
-            summary: "OMP received the requested operator input.",
-            transition: "resolved",
-          }),
-        ];
-      }
-      return event.isError ? [toolFailure(event.toolCallId, event.toolName)] : [];
+    case "tool_result": {
+      const resolution =
+        event.toolName === "ask"
+          ? [
+              directEvent({
+                occurredAt,
+                sessionId,
+                interactionId: event.toolCallId,
+                classification: "input_resolved",
+                title: "OMP input request resolved",
+                summary: "OMP finished the requested input interaction.",
+                transition: "resolved",
+              }),
+            ]
+          : [];
+      return event.isError
+        ? [...resolution, toolFailure(event.toolCallId, event.toolName)]
+        : resolution;
+    }
     case "credential_disabled":
       return [
         directEvent({
@@ -167,7 +154,9 @@ export function mapOmpDirectAttentionEvents(
     case "agent_start":
     case "turn_start":
     case "turn_end":
+    case "tool_execution_start":
     case "tool_execution_update":
+    case "tool_execution_end":
     case "input":
     case "agent_end":
       return [];

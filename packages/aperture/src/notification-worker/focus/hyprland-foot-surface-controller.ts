@@ -8,7 +8,6 @@ import {
   type FocusActivationResult,
   abortError,
   type FootSurface,
-  type KnownFocusSurface,
   throwIfAborted,
 } from "./types.js";
 
@@ -72,40 +71,6 @@ export class HyprlandFootSurfaceController {
       });
     }
     return clients;
-  }
-
-  async assertNoUnknownMarkers(
-    hyprlandInstance: string,
-    knownSurfaces: readonly KnownFocusSurface[],
-    signal: AbortSignal,
-  ): Promise<void> {
-    const clients = await this.list(hyprlandInstance, signal);
-    const markerClients = clients.filter((client) => client.title.startsWith(MARKER_PREFIX));
-    const scopedOwnership = knownSurfaces.filter(
-      (ownership) => ownership.surface.hyprlandInstance === hyprlandInstance,
-    );
-    for (const client of markerClients) {
-      const owners = scopedOwnership.filter(
-        (ownership) =>
-          ownership.surface.address === client.address &&
-          ownership.surface.className === client.className &&
-          ownership.surface.markerTitle === client.title,
-      );
-      if (owners.length !== 1) {
-        throw new Error("Aperture rejected an unknown or duplicated focus marker");
-      }
-    }
-    for (const ownership of scopedOwnership) {
-      const observations = markerClients.filter(
-        (client) =>
-          client.address === ownership.surface.address &&
-          client.className === ownership.surface.className &&
-          client.title === ownership.surface.markerTitle,
-      );
-      if (observations.length > 1) {
-        throw new Error("Aperture rejected an unknown or duplicated focus marker");
-      }
-    }
   }
 
   async resolveDirectMarker(

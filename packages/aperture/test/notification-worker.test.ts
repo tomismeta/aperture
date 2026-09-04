@@ -153,6 +153,23 @@ test("notification worker schemas validate canonical input and output", async ()
   assert.equal(
     validateOutput({
       type: "hello",
+      protocolVersion: 4,
+      packageVersion: "0.10.0",
+      worker: "aperture-attention-engine",
+      capabilities: {
+        notificationInput: false,
+        ompDirectInput: true,
+        snapshots: true,
+        responses: false,
+        focusActivation: true,
+      },
+    }),
+    true,
+    JSON.stringify(validateOutput.errors),
+  );
+  assert.equal(
+    validateOutput({
+      type: "hello",
       protocolVersion: 3,
       packageVersion: "0.5.0",
       worker: "aperture-attention-engine",

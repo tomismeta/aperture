@@ -1,9 +1,18 @@
 import assert from "node:assert/strict";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -12,24 +21,18 @@ const options = parseOptions(process.argv.slice(2));
 const sourceBundle = path.resolve(
   options.worker ?? path.join(packageRoot, "dist", "aperture-attention-engine.cjs"),
 );
-const ambientCases = [
-  "Build failed and cannot continue",
-  "Approval required: allow command?",
-  "Blocked waiting for your input",
-  "Permission needed immediately",
-  "Critical urgent action required",
-  "Same issue as before; this supersedes the previous request",
-  "Review this error and approve the fix",
-  "Done and complete; needs input — Résumé 🚀",
-];
 const checks: string[] = [];
-const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-attention-worker-smoke-"));
+const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-only-worker-smoke-"));
 const cleanupRuntime = await mkdtemp("/tmp/aperture-worker-cleanup-smoke-");
 try {
   const worker = path.join(temporaryRoot, "aperture-attention-engine.cjs");
   const config = path.join(temporaryRoot, "identities.json");
   const stateDir = path.join(temporaryRoot, "state");
+  const runtimeDir = path.join(temporaryRoot, "runtime");
   await copyFile(sourceBundle, worker);
+  await mkdir(runtimeDir, { recursive: true, mode: 0o700 });
+  await chmod(runtimeDir, 0o700);
+
   const cleanup = spawnSync(
     process.execPath,
     [
@@ -53,165 +56,98 @@ try {
       Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT"),
   );
   checks.push("cleanup-mode-no-config-or-engine");
+
   await writeFile(
     config,
     `${JSON.stringify({
       schemaVersion: 1,
       identities: [
         {
-          id: "smoke-agent",
-          kind: "smoke-agent",
-          label: "Smoke Agent",
-          applicationNames: ["Smoke Agent"],
+          id: "omp",
+          kind: "omp",
+          label: "OMP",
+          applicationNames: ["aperture-omp"],
         },
       ],
     })}\n`,
     "utf8",
   );
+  await mkdir(stateDir, { recursive: true, mode: 0o700 });
+  await writeFile(path.join(stateDir, "state.json"), "legacy-generic-state\n", { mode: 0o600 });
 
-  const eventKey = "generation:smoke-1";
-  const occurredAt = Date.now() - 60_000;
-  const eventLines = ambientCases.map((summary, index) =>
-    JSON.stringify({
-      type: index === 0 ? "notification.observed" : "notification.updated",
-      key: eventKey,
-      occurredAt: new Date(occurredAt + index * 1000).toISOString(),
-      application: { name: "Smoke Agent", category: "device.error.urgent" },
-      summary,
-      body:
-        index === 0
-          ? "raw-body-canary Bearer abc.def /Users/alice/private-project"
-          : `adversarial body ${index}: urgent approval failed blocked`,
-      urgency: "critical",
-    }),
-  );
-  const first = await runWorker(worker, config, stateDir, [
-    ...eventLines,
+  const result = await runWorker(worker, config, stateDir, runtimeDir, [
     JSON.stringify({
       type: "notification.observed",
-      key: "generation:unknown",
-      occurredAt: new Date(occurredAt + 20_000).toISOString(),
-      application: { name: "Unknown Agent" },
-      summary: "Unknown critical failure",
-      body: "unknown-body-canary",
+      key: "generic-input-must-be-rejected",
+      occurredAt: new Date().toISOString(),
+      application: { name: "aperture-omp" },
+      summary: "Generic notification input must not enter the OMP worker",
       urgency: "critical",
     }),
     "{malformed",
     "x".repeat(64 * 1024),
     JSON.stringify({ type: "shutdown" }),
   ]);
-  assert.equal(first.messages[0]?.type, "hello");
-  assert.equal(first.messages[0]?.worker, "aperture-attention-engine");
-  assert.equal(first.messages[0]?.protocolVersion, 4);
-  assert.deepEqual(first.messages[0]?.capabilities, {
-    notificationInput: true,
+  assert.equal(result.messages[0]?.type, "hello");
+  assert.equal(result.messages[0]?.worker, "aperture-attention-engine");
+  assert.equal(result.messages[0]?.protocolVersion, 4);
+  assert.deepEqual(result.messages[0]?.capabilities, {
+    notificationInput: false,
     ompDirectInput: true,
     snapshots: true,
     responses: false,
     focusActivation: true,
   });
   assert.equal(
-    first.messages.some((message) => message.type === "engine" && message.state === "restoring"),
+    result.messages.some((message) => message.type === "engine" && message.state === "restoring"),
     true,
   );
   assert.equal(
-    first.messages.some((message) => message.type === "engine" && message.state === "ready"),
+    result.messages.some((message) => message.type === "engine" && message.state === "ready"),
     true,
   );
-  checks.push("canonical-handshake");
+  checks.push("omp-only-handshake");
 
-  const firstSnapshots = first.messages.filter((message) => message.type === "snapshot");
-  assert.equal(firstSnapshots.length, ambientCases.length + 1);
-  for (let index = 1; index < firstSnapshots.length; index += 1) {
-    const snapshot = firstSnapshots[index]!;
-    assert.equal(snapshot.totals?.now, 0, ambientCases[index - 1]);
-    assert.equal(snapshot.totals?.next, 0, ambientCases[index - 1]);
-    assert.equal(snapshot.totals?.ambient, 1, ambientCases[index - 1]);
-    assert.equal(snapshot.view?.now, null, ambientCases[index - 1]);
-    assert.deepEqual(snapshot.view?.next, [], ambientCases[index - 1]);
-    assert.equal(snapshot.view?.ambient?.[0]?.title, ambientCases[index - 1]);
-    assert.equal(snapshot.view?.ambient?.[0]?.tone, "ambient");
-    assert.equal(snapshot.view?.ambient?.[0]?.consequence, "low");
-    assert.equal(snapshot.view?.ambient?.[0]?.provenance, undefined);
-  }
-  const snapshotSequences = firstSnapshots.map((snapshot) => snapshot.sequence);
-  for (let index = 1; index < snapshotSequences.length; index += 1) {
-    assert.ok(Number(snapshotSequences[index]) > Number(snapshotSequences[index - 1]));
-  }
-  checks.push("ambient-ceiling", "observed-updated", "monotonic-complete-snapshots");
+  const snapshots = result.messages.filter((message) => message.type === "snapshot");
+  assert.equal(snapshots.length, 1);
+  assert.equal(snapshots[0]?.totals?.now, 0);
+  assert.equal(snapshots[0]?.totals?.next, 0);
+  assert.equal(snapshots[0]?.totals?.ambient, 0);
+  assert.equal(snapshots[0]?.view?.now, null);
+  assert.deepEqual(snapshots[0]?.view?.next, []);
+  assert.deepEqual(snapshots[0]?.view?.ambient, []);
+  checks.push("generic-notification-input-disabled", "calm-snapshot-only");
 
-  const invalidErrors = first.messages.filter(
+  const invalidErrors = result.messages.filter(
     (message) => message.type === "error" && message.code === "invalid_input",
   );
-  assert.equal(invalidErrors.length, 2);
+  assert.equal(invalidErrors.length, 3);
+  assert.equal(invalidErrors.every((message) => message.recoverable === true), true);
   assert.equal(
-    invalidErrors.every((message) => message.recoverable === true),
+    invalidErrors.some((message) => message.message?.includes("disabled in OMP-only mode")),
     true,
   );
   assert.equal(
-    first.lines.every((line) => Buffer.byteLength(`${line}\n`, "utf8") <= 256 * 1024),
+    result.lines.every((line) => Buffer.byteLength(`${line}\n`, "utf8") <= 256 * 1024),
     true,
   );
-  assert.equal(
-    first.lines.every((line) => /^[\x00-\x7f]*$/.test(line)),
-    true,
-  );
+  assert.equal(result.lines.every((line) => /^[\x00-\x7f]*$/.test(line)), true);
   checks.push("malformed-input", "oversized-input", "bounded-ascii-output");
 
-  const rawState = await readFile(path.join(stateDir, "state.json"), "utf8");
-  for (const canary of [
-    "raw-body-canary",
-    "abc.def",
-    "/Users/alice",
-    "private-project",
-    "unknown-body-canary",
-  ]) {
-    assert.equal(rawState.includes(canary), false, `state persisted canary: ${canary}`);
-  }
-  const activeState = JSON.parse(rawState) as {
-    active?: Array<{
-      key?: unknown;
-      revisions?: Array<{ displayTitle?: unknown; sourceEvent?: unknown }>;
-    }>;
-  };
-  assert.equal(activeState.active?.length, 1);
-  assert.equal(activeState.active?.[0]?.key, eventKey);
-  const latestRevision = activeState.active?.[0]?.revisions?.at(-1);
-  assert.equal(latestRevision?.displayTitle, ambientCases.at(-1));
-  assert.equal(JSON.stringify(latestRevision?.sourceEvent).includes(ambientCases.at(-1)!), false);
-  checks.push("unknown-application-ignored", "raw-body-not-persisted");
-
-  const activeView = firstSnapshots.at(-1)?.view;
-  const second = await runWorker(worker, config, stateDir, [
-    JSON.stringify({
-      type: "notification.closed",
-      key: eventKey,
-      occurredAt: new Date(occurredAt + 60_000).toISOString(),
-      reason: "actioned",
-    }),
-    JSON.stringify({ type: "shutdown" }),
-  ]);
-  const secondSnapshots = second.messages.filter((message) => message.type === "snapshot");
-  assert.deepEqual(secondSnapshots[0]?.view, activeView);
-  assert.equal(secondSnapshots.at(-1)?.totals?.ambient, 0);
-  const finalState = JSON.parse(await readFile(path.join(stateDir, "state.json"), "utf8")) as {
-    active?: unknown[];
-    signals?: Array<{ kind?: unknown; responseKind?: unknown }>;
-  };
-  assert.deepEqual(finalState.active, []);
-  assert.equal(finalState.signals?.at(-1)?.kind, "responded");
-  assert.equal(finalState.signals?.at(-1)?.responseKind, "acknowledged");
+  await assert.rejects(
+    () => stat(path.join(stateDir, "state.json")),
+    (error: unknown) =>
+      Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT"),
+  );
   if (process.platform !== "win32") {
     assert.equal((await stat(stateDir)).mode & 0o777, 0o700);
-    assert.equal((await stat(path.join(stateDir, "state.json"))).mode & 0o777, 0o600);
   }
-  checks.push("deterministic-replay", "closed-feedback", "clean-shutdown", "private-permissions");
+  checks.push("legacy-notification-state-removed", "no-generic-state-persistence");
 
   const bundleContent = await readFile(worker);
   const report = {
     schemaVersion: 1,
-    proofId: "aperture-attention-worker-conformance-v1",
-    ambientCeilingProofId: "notification-worker-ambient-ceiling-v1",
+    proofId: "aperture-omp-only-worker-conformance-v1",
     passed: true,
     nodeVersion: process.versions.node,
     bundle: {
@@ -219,7 +155,7 @@ try {
       bytes: bundleContent.byteLength,
     },
     cleanDirectoryWithoutNodeModules: true,
-    ambientCases,
+    artifactMode: "omp-only",
     checks,
   };
   if (options.report) {
@@ -244,8 +180,8 @@ type SmokeWorkerMessage = {
   worker?: string;
   state?: string;
   code?: string;
+  message?: string;
   recoverable?: boolean;
-  sequence?: number;
   capabilities?: {
     notificationInput?: boolean;
     ompDirectInput?: boolean;
@@ -254,16 +190,7 @@ type SmokeWorkerMessage = {
     focusActivation?: boolean;
   };
   totals?: { ambient?: number; now?: number; next?: number };
-  view?: {
-    now?: unknown;
-    next?: unknown[];
-    ambient?: Array<{
-      title?: string;
-      tone?: string;
-      consequence?: string;
-      provenance?: unknown;
-    }>;
-  };
+  view?: { now?: unknown; next?: unknown[]; ambient?: unknown[] };
 };
 
 type WorkerRun = {
@@ -293,34 +220,34 @@ async function runWorker(
   worker: string,
   config: string,
   stateDir: string,
+  runtimeDir: string,
   lines: string[],
 ): Promise<WorkerRun> {
   const child = spawn(process.execPath, [worker, "--config", config, "--state-dir", stateDir], {
     cwd: path.dirname(worker),
+    env: { ...process.env, XDG_RUNTIME_DIR: runtimeDir },
     stdio: ["pipe", "pipe", "pipe"],
   });
-  const stdout: Buffer[] = [];
-  const stderr: Buffer[] = [];
-  let outputBytes = 0;
-  child.stdout.on("data", (chunk: Buffer) => {
-    outputBytes += chunk.byteLength;
-    if (outputBytes > 4 * 1024 * 1024) child.kill("SIGKILL");
-    else stdout.push(chunk);
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk: string) => {
+    stdout += chunk;
   });
-  child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+  child.stderr.on("data", (chunk: string) => {
+    stderr += chunk;
+  });
   child.stdin.end(`${lines.join("\n")}\n`);
-  const result = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
+  const outcome = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
     (resolve, reject) => {
       child.once("error", reject);
       child.once("close", (code, signal) => resolve({ code, signal }));
     },
   );
-  assert.equal(
-    result.code,
-    0,
-    `worker failed (${result.signal ?? "no signal"}): ${Buffer.concat(stderr).toString("utf8")}`,
-  );
-  const outputLines = Buffer.concat(stdout).toString("utf8").split("\n").filter(Boolean);
+  assert.equal(outcome.signal, null, stderr);
+  assert.equal(outcome.code, 0, stderr);
+  const outputLines = stdout.split("\n").filter((line) => line.length > 0);
   return {
     lines: outputLines,
     messages: outputLines.map((line) => JSON.parse(line) as SmokeWorkerMessage),

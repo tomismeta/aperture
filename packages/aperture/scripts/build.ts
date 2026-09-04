@@ -108,6 +108,7 @@ const attentionWorkerBuild = await build({
   minify: true,
   define: {
     APERTURE_PACKAGE_VERSION: JSON.stringify(packageMetadata.version),
+    APERTURE_WORKER_ARTIFACT_MODE: JSON.stringify("omp-only"),
   },
   metafile: true,
   entryPoints: [ATTENTION_WORKER_ENTRY_POINT],

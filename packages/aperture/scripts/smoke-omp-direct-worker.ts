@@ -51,7 +51,9 @@ try {
   const first = startWorker(sourceBundle, configPath, stateDir, runtimeDir);
   const firstHello = await first.waitFor((message) => message.type === "hello");
   assert.equal(firstHello.protocolVersion, 4);
-  checks.push("private-output-v4-handshake");
+  assert.equal(firstHello.capabilities?.notificationInput, false);
+  assert.equal(firstHello.capabilities?.ompDirectInput, true);
+  checks.push("private-output-v4-omp-only-handshake");
   await first.waitFor((message) => message.type === "engine" && message.state === "ready");
   await first.waitFor((message) => message.type === "snapshot");
   assert.equal((await stat(socketPath)).mode & 0o777, 0o600);
@@ -155,13 +157,14 @@ try {
     summary: `Open OMP session ${sessionId}`,
     urgency: "critical",
   });
-  const fallback = await second.waitFor(
-    (message) => message.type === "snapshot" && message.totals?.ambient === 1,
+  const rejectedGenericInput = await second.waitFor(
+    (message) =>
+      message.type === "error" &&
+      message.code === "invalid_input" &&
+      message.message?.includes("disabled in OMP-only mode") === true,
   );
-  assert.equal(fallback.view?.now, null);
-  assert.deepEqual(fallback.view?.next, []);
-  assert.equal(fallback.view?.ambient?.[0]?.navigation, undefined);
-  checks.push("ambient-native-fallback-without-navigation");
+  assert.equal(rejectedGenericInput.recoverable, true);
+  checks.push("generic-notification-input-disabled");
 
   await second.shutdown();
   await assert.rejects(() => stat(socketPath), /ENOENT/);
@@ -209,6 +212,13 @@ type WorkerMessage = {
   protocolVersion?: number;
   state?: string;
   totals?: { now?: number; next?: number; ambient?: number };
+  code?: string;
+  message?: string;
+  recoverable?: boolean;
+  capabilities?: {
+    notificationInput?: boolean;
+    ompDirectInput?: boolean;
+  };
   view?: {
     now?: WorkerFrame | null;
     next?: WorkerFrame[];

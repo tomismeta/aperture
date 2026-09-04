@@ -11,24 +11,29 @@ type ArtifactFile = {
 
 type BuildInfo = {
   apertureCommit: string;
+  artifactMode: string;
   apertureSourceTag: string;
   aperturePackageVersion: string;
   apertureCoreVersion: string;
   ompPackageVersion: string;
+  stateMigration: { legacyNotificationState: string };
   artifactLimits: { maximumTextArtifactBytes: number };
   sourceDirty: boolean;
   provenanceAttestationReference: string;
   workerBundle: { bytes: number; sha256: string };
   integrations: { omp: { packageVersion: string; bytes: number; sha256: string } };
   workerContract: {
+    notificationInput: boolean;
     notificationInputSchemaVersion: number;
     notificationOutputSchemaVersion: number;
     surfaceProtocolVersion: number;
     ompAttentionEventSchemaVersion: number;
+    workerDirectProtocolVersion: number;
+    jsonlHandshakes: Record<string, unknown>;
   };
   validation: {
     conformanceProofId: string;
-    ambientCeilingProofId: string;
+    ompOnlyReport: string;
     ompAdapterProofId: string;
     directTransportProofId: string;
     directPrivacyProofId: string;
@@ -60,17 +65,20 @@ const ompCompatibility = JSON.parse(
 ) as { matrix: Array<{ ompVersion: string; status: string }> };
 
 const report = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   status: "passed",
   signedTag: buildInfo.apertureSourceTag,
   signedTagCommit: buildInfo.apertureCommit,
   sourceDirty: buildInfo.sourceDirty,
-  workflowRef: buildInfo.ci.workflowRef,
-  runId: buildInfo.ci.runId,
-  runAttempt: buildInfo.ci.runAttempt,
+  sourceTrust: {
+    protectedMainRef: "refs/heads/main",
+    requiredStatusCheck: "release-check",
+    signerAllowlistSource: "protected-main",
+  },
   workflowChain: {
     releaseCheck: {
       runId: options.releaseCheckRunId,
+      runAttempt: options.releaseCheckRunAttempt,
       workflowName: "Release Check",
       event: "push",
       sourceRef: "refs/heads/main",
@@ -79,7 +87,9 @@ const report = {
     },
     workerArtifact: {
       runId: options.workerArtifactRunId,
+      runAttempt: options.workerArtifactRunAttempt,
       workflowName: "Aperture Worker Artifact",
+      workflowRef: buildInfo.ci.workflowRef,
       event: "push",
       sourceRef: `refs/tags/${buildInfo.apertureSourceTag}`,
       sourceDigest: buildInfo.apertureCommit,
@@ -87,6 +97,7 @@ const report = {
     },
     directRelease: {
       runId: options.directReleaseRunId,
+      runAttempt: options.directReleaseRunAttempt,
       workflowName: "Aperture Worker Direct Release",
       event: "workflow_dispatch",
       sourceRef: `refs/tags/${buildInfo.apertureSourceTag}`,
@@ -96,10 +107,15 @@ const report = {
   },
   finalization: {
     runId: options.evidenceFinalizerRunId,
+    runAttempt: options.evidenceFinalizerRunAttempt,
     workflowName: "Aperture Worker Release Evidence",
     event: "workflow_dispatch",
     sourceRef: `refs/tags/${buildInfo.apertureSourceTag}`,
     sourceDigest: buildInfo.apertureCommit,
+  },
+  releasePolicy: {
+    environment: "aperture-worker-release",
+    immutableReleasesRequired: true,
   },
   artifactUrl: options.artifactUrl,
   artifactArchiveSha256: sha256(archiveContent),
@@ -118,6 +134,9 @@ const report = {
     releaseReportSignerWorkflow:
       "tomismeta/aperture/.github/workflows/aperture-worker-release-evidence.yml",
   },
+  artifactMode: buildInfo.artifactMode,
+  notificationInput: buildInfo.workerContract.notificationInput,
+  legacyNotificationState: buildInfo.stateMigration.legacyNotificationState,
   workerBytes: buildInfo.workerBundle.bytes,
   workerSha256: buildInfo.workerBundle.sha256,
   aperturePackageVersion: buildInfo.aperturePackageVersion,
@@ -140,8 +159,8 @@ const report = {
     evidence: entry.reportPath,
   })),
   ompMatrix: ompCompatibility.matrix,
-  workerConformanceProof: buildInfo.validation.conformanceProofId,
-  ambientCeilingProof: buildInfo.validation.ambientCeilingProofId,
+  ompOnlyWorkerProof: buildInfo.validation.conformanceProofId,
+  ompOnlyWorkerEvidence: buildInfo.validation.ompOnlyReport,
   ompAdapterProof: buildInfo.validation.ompAdapterProofId,
   directTransportProof: buildInfo.validation.directTransportProofId,
   directPrivacyProof: buildInfo.validation.directPrivacyProofId,
@@ -196,9 +215,13 @@ type Options = {
   artifactUrl: string;
   output: string;
   releaseCheckRunId: string;
+  releaseCheckRunAttempt: string;
   workerArtifactRunId: string;
+  workerArtifactRunAttempt: string;
   directReleaseRunId: string;
+  directReleaseRunAttempt: string;
   evidenceFinalizerRunId: string;
+  evidenceFinalizerRunAttempt: string;
 };
 
 function parseOptions(args: string[]): Options {
@@ -212,9 +235,13 @@ function parseOptions(args: string[]): Options {
       argument === "--archive-attestation-reference" ||
       argument === "--buildinfo-attestation-reference" ||
       argument === "--release-check-run-id" ||
+      argument === "--release-check-run-attempt" ||
       argument === "--worker-artifact-run-id" ||
+      argument === "--worker-artifact-run-attempt" ||
       argument === "--direct-release-run-id" ||
+      argument === "--direct-release-run-attempt" ||
       argument === "--evidence-finalizer-run-id" ||
+      argument === "--evidence-finalizer-run-attempt" ||
       argument === "--artifact-url" ||
       argument === "--output"
     ) {
@@ -228,12 +255,20 @@ function parseOptions(args: string[]): Options {
         parsed.buildInfoAttestationReference = value;
       } else if (argument === "--release-check-run-id") {
         parsed.releaseCheckRunId = value;
+      } else if (argument === "--release-check-run-attempt") {
+        parsed.releaseCheckRunAttempt = value;
       } else if (argument === "--worker-artifact-run-id") {
         parsed.workerArtifactRunId = value;
+      } else if (argument === "--worker-artifact-run-attempt") {
+        parsed.workerArtifactRunAttempt = value;
       } else if (argument === "--direct-release-run-id") {
         parsed.directReleaseRunId = value;
+      } else if (argument === "--direct-release-run-attempt") {
+        parsed.directReleaseRunAttempt = value;
       } else if (argument === "--evidence-finalizer-run-id") {
         parsed.evidenceFinalizerRunId = value;
+      } else if (argument === "--evidence-finalizer-run-attempt") {
+        parsed.evidenceFinalizerRunAttempt = value;
       } else if (argument === "--artifact-url") parsed.artifactUrl = value;
       else parsed.output = value;
       index += 1;
@@ -252,8 +287,32 @@ function parseOptions(args: string[]): Options {
   if (!parsed.artifactUrl) throw new Error("--artifact-url is required");
   if (!parsed.output) throw new Error("--output is required");
   if (!parsed.releaseCheckRunId) throw new Error("--release-check-run-id is required");
+  if (!parsed.releaseCheckRunAttempt) {
+    throw new Error("--release-check-run-attempt is required");
+  }
   if (!parsed.workerArtifactRunId) throw new Error("--worker-artifact-run-id is required");
+  if (!parsed.workerArtifactRunAttempt) {
+    throw new Error("--worker-artifact-run-attempt is required");
+  }
   if (!parsed.directReleaseRunId) throw new Error("--direct-release-run-id is required");
+  if (!parsed.directReleaseRunAttempt) {
+    throw new Error("--direct-release-run-attempt is required");
+  }
   if (!parsed.evidenceFinalizerRunId) throw new Error("--evidence-finalizer-run-id is required");
+  if (!parsed.evidenceFinalizerRunAttempt) {
+    throw new Error("--evidence-finalizer-run-attempt is required");
+  }
+  for (const [label, value] of [
+    ["--release-check-run-id", parsed.releaseCheckRunId],
+    ["--release-check-run-attempt", parsed.releaseCheckRunAttempt],
+    ["--worker-artifact-run-id", parsed.workerArtifactRunId],
+    ["--worker-artifact-run-attempt", parsed.workerArtifactRunAttempt],
+    ["--direct-release-run-id", parsed.directReleaseRunId],
+    ["--direct-release-run-attempt", parsed.directReleaseRunAttempt],
+    ["--evidence-finalizer-run-id", parsed.evidenceFinalizerRunId],
+    ["--evidence-finalizer-run-attempt", parsed.evidenceFinalizerRunAttempt],
+  ] as const) {
+    if (!/^[1-9]\d*$/.test(value!)) throw new Error(`${label} must be a positive integer`);
+  }
   return parsed as Options;
 }

@@ -1,22 +1,17 @@
+import { createHash } from "node:crypto";
 import {
   ApertureCore,
-  type AttentionSignal,
-  type AttentionFrame,
   type AttentionSurfaceCapabilities,
-  type AttentionView,
   type SourceEvent,
 } from "@tomismeta/aperture-core";
 
 import type { OmpAttentionEvent } from "../omp-attention-event.js";
 import { projectNotificationWorkerSnapshot } from "./projection.js";
 import type { NotificationWorkerNavigation, NotificationWorkerSnapshot } from "./protocol.js";
-import {
-  mapNotificationToSourceEvent,
-  NOTIFICATION_PUBLIC_SUMMARY,
-  type MappedNotificationEvent,
-  type NotificationWorkerIdentity,
-} from "./adapter.js";
+import { mapNotificationToSourceEvent, type NotificationWorkerIdentity } from "./adapter.js";
 import type { NotificationClosedInput, NotificationWorkerInput } from "./protocol.js";
+import { feedbackSignal, latestRevision, persistedActive } from "./notification-lifecycle.js";
+import { projectWorkerDisplayView } from "./notification-projection.js";
 import { mapOmpDirectEvent } from "./omp-direct-adapter.js";
 import {
   latestOmpDirectRevision,
@@ -26,7 +21,6 @@ import {
 import {
   emptyOmpDirectState,
   loadOmpDirectState,
-  ompDirectRecordCount,
   saveOmpDirectState,
   type OmpDirectPersistedState,
   type PersistedOmpDirectEntry,
@@ -38,7 +32,6 @@ import {
   saveNotificationWorkerState,
   type NotificationWorkerPersistedState,
   type PersistedActiveNotification,
-  type PersistedNotificationRevision,
 } from "./state-store.js";
 
 const NOTIFICATION_SURFACE_CAPABILITIES: AttentionSurfaceCapabilities = {
@@ -55,6 +48,7 @@ export type NotificationWorkerEngineOptions = {
   identities: NotificationWorkerIdentity[];
   stateDir: string;
   now?: () => number;
+  saveDirectState?: typeof saveOmpDirectState;
 };
 
 export type NotificationWorkerEngineRestore = {
@@ -66,6 +60,7 @@ export class NotificationWorkerEngine {
   private readonly identities: NotificationWorkerIdentity[];
   private readonly stateDir: string;
   private readonly now: () => number;
+  private readonly saveDirectState: typeof saveOmpDirectState;
   private readonly coreClock: { value: number };
   private core: ApertureCore;
   private state: NotificationWorkerPersistedState;
@@ -82,6 +77,7 @@ export class NotificationWorkerEngine {
     this.identities = [...options.identities];
     this.stateDir = options.stateDir;
     this.now = options.now ?? Date.now;
+    this.saveDirectState = options.saveDirectState ?? saveOmpDirectState;
     this.coreClock = { value: this.now() };
     this.core = this.createCore();
     this.state = emptyNotificationWorkerState();
@@ -105,8 +101,79 @@ export class NotificationWorkerEngine {
     };
   }
 
+  static async restoreOmpOnly(
+    options: NotificationWorkerEngineOptions,
+  ): Promise<NotificationWorkerEngineRestore> {
+    const engine = new NotificationWorkerEngine(options);
+    const direct = await loadOmpDirectState(options.stateDir, engine.now());
+    engine.directState = direct.state;
+    engine.replayState();
+    return {
+      engine,
+      recoveredCorruptState: direct.recoveredCorruptState,
+    };
+  }
+
   getAcceptedSourceCount(): number {
     return this.identities.length;
+  }
+
+  activeOmpSessionIds(): string[] {
+    const latestBySession = new Map<string, string>();
+    for (const entry of this.directState.active) {
+      const timestamp = latestOmpDirectRevision(entry).occurredAt;
+      const previous = latestBySession.get(entry.sessionId);
+      if (!previous || previous < timestamp) {
+        latestBySession.set(entry.sessionId, timestamp);
+      }
+    }
+    return [...latestBySession]
+      .sort(
+        ([leftId, leftTimestamp], [rightId, rightTimestamp]) =>
+          rightTimestamp.localeCompare(leftTimestamp) || leftId.localeCompare(rightId),
+      )
+      .map(([sessionId]) => sessionId);
+  }
+
+  async expireOmpSessions(
+    sessionIds: readonly string[],
+    occurredAt: string,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    signal?.throwIfAborted();
+    if (sessionIds.length === 0) return false;
+    if (Number.isNaN(Date.parse(occurredAt))) {
+      throw new Error("Aperture OMP session expiry timestamp was invalid");
+    }
+    const candidate = structuredClone(this.directState);
+    const candidateCausality = new OmpDirectCausalityIndex();
+    candidateCausality.rebuild(candidate.tombstones);
+    const nextNavigation = new Map(this.navigationByTaskId);
+    let changed = false;
+    for (const sessionId of new Set(sessionIds)) {
+      const previousExpiry = this.directCausality.session(sessionId);
+      if (previousExpiry && previousExpiry.occurredAt >= occurredAt) continue;
+      candidate.active = candidate.active.filter((entry) => {
+        const expired =
+          entry.sessionId === sessionId && latestOmpDirectRevision(entry).occurredAt <= occurredAt;
+        if (expired) nextNavigation.delete(entry.taskId);
+        return !expired;
+      });
+      candidateCausality.remember(candidate, {
+        kind: "session",
+        sessionId,
+        eventId: `omp-session-lease:${createHash("sha256")
+          .update(sessionId)
+          .update("\u0000")
+          .update(occurredAt)
+          .digest("hex")}`,
+        occurredAt,
+      });
+      changed = true;
+    }
+    if (!changed) return false;
+    await this.persistDirect(candidate, nextNavigation, signal);
+    return true;
   }
 
   snapshot(): NotificationWorkerSnapshot {
@@ -172,26 +239,32 @@ export class NotificationWorkerEngine {
   async handleOmpAttention(
     event: OmpAttentionEvent,
     navigation?: NotificationWorkerNavigation,
+    signal?: AbortSignal,
   ): Promise<void> {
+    signal?.throwIfAborted();
     const mapped = mapOmpDirectEvent(event);
+    const candidate = structuredClone(this.directState);
+    const candidateCausality = new OmpDirectCausalityIndex();
+    candidateCausality.rebuild(candidate.tombstones);
+    const nextNavigation = new Map(this.navigationByTaskId);
+
     if (mapped.kind === "shutdown") {
       const previousShutdown = this.directCausality.session(mapped.sessionId);
       if (previousShutdown && previousShutdown.occurredAt >= mapped.occurredAt) return;
-      const active = this.directState.active.filter(
-        (entry) =>
+      candidate.active = candidate.active.filter((entry) => {
+        const cancelled =
           entry.sessionId === mapped.sessionId &&
-          latestOmpDirectRevision(entry).occurredAt <= mapped.occurredAt,
-      );
-      for (const entry of active) {
-        this.cancelDirect(entry, mapped.eventId, mapped.occurredAt, "OMP session shut down");
-      }
-      this.directCausality.remember(this.directState, {
+          latestOmpDirectRevision(entry).occurredAt <= mapped.occurredAt;
+        if (cancelled) nextNavigation.delete(entry.taskId);
+        return !cancelled;
+      });
+      candidateCausality.remember(candidate, {
         kind: "session",
         sessionId: mapped.sessionId,
         eventId: mapped.eventId,
         occurredAt: mapped.occurredAt,
       });
-      await this.persistDirect();
+      await this.persistDirect(candidate, nextNavigation, signal);
       return;
     }
 
@@ -200,15 +273,16 @@ export class NotificationWorkerEngine {
       const previousResolution = this.directCausality.interaction(mapped.key);
       if (previousResolution && previousResolution.occurredAt >= mapped.occurredAt) return;
       if (previous && latestOmpDirectRevision(previous).occurredAt <= mapped.occurredAt) {
-        this.cancelDirect(previous, mapped.eventId, mapped.occurredAt, "OMP request resolved");
+        candidate.active = candidate.active.filter((entry) => entry.key !== previous.key);
+        nextNavigation.delete(previous.taskId);
       }
-      this.directCausality.remember(this.directState, {
+      candidateCausality.remember(candidate, {
         kind: "interaction",
         key: mapped.key,
         eventId: mapped.eventId,
         occurredAt: mapped.occurredAt,
       });
-      await this.persistDirect();
+      await this.persistDirect(candidate, nextNavigation, signal);
       return;
     }
 
@@ -222,19 +296,19 @@ export class NotificationWorkerEngine {
       previousRevision.displayTitle === mapped.displayTitle &&
       JSON.stringify(previousRevision.sourceEvent) === JSON.stringify(mapped.sourceEvent)
     ) {
+      signal?.throwIfAborted();
       this.setDirectNavigation(mapped.taskId, navigation);
       return;
     }
     if (previousRevision && previousRevision.occurredAt > mapped.occurredAt) return;
 
-    this.setClock(mapped.occurredAt);
-    this.core.publishSourceEvent(mapped.sourceEvent);
     const active = persistedOmpDirectEntry(mapped, previous);
-    const index = this.directState.active.findIndex((entry) => entry.key === mapped.key);
-    if (index === -1) this.directState.active.push(active);
-    else this.directState.active[index] = active;
-    await this.persistDirect();
-    this.setDirectNavigation(mapped.taskId, navigation);
+    const index = candidate.active.findIndex((entry) => entry.key === mapped.key);
+    if (index === -1) candidate.active.push(active);
+    else candidate.active[index] = active;
+    if (navigation) nextNavigation.set(mapped.taskId, navigation);
+    else nextNavigation.delete(mapped.taskId);
+    await this.persistDirect(candidate, nextNavigation, signal);
   }
 
   private async closeNotification(input: NotificationClosedInput): Promise<void> {
@@ -270,24 +344,6 @@ export class NotificationWorkerEngine {
     await this.persist(true);
   }
 
-  private cancelDirect(
-    active: PersistedOmpDirectEntry,
-    eventId: string,
-    occurredAt: string,
-    reason: string,
-  ): void {
-    this.setClock(occurredAt);
-    this.core.publishSourceEvent({
-      id: `${eventId}:${active.taskId}`,
-      taskId: active.taskId,
-      timestamp: occurredAt,
-      type: "task.cancelled",
-      reason,
-    });
-    this.directState.active = this.directState.active.filter((entry) => entry.key !== active.key);
-    this.navigationByTaskId.delete(active.taskId);
-  }
-
   private createCore(): ApertureCore {
     return new ApertureCore({
       surfaceCapabilities: NOTIFICATION_SURFACE_CAPABILITIES,
@@ -295,10 +351,16 @@ export class NotificationWorkerEngine {
     });
   }
 
-  private replayState(): void {
+  private replayState(
+    navigation: ReadonlyMap<string, NotificationWorkerNavigation> = this.navigationByTaskId,
+  ): void {
+    const volatileNavigation = new Map(navigation);
     this.core = this.createCore();
     this.activeByKey.clear();
     this.directByKey.clear();
+    this.displayTitleByTaskId.clear();
+    this.navigationByTaskId.clear();
+    this.notificationTaskIds.clear();
     this.directCausality.rebuild(this.directState.tombstones);
     const replay = [
       ...this.state.active.flatMap((entry) =>
@@ -322,13 +384,17 @@ export class NotificationWorkerEngine {
             if (index === entry.revisions.length - 1) {
               this.directByKey.set(entry.key, entry);
               this.displayTitleByTaskId.set(entry.taskId, revision.displayTitle);
+              const retainedNavigation = volatileNavigation.get(entry.taskId);
+              if (retainedNavigation) {
+                this.navigationByTaskId.set(entry.taskId, retainedNavigation);
+              }
             }
           },
         })),
       ),
-      ...this.state.signals.map((signal) => ({
-        timestamp: signal.timestamp,
-        apply: () => this.core.recordSignal(signal),
+      ...this.state.signals.map((attentionSignal) => ({
+        timestamp: attentionSignal.timestamp,
+        apply: () => this.core.recordSignal(attentionSignal),
       })),
     ].sort((left, right) => left.timestamp.localeCompare(right.timestamp));
 
@@ -354,14 +420,14 @@ export class NotificationWorkerEngine {
     this.rebuildIndexes();
   }
 
-  private async persistDirect(): Promise<void> {
-    const recordCount = ompDirectRecordCount(this.directState);
-    this.directState = await saveOmpDirectState(this.stateDir, this.directState, this.now());
-    if (ompDirectRecordCount(this.directState) !== recordCount) {
-      this.replayState();
-      return;
-    }
-    this.rebuildIndexes();
+  private async persistDirect(
+    candidate: OmpDirectPersistedState,
+    navigation: ReadonlyMap<string, NotificationWorkerNavigation>,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const persisted = await this.saveDirectState(this.stateDir, candidate, this.now(), signal);
+    this.directState = persisted;
+    this.replayState(navigation);
   }
 
   private rebuildIndexes(): void {
@@ -402,83 +468,5 @@ export class NotificationWorkerEngine {
   ): void {
     if (navigation) this.navigationByTaskId.set(taskId, navigation);
     else this.navigationByTaskId.delete(taskId);
-  }
-}
-
-function persistedActive(
-  mapped: MappedNotificationEvent,
-  previous: PersistedActiveNotification | undefined,
-): PersistedActiveNotification {
-  const revision: PersistedNotificationRevision = {
-    occurredAt: mapped.occurredAt,
-    displayTitle: mapped.displayTitle,
-    sourceEvent: mapped.sourceEvent,
-  };
-  return {
-    key: mapped.key,
-    taskId: mapped.taskId,
-    interactionId: mapped.interactionId,
-    revisions: [...(previous?.revisions ?? []), revision],
-  };
-}
-
-function latestRevision(active: PersistedActiveNotification): PersistedNotificationRevision {
-  const revision = active.revisions.at(-1);
-  if (!revision) throw new Error("notification worker active state has no revision");
-  return revision;
-}
-
-function projectWorkerDisplayView(
-  view: AttentionView,
-  displayTitleByTaskId: ReadonlyMap<string, string>,
-  notificationTaskIds: ReadonlySet<string>,
-): AttentionView {
-  const project = (frame: AttentionFrame) =>
-    projectWorkerDisplayFrame(frame, displayTitleByTaskId, notificationTaskIds);
-  return {
-    now: view.now ? project(view.now) : null,
-    next: view.next.map(project),
-    ambient: view.ambient.map(project),
-  };
-}
-
-function projectWorkerDisplayFrame(
-  frame: AttentionFrame,
-  displayTitleByTaskId: ReadonlyMap<string, string>,
-  notificationTaskIds: ReadonlySet<string>,
-): AttentionFrame {
-  const displayTitle = displayTitleByTaskId.get(frame.taskId);
-  if (!displayTitle) return frame;
-  if (!notificationTaskIds.has(frame.taskId)) {
-    return { ...frame, title: displayTitle };
-  }
-  const { provenance: _provenance, ...withoutProvenance } = frame;
-  return {
-    ...withoutProvenance,
-    title: displayTitle,
-    summary: NOTIFICATION_PUBLIC_SUMMARY,
-  };
-}
-
-function feedbackSignal(
-  active: PersistedActiveNotification,
-  input: NotificationClosedInput,
-): AttentionSignal | null {
-  const base = {
-    taskId: active.taskId,
-    interactionId: active.interactionId,
-    timestamp: input.occurredAt,
-    surface: "omarchy-notifications",
-  };
-  switch (input.reason) {
-    case "expired":
-      return { ...base, kind: "timed_out" };
-    case "dismissed":
-      return { ...base, kind: "dismissed" };
-    case "actioned":
-      return { ...base, kind: "responded", responseKind: "acknowledged" };
-    case "closed":
-    case "unknown":
-      return null;
   }
 }

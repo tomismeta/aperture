@@ -56,7 +56,7 @@ export class HerdrPaneBackend implements FocusBackend<"herdr"> {
 
   async acquire(
     prepared: PreparedHerdrTarget,
-    knownSurfaces: readonly KnownFocusSurface[],
+    _knownSurfaces: readonly KnownFocusSurface[],
     randomToken: () => string,
     signal: AbortSignal,
   ): Promise<HerdrPaneLease> {
@@ -84,11 +84,6 @@ export class HerdrPaneBackend implements FocusBackend<"herdr"> {
       };
     }
 
-    await this.surfaceController.assertNoUnknownMarkers(
-      prepared.hyprlandInstance,
-      knownSurfaces,
-      signal,
-    );
     const result = await this.herdrRequest(
       prepared.socketPath,
       "client.window_title.set",

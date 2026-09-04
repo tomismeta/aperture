@@ -13,16 +13,27 @@ import {
   type NotificationWorkerError,
   type NotificationWorkerOutput,
 } from "./protocol.js";
+import {
+  OMP_SESSION_LIVENESS,
+  OmpSessionLiveness,
+  type OmpSessionLivenessOptions,
+} from "./session-liveness.js";
+import { removeLegacyNotificationWorkerState } from "./state-store.js";
+
+export type NotificationWorkerMode = "notification" | "omp-only";
 
 export type NotificationWorkerStdioOptions = {
   packageVersion: string;
   identities: NotificationWorkerIdentity[];
   stateDir: string;
+  mode?: NotificationWorkerMode;
   socketPath?: string;
   input?: NodeJS.ReadableStream;
   output?: Writable;
   diagnostic?: Writable;
   now?: () => number;
+  sessionLiveness?: OmpSessionLivenessOptions;
+  sessionLivenessSweepMilliseconds?: number;
 };
 
 export async function runNotificationWorkerStdio(
@@ -31,11 +42,14 @@ export async function runNotificationWorkerStdio(
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
   const diagnostic = options.diagnostic ?? process.stderr;
+  const mode = options.mode ?? "notification";
   let stopping = false;
   let lastProjection = "";
   let socketServer: OmpAttentionSocketServer | undefined;
   let focusCoordinator: FocusCoordinator | undefined;
   let abortPendingWrite: (() => void) | undefined;
+  let sessionSweepTimer: NodeJS.Timeout | undefined;
+  let sessionExpiryPending = false;
   let markDirectReady!: () => void;
   const directReady = new Promise<void>((resolve) => {
     markDirectReady = resolve;
@@ -52,6 +66,7 @@ export async function runNotificationWorkerStdio(
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
   let operationQueue = Promise.resolve();
+  const wallNow = options.now ?? Date.now;
 
   const write = async (message: NotificationWorkerOutput): Promise<void> => {
     if (stopping) throw new Error("Aperture worker is stopping");
@@ -96,14 +111,24 @@ export async function runNotificationWorkerStdio(
   };
 
   try {
-    await write(notificationWorkerHello(options.packageVersion));
+    await write(notificationWorkerHello(options.packageVersion, mode === "notification"));
     await write({ type: "engine", state: "restoring", acceptedSources: options.identities.length });
 
-    const restored = await NotificationWorkerEngine.restore({
+    const engineOptions = {
       identities: options.identities,
       stateDir: options.stateDir,
       ...(options.now ? { now: options.now } : {}),
-    });
+    };
+    if (mode === "omp-only") await removeLegacyNotificationWorkerState(options.stateDir);
+    const restored =
+      mode === "omp-only"
+        ? await NotificationWorkerEngine.restoreOmpOnly(engineOptions)
+        : await NotificationWorkerEngine.restore(engineOptions);
+    const sessionLiveness = new OmpSessionLiveness(options.sessionLiveness);
+    const overflowSessions = sessionLiveness.seed(restored.engine.activeOmpSessionIds());
+    if (overflowSessions.length > 0) {
+      await restored.engine.expireOmpSessions(overflowSessions, new Date(wallNow()).toISOString());
+    }
     if (restored.recoveredCorruptState) {
       await writeError(
         "corrupt_state_recovered",
@@ -123,6 +148,33 @@ export async function runNotificationWorkerStdio(
       await write(snapshot);
       lastProjection = fingerprint;
     };
+    const expireDeadSessions = (): void => {
+      if (stopping || sessionExpiryPending) return;
+      const candidates = sessionLiveness.expired();
+      if (candidates.length === 0) return;
+      sessionExpiryPending = true;
+      void serialize(async () => {
+        const expired = candidates.filter((candidate) => sessionLiveness.stillExpired(candidate));
+        if (expired.length === 0) return;
+        const changed = await restored.engine.expireOmpSessions(
+          expired.map((candidate) => candidate.sessionId),
+          new Date(wallNow()).toISOString(),
+        );
+        sessionLiveness.commitExpired(expired);
+        if (changed) await emitSnapshot();
+      })
+        .catch(() => {
+          diagnostic.write("Aperture could not expire a dead OMP session\n");
+        })
+        .finally(() => {
+          sessionExpiryPending = false;
+        });
+    };
+    sessionSweepTimer = setInterval(
+      expireDeadSessions,
+      options.sessionLivenessSweepMilliseconds ?? OMP_SESSION_LIVENESS.sweepMilliseconds,
+    );
+    sessionSweepTimer.unref?.();
     const coordinator = new FocusCoordinator({
       ...(options.now ? { now: options.now } : {}),
       onDiagnostic: (stage) => {
@@ -150,14 +202,25 @@ export async function runNotificationWorkerStdio(
             if (signal.aborted) throw new Error("Aperture worker is stopping");
             await coordinator.revoke(revocation, signal);
           },
+          heartbeatSession: async (heartbeat, signal) => {
+            await directReady;
+            signal.throwIfAborted();
+            sessionLiveness.observe(heartbeat.sessionId);
+          },
           handleAttention: async (event, signal) => {
             await directReady;
-            if (signal.aborted) throw new Error("Aperture worker is stopping");
+            signal.throwIfAborted();
+            if (event.classification !== "session_shutdown") {
+              sessionLiveness.observe(event.sessionId);
+            }
             await serialize(async () => {
               if (stopping || signal.aborted) throw new Error("Aperture worker is stopping");
               const navigation = coordinator.navigationFor(event.focus?.handle);
               try {
-                await restored.engine.handleOmpAttention(event, navigation);
+                await restored.engine.handleOmpAttention(event, navigation, signal);
+                if (event.classification === "session_shutdown") {
+                  sessionLiveness.forget(event.sessionId);
+                }
               } catch {
                 throw new Error("Aperture attention engine failed");
               }
@@ -199,6 +262,16 @@ export async function runNotificationWorkerStdio(
       try {
         const shouldContinue = await serialize(async () => {
           const event = parseNotificationWorkerInput(decoded.line);
+          if (
+            mode === "omp-only" &&
+            (event.type === "notification.observed" ||
+              event.type === "notification.updated" ||
+              event.type === "notification.closed")
+          ) {
+            throw new NotificationWorkerProtocolError(
+              "generic notification input is disabled in OMP-only mode",
+            );
+          }
           if (event.type === "focus.activate") {
             const result = await coordinator.activate(event.handle);
             await write({ type: "focus.result", requestId: event.requestId, result });
@@ -229,6 +302,7 @@ export async function runNotificationWorkerStdio(
     if (!stopping) throw error;
   } finally {
     setStopping();
+    clearInterval(sessionSweepTimer);
     markDirectReady();
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);

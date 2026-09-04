@@ -1,7 +1,4 @@
-import { createHash } from "node:crypto";
-
 import { FocusHost, type FocusHostOptions } from "@tomismeta/aperture/focus-host";
-import type { OmpAttentionEvent } from "@tomismeta/aperture/omp-attention-event";
 
 import { bindOmpExtension } from "./bind.js";
 import {
@@ -14,6 +11,10 @@ import {
   OmarchyNotificationTransport,
   type OmarchyNotificationTransportOptions,
 } from "./omarchy-notification-transport.js";
+import {
+  SessionHeartbeatSender,
+  type SessionHeartbeatSenderOptions,
+} from "./session-heartbeat-sender.js";
 import type { OmpEvent, OmpExtensionApi, OmpMappingContext } from "./types.js";
 
 export type ApertureOmarchyOmpExtensionOptions = OmarchyNotificationTransportOptions & {
@@ -21,6 +22,7 @@ export type ApertureOmarchyOmpExtensionOptions = OmarchyNotificationTransportOpt
   suppressBuiltInNotifications?: boolean;
   directTransport?: OmpDirectWorkerTransport;
   directTransportOptions?: OmpDirectWorkerTransportOptions;
+  sessionHeartbeat?: SessionHeartbeatSenderOptions;
   focusHostOptions?: Omit<
     FocusHostOptions,
     "transport" | "terminalTitle" | "onRegistered" | "onStatus"
@@ -37,15 +39,23 @@ export function createApertureOmarchyOmpExtension(
       directTransport: configuredDirectTransport,
       directTransportOptions,
       focusHostOptions,
+      sessionHeartbeat,
       ...notificationOptions
     } = options;
     const direct =
       configuredDirectTransport ?? new OmpDirectWorkerTransport(directTransportOptions);
     const notification = new OmarchyNotificationTransport(notificationOptions);
+    const heartbeat = new SessionHeartbeatSender(direct, {
+      ...sessionHeartbeat,
+      onFailure: (error) => {
+        pi.logger?.debug?.("Aperture OMP session heartbeat unavailable", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      },
+    });
     let suppressionActive = false;
     let deliveryActive = true;
     let focusHost: FocusHost | undefined;
-    const focusReplayCache = new Map<string, OmpAttentionEvent>();
     function handleDeliveryFailure(error: unknown): void {
       pi.logger?.warn?.("Aperture OMP adapter delivery failed", {
         error: error instanceof Error ? error.message : String(error),
@@ -77,6 +87,10 @@ export function createApertureOmarchyOmpExtension(
       pi,
       {
         handle: async (event, context, capabilities) => {
+          const heartbeatSessionId = sessionIdForHeartbeat(event, context);
+          if (event.type !== "session_shutdown" && heartbeatSessionId) {
+            heartbeat.observe(heartbeatSessionId);
+          }
           if (!deliveryActive) return;
           if (!focusHost && isFocusCandidateEvent(event)) {
             focusHost = FocusHost.create({
@@ -84,12 +98,7 @@ export function createApertureOmarchyOmpExtension(
               ...focusHostOptions,
               ...(capabilities.terminalTitle ? { terminalTitle: capabilities.terminalTitle } : {}),
               onRegistered: (publicHandle, workerGeneration) => {
-                transport.replayFocus(
-                  workerGeneration,
-                  [...focusReplayCache.values()].map((cached) =>
-                    focusReplayEvent(cached, publicHandle),
-                  ),
-                );
+                transport.replayFocus(workerGeneration, publicHandle);
               },
               onStatus: (status) => {
                 pi.logger?.debug?.(`Aperture focus ${status}`);
@@ -104,7 +113,6 @@ export function createApertureOmarchyOmpExtension(
           };
           try {
             const directEvents = mapOmpDirectAttentionEvents(event, deliveryContext);
-            updateFocusReplayCache(focusReplayCache, directEvents);
             await transport.handleMapped(event, deliveryContext, directEvents);
           } catch {
             await transport.handle(event, deliveryContext);
@@ -112,9 +120,9 @@ export function createApertureOmarchyOmpExtension(
         },
         close: async () => {
           try {
+            await heartbeat.close();
             await focusHost?.close();
             await transport.close();
-            focusReplayCache.clear();
           } finally {
             restoreBuiltInNotifications();
           }
@@ -128,55 +136,19 @@ export function createApertureOmarchyOmpExtension(
 function isFocusCandidateEvent(event: OmpEvent): boolean {
   return (
     event.type === "tool_approval_requested" ||
-    ((event.type === "tool_call" || event.type === "tool_execution_start") &&
-      event.toolName === "ask")
+    (event.type === "tool_call" && event.toolName === "ask")
   );
 }
 
-const MAXIMUM_FOCUS_REPLAY_EVENTS = 64;
-function focusReplayEvent(event: OmpAttentionEvent, publicHandle: string): OmpAttentionEvent {
-  const replayIdentity = createHash("sha256")
-    .update(event.eventId)
-    .update("\u0000focus")
-    .digest("hex");
-  return {
-    ...event,
-    eventId: `omp-focus:${replayIdentity}`,
-    focus: { kind: "opaque-focus", handle: publicHandle },
-  };
-}
-
-function updateFocusReplayCache(
-  cache: Map<string, OmpAttentionEvent>,
-  events: OmpAttentionEvent[],
-): void {
-  for (const event of events) {
-    if (event.classification === "session_shutdown") {
-      const prefix = `${event.sessionId}\u0000`;
-      for (const key of cache.keys()) {
-        if (key.startsWith(prefix)) cache.delete(key);
-      }
-      continue;
-    }
-    if (!event.interactionId) continue;
-    const key = `${event.sessionId}\u0000${event.interactionId}`;
-    if (event.classification === "approval_resolved" || event.classification === "input_resolved") {
-      cache.delete(key);
-      continue;
-    }
-    if (
-      event.classification !== "approval_requested" &&
-      event.classification !== "input_requested"
-    ) {
-      continue;
-    }
-    const { focus: _focus, ...withoutFocus } = event;
-    if (!cache.has(key) && cache.size >= MAXIMUM_FOCUS_REPLAY_EVENTS) {
-      const oldest = cache.keys().next().value;
-      if (typeof oldest === "string") cache.delete(oldest);
-    }
-    cache.set(key, withoutFocus);
+function sessionIdForHeartbeat(
+  event: OmpEvent,
+  context: OmpMappingContext,
+): string | undefined {
+  if (event.type === "session_stop") return event.session_id;
+  if (event.type === "tool_approval_requested" || event.type === "tool_approval_resolved") {
+    return event.sessionId;
   }
+  return context.sessionId;
 }
 
 export default createApertureOmarchyOmpExtension();

@@ -1,6 +1,6 @@
 import type { Stats } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
-import { chmod, lstat, mkdir, open, readFile, readdir, rename, rm } from "node:fs/promises";
+import { chmod, lstat, mkdir, open, readFile, readdir, rename, rm, unlink } from "node:fs/promises";
 import path from "node:path";
 
 import type { AttentionSignal, SourceEvent } from "@tomismeta/aperture-core";
@@ -41,6 +41,23 @@ const STATE_FILE_NAME = "state.json";
 
 export function emptyNotificationWorkerState(): NotificationWorkerPersistedState {
   return { schemaVersion: 1, active: [], signals: [] };
+}
+
+export async function removeLegacyNotificationWorkerState(rootDir: string): Promise<boolean> {
+  await ensurePrivateDirectory(rootDir);
+  const statePath = path.join(rootDir, STATE_FILE_NAME);
+  let stateFile: Stats;
+  try {
+    stateFile = await lstat(statePath);
+  } catch (error) {
+    if (isMissingFileError(error)) return false;
+    throw error;
+  }
+  if (!stateFile.isFile() || stateFile.isSymbolicLink()) {
+    throw new Error("legacy notification worker state is not an owned regular file");
+  }
+  await unlink(statePath);
+  return true;
 }
 
 export async function loadNotificationWorkerState(

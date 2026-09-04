@@ -33,7 +33,7 @@
             "focusActivation"
           ],
           "properties": {
-            "notificationInput": { "const": true },
+            "notificationInput": { "type": "boolean" },
             "ompDirectInput": { "const": true },
             "snapshots": { "const": true },
             "responses": { "const": false },

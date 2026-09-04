@@ -25,6 +25,7 @@ const FIXED_FILES = [
   "evidence/focus-backends.json",
   "evidence/omp-adapter.json",
   "evidence/omp-host-matrix.json",
+  "evidence/omp-only-worker.json",
   "evidence/omp-runtime-imports.json",
   "evidence/runtime-imports.json",
   "fixtures/omp-direct/approval-request.json",

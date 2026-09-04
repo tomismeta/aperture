@@ -239,6 +239,13 @@ jobs:
             (.provenanceAttestationReference | type) == "string" and
             (.provenanceAttestationReference | length) > 0
           ' "$RUNNER_TEMP/aperture-worker/BUILDINFO.json"
+      - name: Verify direct release packet contract
+        run: >-
+          pnpm exec tsx packages/aperture/scripts/finalize-direct-release-packet.ts --
+          --artifact-dir "$RUNNER_TEMP/aperture-worker"
+          --source-commit "$GITHUB_SHA"
+          --source-tag "$GITHUB_REF_NAME"
+          --verify-only
       - name: Upload atomic plugin payload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

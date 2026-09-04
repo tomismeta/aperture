@@ -501,6 +501,14 @@ async function validateMetadata(
     const matrixEntry = record(entry, `missing OMP ${version} evidence`);
     assert(matrixEntry.status === "passed", `OMP ${version} did not pass`);
     assert(matrixEntry.actualExtensionLoader === true, `OMP ${version} loader was not exercised`);
+    assert(
+      matrixEntry.stockSessionMethods === true,
+      `OMP ${version} stock session methods were not exercised`,
+    );
+    assert(
+      matrixEntry.attentionClassification === "input_requested",
+      `OMP ${version} input request was not delivered`,
+    );
     assert(matrixEntry.directSocketDelivered === true, `OMP ${version} direct delivery failed`);
     assert(
       matrixEntry.navigation === "absent-rpc-headless",

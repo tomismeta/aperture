@@ -47,10 +47,7 @@ const context: OmpMappingContext = {
 };
 
 const omp18LifecycleFixture = JSON.parse(
-  readFileSync(
-    new URL("./fixtures/omp-18.0.11-tool-lifecycle.json", import.meta.url),
-    "utf8",
-  ),
+  readFileSync(new URL("./fixtures/omp-18.0.11-tool-lifecycle.json", import.meta.url), "utf8"),
 ) as {
   source: {
     package: string;
@@ -236,6 +233,56 @@ test("focus target detection is closed and rejects unsupported harness modes", (
     ),
     undefined,
   );
+});
+
+test("stock OMP session methods route local ask events directly", async () => {
+  const direct = new FakeDirectTransport();
+  const nativeCommands: string[] = [];
+  const handlers = new Map<
+    string,
+    (event: OmpEvent, context: OmpExtensionContext) => Promise<void> | void
+  >();
+  await createApertureOmarchyOmpExtension({
+    directTransport: direct,
+    availabilityCheck: async () => true,
+    commandRunner: async (command) => {
+      nativeCommands.push(command);
+      return { stdout: "41\n", stderr: "" };
+    },
+  })({
+    on(name, handler) {
+      handlers.set(name, handler);
+    },
+  });
+  const sessionManager = {
+    getSessionId() {
+      assert.equal(this, sessionManager);
+      return "stock-session-method";
+    },
+    getSessionFile() {
+      assert.equal(this, sessionManager);
+      return "/tmp/stock-session-method.jsonl";
+    },
+  };
+  const extensionContext: OmpExtensionContext = { sessionManager };
+
+  await handlers.get("tool_call")?.(
+    {
+      type: "tool_call",
+      toolCallId: "ask-method-1",
+      toolName: "ask",
+      input: {},
+    },
+    extensionContext,
+  );
+  await flushMicrotasks();
+
+  assert.equal(direct.sent.length, 1);
+  assert.equal(direct.sent[0]?.classification, "input_requested");
+  assert.equal(direct.sent[0]?.sessionId, "stock-session-method");
+  assert.deepEqual(nativeCommands, []);
+
+  await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, extensionContext);
 });
 
 test("300 ms and 2 s focus registration never delay attention delivery", async () => {
@@ -747,24 +794,15 @@ test("stable unsupported direct ownership releases the host title claim", async 
 });
 
 test("OMP 18 lifecycle fixture emits attention only from semantic hooks", () => {
-  assert.equal(
-    omp18LifecycleFixture.source.package,
-    "@oh-my-pi/pi-coding-agent",
-  );
+  assert.equal(omp18LifecycleFixture.source.package, "@oh-my-pi/pi-coding-agent");
   assert.equal(omp18LifecycleFixture.source.version, "18.0.11");
   assert.equal(omp18LifecycleFixture.source.tag, "v18.0.11");
-  assert.equal(
-    omp18LifecycleFixture.source.commit,
-    "b8ce33a58911c26bed1d84f0db9a5e2e727c49a2",
-  );
+  assert.equal(omp18LifecycleFixture.source.commit, "b8ce33a58911c26bed1d84f0db9a5e2e727c49a2");
   assert.deepEqual(
     omp18LifecycleFixture.events.map((event) => event.type),
     omp18LifecycleFixture.contract.order,
   );
-  assert.deepEqual(omp18LifecycleFixture.contract.attentionHooks, [
-    "tool_call",
-    "tool_result",
-  ]);
+  assert.deepEqual(omp18LifecycleFixture.contract.attentionHooks, ["tool_call", "tool_result"]);
 
   const directEvents = omp18LifecycleFixture.events.flatMap((event) =>
     mapOmpDirectAttentionEvents(event, {
@@ -776,10 +814,7 @@ test("OMP 18 lifecycle fixture emits attention only from semantic hooks", () => 
     directEvents.map((event) => event.classification),
     ["input_requested", "input_resolved"],
   );
-  assert.equal(
-    new Set(directEvents.map((event) => event.eventId)).size,
-    directEvents.length,
-  );
+  assert.equal(new Set(directEvents.map((event) => event.eventId)).size, directEvents.length);
 
   const nativeTransitions = omp18LifecycleFixture.events.flatMap((event) =>
     mapOmpNotificationTransitions(event, {
@@ -806,6 +841,27 @@ test("OMP 18 lifecycle fixture emits attention only from semantic hooks", () => 
       `${event.type} produced a native attention transition`,
     );
   }
+});
+
+test("repeated OMP turn indexes retain distinct direct receipt identities", () => {
+  const stop: OmpEvent = {
+    type: "session_stop",
+    messages: [],
+    turn_id: 0,
+    session_id: "stock-session-repeated-turn-index",
+  };
+  const first = mapOmpDirectAttentionEvents(stop, {
+    now: () => "2026-09-04T11:30:02.066Z",
+  })[0];
+  const second = mapOmpDirectAttentionEvents(stop, {
+    now: () => "2026-09-04T11:30:20.604Z",
+  })[0];
+
+  assert.ok(first);
+  assert.ok(second);
+  assert.equal(first.interactionId, second.interactionId);
+  assert.notEqual(first.occurredAt, second.occurredAt);
+  assert.notEqual(first.eventId, second.eventId);
 });
 
 test("direct mapping emits bounded typed facts without private OMP payloads", () => {

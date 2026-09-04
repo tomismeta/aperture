@@ -435,6 +435,36 @@ test("direct OMP events produce canonical NOW and NEXT with replayable navigatio
   assert.equal(JSON.stringify(shutdown).includes(sessionId), false);
 });
 
+test("completed OMP turns remain visible as AMBIENT context", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-completion-"));
+  const restored = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => Date.parse("2026-09-04T11:30:20.604Z"),
+  });
+  const completion = directEvent({
+    eventId: "event:completion:1",
+    occurredAt: "2026-09-04T11:30:20.604Z",
+    focus: undefined,
+    turnId: "0",
+    interactionId: "turn:0",
+    classification: "turn_completed",
+    title: "OMP completed a turn",
+    summary: "OMP settled the main agent session.",
+    transition: "completed",
+  });
+
+  await restored.engine.handleOmpAttention(completion);
+  const snapshot = restored.engine.snapshot();
+
+  assert.equal(snapshot.view.now, null);
+  assert.deepEqual(snapshot.view.next, []);
+  assert.equal(snapshot.view.ambient.length, 1);
+  assert.equal(snapshot.view.ambient[0]?.title, completion.title);
+  assert.equal(snapshot.view.ambient[0]?.tone, "ambient");
+  assert.equal(snapshot.view.ambient[0]?.navigation, undefined);
+});
+
 test("direct persistence failures preserve request resolution shutdown and compaction state", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-transaction-"));
   let failStorage = false;

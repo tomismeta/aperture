@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
+import { minify } from "terser";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -114,6 +115,19 @@ const attentionWorkerBuild = await build({
   entryPoints: [ATTENTION_WORKER_ENTRY_POINT],
   outfile: ATTENTION_WORKER_OUTFILE,
 });
+const compressedWorker = await minify(
+  await readFile(ATTENTION_WORKER_OUTFILE, "utf8"),
+  {
+    compress: { passes: 2 },
+    ecma: 2022,
+    format: { comments: false },
+    mangle: true,
+  },
+);
+if (!compressedWorker.code) {
+  throw new Error("attention worker compression produced no output");
+}
+await writeFile(ATTENTION_WORKER_OUTFILE, `${compressedWorker.code}\n`, "utf8");
 const runtimeImports = new Set<string>();
 for (const output of Object.values(attentionWorkerBuild.metafile.outputs)) {
   for (const imported of output.imports) {

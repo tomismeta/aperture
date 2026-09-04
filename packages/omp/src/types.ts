@@ -127,11 +127,23 @@ export type OmpCredentialDisabledEvent = {
   disabledCause: string;
 };
 
+export type OmpSessionPresentationFacet = {
+  id: string;
+  label: string;
+  value: string;
+};
+
+export type OmpSessionPresentation = {
+  label?: string;
+  facets?: OmpSessionPresentationFacet[];
+};
+
 export type OmpMappingContext = {
   cwd?: string;
   sessionId?: string;
   sessionFile?: string;
   sourceLabel?: string;
+  session?: OmpSessionPresentation;
   now?: () => string;
   focusHandle?: string;
 };
@@ -146,6 +158,7 @@ export type OmpExtensionContext = {
 };
 
 export type OmpExtensionApi = {
+  getSessionName?(): string | undefined;
   on(
     event: string,
     handler: (event: OmpEvent, context: OmpExtensionContext) => Promise<void> | void,

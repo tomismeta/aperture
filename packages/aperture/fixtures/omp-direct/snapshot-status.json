@@ -29,11 +29,20 @@
         "summary": "OMP is waiting for the authoritative session stop event.",
         "source": {
           "kind": "omp",
-          "label": "OMP"
+          "label": "OMP omarchy-aperture"
         },
         "navigation": {
           "kind": "opaque-focus",
           "handle": "A23456789_-bcdefghijklmnopqrstuv"
+        },
+        "context": {
+          "items": [
+            {
+              "id": "omp-session:branch",
+              "label": "Branch",
+              "value": "main"
+            }
+          ]
         },
         "timing": {
           "createdAt": "2026-09-01T16:00:06.000Z",

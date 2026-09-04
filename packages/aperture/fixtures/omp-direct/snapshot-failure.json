@@ -26,11 +26,20 @@
       "summary": "OMP reported a terminal tool execution failure.",
       "source": {
         "kind": "omp",
-        "label": "OMP"
+        "label": "OMP omarchy-aperture"
       },
       "navigation": {
         "kind": "opaque-focus",
         "handle": "A23456789_-bcdefghijklmnopqrstuv"
+      },
+      "context": {
+        "items": [
+          {
+            "id": "omp-session:branch",
+            "label": "Branch",
+            "value": "main"
+          }
+        ]
       },
       "provenance": {
         "whyNow": "Work has failed and should be reviewed."

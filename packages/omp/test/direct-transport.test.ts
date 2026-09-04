@@ -43,6 +43,7 @@ import type {
 
 const context: OmpMappingContext = {
   sessionId: "session;$(opaque)",
+  session: { label: "omarchy-aperture" },
   now: () => "2026-09-01T16:00:00.000Z",
 };
 
@@ -65,7 +66,7 @@ const omp18LifecycleFixture = JSON.parse(
 
 function replayEvent(eventId: string): OmpAttentionEvent {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     type: "omp.attention-event",
     eventId,
     occurredAt: "2026-09-01T16:00:00.000Z",
@@ -253,6 +254,9 @@ test("stock OMP session methods route local ask events directly", async () => {
     on(name, handler) {
       handlers.set(name, handler);
     },
+    getSessionName() {
+      return "omarchy-aperture";
+    },
   });
   const sessionManager = {
     getSessionId() {
@@ -280,6 +284,7 @@ test("stock OMP session methods route local ask events directly", async () => {
   assert.equal(direct.sent.length, 1);
   assert.equal(direct.sent[0]?.classification, "input_requested");
   assert.equal(direct.sent[0]?.sessionId, "stock-session-method");
+  assert.equal(direct.sent[0]?.session?.label, "omarchy-aperture");
   assert.deepEqual(nativeCommands, []);
 
   await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, extensionContext);
@@ -920,6 +925,40 @@ test("direct mapping emits bounded typed facts without private OMP payloads", ()
   );
   assert.equal(resolved[0]?.classification, "approval_resolved");
   assert.equal(resolved[0]?.interactionId, approval[0]?.interactionId);
+});
+
+test("direct session labels are bounded display metadata, never identity", () => {
+  const ask: OmpEvent = {
+    type: "tool_call",
+    toolCallId: "ask-session-label",
+    toolName: "ask",
+  };
+  const unnamedContext = { ...context };
+  delete unnamedContext.session;
+  const unnamed = mapOmpDirectAttentionEvents(ask, unnamedContext)[0];
+  const named = mapOmpDirectAttentionEvents(ask, {
+    ...context,
+    session: {
+      label: "  omarchy-aperture  ",
+      facets: [{ id: "branch", label: " Branch ", value: " main " }],
+    },
+  })[0];
+  const privateName = mapOmpDirectAttentionEvents(ask, {
+    ...context,
+    session: { label: "/home/tom/private" },
+  })[0];
+  const overlong = mapOmpDirectAttentionEvents(ask, {
+    ...context,
+    session: { label: "x".repeat(117) },
+  })[0];
+
+  assert.ok(unnamed);
+  assert.ok(named);
+  assert.equal(named.session?.label, "omarchy-aperture");
+  assert.deepEqual(named.session?.facets, [{ id: "branch", label: "Branch", value: "main" }]);
+  assert.equal(named.eventId, unnamed.eventId);
+  assert.equal(privateName?.session, undefined);
+  assert.equal(overlong?.session, undefined);
 });
 
 test("healthy direct delivery returns immediately and emits no native duplicate", async () => {

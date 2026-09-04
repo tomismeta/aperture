@@ -224,8 +224,10 @@ The production bundle is fixed to `artifactMode: "omp-only"`. Its hello reports
 notification state is removed without restore, and native fallback remains
 outside the Aperture surface. The payload retains notification input schema `2`
 only as a canonical protocol artifact. It uses private notification-worker
-output schema `4`, public surface protocol `4`, OMP attention event schema `2`,
-and private worker-direct protocol `4`. Both hello frames require
+output schema `4`, public surface protocol `4`, OMP attention event schema `4`,
+and private worker-direct protocol `4`. OMP session presentation is optional,
+bounded display metadata: a label plus up to four typed facets. It never enters
+event identity, judgment, ordering, focus, or navigation. Both hello frames require
 `protocolVersion: 4` independently from package semver. Only private worker
 snapshots may carry navigation, and the exact shape is
 `{ "kind": "opaque-focus", "handle": "…" }`; public surface frames cannot carry

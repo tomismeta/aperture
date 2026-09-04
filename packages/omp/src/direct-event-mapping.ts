@@ -8,6 +8,8 @@ import {
   type OmpAttentionTransition,
 } from "@tomismeta/aperture/omp-attention-event";
 
+import { readStopReason, safeOmpSessionPresentation } from "./direct-event-values.js";
+
 import type { OmpEvent, OmpMappingContext } from "./types.js";
 
 export function mapOmpDirectAttentionEvents(
@@ -17,6 +19,7 @@ export function mapOmpDirectAttentionEvents(
   const sessionId = sessionIdForEvent(event, context);
   if (!sessionId) return [];
   const occurredAt = eventTimestamp(event, context);
+  const session = safeOmpSessionPresentation(context.session);
   const directEvent = (facts: DirectEventFacts): OmpAttentionEvent => {
     const identity = JSON.stringify({
       occurredAt: facts.occurredAt,
@@ -30,10 +33,11 @@ export function mapOmpDirectAttentionEvents(
       status: facts.status ?? null,
     });
     return assertOmpAttentionEvent({
-      schemaVersion: 3,
+      schemaVersion: 4,
       type: "omp.attention-event",
       eventId: `omp:${createHash("sha256").update(identity).digest("hex")}`,
       ...facts,
+      ...(session ? { session } : {}),
       ...(context.focusHandle
         ? { focus: { kind: "opaque-focus", handle: context.focusHandle } }
         : {}),
@@ -240,9 +244,4 @@ function completionInteractionId(sessionId: string, turnId: number, occurredAt: 
     .update(occurredAt)
     .digest("hex")
     .slice(0, 32)}`;
-}
-
-function readStopReason(value: unknown): string | undefined {
-  if (!value || typeof value !== "object" || !("stopReason" in value)) return undefined;
-  return typeof value.stopReason === "string" ? value.stopReason : undefined;
 }

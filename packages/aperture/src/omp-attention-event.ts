@@ -1,14 +1,21 @@
 import path from "node:path";
+import {
+  assertOmpAttentionSession,
+  type OmpAttentionSession,
+  type OmpAttentionSessionFacet,
+} from "./omp-attention-session.js";
+import {
+  OMP_ATTENTION_LIMITS,
+  OmpAttentionEventError,
+  looksLikePrivatePath,
+  safeDisplayText,
+} from "./omp-attention-validation.js";
 
-export const OMP_ATTENTION_EVENT_SCHEMA_VERSION = 3;
+export { assertOmpAttentionSession, OMP_ATTENTION_LIMITS, OmpAttentionEventError };
+export type { OmpAttentionSession, OmpAttentionSessionFacet };
+
+export const OMP_ATTENTION_EVENT_SCHEMA_VERSION = 4;
 export const OMP_ATTENTION_SOCKET_RELATIVE_PATH = "omarchy/aperture/attention.sock";
-export const OMP_ATTENTION_LIMITS = {
-  jsonLineBytes: 64 * 1024,
-  opaqueIdCodePoints: 160,
-  focusHandleCharacters: 32,
-  titleCodePoints: 160,
-  summaryCodePoints: 320,
-} as const;
 
 export type OmpAttentionClassification =
   | "approval_requested"
@@ -39,11 +46,12 @@ export type OmpAttentionFocus = {
 };
 
 export type OmpAttentionEvent = {
-  schemaVersion: 3;
+  schemaVersion: 4;
   type: "omp.attention-event";
   eventId: string;
   occurredAt: string;
   sessionId: string;
+  session?: OmpAttentionSession;
   turnId?: string;
   interactionId?: string;
   classification: OmpAttentionClassification;
@@ -53,13 +61,6 @@ export type OmpAttentionEvent = {
   status?: OmpAttentionStatus;
   focus?: OmpAttentionFocus;
 };
-
-export class OmpAttentionEventError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "OmpAttentionEventError";
-  }
-}
 
 const CLASSIFICATIONS = new Set<OmpAttentionClassification>([
   "approval_requested",
@@ -148,6 +149,8 @@ export function assertOmpAttentionEvent(value: unknown): OmpAttentionEvent {
   }
 
   const sessionId = assertOmpSessionId(record.sessionId);
+  const session =
+    record.session === undefined ? undefined : assertOmpAttentionSession(record.session);
   const interactionId = optionalOpaqueId(record.interactionId, "interactionId");
   if (REQUIRED_INTERACTION.has(classification) && interactionId === undefined) {
     throw new OmpAttentionEventError("OMP attention event interactionId is required");
@@ -159,11 +162,12 @@ export function assertOmpAttentionEvent(value: unknown): OmpAttentionEvent {
 
   const focus = optionalFocus(record.focus);
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     type: "omp.attention-event",
     eventId: opaqueId(record.eventId, "eventId"),
     occurredAt: timestamp(record.occurredAt),
     sessionId,
+    ...(session === undefined ? {} : { session }),
     ...(record.turnId === undefined ? {} : { turnId: opaqueId(record.turnId, "turnId") }),
     ...(interactionId === undefined ? {} : { interactionId }),
     classification,
@@ -227,7 +231,7 @@ function assertExactKeys(record: Record<string, unknown>): void {
     "summary",
     "transition",
   ];
-  const optional = ["turnId", "interactionId", "status", "focus"];
+  const optional = ["turnId", "interactionId", "session", "status", "focus"];
   const allowed = new Set([...required, ...optional]);
   for (const key of Object.keys(record)) {
     if (!allowed.has(key)) {
@@ -288,34 +292,4 @@ function timestamp(value: unknown): string {
     throw new OmpAttentionEventError("OMP attention occurredAt must be a valid timestamp");
   }
   return new Date(parsed).toISOString();
-}
-
-function safeDisplayText(value: unknown, maximum: number, label: string): string {
-  if (typeof value !== "string" || !value.trim() || /[\u0000-\u001f\u007f]/.test(value)) {
-    throw new OmpAttentionEventError(`OMP attention ${label} must contain visible text`);
-  }
-  if (Array.from(value).length > maximum) {
-    throw new OmpAttentionEventError(`OMP attention ${label} exceeded the character limit`);
-  }
-  if (containsSecret(value) || looksLikePrivatePath(value)) {
-    throw new OmpAttentionEventError(`OMP attention ${label} contained private material`);
-  }
-  return value;
-}
-
-function containsSecret(value: string): boolean {
-  return (
-    /\bBearer\s+[A-Za-z0-9._~+/=-]+/i.test(value) ||
-    /\b(?:api[_-]?key|access[_-]?token|auth[_-]?token|token|password|secret)\s*[:=]\s*\S+/i.test(
-      value,
-    )
-  );
-}
-
-function looksLikePrivatePath(value: string): boolean {
-  return (
-    /(?:^|\s)(?:~\/|\/(?:Users|home|private|tmp)\/|[A-Za-z]:\\(?:Users|Documents|Temp)\\)/.test(
-      value,
-    ) || /(?:^|\s)file:\/\//i.test(value)
-  );
 }

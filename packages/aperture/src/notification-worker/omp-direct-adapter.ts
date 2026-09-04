@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto";
-
 import type { SourceEvent, SourceHumanInputRequestedEvent } from "@tomismeta/aperture-core";
-
 import type { OmpAttentionEvent } from "../omp-attention-event.js";
+import { projectOmpSessionPresentation } from "./omp-session-presentation.js";
 
 export type MappedOmpDirectEvent =
   | {
@@ -71,10 +70,11 @@ export function mapOmpDirectEvent(event: OmpAttentionEvent): MappedOmpDirectEven
 
   const taskId = `omp-direct:${digest(key, 32)}`;
   const interactionId = `interaction:${taskId}:attention`;
+  const sessionPresentation = projectOmpSessionPresentation(event);
   const source = {
     id: `omp:${digest(event.sessionId, 32)}`,
     kind: "omp" as const,
-    label: "OMP",
+    label: sessionPresentation.sourceLabel,
   };
   const metadata = {
     ompDirect: {
@@ -88,6 +88,7 @@ export function mapOmpDirectEvent(event: OmpAttentionEvent): MappedOmpDirectEven
     timestamp: event.occurredAt,
     source,
     metadata,
+    ...(sessionPresentation.context ? { context: sessionPresentation.context } : {}),
   };
 
   let sourceEvent: SourceEvent;

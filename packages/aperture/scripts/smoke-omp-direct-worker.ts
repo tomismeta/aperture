@@ -330,10 +330,11 @@ function event(
   },
 ): OmpAttentionEvent {
   return assertOmpAttentionEvent({
-    schemaVersion: 3,
+    schemaVersion: 4,
     type: "omp.attention-event",
     occurredAt: facts.occurredAt ?? occurredAt,
     sessionId,
+    session: { label: "omarchy-aperture" },
     ...facts,
   });
 }

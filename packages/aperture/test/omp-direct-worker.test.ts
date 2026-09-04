@@ -71,11 +71,12 @@ const identity: NotificationWorkerIdentity = {
 
 function directEvent(overrides: Partial<OmpAttentionEvent> = {}): OmpAttentionEvent {
   return assertOmpAttentionEvent({
-    schemaVersion: 3,
+    schemaVersion: 4,
     type: "omp.attention-event",
     eventId: "event:approval:1",
     occurredAt,
     sessionId,
+    session: { label: "omarchy-aperture" },
     focus: { kind: "opaque-focus", handle: focusHandle },
     interactionId: "tool-call-1",
     classification: "approval_requested",
@@ -102,6 +103,53 @@ test("direct OMP contract rejects private or malformed payloads and preserves op
     directEvent({ sessionId: "opaque;$(touch should-not-run)" }).sessionId,
     "opaque;$(touch should-not-run)",
   );
+  assert.equal(directEvent().session?.label, "omarchy-aperture");
+  assert.equal(
+    directEvent({ session: { label: "界".repeat(116) } }).session?.label,
+    "界".repeat(116),
+  );
+  assert.throws(() => directEvent({ session: { label: "界".repeat(117) } }), /session label/);
+  assert.throws(() => directEvent({ session: { label: "bad\nname" } }), /session label/);
+  assert.throws(() => directEvent({ session: { label: "/home/tom/private" } }), /private/);
+  assert.deepEqual(
+    directEvent({
+      session: {
+        facets: [{ id: "branch", label: "Branch", value: "main" }],
+      },
+    }).session?.facets,
+    [{ id: "branch", label: "Branch", value: "main" }],
+  );
+  assert.throws(() => directEvent({ session: {} }), /session/);
+  assert.throws(
+    () =>
+      directEvent({
+        session: {
+          facets: [
+            { id: "branch", label: "Branch", value: "main" },
+            { id: "branch", label: "Branch", value: "release" },
+          ],
+        },
+      }),
+    /duplicate/,
+  );
+  assert.throws(
+    () =>
+      directEvent({
+        session: {
+          facets: [{ id: "bad facet", label: "Branch", value: "main" }],
+        },
+      }),
+    /id/,
+  );
+  assert.throws(
+    () =>
+      directEvent({
+        session: {
+          facets: [{ id: "branch", label: "Branch", value: "/home/tom/private" }],
+        },
+      }),
+    /private/,
+  );
   assert.throws(
     () =>
       directEvent({
@@ -110,7 +158,7 @@ test("direct OMP contract rejects private or malformed payloads and preserves op
     /classification/,
   );
   assert.throws(() => parseOmpAttentionEvent("{"), OmpAttentionEventError);
-  assert.throws(() => directEvent({ schemaVersion: 1 as 3 }), /schema version/);
+  assert.throws(() => directEvent({ schemaVersion: 1 as 4 }), /schema version/);
   assert.throws(() => directEvent({ type: "unknown" as "omp.attention-event" }), /type/);
   assert.throws(() => directEvent({ sessionId: "" }), /sessionId/);
   assert.throws(() => directEvent({ sessionId: "bad\nsession" }), /sessionId/);
@@ -255,6 +303,40 @@ test("session heartbeat protocol and monotonic lease capacity are exact", () => 
   );
   liveness.observe("session-third");
   assert.throws(() => liveness.observe("session-fourth"), OmpSessionCapacityError);
+});
+
+test("direct OMP session presentation projects and persists without changing identity", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-session-label-"));
+  const restored = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => Date.parse(occurredAt),
+  });
+  const named = directEvent({
+    session: {
+      label: "omarchy-aperture",
+      facets: [{ id: "branch", label: "Branch", value: "main" }],
+    },
+  });
+  const unnamed = directEvent({ session: undefined });
+
+  await restored.engine.handleOmpAttention(named);
+  assert.equal(restored.engine.snapshot().view.now?.source?.label, "OMP omarchy-aperture");
+  assert.deepEqual(restored.engine.snapshot().view.now?.context?.items, [
+    { id: "omp-session:branch", label: "Branch", value: "main" },
+  ]);
+
+  const replayed = await NotificationWorkerEngine.restore({
+    identities: [identity],
+    stateDir: root,
+    now: () => Date.parse(occurredAt),
+  });
+  assert.equal(replayed.engine.snapshot().view.now?.source?.label, "OMP omarchy-aperture");
+  assert.deepEqual(replayed.engine.snapshot().view.now?.context?.items, [
+    { id: "omp-session:branch", label: "Branch", value: "main" },
+  ]);
+  assert.equal(named.eventId, unnamed.eventId);
+  assert.equal(named.sessionId, unnamed.sessionId);
 });
 
 test("live restored sessions survive grace while dead sessions expire causally", async () => {

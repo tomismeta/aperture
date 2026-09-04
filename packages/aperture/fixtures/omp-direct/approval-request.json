@@ -1,9 +1,19 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "type": "omp.attention-event",
   "eventId": "fixture:approval:1",
   "occurredAt": "2026-09-01T16:00:00.000Z",
   "sessionId": "01a0123456789abcdef",
+  "session": {
+    "label": "omarchy-aperture",
+    "facets": [
+      {
+        "id": "branch",
+        "label": "Branch",
+        "value": "main"
+      }
+    ]
+  },
   "interactionId": "tool-call-1",
   "classification": "approval_requested",
   "title": "OMP needs approval for bash",

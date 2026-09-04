@@ -240,11 +240,15 @@ function event(
 ): OmpAttentionEvent {
   const { eventId, occurredAt: eventOccurredAt, ...rest } = facts;
   return assertOmpAttentionEvent({
-    schemaVersion: 3,
+    schemaVersion: 4,
     type: "omp.attention-event",
     eventId,
     occurredAt: eventOccurredAt ?? occurredAt,
     sessionId,
+    session: {
+      label: "omarchy-aperture",
+      facets: [{ id: "branch", label: "Branch", value: "main" }],
+    },
     focus: { kind: "opaque-focus", handle: focusHandle },
     ...rest,
   });

@@ -26,11 +26,20 @@
       "summary": "OMP stopped after completing the main agent turn.",
       "source": {
         "kind": "omp",
-        "label": "OMP"
+        "label": "OMP omarchy-aperture"
       },
       "navigation": {
         "kind": "opaque-focus",
         "handle": "A23456789_-bcdefghijklmnopqrstuv"
+      },
+      "context": {
+        "items": [
+          {
+            "id": "omp-session:branch",
+            "label": "Branch",
+            "value": "main"
+          }
+        ]
       },
       "provenance": {
         "whyNow": "OMP result ready."

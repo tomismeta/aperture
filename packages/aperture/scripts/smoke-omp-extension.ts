@@ -63,6 +63,7 @@ try {
     createApertureOmarchyOmpExtension?: (
       options: Record<string, unknown>,
     ) => (api: {
+      getSessionName?(): string | undefined;
       on(
         event: string,
         handler: (
@@ -80,6 +81,7 @@ try {
     (event: { type: string }, context: Record<string, unknown>) => Promise<void> | void
   >();
   const factory = loaded.default as (api: {
+    getSessionName?(): string | undefined;
     on(
       event: string,
       handler: (event: { type: string }, context: Record<string, unknown>) => Promise<void> | void,
@@ -134,7 +136,10 @@ try {
         return { stdout: command === "omarchy-notification-send" ? "99\n" : "", stderr: "" };
       },
     });
-    await directFactory({ on: (event, handler) => directHandlers.set(event, handler) });
+    await directFactory({
+      getSessionName: () => "omarchy-aperture",
+      on: (event, handler) => directHandlers.set(event, handler),
+    });
     await directHandlers.get("tool_approval_requested")?.(
       {
         type: "tool_approval_requested",
@@ -156,6 +161,15 @@ try {
       }),
       ["omp.session-heartbeat", "omp.attention-event", "omp.attention-event"],
     );
+    const attentionEvent = directEvents.find(
+      (event) =>
+        event &&
+        typeof event === "object" &&
+        "type" in event &&
+        event.type === "omp.attention-event",
+    );
+    assert.ok(attentionEvent && typeof attentionEvent === "object" && "session" in attentionEvent);
+    assert.deepEqual(attentionEvent.session, { label: "omarchy-aperture" });
     assert.equal(directCommands.includes("omarchy-notification-send"), false);
     assert.equal(process.env.PI_NOTIFICATIONS, "on");
   } finally {

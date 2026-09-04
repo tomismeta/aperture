@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tomismeta:aperture:omp-attention-event:v3",
+  "$id": "urn:tomismeta:aperture:omp-attention-event:v4",
   "title": "Aperture OMP Attention Event",
   "type": "object",
   "additionalProperties": false,
@@ -16,11 +16,12 @@
     "transition"
   ],
   "properties": {
-    "schemaVersion": { "const": 3 },
+    "schemaVersion": { "const": 4 },
     "type": { "const": "omp.attention-event" },
     "eventId": { "$ref": "#/$defs/opaqueId" },
     "occurredAt": { "type": "string", "format": "date-time" },
     "sessionId": { "$ref": "#/$defs/sessionId" },
+    "session": { "$ref": "#/$defs/session" },
     "turnId": { "$ref": "#/$defs/opaqueId" },
     "interactionId": { "$ref": "#/$defs/opaqueId" },
     "classification": {
@@ -161,6 +162,54 @@
       "minLength": 1,
       "maxLength": 160,
       "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 116,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "facets": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "value"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,31}$"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120,
+                "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+              }
+            }
+          }
+        }
+      },
+      "anyOf": [
+        { "required": ["label"], "properties": { "label": {} } },
+        {
+          "required": ["facets"],
+          "properties": { "facets": { "type": "array", "minItems": 1 } }
+        }
+      ]
     },
     "focus": {
       "type": "object",

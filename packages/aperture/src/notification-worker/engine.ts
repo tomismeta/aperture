@@ -286,7 +286,7 @@ export class NotificationWorkerEngine {
     const completedAt = latestOmpDirectRevision(completion).occurredAt;
     await this.handleOmpAttention(
       {
-        schemaVersion: 3,
+        schemaVersion: 4,
         type: "omp.attention-event",
         eventId: `${completion.key}:focused`,
         occurredAt: completedAt > occurredAt ? completedAt : occurredAt,

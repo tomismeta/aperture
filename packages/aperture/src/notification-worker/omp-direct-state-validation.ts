@@ -153,9 +153,14 @@ function assertOmpDirectRevision(
   }
   const source = asRecord(sourceEvent.source, "OMP direct source");
   assertExactKeys(source, ["id", "kind", "label"], "OMP direct source");
-  if (source.kind !== "omp" || source.label !== "OMP") {
+  if (
+    source.kind !== "omp" ||
+    typeof source.label !== "string" ||
+    (source.label !== "OMP" && (!source.label.startsWith("OMP ") || !source.label.slice(4).trim()))
+  ) {
     throw new Error("OMP direct source is invalid");
   }
+  assertOmpAttentionDisplayText(source.label, 120, "persisted source label");
   const metadata = asRecord(sourceEvent.metadata, "OMP direct metadata");
   assertExactKeys(metadata, ["ompDirect"], "OMP direct metadata");
   const direct = asRecord(metadata.ompDirect, "OMP direct metadata facts");
@@ -169,10 +174,14 @@ function assertOmpDirectRevision(
   if ("summary" in sourceEvent && sourceEvent.summary !== undefined) {
     assertOmpAttentionDisplayText(sourceEvent.summary, 320, "persisted event summary");
   }
+  if ("context" in sourceEvent) {
+    assertDirectSessionContext(sourceEvent.context);
+  }
   return occurredAt;
 }
 
 function assertDirectSourceEventFields(event: Record<string, unknown>): void {
+  const optionalContext = "context" in event ? ["context"] : [];
   switch (event.type) {
     case "human.input.requested":
       assertExactKeys(
@@ -190,6 +199,7 @@ function assertDirectSourceEventFields(event: Record<string, unknown>): void {
           "summary",
           "request",
           "riskHint",
+          ...optionalContext,
         ],
         "OMP direct human input event",
       );
@@ -209,6 +219,7 @@ function assertDirectSourceEventFields(event: Record<string, unknown>): void {
           "status",
           "activityClass",
           "semanticHints",
+          ...optionalContext,
         ],
         "OMP direct task update",
       );
@@ -216,12 +227,35 @@ function assertDirectSourceEventFields(event: Record<string, unknown>): void {
     case "task.completed":
       assertExactKeys(
         event,
-        ["id", "taskId", "timestamp", "source", "metadata", "type", "summary"],
+        ["id", "taskId", "timestamp", "source", "metadata", "type", "summary", ...optionalContext],
         "OMP direct task completion",
       );
       return;
     default:
       throw new Error("OMP direct source event type is invalid");
+  }
+}
+
+function assertDirectSessionContext(value: unknown): void {
+  const context = asRecord(value, "OMP direct session context");
+  assertExactKeys(context, ["items"], "OMP direct session context");
+  if (!Array.isArray(context.items) || context.items.length < 1 || context.items.length > 4) {
+    throw new Error("OMP direct session context items are invalid");
+  }
+  const ids = new Set<string>();
+  for (const rawItem of context.items) {
+    const item = asRecord(rawItem, "OMP direct session context item");
+    assertExactKeys(item, ["id", "label", "value"], "OMP direct session context item");
+    if (
+      typeof item.id !== "string" ||
+      !/^omp-session:[A-Za-z][A-Za-z0-9._-]{0,31}$/.test(item.id) ||
+      ids.has(item.id)
+    ) {
+      throw new Error("OMP direct session context item id is invalid");
+    }
+    ids.add(item.id);
+    assertOmpAttentionDisplayText(item.label, 32, "persisted session facet label");
+    assertOmpAttentionDisplayText(item.value, 120, "persisted session facet value");
   }
 }
 

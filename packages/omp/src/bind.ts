@@ -43,6 +43,10 @@ export function bindOmpExtension(
   for (const eventName of OMP_EXTENSION_EVENTS) {
     pi.on(eventName, async (event, extensionContext) => {
       const context = contextFromOmpExtension(extensionContext, baseContext);
+      const sessionLabel = sessionLabelFromOmp(pi);
+      if (sessionLabel) {
+        context.session = { ...context.session, label: sessionLabel };
+      }
       const capabilities = capabilitiesFromOmpExtension(extensionContext);
       try {
         await sink.handle(event, context, capabilities);
@@ -72,6 +76,14 @@ function capabilitiesFromOmpExtension(extensionContext: OmpExtensionContext): Om
       },
     },
   };
+}
+
+function sessionLabelFromOmp(pi: OmpExtensionApi): string | undefined {
+  try {
+    return pi.getSessionName?.();
+  } catch {
+    return undefined;
+  }
 }
 
 function reportAdapterError(

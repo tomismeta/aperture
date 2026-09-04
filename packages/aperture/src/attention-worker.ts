@@ -14,11 +14,16 @@ import {
 import { runNotificationWorkerStdio } from "./notification-worker/stdio.js";
 
 declare const APERTURE_PACKAGE_VERSION: string;
+declare const APERTURE_WORKER_ARTIFACT_MODE: "notification" | "omp-only";
 
 const packageVersion =
   typeof APERTURE_PACKAGE_VERSION === "string"
     ? APERTURE_PACKAGE_VERSION
     : (process.env.npm_package_version ?? "0.0.0-development");
+const workerMode =
+  typeof APERTURE_WORKER_ARTIFACT_MODE === "string"
+    ? APERTURE_WORKER_ARTIFACT_MODE
+    : "notification";
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
@@ -41,6 +46,7 @@ async function main(): Promise<void> {
     packageVersion,
     identities: config.identities,
     stateDir,
+    mode: workerMode,
     ...(defaults.socketPath ? { socketPath: defaults.socketPath } : {}),
   });
 }

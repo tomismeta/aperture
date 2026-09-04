@@ -59,18 +59,20 @@ export type NotificationWorkerInput =
   | FocusActivateInput
   | { type: "shutdown" };
 
+export type NotificationWorkerCapabilities = {
+  notificationInput: boolean;
+  ompDirectInput: true;
+  snapshots: true;
+  responses: false;
+  focusActivation: true;
+};
+
 export type NotificationWorkerHello = {
   protocolVersion: 4;
   type: "hello";
   packageVersion: string;
   worker: "aperture-attention-engine";
-  capabilities: {
-    notificationInput: true;
-    ompDirectInput: true;
-    snapshots: true;
-    responses: false;
-    focusActivation: true;
-  };
+  capabilities: NotificationWorkerCapabilities;
 };
 
 export type NotificationWorkerState = {
@@ -124,7 +126,10 @@ export class NotificationWorkerProtocolError extends Error {
   }
 }
 
-export function notificationWorkerHello(packageVersion: string): NotificationWorkerHello {
+export function notificationWorkerHello(
+  packageVersion: string,
+  notificationInput = true,
+): NotificationWorkerHello {
   const version = requiredText(
     packageVersion,
     APERTURE_NOTIFICATION_WORKER_LIMITS.applicationCharacters,
@@ -136,7 +141,7 @@ export function notificationWorkerHello(packageVersion: string): NotificationWor
     packageVersion: version,
     worker: "aperture-attention-engine",
     capabilities: {
-      notificationInput: true,
+      notificationInput,
       ompDirectInput: true,
       snapshots: true,
       responses: false,

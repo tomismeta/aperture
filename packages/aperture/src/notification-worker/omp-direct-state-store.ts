@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { chmod, lstat, mkdir, open, readFile, readdir, rename, rm } from "node:fs/promises";
+import { renameSync } from "node:fs";
+import { chmod, lstat, mkdir, open, readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import type { SourceEvent } from "@tomismeta/aperture-core";
 
@@ -87,21 +88,29 @@ export async function saveOmpDirectState(
   rootDir: string,
   state: OmpDirectPersistedState,
   now = Date.now(),
+  signal?: AbortSignal,
 ): Promise<OmpDirectPersistedState> {
+  signal?.throwIfAborted();
   await ensurePrivateDirectory(rootDir);
+  signal?.throwIfAborted();
   const bounded = fitStateToBounds(pruneOmpDirectState(assertOmpDirectState(state), now));
   const targetPath = path.join(rootDir, STATE_FILE_NAME);
   const temporaryPath = path.join(rootDir, `.omp-direct-state-${randomUUID()}.tmp`);
   try {
     const file = await open(temporaryPath, "wx", 0o600);
     try {
-      await file.writeFile(`${JSON.stringify(bounded)}\n`, "utf8");
+      await file.writeFile(`${JSON.stringify(bounded)}\n`, {
+        encoding: "utf8",
+        signal,
+      });
+      signal?.throwIfAborted();
       await file.sync();
+      signal?.throwIfAborted();
     } finally {
       await file.close();
     }
-    await rename(temporaryPath, targetPath);
-    await chmod(targetPath, 0o600);
+    signal?.throwIfAborted();
+    renameSync(temporaryPath, targetPath);
     return bounded;
   } catch (error) {
     await rm(temporaryPath, { force: true });

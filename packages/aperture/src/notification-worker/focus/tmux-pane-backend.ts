@@ -75,7 +75,7 @@ export class TmuxPaneBackend implements FocusBackend<"tmux"> {
 
   async acquire(
     prepared: PreparedTmuxTarget,
-    knownSurfaces: readonly KnownFocusSurface[],
+    _knownSurfaces: readonly KnownFocusSurface[],
     randomToken: () => string,
     signal: AbortSignal,
   ): Promise<TmuxPaneLease> {
@@ -106,11 +106,6 @@ export class TmuxPaneBackend implements FocusBackend<"tmux"> {
       };
     }
 
-    await this.surfaceController.assertNoUnknownMarkers(
-      prepared.hyprlandInstance,
-      knownSurfaces,
-      signal,
-    );
     const marker = randomToken();
     const markerTitle = markerTitleFor(marker);
     const originalSetTitles = await readTmuxExplicitOption(
@@ -229,8 +224,6 @@ export class TmuxPaneBackend implements FocusBackend<"tmux"> {
   }
 
   async release(lease: TmuxPaneLease, signal: AbortSignal): Promise<void> {
-    await this.surfaceController.validate(lease.surface, signal);
-    await this.assertLease(lease, signal);
     await this.restoreIfOwned(lease, lease.surface.markerTitle, signal);
   }
 

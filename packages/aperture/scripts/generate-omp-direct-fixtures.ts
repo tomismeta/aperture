@@ -128,7 +128,7 @@ const focusResult = {
 
 const stateRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-fixtures-"));
 try {
-  const restored = await NotificationWorkerEngine.restore({
+  const restored = await NotificationWorkerEngine.restoreOmpOnly({
     identities: [identity],
     stateDir: path.join(stateRoot, "direct"),
     now: () => Date.parse(input.occurredAt),
@@ -145,13 +145,8 @@ try {
   await restored.engine.handleOmpAttention(approvalResolved);
   const resolved = restored.engine.snapshot();
 
-  const fallback = await NotificationWorkerEngine.restore({
-    identities: [identity],
-    stateDir: path.join(stateRoot, "notification"),
-    now: () => Date.parse(occurredAt),
-  });
   const snapshotFor = async (name: string, directEvent: OmpAttentionEvent) => {
-    const instance = await NotificationWorkerEngine.restore({
+    const instance = await NotificationWorkerEngine.restoreOmpOnly({
       identities: [identity],
       stateDir: path.join(stateRoot, name),
       now: () => Date.parse(directEvent.occurredAt),
@@ -172,19 +167,6 @@ try {
   assert.deepEqual(completionSnapshot.view.next, []);
   assert.deepEqual(completionSnapshot.view.ambient, []);
   assert.equal(statusSnapshot.view.ambient[0]?.title, status.title);
-  await fallback.engine.handle({
-    type: "notification.observed",
-    key: "fixture-native-fallback",
-    occurredAt,
-    application: { name: "aperture-omp" },
-    summary: `Open OMP session ${sessionId}`,
-    urgency: "critical",
-  });
-  const fallbackSnapshot = fallback.engine.snapshot();
-  assert.equal(fallbackSnapshot.view.now, null);
-  assert.deepEqual(fallbackSnapshot.view.next, []);
-  assert.equal(fallbackSnapshot.view.ambient.length, 1);
-  assert.equal(fallbackSnapshot.view.ambient[0]?.navigation, undefined);
 
   const fixtures = new Map<string, unknown>([
     ["approval-request.json", approval],
@@ -202,7 +184,6 @@ try {
     ["focus-activation.json", focusActivation],
     ["focus-result.json", focusResult],
     ["snapshot-status.json", statusSnapshot],
-    ["notification-fallback-ambient.json", fallbackSnapshot],
   ]);
   await mkdir(fixtureRoot, { recursive: true });
   for (const [name, value] of fixtures) {

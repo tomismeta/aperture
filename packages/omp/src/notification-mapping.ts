@@ -40,17 +40,15 @@ export function mapOmpNotificationTransitions(
       return [{ kind: "close", key: key("approval", event.toolCallId) }];
     case "tool_call":
       return event.toolName === "ask" ? [needsInputTransition(key("input", event.toolCallId))] : [];
-    case "tool_execution_start":
-      return event.toolName === "ask" ? [needsInputTransition(key("input", event.toolCallId))] : [];
-    case "tool_execution_end":
-      if (event.toolName === "ask") return [{ kind: "close", key: key("input", event.toolCallId) }];
-      return event.isError
-        ? [failureTransition(key("failure", event.toolCallId), event.toolName)]
-        : [];
     case "tool_result":
-      return event.isError
-        ? [failureTransition(key("failure", event.toolCallId), event.toolName)]
-        : [];
+      return [
+        ...(event.toolName === "ask"
+          ? [{ kind: "close" as const, key: key("input", event.toolCallId) }]
+          : []),
+        ...(event.isError
+          ? [failureTransition(key("failure", event.toolCallId), event.toolName)]
+          : []),
+      ];
     case "input":
       return [{ kind: "close-class", notificationClass: "input" }];
     case "credential_disabled":
@@ -91,6 +89,8 @@ export function mapOmpNotificationTransitions(
     case "agent_start":
     case "turn_start":
     case "turn_end":
+    case "tool_execution_start":
+    case "tool_execution_end":
     case "tool_execution_update":
       return [];
   }

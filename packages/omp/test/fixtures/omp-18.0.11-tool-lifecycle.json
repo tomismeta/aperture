@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "package": "@oh-my-pi/pi-coding-agent",
+    "version": "18.0.11",
+    "tag": "v18.0.11",
+    "commit": "b8ce33a58911c26bed1d84f0db9a5e2e727c49a2",
+    "eventTypesPath": "packages/coding-agent/src/extensibility/extensions/types.ts",
+    "semanticEmissionPath": "packages/coding-agent/src/session/agent-session.ts",
+    "executionEmissionPath": "packages/agent/src/agent-loop.ts"
+  },
+  "contract": {
+    "order": [
+      "tool_call",
+      "tool_execution_start",
+      "tool_result",
+      "tool_execution_end"
+    ],
+    "attentionHooks": [
+      "tool_call",
+      "tool_result"
+    ],
+    "telemetryHooks": [
+      "tool_execution_start",
+      "tool_execution_update",
+      "tool_execution_end"
+    ]
+  },
+  "events": [
+    {
+      "type": "tool_call",
+      "toolCallId": "ask-fixture-1",
+      "toolName": "ask",
+      "input": {}
+    },
+    {
+      "type": "tool_execution_start",
+      "toolCallId": "ask-fixture-1",
+      "toolName": "ask",
+      "args": {}
+    },
+    {
+      "type": "tool_result",
+      "toolCallId": "ask-fixture-1",
+      "toolName": "ask",
+      "input": {},
+      "content": [],
+      "details": null,
+      "isError": false
+    },
+    {
+      "type": "tool_execution_end",
+      "toolCallId": "ask-fixture-1",
+      "toolName": "ask",
+      "result": null,
+      "isError": false
+    }
+  ]
+}

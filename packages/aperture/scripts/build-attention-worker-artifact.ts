@@ -51,7 +51,6 @@ const ompFixtureNames = [
   "snapshot-status.json",
   "snapshot-now-next.json",
   "snapshot-resolved.json",
-  "notification-fallback-ambient.json",
 ] as const;
 const identityConfig = {
   schemaVersion: 1,
@@ -261,6 +260,7 @@ const buildInfo = {
   schemaVersion: 1,
   artifactType: "node-commonjs-bundle",
   worker: "aperture-attention-engine",
+  artifactMode: "omp-only",
   minimumNodeVersion,
   minimumNodeMajor: 22,
   apertureCommit: commit,
@@ -280,6 +280,7 @@ const buildInfo = {
     nodeVersion: process.versions.node,
   },
   workerContract: {
+    notificationInput: false,
     notificationInputSchemaVersion: 2,
     notificationOutputSchemaVersion: 4,
     surfaceProtocolVersion: 4,
@@ -311,6 +312,7 @@ const buildInfo = {
       navigationAfterMigration: "absent-until-live-registration",
       causalTombstones: ["interaction-resolution", "session-shutdown"],
     },
+    legacyNotificationState: "removed-without-restore",
   },
   focusCoordinator: {
     registrationTtlMs: 15_000,
@@ -318,7 +320,7 @@ const buildInfo = {
     retryInitialMs: 250,
     retryMaximumMs: 5_000,
     attentionAcknowledgementTimeoutMs: 1_000,
-    focusAcknowledgementTimeoutMs: 2_000,
+    focusAcknowledgementTimeoutMs: 2_750,
     focusServerProcessingTimeoutMs: 2_250,
     activeWindowConfirmationIntervalMs: 25,
     activeWindowConfirmationTimeoutMs: 1_000,
@@ -327,6 +329,10 @@ const buildInfo = {
     maximumDirectReceipts: 1_024,
     maximumAmbiguousDeliveryAttempts: 3,
     nativeFallbackPolicy: "definite-pre-write-only",
+    sessionHeartbeatIntervalMs: 5_000,
+    sessionLeaseMs: 20_000,
+    sessionReconnectGraceMs: 10_000,
+    maximumSessionLeaseRecords: 128,
     maximumQueuedFocusOperations: 64,
     maximumActiveRegistrations: 128,
     maximumLeaseMembers: 32,
@@ -342,6 +348,7 @@ const buildInfo = {
     herdrTitleRelease: "retained-no-conditional-clear",
     workerGeneration: "volatile-per-worker",
     clientPolicy: "backend-scoped-single-client-admission",
+    markerAdmission: "exact-marker-and-live-address-only",
     persistence: "volatile-only",
   },
   directSocketLifecycle: {
@@ -430,8 +437,7 @@ const buildInfo = {
   },
   validation: {
     status: "pending",
-    conformanceProofId: "aperture-attention-worker-conformance-v1",
-    ambientCeilingProofId: "notification-worker-ambient-ceiling-v1",
+    conformanceProofId: "aperture-omp-only-worker-conformance-v1",
     directTransportProofId: "aperture-omp-direct-transport-conformance-v1",
     directPrivacyProofId: "aperture-omp-direct-privacy-v1",
     navigationProofId: "aperture-opaque-focus-navigation-v4",

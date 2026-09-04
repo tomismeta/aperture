@@ -10,6 +10,10 @@ permissions:
   id-token: write
   attestations: write
 
+concurrency:
+  group: aperture-worker-artifact-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,20 +26,33 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify annotated tag signature
+      - name: Verify protected-main source and authorized signed tag
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           [[ "$GITHUB_REF_NAME" =~ ^aperture-worker-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           test "$GITHUB_REF" = "refs/tags/$GITHUB_REF_NAME"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain)"
+
+          protected_main=$(gh api "repos/$GITHUB_REPOSITORY/branches/main")
+          test "$(jq -r '.protected' <<<"$protected_main")" = "true"
+          jq -e '.protection.required_status_checks.contexts | index("release-check") != null' \
+            <<<"$protected_main"
+          main_ref="refs/remotes/origin/release-main"
+          git fetch --no-tags --force origin "refs/heads/main:$main_ref"
+          git merge-base --is-ancestor "$GITHUB_SHA" "$main_ref"
+          git show "$main_ref:.github/release-signers" > "$RUNNER_TEMP/release-signers"
+          test -s "$RUNNER_TEMP/release-signers"
+
           tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.sha')
           tag_type=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq '.object.type')
           tag_commit=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '.object.sha')
           tag_verified=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '.verification.verified')
           test "$tag_type" = "tag"
           test "$tag_commit" = "$GITHUB_SHA"
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test -z "$(git status --porcelain)"
           verification_ref="refs/tags/release-verification/$GITHUB_REF_NAME"
           git fetch --no-tags --force origin \
             "refs/tags/$GITHUB_REF_NAME:$verification_ref"
@@ -43,7 +60,7 @@ jobs:
           test "$(git cat-file -t "$verification_ref")" = "tag"
           test "$(git rev-parse "$verification_ref^{}")" = "$GITHUB_SHA"
           git -c gpg.format=ssh \
-            -c gpg.ssh.allowedSignersFile="$GITHUB_WORKSPACE/.github/release-signers" \
+            -c gpg.ssh.allowedSignersFile="$RUNNER_TEMP/release-signers" \
             verify-tag "$verification_ref"
           test "$tag_verified" = "true"
 
@@ -167,8 +184,14 @@ jobs:
 
       - name: Verify trusted BUILDINFO
         run: |
-          jq -e --arg commit "$GITHUB_SHA" --arg tag "$GITHUB_REF_NAME" '
+          jq -e \
+            --arg commit "$GITHUB_SHA" \
+            --arg tag "$GITHUB_REF_NAME" \
+            --arg runId "$GITHUB_RUN_ID" \
+            --arg runAttempt "$GITHUB_RUN_ATTEMPT" \
+            --arg workflowRef "$GITHUB_WORKFLOW_REF" '
             .artifactType == "node-commonjs-bundle" and
+            .artifactMode == "omp-only" and
             .minimumNodeMajor == 22 and
             .apertureCommit == $commit and
             .apertureSourceTag == $tag and
@@ -176,12 +199,17 @@ jobs:
             .aperturePackageVersion == "0.10.0" and
             .apertureCoreVersion == "0.9.0" and
             .sourceDirty == false and
+            .ci.runId == $runId and
+            .ci.runAttempt == $runAttempt and
+            .ci.workflowRef == $workflowRef and
             .workerBundle.bytes <= 524288 and
             .validation.status == "passed" and
             .runtimeDependencies.status == "passed" and
             (.runtimeDependencies.imports | all(startswith("node:"))) and
             (.validation.nodeCompatibility | length) == 3 and
             (.validation.directNodeCompatibility | length) == 3 and
+            .validation.conformanceProofId == "aperture-omp-only-worker-conformance-v1" and
+            .validation.ompOnlyReport == "evidence/omp-only-worker.json" and
             .validation.ompHostProofId == "aperture-omp-host-direct-compatibility-v1" and
             .integrations.omp.hostCompatibility.status == "passed" and
             .validation.directTransportProofId == "aperture-omp-direct-transport-conformance-v1" and
@@ -191,14 +219,18 @@ jobs:
             .ompPackageVersion == "0.1.0" and
             .artifactLimits.maximumTextArtifactBytes == 524288 and
             .integrations.omp.packageVersion == "0.1.0" and
+            .workerContract.notificationInput == false and
             .workerContract.notificationOutputSchemaVersion == 4 and
             .workerContract.surfaceProtocolVersion == 4 and
             .workerContract.workerDirectProtocolVersion == 4 and
             .schemas.workerDirectMessage.version == 4 and
             .schemas.output.version == 4 and
             .schemas.surface.version == 4 and
-            (.files | length) == 39 and
+            (.files | length) == 38 and
             any(.files[]; .path == "config/identities.json") and
+            any(.files[]; .path == "evidence/omp-only-worker.json") and
+            ([.files[].path] | index("evidence/ambient-ceiling.json")) == null and
+            ([.files[].path] | index("fixtures/omp-direct/notification-fallback-ambient.json")) == null and
             [.files[].path] == ([.files[].path] | sort) and
             .integrations.omp.validation.status == "passed" and
             .integrations.omp.bytes <= 524288 and

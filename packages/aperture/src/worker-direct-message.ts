@@ -3,9 +3,11 @@ import path from "node:path";
 import {
   OMP_ATTENTION_LIMITS,
   assertOmpAttentionEvent,
+  assertOmpSessionId,
   type OmpAttentionEvent,
 } from "./omp-attention-event.js";
 
+export const OMP_SESSION_HEARTBEAT_INTERVAL_MS = 5_000;
 export const WORKER_DIRECT_PROTOCOL_VERSION = 4;
 export const WORKER_DIRECT_LIMITS = {
   jsonLineBytes: OMP_ATTENTION_LIMITS.jsonLineBytes,
@@ -17,6 +19,7 @@ export const WORKER_DIRECT_LIMITS = {
   clientNameCharacters: 160,
   optionValueCharacters: 512,
   receiptRecords: 1_024,
+  sessionLeaseRecords: 128,
 } as const;
 
 export type FocusTarget =
@@ -79,7 +82,18 @@ export type FocusRevocation = {
   hostGeneration: string;
 };
 
-export type WorkerDirectMessage = OmpAttentionEvent | FocusRegistration | FocusRevocation;
+export type OmpSessionHeartbeat = {
+  schemaVersion: 4;
+  type: "omp.session-heartbeat";
+  requestId: string;
+  sessionId: string;
+};
+
+export type WorkerDirectMessage =
+  | OmpAttentionEvent
+  | OmpSessionHeartbeat
+  | FocusRegistration
+  | FocusRevocation;
 
 export type WorkerDirectRejectionCode =
   | "unsupported_terminal_owned"
@@ -157,6 +171,7 @@ export function assertWorkerDirectMessage(value: unknown): WorkerDirectMessage {
   if (record.schemaVersion !== WORKER_DIRECT_PROTOCOL_VERSION) {
     throw new WorkerDirectProtocolError("worker direct message schema version is unsupported");
   }
+  if (record.type === "omp.session-heartbeat") return assertSessionHeartbeat(record);
   if (record.type === "focus.register") return assertRegistration(record);
   if (record.type === "focus.revoke") return assertRevocation(record);
   throw new WorkerDirectProtocolError("worker direct message type is unsupported");
@@ -218,6 +233,20 @@ export function parseWorkerDirectAcknowledgement(line: string): WorkerDirectAckn
     };
   }
   throw new WorkerDirectProtocolError("worker direct acknowledgement was invalid");
+}
+
+function assertSessionHeartbeat(record: Record<string, unknown>): OmpSessionHeartbeat {
+  assertExactKeys(record, ["schemaVersion", "type", "requestId", "sessionId"]);
+  return {
+    schemaVersion: 4,
+    type: "omp.session-heartbeat",
+    requestId: boundedVisible(
+      record.requestId,
+      WORKER_DIRECT_LIMITS.requestIdCharacters,
+      "heartbeat request id",
+    ),
+    sessionId: assertOmpSessionId(record.sessionId),
+  };
 }
 
 function assertRegistration(record: Record<string, unknown>): FocusRegistration {

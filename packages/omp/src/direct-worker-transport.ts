@@ -24,7 +24,7 @@ export {
 
 const CONNECT_TIMEOUT_MS = 75;
 const RESPONSE_TIMEOUT_MS = 1_000;
-const FOCUS_REGISTRATION_RESPONSE_TIMEOUT_MS = 2_000;
+const FOCUS_REGISTRATION_RESPONSE_TIMEOUT_MS = 2_750;
 
 export type OmpDirectWorkerTransportOptions = {
   socketPath?: string;

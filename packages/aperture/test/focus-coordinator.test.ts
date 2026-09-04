@@ -269,45 +269,27 @@ for (const [first, second] of orderedPairs(["herdr", "direct-terminal", "tmux"] 
   });
 }
 
-test("known marker ownership is scoped to exact instance address and class", async () => {
-  const marker = "K".repeat(32);
-  const markerTitle = markerTitleFor(marker);
-  const ownership = [
-    {
-      backend: "herdr" as const,
-      leaseKey: "herdr\u0000socket\u0000instance-A",
-      epoch: "E".repeat(32),
-      surface: {
-        hyprlandInstance: "instance-A",
-        address: "0x101",
-        className: "foot" as const,
-        marker,
-        markerTitle,
-      },
-    },
+test("marker resolution ignores unrelated markers but rejects duplicate exact ownership", async () => {
+  const unrelatedMarker = "K".repeat(32);
+  const targetMarker = "L".repeat(32);
+  const targetTitle = markerTitleFor(targetMarker);
+  const clients: Client[] = [
+    { address: "0x101", class: "foot", title: markerTitleFor(unrelatedMarker) },
+    { address: "0x202", class: "footclient", title: targetTitle },
   ];
-  let clients: Client[] = [{ address: "0x101", class: "foot", title: markerTitle }];
   const controller = new HyprlandFootSurfaceController({
     hyprctlRequest: async () => clients.map((client) => ({ ...client })),
   });
   const signal = new AbortController().signal;
-  await controller.assertNoUnknownMarkers("instance-A", ownership, signal);
+  const resolved = await controller.resolveMarker("instance-A", targetMarker, signal, false);
+  assert.equal(resolved.address, "0x202");
+  assert.equal(resolved.className, "footclient");
+
+  clients.push({ address: "0x303", class: "foot", title: targetTitle });
   await assert.rejects(
-    () => controller.assertNoUnknownMarkers("instance-B", ownership, signal),
-    /unknown or duplicated/,
-  );
-  clients = [
-    { address: "0x101", class: "foot", title: markerTitle },
-    { address: "0x202", class: "foot", title: markerTitle },
-  ];
-  await assert.rejects(
-    () => controller.assertNoUnknownMarkers("instance-A", ownership, signal),
-    /unknown or duplicated/,
-  );
-  clients = [{ address: "0x101", class: "footclient", title: markerTitle }];
-  await assert.rejects(
-    () => controller.assertNoUnknownMarkers("instance-A", ownership, signal),
-    /unknown or duplicated/,
+    () => controller.resolveMarker("instance-A", targetMarker, signal, false),
+    (error: unknown) =>
+      error instanceof FocusRegistrationError && error.code === "marker_ambiguous",
   );
 });
 
@@ -360,6 +342,29 @@ test("revocation is fenced by handle and host generation", async () => {
   assert.ok(coordinator.navigationFor(registration.publicHandle));
   await coordinator.revoke(native.revoke(registration));
   assert.equal(coordinator.navigationFor(registration.publicHandle), undefined);
+  await coordinator.close();
+});
+
+test("natural focus expiry permits reacquisition while explicit revoke remains fenced", async () => {
+  let now = 0;
+  const native = new NativeHarness();
+  const coordinator = new FocusCoordinator({
+    ...native.options,
+    now: () => now,
+    ttlMs: 10,
+  });
+  const registration = native.registration("herdr");
+  await coordinator.register(registration);
+  now = 11;
+  assert.equal(coordinator.navigationFor(registration.publicHandle), undefined);
+  await coordinator.register({ ...registration, requestId: "register-after-expiry" });
+  assert.ok(coordinator.navigationFor(registration.publicHandle));
+
+  await coordinator.revoke(native.revoke(registration));
+  await assert.rejects(
+    () => coordinator.register({ ...registration, requestId: "register-after-revoke" }),
+    /cancelled/,
+  );
   await coordinator.close();
 });
 
@@ -538,13 +543,28 @@ test("tmux worker crash recovery restores true original options and title", asyn
   await restarted.close();
 });
 
-test("unknown orphan marker blocks fresh native acquisition but not its exact direct owner", async () => {
+test("tmux release restores owned options before fragile surface or client validation", async () => {
+  const native = new NativeHarness();
+  const registration = native.registration("tmux");
+  const coordinator = new FocusCoordinator(native.options);
+  await coordinator.register(registration);
+  native.clients[2]!.title = "compositor-no-longer-reports-marker";
+  native.tmuxClientOutput = "";
+  await coordinator.revoke(native.revoke(registration));
+  assert.equal(native.tmux.setTitles, "off");
+  assert.equal(native.tmux.titleString, "tmux-original");
+  await coordinator.close();
+});
+
+test("unrelated orphan markers do not poison exact native acquisitions", async () => {
   const native = new NativeHarness();
   native.clients[1]!.title = `Aperture Focus ${DIRECT_MARKER}`;
   const coordinator = new FocusCoordinator(native.options);
-  await assert.rejects(() => coordinator.register(native.registration("herdr")), /unknown.*marker/);
+  const herdr = native.registration("herdr");
   const direct = native.registration("direct-terminal");
+  await coordinator.register(herdr);
   await coordinator.register(direct);
+  assert.ok(coordinator.navigationFor(herdr.publicHandle));
   assert.ok(coordinator.navigationFor(direct.publicHandle));
   await coordinator.close();
 });

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { EventEmitter, once } from "node:events";
 import test from "node:test";
 
@@ -24,8 +25,11 @@ import {
   OmpDirectDeliveryError,
   OmpDirectWorkerTransport,
 } from "../src/direct-worker-transport.js";
+import { FocusReplaySender } from "../src/focus-replay-sender.js";
 import { createApertureOmarchyOmpExtension } from "../src/omarchy-extension.js";
 import { OmarchyAttentionTransport } from "../src/omarchy-attention-transport.js";
+import { SessionHeartbeatSender } from "../src/session-heartbeat-sender.js";
+import { mapOmpNotificationTransitions } from "../src/notification-mapping.js";
 import {
   OmarchyNotificationTransport,
   type OmpCommandRunner,
@@ -40,6 +44,26 @@ import type {
 const context: OmpMappingContext = {
   sessionId: "session;$(opaque)",
   now: () => "2026-09-01T16:00:00.000Z",
+};
+
+const omp18LifecycleFixture = JSON.parse(
+  readFileSync(
+    new URL("./fixtures/omp-18.0.11-tool-lifecycle.json", import.meta.url),
+    "utf8",
+  ),
+) as {
+  source: {
+    package: string;
+    version: string;
+    tag: string;
+    commit: string;
+  };
+  contract: {
+    order: string[];
+    attentionHooks: string[];
+    telemetryHooks: string[];
+  };
+  events: OmpEvent[];
 };
 
 function replayEvent(eventId: string): OmpAttentionEvent {
@@ -83,6 +107,63 @@ class FakeDirectTransport extends OmpDirectWorkerTransport {
     };
   }
 }
+
+test("session heartbeats bypass attention ordering and remain single-flight", async () => {
+  const attentionGate = deferred<WorkerDirectAcknowledgement>();
+  const firstHeartbeatGate = deferred<WorkerDirectAcknowledgement>();
+  const sent: WorkerDirectMessage[] = [];
+  let heartbeatCalls = 0;
+  const transport = {
+    async send(message: WorkerDirectMessage): Promise<WorkerDirectAcknowledgement> {
+      sent.push(message);
+      if (message.type === "omp.attention-event") return attentionGate.promise;
+      heartbeatCalls += 1;
+      if (heartbeatCalls === 1) return firstHeartbeatGate.promise;
+      return {
+        schemaVersion: 4,
+        status: "accepted",
+        requestId: directMessageRequestId(message),
+      };
+    },
+  };
+  let attentionSettled = false;
+  void transport.send(replayEvent("blocked-attention")).then(() => {
+    attentionSettled = true;
+  });
+  const heartbeat = new SessionHeartbeatSender(transport, {
+    intervalMilliseconds: 60_000,
+  });
+  heartbeat.observe("session-one");
+  heartbeat.observe("session-two");
+  await flushMicrotasks();
+  assert.equal(attentionSettled, false);
+  assert.deepEqual(
+    sent.map((message) => message.type),
+    ["omp.attention-event", "omp.session-heartbeat"],
+  );
+  assert.equal(
+    sent.find((message) => message.type === "omp.session-heartbeat")?.sessionId,
+    "session-one",
+  );
+
+  firstHeartbeatGate.resolve({
+    schemaVersion: 4,
+    status: "accepted",
+    requestId: "heartbeat-1",
+  });
+  await flushMicrotasks();
+  assert.equal(heartbeatCalls, 2);
+  assert.equal(
+    sent.filter((message) => message.type === "omp.session-heartbeat").at(-1)?.sessionId,
+    "session-two",
+  );
+  await heartbeat.close();
+  attentionGate.resolve({
+    schemaVersion: 4,
+    status: "accepted",
+    requestId: "blocked-attention",
+  });
+});
 
 test("focus target detection is closed and rejects unsupported harness modes", () => {
   const herdr = {
@@ -432,17 +513,14 @@ test("replay coalesces pending worker generations to latest wins", async () => {
     }
   }
   const direct = new ControlledReplayTransport();
-  const notification = new OmarchyNotificationTransport({
-    availabilityCheck: async () => false,
-  });
-  const transport = new OmarchyAttentionTransport({ direct, notification });
-  transport.replayFocus("1".repeat(32), [replayEvent("generation-one")]);
+  const replay = new FocusReplaySender(direct, () => undefined);
+  replay.send("1".repeat(32), [replayEvent("generation-one")]);
   await flushMicrotasks();
-  transport.replayFocus("2".repeat(32), [replayEvent("generation-two")]);
-  transport.replayFocus("3".repeat(32), [replayEvent("generation-three")]);
+  replay.send("2".repeat(32), [replayEvent("generation-two")]);
+  replay.send("3".repeat(32), [replayEvent("generation-three")]);
   firstGate.resolve(undefined);
   await latestSent.promise;
-  await transport.close();
+  await replay.close();
   assert.deepEqual(
     direct.sent.map((event) => event.eventId),
     ["generation-one", "generation-three"],
@@ -471,34 +549,27 @@ test("replay close aborts the active event and sends no later IDs", async () => 
     }
   }
   const direct = new AbortableReplayTransport();
-  const notification = new OmarchyNotificationTransport({
-    availabilityCheck: async () => false,
-  });
-  const transport = new OmarchyAttentionTransport({
-    direct,
-    notification,
-    shutdownTimeoutMs: 3_000,
-  });
-  transport.replayFocus(
+  const replay = new FocusReplaySender(direct, () => undefined);
+  replay.send(
     "0".repeat(32),
     Array.from({ length: 65 }, (_value, index) => replayEvent(`overflow-${index}`)),
   );
   await flushMicrotasks();
   assert.equal(direct.sent.length, 0);
-  transport.replayFocus(
+  replay.send(
     "1".repeat(32),
     Array.from({ length: 64 }, (_value, index) => replayEvent(`shutdown-${index}`)),
   );
   await flushMicrotasks();
   const startedAt = Date.now();
-  await transport.close();
+  await replay.close();
   assert.equal(direct.aborted, true);
   assert.deepEqual(
     direct.sent.map((event) => event.eventId),
     ["shutdown-0"],
   );
   assert(Date.now() - startedAt < 3_000);
-  transport.replayFocus("2".repeat(32), [replayEvent("after-close")]);
+  replay.send("2".repeat(32), [replayEvent("after-close")]);
   await flushMicrotasks();
   assert.equal(direct.sent.length, 1);
 });
@@ -675,6 +746,68 @@ test("stable unsupported direct ownership releases the host title claim", async 
   assert.equal(host.isActive(), false);
 });
 
+test("OMP 18 lifecycle fixture emits attention only from semantic hooks", () => {
+  assert.equal(
+    omp18LifecycleFixture.source.package,
+    "@oh-my-pi/pi-coding-agent",
+  );
+  assert.equal(omp18LifecycleFixture.source.version, "18.0.11");
+  assert.equal(omp18LifecycleFixture.source.tag, "v18.0.11");
+  assert.equal(
+    omp18LifecycleFixture.source.commit,
+    "b8ce33a58911c26bed1d84f0db9a5e2e727c49a2",
+  );
+  assert.deepEqual(
+    omp18LifecycleFixture.events.map((event) => event.type),
+    omp18LifecycleFixture.contract.order,
+  );
+  assert.deepEqual(omp18LifecycleFixture.contract.attentionHooks, [
+    "tool_call",
+    "tool_result",
+  ]);
+
+  const directEvents = omp18LifecycleFixture.events.flatMap((event) =>
+    mapOmpDirectAttentionEvents(event, {
+      ...context,
+      sessionId: "session-fixture",
+    }),
+  );
+  assert.deepEqual(
+    directEvents.map((event) => event.classification),
+    ["input_requested", "input_resolved"],
+  );
+  assert.equal(
+    new Set(directEvents.map((event) => event.eventId)).size,
+    directEvents.length,
+  );
+
+  const nativeTransitions = omp18LifecycleFixture.events.flatMap((event) =>
+    mapOmpNotificationTransitions(event, {
+      ...context,
+      sessionId: "session-fixture",
+    }),
+  );
+  assert.deepEqual(
+    nativeTransitions.map((transition) => transition.kind),
+    ["upsert", "close"],
+  );
+
+  for (const event of omp18LifecycleFixture.events.filter((candidate) =>
+    omp18LifecycleFixture.contract.telemetryHooks.includes(candidate.type),
+  )) {
+    assert.deepEqual(
+      mapOmpDirectAttentionEvents(event, context),
+      [],
+      `${event.type} produced a direct attention event`,
+    );
+    assert.deepEqual(
+      mapOmpNotificationTransitions(event, context),
+      [],
+      `${event.type} produced a native attention transition`,
+    );
+  }
+});
+
 test("direct mapping emits bounded typed facts without private OMP payloads", () => {
   const approval = mapOmpDirectAttentionEvents(
     {
@@ -806,6 +939,103 @@ test("direct failure falls back to exact aperture-omp native notification", asyn
   assert.ok(sender);
   assert.deepEqual(sender.args.slice(0, 2), ["--app-name", "aperture-omp"]);
   assert(sender.args.includes("OMP needs approval for bash"));
+});
+
+test("native-routed requests never enter focus replay after direct recovery", async () => {
+  const direct = new FakeDirectTransport();
+  direct.failure = new Error("offline");
+  const firstNativeDelivery = deferred<void>();
+  let nativeDeliveries = 0;
+  const notification = new OmarchyNotificationTransport({
+    availabilityCheck: async () => true,
+    commandRunner: async (command) => {
+      if (command === "omarchy-notification-send") {
+        nativeDeliveries += 1;
+        firstNativeDelivery.resolve(undefined);
+        return { stdout: "44\n", stderr: "" };
+      }
+      return { stdout: "", stderr: "" };
+    },
+  });
+  const transport = new OmarchyAttentionTransport({ direct, notification });
+  const request: OmpEvent = {
+    type: "tool_approval_requested",
+    sessionId: "session-native",
+    toolCallId: "tool-native",
+    toolName: "bash",
+    approvalMode: "write",
+  };
+  const mappingContext = { ...context, sessionId: "session-native" };
+  await transport.handle(request, mappingContext);
+  await firstNativeDelivery.promise;
+  direct.failure = null;
+  await transport.handle(request, mappingContext);
+  await flushMicrotasks();
+  transport.replayFocus("G".repeat(32), "H".repeat(32));
+  await flushMicrotasks();
+  assert.equal(direct.sent.length, 1);
+  assert.equal(nativeDeliveries, 2);
+  await transport.close();
+});
+
+test("focus replay survives failed resolution and ends only after durable acceptance", async () => {
+  const direct = new FakeDirectTransport();
+  const notification = new OmarchyNotificationTransport({
+    availabilityCheck: async () => true,
+    commandRunner: async () => ({ stdout: "", stderr: "" }),
+  });
+  const transport = new OmarchyAttentionTransport({ direct, notification });
+  const mappingContext = { ...context, sessionId: "session-resolution" };
+  const request: OmpEvent = {
+    type: "tool_approval_requested",
+    sessionId: "session-resolution",
+    toolCallId: "tool-resolution",
+    toolName: "bash",
+    approvalMode: "write",
+  };
+  const resolution: OmpEvent = {
+    type: "tool_approval_resolved",
+    sessionId: "session-resolution",
+    toolCallId: "tool-resolution",
+    toolName: "bash",
+    approved: true,
+  };
+  await transport.handle(request, mappingContext);
+  await flushMicrotasks();
+  direct.failure = new Error("offline");
+  await transport.handle(resolution, mappingContext);
+  await flushMicrotasks();
+
+  direct.failure = null;
+  transport.replayFocus("J".repeat(32), "K".repeat(32));
+  await flushMicrotasks();
+  assert.equal(direct.sent.at(-1)?.classification, "approval_requested");
+  assert.equal(direct.sent.at(-1)?.focus?.handle, "K".repeat(32));
+
+  await transport.handle(resolution, mappingContext);
+  await flushMicrotasks();
+  const acceptedCount = direct.sent.length;
+  transport.replayFocus("L".repeat(32), "K".repeat(32));
+  await flushMicrotasks();
+  assert.equal(direct.sent.length, acceptedCount);
+  await transport.close();
+});
+
+test("close drains an enqueued session shutdown before transport teardown", async () => {
+  const direct = new FakeDirectTransport();
+  const notification = new OmarchyNotificationTransport({
+    availabilityCheck: async () => false,
+  });
+  const transport = new OmarchyAttentionTransport({ direct, notification });
+  await transport.handle(
+    { type: "session_shutdown" },
+    { ...context, sessionId: "session-shutdown" },
+  );
+  await transport.close();
+  assert.deepEqual(
+    direct.sent.map((event) => event.classification),
+    ["session_shutdown"],
+  );
 });
 
 test("ambiguous post-write delivery retries without native fallback", async () => {

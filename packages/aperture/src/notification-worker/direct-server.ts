@@ -4,25 +4,23 @@ import type { Writable } from "node:stream";
 
 import {
   WORKER_DIRECT_LIMITS,
-  directMessageRequestId,
   parseWorkerDirectMessage,
   type FocusRecovery,
   type FocusRegistration,
   type FocusRevocation,
+  type OmpSessionHeartbeat,
   type WorkerDirectMessage,
-  type WorkerDirectAcknowledgement,
 } from "../worker-direct-message.js";
 import type { OmpAttentionEvent } from "../omp-attention-event.js";
 import { DirectReceiptLedger } from "./direct-receipt-ledger.js";
-import { FOCUS_LIMITS, FocusRegistrationError } from "./focus/types.js";
+import { executeDirectMessage } from "./direct-message-execution.js";
+import { FOCUS_LIMITS } from "./focus/types.js";
 import {
   closeOwnedSocketServer,
   currentUid,
   listenOnOwnedSocket,
 } from "./direct-socket-lifecycle.js";
 
-const ATTENTION_PROCESSING_TIMEOUT_MS = 500;
-const FOCUS_PROCESSING_TIMEOUT_MS = 2_250;
 const CONNECTION_TIMEOUT_MS = 500;
 
 export type OmpAttentionSocketServerOptions = {
@@ -33,6 +31,7 @@ export type OmpAttentionSocketServerOptions = {
     signal: AbortSignal,
   ) => Promise<FocusRecovery | undefined>;
   revokeFocus: (revocation: FocusRevocation, signal: AbortSignal) => Promise<void> | void;
+  heartbeatSession?: (heartbeat: OmpSessionHeartbeat, signal: AbortSignal) => Promise<void> | void;
   diagnostic?: Writable;
   uid?: number;
   probe?: (socketPath: string) => Promise<boolean>;
@@ -115,7 +114,7 @@ async function handleConnection(
   socket: Socket,
   options: Pick<
     OmpAttentionSocketServerOptions,
-    "handleAttention" | "registerFocus" | "revokeFocus"
+    "handleAttention" | "registerFocus" | "revokeFocus" | "heartbeatSession"
   >,
   diagnostic: Writable,
   activeOperations: Set<AbortController>,
@@ -189,7 +188,8 @@ async function handleConnection(
       return;
     }
 
-    const execute = () => executeMessage(message, options, activeOperations, workerGeneration);
+    const execute = () =>
+      executeDirectMessage(message, options, activeOperations, workerGeneration);
     const acknowledgement =
       message.type === "omp.attention-event"
         ? await attentionReceipts.execute(message, execute)
@@ -198,84 +198,4 @@ async function handleConnection(
   };
 
   await new Promise<void>((resolve) => socket.once("close", () => resolve()));
-}
-
-async function withDeadline<T>(
-  operation: (signal: AbortSignal) => Promise<T>,
-  timeoutMs: number,
-  activeOperations: Set<AbortController>,
-): Promise<T> {
-  const controller = new AbortController();
-  activeOperations.add(controller);
-  let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, timeoutMs);
-  timer.unref?.();
-  try {
-    return await operation(controller.signal);
-  } catch (error) {
-    if (timedOut) throw new Error("Aperture direct message processing timed out");
-    throw error;
-  } finally {
-    activeOperations.delete(controller);
-    clearTimeout(timer);
-  }
-}
-
-async function executeMessage(
-  message: WorkerDirectMessage,
-  options: Pick<
-    OmpAttentionSocketServerOptions,
-    "handleAttention" | "registerFocus" | "revokeFocus"
-  >,
-  activeOperations: Set<AbortController>,
-  workerGeneration: string,
-): Promise<WorkerDirectAcknowledgement> {
-  try {
-    const recovery = await withDeadline(
-      async (signal) =>
-        message.type === "omp.attention-event"
-          ? options.handleAttention(message, signal).then(() => undefined)
-          : message.type === "focus.register"
-            ? options.registerFocus(message, signal)
-            : Promise.resolve(options.revokeFocus(message, signal)).then(() => undefined),
-      message.type === "omp.attention-event"
-        ? ATTENTION_PROCESSING_TIMEOUT_MS
-        : FOCUS_PROCESSING_TIMEOUT_MS,
-      activeOperations,
-    );
-    return {
-      schemaVersion: 4,
-      status: "accepted",
-      requestId: directMessageRequestId(message),
-      ...(message.type === "focus.register" && recovery ? { recovery } : {}),
-      ...(message.type === "focus.register" ? { workerGeneration } : {}),
-    };
-  } catch (error) {
-    if (message.type === "focus.register" && error instanceof FocusRegistrationError) {
-      return {
-        schemaVersion: 4,
-        status: "rejected",
-        requestId: message.requestId,
-        code: error.code,
-      };
-    }
-    const code =
-      error instanceof Error && error.message === "Aperture attention engine failed"
-        ? "attention_engine_failed"
-        : error instanceof Error && error.message === "Aperture attention snapshot failed"
-          ? "attention_snapshot_failed"
-          : error instanceof Error &&
-              error.message === "Aperture direct message processing timed out"
-            ? "processing_timeout"
-            : "processing_failed";
-    return {
-      schemaVersion: 4,
-      status: "rejected",
-      requestId: directMessageRequestId(message),
-      code,
-    };
-  }
 }

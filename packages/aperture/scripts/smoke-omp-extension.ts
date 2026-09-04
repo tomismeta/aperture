@@ -149,7 +149,13 @@ try {
       { type: "session_shutdown" },
       { sessionManager: { sessionId: "session-smoke" } },
     );
-    assert.equal(directEvents.length, 2);
+    assert.deepEqual(
+      directEvents.map((event) => {
+        assert.ok(event && typeof event === "object" && "type" in event);
+        return event.type;
+      }),
+      ["omp.session-heartbeat", "omp.attention-event", "omp.attention-event"],
+    );
     assert.equal(directCommands.includes("omarchy-notification-send"), false);
     assert.equal(process.env.PI_NOTIFICATIONS, "on");
   } finally {

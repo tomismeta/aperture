@@ -216,6 +216,7 @@ jobs:
         run: |
           jq -e '
             .artifactType == "node-commonjs-bundle" and
+            .artifactMode == "omp-only" and
             .minimumNodeMajor == 22 and
             .trustedCi == false and
             .aperturePackageVersion == "0.10.0" and
@@ -224,6 +225,8 @@ jobs:
             .validation.status == "passed" and
             (.validation.nodeCompatibility | length) == 3 and
             (.validation.directNodeCompatibility | length) == 3 and
+            .validation.conformanceProofId == "aperture-omp-only-worker-conformance-v1" and
+            .validation.ompOnlyReport == "evidence/omp-only-worker.json" and
             .validation.ompHostProofId == "aperture-omp-host-direct-compatibility-v1" and
             .integrations.omp.hostCompatibility.status == "passed" and
             .validation.directTransportProofId == "aperture-omp-direct-transport-conformance-v1" and
@@ -232,14 +235,18 @@ jobs:
             .ompPackageVersion == "0.1.0" and
             .artifactLimits.maximumTextArtifactBytes == 524288 and
             .integrations.omp.packageVersion == "0.1.0" and
+            .workerContract.notificationInput == false and
             .workerContract.notificationOutputSchemaVersion == 4 and
             .workerContract.surfaceProtocolVersion == 4 and
             .workerContract.workerDirectProtocolVersion == 4 and
             .schemas.workerDirectMessage.version == 4 and
             .schemas.output.version == 4 and
             .schemas.surface.version == 4 and
-            (.files | length) == 39 and
+            (.files | length) == 38 and
             any(.files[]; .path == "config/identities.json") and
+            any(.files[]; .path == "evidence/omp-only-worker.json") and
+            ([.files[].path] | index("evidence/ambient-ceiling.json")) == null and
+            ([.files[].path] | index("fixtures/omp-direct/notification-fallback-ambient.json")) == null and
             [.files[].path] == ([.files[].path] | sort) and
             .integrations.omp.validation.status == "passed" and
             .integrations.omp.bytes <= 524288 and

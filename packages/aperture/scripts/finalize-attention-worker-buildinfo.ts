@@ -11,6 +11,7 @@ type ArtifactFile = {
 
 type BuildInfoShape = {
   artifactType?: unknown;
+  artifactMode?: unknown;
   aperturePackageVersion?: unknown;
   apertureCoreVersion?: unknown;
   ompPackageVersion?: unknown;
@@ -38,12 +39,11 @@ type BuildInfoShape = {
 type CompatibilityReport = {
   schemaVersion?: unknown;
   proofId?: unknown;
-  ambientCeilingProofId?: unknown;
   passed?: unknown;
   nodeVersion?: unknown;
   bundle?: { sha256?: unknown; bytes?: unknown };
   cleanDirectoryWithoutNodeModules?: unknown;
-  ambientCases?: unknown;
+  artifactMode?: unknown;
   checks?: unknown;
 };
 
@@ -138,6 +138,7 @@ const buildInfoPath = path.join(artifactRoot, "BUILDINFO.json");
 const buildInfo = JSON.parse(await readFile(buildInfoPath, "utf8")) as BuildInfoShape;
 const workerBundle = buildInfo.workerBundle;
 const ompIntegration = buildInfo.integrations?.omp;
+const workerContract = optionalRecord(buildInfo.workerContract);
 if (
   workerBundle &&
   typeof workerBundle.bytes === "number" &&
@@ -158,15 +159,15 @@ if (
 }
 if (
   buildInfo.artifactType !== "node-commonjs-bundle" ||
+  buildInfo.artifactMode !== "omp-only" ||
   buildInfo.minimumNodeMajor !== 22 ||
   buildInfo.aperturePackageVersion !== "0.10.0" ||
   buildInfo.apertureCoreVersion !== "0.9.0" ||
   buildInfo.ompPackageVersion !== "0.1.0" ||
   !workerBundle ||
   buildInfo.artifactLimits?.maximumTextArtifactBytes !== maximumMarketplaceArtifactBytes ||
-  JSON.stringify(
-    (buildInfo.workerContract as { jsonlHandshakes?: unknown } | undefined)?.jsonlHandshakes,
-  ) !== JSON.stringify(expectedJsonlHandshakes) ||
+  workerContract?.notificationInput !== false ||
+  JSON.stringify(workerContract?.jsonlHandshakes) !== JSON.stringify(expectedJsonlHandshakes) ||
   JSON.stringify(buildInfo.directSocketLifecycle) !==
     JSON.stringify(expectedDirectSocketLifecycle) ||
   typeof workerBundle.sha256 !== "string" ||
@@ -226,18 +227,19 @@ const reports = await Promise.all(
     const report = JSON.parse(content.toString("utf8")) as CompatibilityReport;
     if (
       report.schemaVersion !== 1 ||
-      report.proofId !== "aperture-attention-worker-conformance-v1" ||
-      report.ambientCeilingProofId !== "notification-worker-ambient-ceiling-v1" ||
+      report.proofId !== "aperture-omp-only-worker-conformance-v1" ||
       report.passed !== true ||
       typeof report.nodeVersion !== "string" ||
       !report.bundle ||
       report.bundle.sha256 !== workerBundle.sha256 ||
       report.bundle.bytes !== workerBundle.bytes ||
       report.cleanDirectoryWithoutNodeModules !== true ||
-      !Array.isArray(report.ambientCases) ||
+      report.artifactMode !== "omp-only" ||
       !Array.isArray(report.checks) ||
       !report.checks.includes("cleanup-mode-no-config-or-engine") ||
-      !report.checks.includes("canonical-handshake") ||
+      !report.checks.includes("omp-only-handshake") ||
+      !report.checks.includes("generic-notification-input-disabled") ||
+      !report.checks.includes("legacy-notification-state-removed") ||
       !report.checks.includes("bounded-ascii-output")
     ) {
       throw new Error(`invalid attention worker compatibility report: ${absolutePath}`);
@@ -274,7 +276,7 @@ const directReports = await Promise.all(
       report.socket.socketMode !== "0600" ||
       report.socket.removedOnShutdown !== true ||
       !Array.isArray(report.checks) ||
-      !report.checks.includes("private-output-v4-handshake")
+      !report.checks.includes("private-output-v4-omp-only-handshake")
     ) {
       throw new Error(`invalid direct OMP compatibility report: ${absolutePath}`);
     }
@@ -447,30 +449,25 @@ const privacyEvidence = {
 };
 const privacyEvidencePath = path.join(evidenceRoot, "direct-privacy.json");
 await writeFile(privacyEvidencePath, `${JSON.stringify(privacyEvidence, null, 2)}\n`, "utf8");
-const ambientCases = reports[0]!.report.ambientCases as unknown[];
+const ompOnlyChecks = reports[0]!.report.checks as unknown[];
 for (const { report } of reports) {
-  if (JSON.stringify(report.ambientCases) !== JSON.stringify(ambientCases)) {
-    throw new Error("attention worker compatibility reports used different Ambient cases");
+  if (JSON.stringify(report.checks) !== JSON.stringify(ompOnlyChecks)) {
+    throw new Error("OMP-only worker compatibility reports used different checks");
   }
 }
-const ambientEvidence = {
+const ompOnlyEvidence = {
   schemaVersion: 1,
-  proofId: "notification-worker-ambient-ceiling-v1",
+  proofId: "aperture-omp-only-worker-conformance-v1",
   status: "passed",
-  expected: {
-    now: null,
-    next: [],
-    lane: "ambient",
-    tone: "ambient",
-    consequence: "low",
-    provenance: "omitted",
-  },
-  cases: ambientCases,
-  sourceTest: "packages/aperture/test/notification-worker.test.ts",
+  artifactMode: "omp-only",
+  notificationInput: false,
+  legacyNotificationState: "removed-without-restore",
+  checks: ompOnlyChecks,
+  sourceTest: "packages/aperture/scripts/smoke-attention-worker.ts",
   compatibilityReports: compatibility.map((entry) => entry.reportPath),
 };
-const ambientEvidencePath = path.join(evidenceRoot, "ambient-ceiling.json");
-await writeFile(ambientEvidencePath, `${JSON.stringify(ambientEvidence, null, 2)}\n`, "utf8");
+const ompOnlyEvidencePath = path.join(evidenceRoot, "omp-only-worker.json");
+await writeFile(ompOnlyEvidencePath, `${JSON.stringify(ompOnlyEvidence, null, 2)}\n`, "utf8");
 const stagedOmpReportPath = path.join(evidenceRoot, "omp-adapter.json");
 await writeFile(stagedOmpReportPath, ompReportContent);
 const stagedOmpHostReportPath = path.join(evidenceRoot, "omp-host-matrix.json");
@@ -481,7 +478,7 @@ const existingFiles = Array.isArray(buildInfo.files)
   ? buildInfo.files.filter(
       (entry) =>
         typeof entry.path === "string" &&
-        !/^evidence\/(?:node-|direct-node-|ambient-ceiling\.json$|direct-transport\.json$|direct-privacy\.json$|omp-adapter\.json$|omp-host-matrix\.json$|focus-backends\.json$)/.test(
+        !/^evidence\/(?:node-|direct-node-|omp-only-worker\.json$|direct-transport\.json$|direct-privacy\.json$|omp-adapter\.json$|omp-host-matrix\.json$|focus-backends\.json$)/.test(
           entry.path,
         ),
     )
@@ -493,7 +490,7 @@ const evidenceFiles = await Promise.all([
   ...directCompatibility.map((entry) =>
     artifactFile(artifactRoot, path.join(artifactRoot, entry.reportPath)),
   ),
-  artifactFile(artifactRoot, ambientEvidencePath),
+  artifactFile(artifactRoot, ompOnlyEvidencePath),
   artifactFile(artifactRoot, directEvidencePath),
   artifactFile(artifactRoot, privacyEvidencePath),
   artifactFile(artifactRoot, stagedOmpReportPath),
@@ -505,9 +502,8 @@ buildInfo.files = [...existingFiles, ...evidenceFiles].sort((left, right) =>
 );
 buildInfo.validation = {
   status: "passed",
-  conformanceProofId: "aperture-attention-worker-conformance-v1",
-  ambientCeilingProofId: "notification-worker-ambient-ceiling-v1",
-  ambientCeilingReport: "evidence/ambient-ceiling.json",
+  conformanceProofId: "aperture-omp-only-worker-conformance-v1",
+  ompOnlyReport: "evidence/omp-only-worker.json",
   nodeCompatibility: compatibility,
   ompAdapterProofId: "aperture-omp-adapter-conformance-v1",
   directTransportProofId: "aperture-omp-direct-transport-conformance-v1",
@@ -609,4 +605,10 @@ async function artifactFile(root: string, filePath: string): Promise<ArtifactFil
     bytes: (await stat(filePath)).size,
     mode: "0644",
   };
+}
+
+function optionalRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
 }

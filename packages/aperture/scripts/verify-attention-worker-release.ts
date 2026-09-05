@@ -165,6 +165,9 @@ async function validateMetadata(
           unsafe: 74,
           transient: 75,
         },
+        startupErrorCode: "direct_transport_unavailable",
+        startupExitCodes: { unsafe: 74, transient: 75 },
+        startupFailureReadiness: "no-ready-or-snapshot",
       }),
     "invalid direct socket lifecycle contract",
   );
@@ -417,6 +420,11 @@ async function validateMetadata(
     "bounded-ascii-output",
     "no-generic-state-access",
     "generic-notification-modules-absent",
+    "live-socket-overlap-exit75-open-stdin-no-ready-or-snapshot",
+    "live-socket-identity-and-responsiveness-preserved",
+    "fresh-process-retry-private-owned-socket-accepted-v4-heartbeat",
+    "unsafe-startup-exit74-open-stdin-no-ready-or-snapshot-no-deletion",
+    "lifecycle-lock-contention-exit75-and-unsafe-lock-exit74",
   ]) {
     assert(ompOnlyChecks.includes(requiredCheck), `missing OMP-only check: ${requiredCheck}`);
   }

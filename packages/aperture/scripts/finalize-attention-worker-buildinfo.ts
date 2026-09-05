@@ -111,6 +111,9 @@ const expectedDirectSocketLifecycle = {
     unsafe: 74,
     transient: 75,
   },
+  startupErrorCode: "direct_transport_unavailable",
+  startupExitCodes: { unsafe: 74, transient: 75 },
+  startupFailureReadiness: "no-ready-or-snapshot",
 };
 const options = parseOptions(process.argv.slice(2));
 const artifactRoot = path.resolve(options.artifactDir);
@@ -215,6 +218,13 @@ const reports = await Promise.all(
       !report.checks.includes("omp-control-input-only") ||
       !report.checks.includes("no-generic-state-access") ||
       !report.checks.includes("generic-notification-modules-absent") ||
+      !report.checks.includes("live-socket-overlap-exit75-open-stdin-no-ready-or-snapshot") ||
+      !report.checks.includes("live-socket-identity-and-responsiveness-preserved") ||
+      !report.checks.includes("fresh-process-retry-private-owned-socket-accepted-v4-heartbeat") ||
+      !report.checks.includes(
+        "unsafe-startup-exit74-open-stdin-no-ready-or-snapshot-no-deletion",
+      ) ||
+      !report.checks.includes("lifecycle-lock-contention-exit75-and-unsafe-lock-exit74") ||
       !report.checks.includes("bounded-ascii-output")
     ) {
       throw new Error(`invalid attention worker compatibility report: ${absolutePath}`);

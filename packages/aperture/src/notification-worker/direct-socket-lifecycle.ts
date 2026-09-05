@@ -43,43 +43,82 @@ export class OwnedSocketCleanupError extends Error {
   }
 }
 
+export class DirectSocketStartupError extends Error {
+  readonly exitCode: 74 | 75;
+  readonly recoverable: boolean;
+
+  constructor(
+    message: string,
+    readonly failure: LifecycleLockFailure,
+  ) {
+    super(message);
+    this.name = "DirectSocketStartupError";
+    this.recoverable = failure === "transient";
+    this.exitCode = this.recoverable ? 75 : 74;
+  }
+}
+
 export async function listenOnOwnedSocket(
   server: Server,
   socketPath: string,
   uid: number,
   probe: (socketPath: string) => Promise<boolean> = probeSocket,
 ): Promise<Stats> {
-  assertCanonicalSocketPath(socketPath);
-  await ensurePrivateSocketDirectories(socketPath, uid);
-  const now = Date.now;
-  const sleep = defaultSleep;
-  const deadline = now() + OWNED_SOCKET_CLEANUP_DEADLINE_MS;
-  return withLifecycleLock(socketPath, uid, deadline, now, sleep, async () => {
-    await assertPrivateSocketDirectories(socketPath, uid);
-    await removeInactiveOwnedSocket(socketPath, uid, probe);
-    let listening = false;
-    let socketIdentity: Stats | undefined;
-    try {
-      await listen(server, socketPath);
-      listening = true;
-      socketIdentity = await lstat(socketPath);
-      assertOwnedSocketMetadata(socketIdentity, uid);
-      socketIdentity = await secureListeningSocket(socketPath, uid, socketIdentity);
-      return socketIdentity;
-    } catch (error) {
-      if (listening) {
+  try {
+    assertCanonicalSocketPath(socketPath);
+    await ensurePrivateSocketDirectories(socketPath, uid);
+    const now = Date.now;
+    const sleep = defaultSleep;
+    const deadline = now() + OWNED_SOCKET_CLEANUP_DEADLINE_MS;
+    return await withLifecycleLock(socketPath, uid, deadline, now, sleep, async () => {
+      await assertPrivateSocketDirectories(socketPath, uid);
+      await removeInactiveOwnedSocket(socketPath, uid, probe);
+      let listening = false;
+      let socketIdentity: Stats | undefined;
+      try {
         try {
-          await closeServer(server, OWNED_SOCKET_CLEANUP_DEADLINE_MS);
-        } catch {
-          // The startup error remains authoritative. Identity checks below still fail closed.
+          await listen(server, socketPath);
+        } catch (error) {
+          if (hasCode(error, "EADDRINUSE")) {
+            await assertPrivateSocketDirectories(socketPath, uid);
+            const occupied = await lstat(socketPath);
+            assertOwnedSocketMetadata(occupied, uid);
+            if ((occupied.mode & 0o777) !== SOCKET_MODE) {
+              throw new Error("Aperture worker socket permissions are not private");
+            }
+            throw new DirectSocketStartupError(
+              "Aperture worker socket is already active",
+              "transient",
+            );
+          }
+          throw error;
         }
-        if (socketIdentity) {
-          await removeOwnedSocket(socketPath, uid, socketIdentity);
+        listening = true;
+        socketIdentity = await lstat(socketPath);
+        assertOwnedSocketMetadata(socketIdentity, uid);
+        socketIdentity = await secureListeningSocket(socketPath, uid, socketIdentity);
+        return socketIdentity;
+      } catch (error) {
+        if (listening) {
+          try {
+            await closeServer(server, OWNED_SOCKET_CLEANUP_DEADLINE_MS);
+          } catch {
+            // The startup error remains authoritative. Identity checks below still fail closed.
+          }
+          if (socketIdentity) {
+            await removeOwnedSocket(socketPath, uid, socketIdentity);
+          }
         }
+        throw error;
       }
-      throw error;
-    }
-  });
+    });
+  } catch (error) {
+    if (error instanceof DirectSocketStartupError) throw error;
+    throw new DirectSocketStartupError(
+      error instanceof Error ? error.message : "Aperture worker socket startup is unsafe",
+      error instanceof LifecycleLockError ? error.failure : "unsafe",
+    );
+  }
 }
 
 export async function closeOwnedSocketServer(
@@ -457,7 +496,12 @@ async function removeInactiveOwnedSocket(
     throw error;
   }
   assertOwnedSocketMetadata(existing, uid);
-  if (await probe(socketPath)) throw new Error("Aperture worker socket is already active");
+  if ((existing.mode & 0o777) !== SOCKET_MODE) {
+    throw new Error("Aperture worker socket permissions are not private");
+  }
+  if (await probe(socketPath)) {
+    throw new DirectSocketStartupError("Aperture worker socket is already active", "transient");
+  }
   let current: Stats;
   try {
     current = await lstat(socketPath);
@@ -469,6 +513,9 @@ async function removeInactiveOwnedSocket(
     throw new Error("Aperture worker socket changed during stale recovery");
   }
   assertOwnedSocketMetadata(current, uid);
+  if ((current.mode & 0o777) !== SOCKET_MODE) {
+    throw new Error("Aperture worker socket permissions are not private");
+  }
   await unlink(socketPath);
 }
 
@@ -602,8 +649,10 @@ export function currentUid(): number {
 }
 
 async function ensurePrivateDirectory(directory: string, uid: number): Promise<void> {
+  let created = false;
   try {
     await mkdir(directory, { mode: DIRECTORY_MODE });
+    created = true;
   } catch (error) {
     if (!isAlreadyExists(error)) throw error;
   }
@@ -614,7 +663,7 @@ async function ensurePrivateDirectory(directory: string, uid: number): Promise<v
   if (metadata.uid !== uid) {
     throw new Error("Aperture worker socket directory has a different owner");
   }
-  await chmod(directory, DIRECTORY_MODE);
+  if (created) await chmod(directory, DIRECTORY_MODE);
   await assertPrivateDirectory(directory, uid);
 }
 

@@ -116,6 +116,7 @@ const attentionWorkerBuild = await build({
   outfile: ATTENTION_WORKER_OUTFILE,
 });
 const forbiddenOmpWorkerInputs = [
+  "src/attention-worker.ts",
   "notification-worker/adapter.ts",
   "notification-worker/config.ts",
   "notification-worker/engine.ts",
@@ -131,15 +132,17 @@ for (const forbidden of forbiddenOmpWorkerInputs) {
     throw new Error(`OMP-only worker retained generic notification module: ${forbidden}`);
   }
 }
-const compressedWorker = await minify(
-  await readFile(ATTENTION_WORKER_OUTFILE, "utf8"),
-  {
-    compress: { passes: 2 },
-    ecma: 2022,
-    format: { comments: false },
-    mangle: true,
-  },
-);
+for (const required of ["src/omp-attention-worker.ts", "notification-worker/omp-stdio.ts"]) {
+  if (!attentionWorkerSourceFiles.some((input) => input.endsWith(required))) {
+    throw new Error(`OMP-only worker omitted dedicated startup module: ${required}`);
+  }
+}
+const compressedWorker = await minify(await readFile(ATTENTION_WORKER_OUTFILE, "utf8"), {
+  compress: { passes: 2 },
+  ecma: 2022,
+  format: { comments: false },
+  mangle: true,
+});
 if (!compressedWorker.code) {
   throw new Error("attention worker compression produced no output");
 }

@@ -5,6 +5,7 @@ import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { proveOmpWorkerStartup } from "../test/helpers/omp-worker-startup.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(scriptDir, "..");
@@ -108,6 +109,8 @@ try {
     assert.equal((await stat(stateDir)).mode & 0o777, 0o700);
   }
   checks.push("no-generic-state-access");
+
+  checks.push(...(await proveOmpWorkerStartup([worker])));
 
   const bundleContent = await readFile(worker);
   for (const genericModuleMarker of [

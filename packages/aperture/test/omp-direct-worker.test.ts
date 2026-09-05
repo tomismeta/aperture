@@ -18,6 +18,7 @@ import os from "node:os";
 import path from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   OMP_ATTENTION_LIMITS,
@@ -39,6 +40,7 @@ import {
   cleanupOwnedSocket,
   closeOwnedSocketServer,
   listenOnOwnedSocket,
+  DirectSocketStartupError,
   OwnedSocketCleanupError,
   OWNED_SOCKET_CLEANUP_DEADLINE_MS,
 } from "../src/notification-worker/direct-socket-lifecycle.js";
@@ -60,6 +62,7 @@ import { runNotificationWorkerStdio } from "../src/notification-worker/stdio.js"
 import { runOmpWorkerStdio } from "../src/notification-worker/omp-stdio.js";
 import { assertApertureSurfaceMessage } from "../src/surface/protocol-validator.js";
 import { OmpDirectWorkerTransport } from "../../omp/src/direct-worker-transport.js";
+import { proveOmpWorkerStartup } from "./helpers/omp-worker-startup.js";
 
 const sessionId = "01a0123456789abcdef";
 const occurredAt = "2026-09-01T16:00:00.000Z";
@@ -1152,7 +1155,8 @@ test("OMP worker treats an unsafe direct socket startup as fatal", async () => {
         input,
         output: sink,
       }),
-    /must not be a symlink/,
+    (error: unknown) =>
+      error instanceof DirectSocketStartupError && error.exitCode === 74 && !error.recoverable,
   );
   const messages = output
     .split("\n")
@@ -1171,7 +1175,48 @@ test("OMP worker treats an unsafe direct socket startup as fatal", async () => {
     messages.some((message) => message.type === "engine" && message.state === "ready"),
     false,
   );
+  assert.equal(
+    messages.some((message) => message.type === "snapshot"),
+    false,
+  );
+  assert.equal((await lstat(socketPath)).isSymbolicLink(), true);
   assert.equal(await readFile(external, "utf8"), "must survive\n");
+});
+
+test("OMP worker process retries responsive old-server overlap and fails unsafe startup closed", async () => {
+  await proveOmpWorkerStartup([
+    "--import",
+    import.meta.resolve("tsx"),
+    fileURLToPath(new URL("../src/omp-attention-worker.ts", import.meta.url)),
+  ]);
+});
+
+test("socket startup preserves an unsafe replacement and a foreign-owned endpoint", async () => {
+  const uid = process.getuid!();
+  const root = await mkdtemp("/tmp/ap-omp-startup-identity-");
+  const socketPath = path.join(root, "omarchy", "aperture", "attention.sock");
+  const server = createServer();
+  const initial = await listenOnOwnedSocket(server, socketPath, uid);
+  try {
+    await assert.rejects(
+      () => listenOnOwnedSocket(createServer(), socketPath, uid + 1),
+      (error: unknown) => error instanceof DirectSocketStartupError && error.exitCode === 74,
+    );
+    assert.equal((await lstat(socketPath)).ino, initial.ino);
+    await assert.rejects(
+      () =>
+        listenOnOwnedSocket(createServer(), socketPath, uid, async () => {
+          await unlink(socketPath);
+          await writeFile(socketPath, "replacement must survive\n", { mode: 0o600 });
+          return false;
+        }),
+      (error: unknown) => error instanceof DirectSocketStartupError && error.exitCode === 74,
+    );
+    assert.equal(await readFile(socketPath, "utf8"), "replacement must survive\n");
+  } finally {
+    server.close();
+    await once(server, "close");
+  }
 });
 
 test("direct state rejects symlinked components and unsafe file identities without deletion", async () => {
@@ -1697,6 +1742,8 @@ test("socket startup rejects unsafe paths and recovers an inactive owned socket"
   await writeFile(target, "not a socket", "utf8");
   await symlink(target, socketPath);
   await assert.rejects(() => listenOnOwnedSocket(createServer(), socketPath, uid), /symlink/);
+  assert.equal((await lstat(socketPath)).isSymbolicLink(), true);
+  assert.equal(await readFile(target, "utf8"), "not a socket");
 
   const fileRuntimeRoot = await mkdtemp("/tmp/ap-omp-file-");
   const filePath = path.join(fileRuntimeRoot, "omarchy", "aperture", "attention.sock");
@@ -1705,6 +1752,7 @@ test("socket startup rejects unsafe paths and recovers an inactive owned socket"
   await chmod(path.dirname(filePath), 0o700);
   await writeFile(filePath, "unsafe replacement", "utf8");
   await assert.rejects(() => listenOnOwnedSocket(createServer(), filePath, uid), /not a socket/);
+  assert.equal(await readFile(filePath, "utf8"), "unsafe replacement");
 
   const staleRuntimeRoot = await mkdtemp("/tmp/ap-omp-stale-");
   const stalePath = path.join(staleRuntimeRoot, "omarchy", "aperture", "attention.sock");
@@ -1726,6 +1774,7 @@ test("socket startup rejects unsafe paths and recovers an inactive owned socket"
   staleProcess.kill("SIGKILL");
   await once(staleProcess, "exit");
   assert.equal((await lstat(stalePath)).isSocket(), true);
+  await chmod(stalePath, 0o600);
 
   const replacementServer = createServer();
   const replacementIdentity = await listenOnOwnedSocket(

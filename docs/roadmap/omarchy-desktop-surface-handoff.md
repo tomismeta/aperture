@@ -102,11 +102,11 @@ must close stdin and terminate the child within the bounded shutdown policy.
 After destruction, the shell may launch a bounded cleanup capsule:
 
 ```text
-aperture-attention-engine.cjs --config <plugin-identities> --cleanup-owned-socket
+aperture-attention-engine.cjs --cleanup-owned-socket
 ```
 
-Cleanup mode ignores the config path, loads no config, and starts no Core,
-engine, or server. It resolves only the canonical XDG socket path. Startup,
+Cleanup mode loads no config and starts no Core, engine, or server. It resolves
+only the canonical XDG socket path. Startup,
 normal shutdown, and cleanup serialize every cooperating socket-path mutation
 through an atomic hard-link owner lock. The runtime root and package
 directories must be same-UID mode `0700`; lock and socket must be same-UID mode
@@ -128,6 +128,20 @@ Cleanup exit codes are part of the host contract:
   owner, or unsafe probe failure; nonretryable
 
 The shell must not replace this mode with an unconditional `rm`.
+
+The dedicated OMP worker uses wire protocol v4. Startup contention (a live
+previous socket, inconclusive activity probe, lifecycle-lock deadline, or
+`EADDRINUSE`) emits `direct_transport_unavailable` with `recoverable: true` and
+terminates with exit `75`, even with stdin open. Unsafe path, configuration,
+owner, mode, type, symlink, or identity failures emit the same error with
+`recoverable: false` and terminate with exit `74`. Neither failed startup emits
+`engine: ready` or a snapshot. The host retries only the transient case using
+its existing serialized one-child supervisor and restart backoff; unsafe
+failures latch. Calm/attention state and control input require worker readiness.
+The artifact smoke runs the generated dedicated OMP bundle against a responsive
+old socket, verifies that the failed child leaves it intact, releases that
+server, then starts a fresh child and requires a private owned socket accepting
+a v4 session heartbeat.
 
 ## Artifact and release contract
 

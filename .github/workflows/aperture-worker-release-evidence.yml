@@ -181,7 +181,7 @@ jobs:
 
           archive = pathlib.Path(os.environ["ARCHIVE_PATH"])
           destination = pathlib.Path(os.environ["PAYLOAD_DIR"])
-          allowed_roots = {"BUILDINFO.json", "config", "evidence", "fixtures", "integrations", "lib", "schemas"}
+          allowed_roots = {"BUILDINFO.json", "evidence", "fixtures", "integrations", "lib", "schemas"}
           seen = set()
           with tarfile.open(archive, "r:gz") as stream:
               members = stream.getmembers()

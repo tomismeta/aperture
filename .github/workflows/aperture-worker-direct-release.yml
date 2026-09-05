@@ -331,7 +331,7 @@ jobs:
             --numeric-owner \
             -cf "$PACKET_DIR/$SOURCE_TAG.tar" \
             -C "$PAYLOAD_DIR" \
-            BUILDINFO.json config evidence fixtures integrations lib schemas
+            BUILDINFO.json evidence fixtures integrations lib schemas
           gzip -n "$PACKET_DIR/$SOURCE_TAG.tar"
           test -f "$PACKET_DIR/$ARCHIVE_NAME"
           (cd "$PACKET_DIR" && sha256sum "$ARCHIVE_NAME" > "$ARCHIVE_NAME.sha256")

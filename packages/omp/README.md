@@ -32,7 +32,9 @@ outcomes retry the same event ID and never emit native fallback. A
 than a durable rejection. Requests accepted by the direct worker establish
 direct authority for their resolutions and session shutdown: those closure
 facts retry directly and are cleared only by acknowledgement or worker-side
-session lease expiry. Completion-family resolution fences completions at or
+session lease expiry. After a worker restart, a heartbeat renews transport
+liveness but only a fresh direct attention delivery preserves restored rows past
+the reconnect grace. Completion-family resolution fences completions at or
 before its occurrence; a genuinely newer turn may create a new completion.
 Each successful focus registration creates a fresh private receipt episode token.
 Replay event IDs include that token, remain stable across transient retries in
@@ -52,6 +54,9 @@ resumes, or attaches a session. Native notification fallbacks and unsupported
 contexts remain non-navigable. Socket, pane, marker, host-generation,
 compositor, tmux option, and toplevel address facts are volatile worker-private
 state and are never projected or persisted.
+When a registered focus capability expires, its completed result is causally
+resolved before navigation is removed so the panel cannot strand an unopenable
+completion row. Non-completion action items remain visible.
 Herdr pane IDs are bounded opaque identifiers, including base-style IDs such
 as `wA:p1`; Aperture never derives numeric workspace or pane semantics.
 The focus backends are deliberately limited to Herdr, direct Foot, and tmux.

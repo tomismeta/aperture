@@ -182,7 +182,12 @@ export async function runNotificationWorkerStdio(
       },
       onInvalidated: (publicHandle) => {
         void serialize(async () => {
-          if (restored.engine.removeFocusHandle(publicHandle)) await emitSnapshot();
+          const expired = await restored.engine.expireOmpCompletionByFocusHandle(
+            publicHandle,
+            new Date(wallNow()).toISOString(),
+          );
+          const navigationRemoved = restored.engine.removeFocusHandle(publicHandle);
+          if (expired || navigationRemoved) await emitSnapshot();
         });
       },
     });
@@ -218,6 +223,9 @@ export async function runNotificationWorkerStdio(
               const navigation = coordinator.navigationFor(event.focus?.handle);
               try {
                 await restored.engine.handleOmpAttention(event, navigation, signal);
+                if (event.classification !== "session_shutdown") {
+                  sessionLiveness.confirmReconnect(event.sessionId);
+                }
                 if (event.classification === "session_shutdown") {
                   sessionLiveness.forget(event.sessionId);
                 }

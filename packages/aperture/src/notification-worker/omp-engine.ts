@@ -1,17 +1,17 @@
 import { createHash } from "node:crypto";
 import { ApertureCore, type AttentionSurfaceCapabilities } from "@tomismeta/aperture-core";
 
-import {
-  OMP_ATTENTION_EVENT_SCHEMA_VERSION,
-  type OmpAttentionEvent,
-} from "../omp-attention-event.js";
+import type { OmpAttentionEvent } from "../omp-attention-event.js";
 import { projectOmpWorkerSnapshot } from "./omp-projection.js";
 import type { NotificationWorkerNavigation, NotificationWorkerSnapshot } from "./protocol.js";
 import { projectOmpPresentation } from "./omp-presentation-projection.js";
 import { mapOmpDirectEvent } from "./omp-direct-adapter.js";
 import {
+  ompCompletionResolutionEvent,
+  type OmpCompletionResolution,
+} from "./omp-completion-resolution.js";
+import {
   applyMappedOmpDirectEvent,
-  isOmpCompletionEntry,
   latestOmpDirectRevision,
   OmpDirectCausalityIndex,
 } from "./omp-direct-causality.js";
@@ -181,31 +181,32 @@ export class OmpWorkerEngine {
     occurredAt: string,
     signal?: AbortSignal,
   ): Promise<boolean> {
-    const completion = this.directState.active.find((entry) => {
-      const navigation = this.navigationByTaskId.get(entry.taskId);
-      return (
-        isOmpCompletionEntry(entry) &&
-        navigation?.kind === "opaque-focus" &&
-        navigation.handle === handle
-      );
-    });
-    if (!completion) return false;
-    const completedAt = latestOmpDirectRevision(completion).occurredAt;
-    await this.handleOmpAttention(
-      {
-        schemaVersion: OMP_ATTENTION_EVENT_SCHEMA_VERSION,
-        type: "omp.attention-event",
-        eventId: `${completion.key}:focused`,
-        occurredAt: completedAt > occurredAt ? completedAt : occurredAt,
-        sessionId: completion.sessionId,
-        classification: "completion_resolved",
-        title: "Result opened",
-        summary: "Opened.",
-        transition: "resolved",
-      },
-      undefined,
-      signal,
+    return this.finishOmpCompletionByFocusHandle(handle, occurredAt, "focused", signal);
+  }
+
+  async expireOmpCompletionByFocusHandle(
+    handle: string,
+    occurredAt: string,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    return this.finishOmpCompletionByFocusHandle(handle, occurredAt, "focus-expired", signal);
+  }
+
+  private async finishOmpCompletionByFocusHandle(
+    handle: string,
+    occurredAt: string,
+    resolution: OmpCompletionResolution,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    const event = ompCompletionResolutionEvent(
+      this.directState.active,
+      this.navigationByTaskId,
+      handle,
+      occurredAt,
+      resolution,
     );
+    if (!event) return false;
+    await this.handleOmpAttention(event, undefined, signal);
     return true;
   }
 

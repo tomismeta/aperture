@@ -288,6 +288,7 @@ test("session heartbeat protocol and monotonic lease capacity are exact", () => 
   ]);
   monotonicNow = 49;
   liveness.observe("session-live");
+  liveness.confirmReconnect("session-live");
   monotonicNow = 50;
   const expired = liveness.expired();
   assert.deepEqual(
@@ -305,6 +306,22 @@ test("session heartbeat protocol and monotonic lease capacity are exact", () => 
   );
   liveness.observe("session-third");
   assert.throws(() => liveness.observe("session-fourth"), OmpSessionCapacityError);
+
+  monotonicNow = 0;
+  const heartbeatOnly = new OmpSessionLiveness({
+    monotonicNow: () => monotonicNow,
+    reconnectGraceMilliseconds: 10,
+    leaseMilliseconds: 20,
+    maximumSessions: 1,
+  });
+  heartbeatOnly.seed(["session-unproven"]);
+  monotonicNow = 9;
+  heartbeatOnly.observe("session-unproven");
+  monotonicNow = 10;
+  assert.deepEqual(
+    heartbeatOnly.expired().map((entry) => entry.sessionId),
+    ["session-unproven"],
+  );
 });
 
 test("attention receipts ignore only volatile delivery presentation", async () => {
@@ -406,7 +423,7 @@ test("direct OMP session presentation projects and persists without changing ide
   assert.notEqual(other.engine.snapshot().view.now?.source?.label, anonymousLabel);
 });
 
-test("live restored sessions survive grace while dead sessions expire causally", async () => {
+test("heartbeats alone cannot retain restored sessions past reconnect grace", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-session-lease-"));
   let wallNow = Date.parse(occurredAt);
   const initial = await NotificationWorkerEngine.restore({
@@ -436,12 +453,12 @@ test("live restored sessions survive grace while dead sessions expire causally",
   assert.equal(await readFile(statePath, "utf8"), beforeHeartbeat);
 
   monotonicNow = 11;
-  assert.deepEqual(liveness.expired(), []);
-  assert.equal(restored.engine.snapshot().view.now?.title, directEvent().title);
-
-  monotonicNow = 30;
   const expired = liveness.expired();
-  wallNow += 30_000;
+  assert.deepEqual(
+    expired.map((entry) => entry.sessionId),
+    [sessionId],
+  );
+  wallNow += 11_000;
   assert.equal(
     await restored.engine.expireOmpSessions(
       expired.map((entry) => entry.sessionId),
@@ -634,6 +651,23 @@ test("completed OMP turns become NOW-eligible review results with navigation", a
   });
   assert.deepEqual(snapshot.view.next, []);
   assert.deepEqual(snapshot.view.ambient, []);
+  assert.equal(
+    await restored.engine.expireOmpCompletionByFocusHandle(
+      "B23456789_-bcdefghijklmnopqrstuv",
+      "2026-09-04T11:30:21.000Z",
+    ),
+    false,
+  );
+  assert.equal(
+    await restored.engine.expireOmpCompletionByFocusHandle(focusHandle, "2026-09-04T11:30:21.000Z"),
+    true,
+  );
+  assert.equal(restored.engine.snapshot().view.now, null);
+  await restored.engine.handleOmpAttention(completion, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
+  assert.equal(restored.engine.snapshot().view.now, null);
 });
 
 test("completion lifecycle supersedes, resolves, and fences delayed replay", async () => {

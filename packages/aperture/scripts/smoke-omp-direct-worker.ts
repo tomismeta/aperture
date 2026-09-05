@@ -142,7 +142,7 @@ try {
     (message) =>
       message.type === "error" &&
       message.code === "invalid_input" &&
-      message.message?.includes("disabled in OMP-only mode") === true,
+      message.message?.includes("unsupported") === true,
   );
   assert.equal(rejectedGenericInput.recoverable, true);
   checks.push("generic-notification-input-disabled");

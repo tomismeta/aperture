@@ -1,6 +1,7 @@
 import type { Writable } from "node:stream";
 
 import { startOmpAttentionSocketServer, type OmpAttentionSocketServer } from "./direct-server.js";
+import { DirectSocketStartupError } from "./direct-socket-lifecycle.js";
 import { FocusCoordinator } from "./focus/focus-coordinator.js";
 import { OmpWorkerEngine } from "./omp-engine.js";
 import {
@@ -141,11 +142,6 @@ export async function runOmpWorkerStdio(options: OmpWorkerStdioOptions): Promise
         diagnostic.write("Aperture could not expire a dead OMP session\n");
       });
     };
-    sessionSweepTimer = setInterval(
-      expireDeadSessions,
-      options.sessionLivenessSweepMilliseconds ?? OMP_SESSION_LIVENESS.sweepMilliseconds,
-    );
-    sessionSweepTimer.unref?.();
 
     const coordinator = new FocusCoordinator({
       ...(options.now ? { now: options.now } : {}),
@@ -213,16 +209,30 @@ export async function runOmpWorkerStdio(options: OmpWorkerStdioOptions): Promise
         },
       });
     } catch (error) {
+      const startupError =
+        error instanceof DirectSocketStartupError
+          ? error
+          : new DirectSocketStartupError(
+              "Aperture could not safely open the direct OMP transport.",
+              "unsafe",
+            );
       await writeError(
         "direct_transport_unavailable",
-        "Aperture could not safely open the direct OMP transport.",
-        false,
+        startupError.recoverable
+          ? "Aperture is waiting for the previous direct OMP transport to close."
+          : "Aperture could not safely open the direct OMP transport.",
+        startupError.recoverable,
       );
-      throw error;
+      throw startupError;
     }
     await write({ type: "engine", state: "ready", acceptedSources: 1 });
     await emitSnapshot();
     markDirectReady();
+    sessionSweepTimer = setInterval(
+      expireDeadSessions,
+      options.sessionLivenessSweepMilliseconds ?? OMP_SESSION_LIVENESS.sweepMilliseconds,
+    );
+    sessionSweepTimer.unref?.();
 
     for await (const decoded of boundedJsonLines(input, OMP_WORKER_LIMITS.inputLineBytes)) {
       if (stopping) break;
@@ -264,9 +274,19 @@ export async function runOmpWorkerStdio(options: OmpWorkerStdioOptions): Promise
       }
     }
   } catch (error) {
-    if (!stopping) throw error;
+    if (!stopping) {
+      if (!socketServer && !(error instanceof DirectSocketStartupError)) {
+        await writeError(
+          "direct_transport_unavailable",
+          "Aperture could not safely initialize the direct OMP transport.",
+          false,
+        );
+        throw new DirectSocketStartupError("Aperture worker startup is unsafe", "unsafe");
+      }
+      throw error;
+    }
   } finally {
-    setStopping();
+    stop();
     clearInterval(sessionSweepTimer);
     markDirectReady();
     process.off("SIGINT", stop);

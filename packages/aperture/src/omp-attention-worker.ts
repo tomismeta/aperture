@@ -5,9 +5,11 @@ import { stderr } from "node:process";
 import { resolveOmpAttentionSocketPath } from "./omp-attention-event.js";
 import {
   cleanupOwnedSocket,
+  DirectSocketStartupError,
   OwnedSocketCleanupError,
 } from "./notification-worker/direct-socket-lifecycle.js";
 import { runOmpWorkerStdio } from "./notification-worker/omp-stdio.js";
+import { serializeOmpWorkerOutput } from "./notification-worker/omp-worker-protocol.js";
 
 // Replaced by the artifact build. The environment fallback exists only for source execution.
 declare const APERTURE_PACKAGE_VERSION: string;
@@ -16,6 +18,8 @@ const packageVersion =
   typeof APERTURE_PACKAGE_VERSION === "string"
     ? APERTURE_PACKAGE_VERSION
     : (process.env.npm_package_version ?? "0.0.0-development");
+
+let runningWorker = false;
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
@@ -31,6 +35,7 @@ async function main(): Promise<void> {
     return;
   }
   const stateDir = options.stateDir ?? defaultStateDirectory(process.env);
+  runningWorker = true;
   await runOmpWorkerStdio({ packageVersion, stateDir, socketPath });
 }
 
@@ -77,6 +82,26 @@ function defaultStateDirectory(environment: NodeJS.ProcessEnv): string {
 }
 
 void main().catch((error) => {
-  stderr.write(`${error instanceof Error ? error.message : "Aperture attention worker failed"}\n`);
-  process.exitCode = error instanceof OwnedSocketCleanupError ? error.exitCode : 1;
+  let failure = error;
+  if (!runningWorker && !process.argv.includes("--cleanup-owned-socket")) {
+    process.stdout.write(
+      serializeOmpWorkerOutput({
+        type: "error",
+        code: "direct_transport_unavailable",
+        message: "Aperture worker startup configuration is unsafe.",
+        recoverable: false,
+      }),
+    );
+    failure = new DirectSocketStartupError(
+      "Aperture worker startup configuration is unsafe",
+      "unsafe",
+    );
+  }
+  stderr.write(
+    `${failure instanceof Error ? failure.message : "Aperture attention worker failed"}\n`,
+  );
+  process.exitCode =
+    failure instanceof OwnedSocketCleanupError || failure instanceof DirectSocketStartupError
+      ? failure.exitCode
+      : 1;
 });

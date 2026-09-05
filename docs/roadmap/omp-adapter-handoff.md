@@ -143,15 +143,20 @@ hard-link owner lock. Runtime/package directories are same-UID mode `0700`;
 lock and socket are same-UID mode `0600`. Startup refuses active or unsafe
 endpoints and reclaims only a fully validated stale lock whose recorded process
 no longer exists.
+Startup contention emits `direct_transport_unavailable` with `recoverable: true`
+and exits `75`; unsafe configuration or socket metadata emits the same error
+with `recoverable: false` and exits `74`. Failed startup never emits readiness
+or snapshots and exits even while stdin remains open. The shell retries only
+the transient case through its existing serialized supervisor and backoff.
 
 After service destruction the Omarchy shell may run:
 
 ```text
-aperture-attention-engine.cjs --config <plugin-identities> --cleanup-owned-socket
+aperture-attention-engine.cjs --cleanup-owned-socket
 ```
 
-Cleanup mode accepts but ignores the launcher-owned config argument and starts
-no Core, engine, or server. While holding the lifecycle lock, it proves the
+Cleanup mode loads no config and starts no Core, engine, or server. While
+holding the lifecycle lock, it proves the
 endpoint inactive, same-UID, a socket rather than a symlink, and unchanged by
 device/inode before unlink. The complete operation has a 1,500 ms deadline.
 Exit `0` means absent or removed, `75` means a safe transient timeout, and `74`

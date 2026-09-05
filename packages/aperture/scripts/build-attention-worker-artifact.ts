@@ -141,8 +141,15 @@ if (
   importReport.sourceFiles.some(
     (entry) =>
       typeof entry !== "string" ||
-      /notification-worker\/(?:adapter|config|engine|notification-lifecycle|state-store|stdio)\.ts$/.test(
+      /(?:\/src\/attention-worker|notification-worker\/(?:adapter|config|engine|notification-lifecycle|state-store|stdio))\.ts$/.test(
         entry,
+      ),
+  ) ||
+  !["src/omp-attention-worker.ts", "notification-worker/omp-stdio.ts"].every(
+    (required) =>
+      Array.isArray(importReport.sourceFiles) &&
+      importReport.sourceFiles.some(
+        (entry) => typeof entry === "string" && entry.endsWith(required),
       ),
   )
 ) {
@@ -351,6 +358,9 @@ const buildInfo = {
       unsafe: 74,
       transient: 75,
     },
+    startupErrorCode: "direct_transport_unavailable",
+    startupExitCodes: { unsafe: 74, transient: 75 },
+    startupFailureReadiness: "no-ready-or-snapshot",
   },
   focusBackends: ["herdr-0.8.2", "foot-1.27", "tmux-3.7c"],
   schemas: {

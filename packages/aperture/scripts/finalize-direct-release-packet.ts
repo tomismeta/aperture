@@ -454,7 +454,7 @@ async function validateMetadata(
     "omp-control-input-only",
     "calm-snapshot-only",
     "bounded-ascii-output",
-    "direct-socket-lifecycle",
+    "no-generic-state-access",
     "generic-notification-modules-absent",
   ]) {
     assert(ompOnlyChecks.includes(requiredCheck), `missing OMP-only check: ${requiredCheck}`);

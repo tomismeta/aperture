@@ -7,7 +7,6 @@ import { APERTURE_SURFACE_PROTOCOL_VERSION } from "../src/surface/protocol.js";
 import { WORKER_DIRECT_PROTOCOL_VERSION } from "../src/worker-direct-message.js";
 import { MAXIMUM_CONCURRENT_NATIVE_FALLBACKS } from "../../omp/src/omarchy-attention-state.js";
 
-
 const WORKER_PROOF = "aperture-omp-only-worker-conformance-v1";
 const OMP_PROOF = "aperture-omp-adapter-conformance-v1";
 const DIRECT_PROOF = "aperture-omp-direct-transport-conformance-v1";
@@ -71,7 +70,6 @@ type BuildInfo = Record<string, unknown> & {
 const options = parseOptions(process.argv.slice(2));
 const artifactRoot = path.resolve(options.artifactDir);
 const buildInfoPath = path.join(artifactRoot, "BUILDINFO.json");
-
 
 const draftBuildInfo = JSON.parse(await readFile(buildInfoPath, "utf8")) as BuildInfo;
 await validateMetadata(draftBuildInfo, artifactRoot, options.sourceCommit, options.sourceTag);
@@ -215,14 +213,10 @@ async function validateMetadata(
     "invalid ambiguous delivery retry cap",
   );
   assert(
-    focusCoordinator.directClosureAuthority ===
-      "retry-until-accepted-or-session-lease-expiry",
+    focusCoordinator.directClosureAuthority === "retry-until-accepted-or-session-lease-expiry",
     "invalid direct closure authority",
   );
-  assert(
-    focusCoordinator.focusReplayTransientAttempts === 3,
-    "invalid focus replay retry bound",
-  );
+  assert(focusCoordinator.focusReplayTransientAttempts === 3, "invalid focus replay retry bound");
   assert(
     focusCoordinator.focusReplayReceiptEpisodes ===
       "fresh-random-token-per-registration-stable-across-retries",
@@ -233,8 +227,7 @@ async function validateMetadata(
     "invalid native fallback policy",
   );
   assert(
-    focusCoordinator.maximumConcurrentNativeFallbacks ===
-      MAXIMUM_CONCURRENT_NATIVE_FALLBACKS,
+    focusCoordinator.maximumConcurrentNativeFallbacks === MAXIMUM_CONCURRENT_NATIVE_FALLBACKS,
     "invalid concurrent native fallback cap",
   );
   assert(
@@ -460,7 +453,6 @@ async function validateMetadata(
     assert(ompOnlyChecks.includes(requiredCheck), `missing OMP-only check: ${requiredCheck}`);
   }
 
-
   const manifest = JSON.parse(
     await readFile(path.join(root, "integrations", "omp", "package.json"), "utf8"),
   ) as Record<string, unknown>;
@@ -531,7 +523,6 @@ async function collectArtifactFiles(root: string): Promise<ArtifactFile[]> {
 
   const files: ArtifactFile[] = [];
   for (const directory of [
-    "config",
     "evidence",
     "fixtures/omp-direct",
     "integrations/omp",

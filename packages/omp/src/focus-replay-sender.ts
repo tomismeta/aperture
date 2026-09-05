@@ -1,9 +1,14 @@
 import type { OmpAttentionEvent } from "@tomismeta/aperture/omp-attention-event";
 
-import type { OmpDirectWorkerTransport } from "./direct-worker-transport.js";
+import {
+  ompDirectDeliveryDisposition,
+  type OmpDirectWorkerTransport,
+} from "./direct-worker-transport.js";
 
 const MAXIMUM_REPLAY_EVENTS = 64;
 const REPLAY_RESPONSE_TIMEOUT_MS = 750;
+const MAXIMUM_TRANSIENT_ATTEMPTS = 3;
+const RETRY_DELAYS_MS = [100, 250] as const;
 
 export type FocusReplayResult =
   | "succeeded"
@@ -14,7 +19,6 @@ export type FocusReplayResult =
   | "processing-failed"
   | "processing-timeout"
   | "attention-engine-failed"
-  | "attention-snapshot-failed"
   | "rejected"
   | "unknown-failure";
 
@@ -74,15 +78,31 @@ export class FocusReplaySender {
   }
 
   private async deliver(request: ReplayRequest, signal: AbortSignal): Promise<void> {
-    try {
-      for (const event of request.events) {
-        if (!this.active || signal.aborted) return;
-        await this.direct.send(event, REPLAY_RESPONSE_TIMEOUT_MS, signal);
+    let finalFailure: FocusReplayResult | undefined;
+    for (let attempt = 1; attempt <= MAXIMUM_TRANSIENT_ATTEMPTS; attempt += 1) {
+      try {
+        for (const event of request.events) {
+          if (!this.active || signal.aborted || this.superseded(request)) return;
+          await this.direct.send(event, REPLAY_RESPONSE_TIMEOUT_MS, signal);
+        }
+        if (this.active && !signal.aborted && !this.superseded(request)) {
+          this.onResult("succeeded");
+        }
+        return;
+      } catch (error) {
+        if (!this.active || signal.aborted || this.superseded(request)) return;
+        finalFailure = classifyReplayFailure(error);
+        if (!isTransientReplayFailure(error, finalFailure) || attempt === MAXIMUM_TRANSIENT_ATTEMPTS) {
+          this.onResult(finalFailure);
+          return;
+        }
+        await delay(RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS.at(-1)!, signal);
       }
-      if (this.active && !signal.aborted) this.onResult("succeeded");
-    } catch (error) {
-      if (this.active && !signal.aborted) this.onResult(classifyReplayFailure(error));
     }
+  }
+
+  private superseded(request: ReplayRequest): boolean {
+    return this.queued !== null && this.queued.workerGeneration !== request.workerGeneration;
   }
 }
 
@@ -93,7 +113,6 @@ function classifyReplayFailure(error: unknown): FocusReplayResult {
     if (code === "processing_failed") return "processing-failed";
     if (code === "processing_timeout") return "processing-timeout";
     if (code === "attention_engine_failed") return "attention-engine-failed";
-    if (code === "attention_snapshot_failed") return "attention-snapshot-failed";
     return "rejected";
   }
   if (error.message.includes("rejected direct message")) return "rejected";
@@ -108,4 +127,33 @@ function classifyReplayFailure(error: unknown): FocusReplayResult {
   }
   if (error.message.includes("acknowledgement")) return "invalid-acknowledgement";
   return "unknown-failure";
+}
+
+function isTransientReplayFailure(error: unknown, result: FocusReplayResult): boolean {
+  return (
+    ompDirectDeliveryDisposition(error) !== undefined ||
+    result === "connection-timeout" ||
+    result === "response-timeout" ||
+    result === "delivery-failed" ||
+    result === "processing-timeout" ||
+    result === "attention-engine-failed"
+  );
+}
+
+function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(finish, milliseconds);
+    const abort = (): void => finish();
+    function finish(): void {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }
+    signal.addEventListener("abort", abort, { once: true });
+    timer.unref?.();
+  });
 }

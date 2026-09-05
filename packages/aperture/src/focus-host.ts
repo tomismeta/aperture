@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
 import {
+  WORKER_DIRECT_PROTOCOL_VERSION,
   assertWorkerDirectMessage,
   type FocusRecovery,
   type FocusRegistration,
@@ -40,7 +41,11 @@ export type FocusHostOptions = {
   closeTimeoutMs?: number;
   setTimer?: typeof setTimeout;
   clearTimer?: typeof clearTimeout;
-  onRegistered?: (publicHandle: string, workerGeneration: string) => void;
+  onRegistered?: (
+    publicHandle: string,
+    workerGeneration: string,
+    receiptEpisodeToken: string,
+  ) => void;
   onStatus?: (status: FocusHostStatus) => void;
 };
 
@@ -52,7 +57,8 @@ export class FocusHost {
   private readonly closeTimeoutMs: number;
   private readonly setTimer: typeof setTimeout;
   private readonly clearTimer: typeof clearTimeout;
-  private readonly onRegistered: (publicHandle: string, workerGeneration: string) => void;
+  private readonly onRegistered: NonNullable<FocusHostOptions["onRegistered"]>;
+  private readonly randomToken: () => string;
   private readonly onStatus: (status: FocusHostStatus) => void;
   private readonly baseRegistration: Omit<FocusRegistration, "requestId" | "recovery">;
   private readonly titleLease: TerminalTitleLease | undefined;
@@ -77,6 +83,7 @@ export class FocusHost {
     this.closeTimeoutMs = options.closeTimeoutMs ?? CLOSE_TIMEOUT_MS;
     this.setTimer = options.setTimer ?? setTimeout;
     this.clearTimer = options.clearTimer ?? clearTimeout;
+    this.randomToken = options.randomToken ?? (() => randomBytes(24).toString("base64url"));
     this.onRegistered = options.onRegistered ?? (() => undefined);
     this.onStatus = options.onStatus ?? (() => undefined);
     this.baseRegistration = registration;
@@ -93,7 +100,7 @@ export class FocusHost {
     const resolved = resolveFocusTarget(environment, stdoutIsTTY, options.terminalTitle, token);
     if (!resolved) return undefined;
     const registration = assertWorkerDirectMessage({
-      schemaVersion: 4,
+      schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
       type: "focus.register",
       requestId: randomUUID(),
       publicHandle,
@@ -136,7 +143,7 @@ export class FocusHost {
     }
     const revoked = await succeedsWithin(
       this.transport.revokeFocus({
-        schemaVersion: 4,
+        schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
         type: "focus.revoke",
         requestId: randomUUID(),
         publicHandle: this.baseRegistration.publicHandle,
@@ -171,6 +178,7 @@ export class FocusHost {
 
   private async refresh(): Promise<void> {
     try {
+      const wasActive = this.active;
       const registration = await this.transport.registerFocus(this.registration());
       if (this.closing) return;
       const generationChanged = this.workerGeneration !== registration.workerGeneration;
@@ -178,8 +186,16 @@ export class FocusHost {
       this.recovery = registration.recovery;
       this.active = true;
       this.retryAttempt = 0;
-      if (generationChanged) {
-        this.onRegistered(this.baseRegistration.publicHandle, registration.workerGeneration);
+      if (generationChanged || !wasActive) {
+        const receiptEpisodeToken = this.randomToken();
+        if (!validToken(receiptEpisodeToken)) {
+          throw new Error("Aperture focus receipt episode token is invalid");
+        }
+        this.onRegistered(
+          this.baseRegistration.publicHandle,
+          registration.workerGeneration,
+          receiptEpisodeToken,
+        );
         this.lastStatus = "registered";
         this.onStatus("registered");
       } else {
@@ -305,7 +321,7 @@ export function resolveFocusTarget(
 function validatedTarget(target: Record<string, unknown>): { target: FocusTarget } | undefined {
   try {
     const message = assertWorkerDirectMessage({
-      schemaVersion: 4,
+      schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
       type: "focus.register",
       requestId: "context",
       publicHandle: "A".repeat(32),

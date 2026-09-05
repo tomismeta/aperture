@@ -2,82 +2,13 @@ import { type SourceEvent } from "@tomismeta/aperture-core";
 import { assertValidSourceEvent } from "@tomismeta/aperture-core/internal";
 
 import { assertOmpAttentionDisplayText, assertOmpSessionId } from "../omp-attention-event.js";
-import type {
-  OmpDirectPersistedState,
-  PersistedOmpDirectEntry,
-  PersistedOmpDirectRevision,
-} from "./omp-direct-state-store.js";
-
-export function migrateOmpDirectStateV1(value: unknown): OmpDirectPersistedState {
-  const state = asRecord(value, "OMP direct state");
-  assertExactKeys(state, ["schemaVersion", "active"], "OMP direct state");
-  if (state.schemaVersion !== 1 || !Array.isArray(state.active)) {
-    throw new Error("OMP direct v1 state schema is unsupported");
-  }
-  const active = state.active.map((rawEntry) => {
-    const entry = asRecord(rawEntry, "OMP direct v1 active entry");
-    assertExactKeys(
-      entry,
-      ["key", "taskId", "interactionId", "navigation", "revisions"],
-      "OMP direct v1 active entry",
-    );
-    const navigation = asRecord(entry.navigation, "OMP direct v1 navigation");
-    assertExactKeys(navigation, ["kind", "sessionId"], "OMP direct v1 navigation");
-    if (navigation.kind !== "omp-session") {
-      throw new Error("OMP direct v1 navigation kind is invalid");
-    }
-    const migrated: PersistedOmpDirectEntry = {
-      key: storedText(entry.key, 160, "OMP direct key"),
-      taskId: storedText(entry.taskId, 160, "OMP direct taskId"),
-      interactionId: storedText(entry.interactionId, 160, "OMP direct interactionId"),
-      sessionId: assertOmpSessionId(navigation.sessionId),
-      revisions: Array.isArray(entry.revisions)
-        ? (entry.revisions as PersistedOmpDirectRevision[])
-        : [],
-    };
-    assertOmpDirectEntry(migrated);
-    return migrated;
-  });
-  return { schemaVersion: 3, active, tombstones: [] };
-}
-
-export function migrateOmpDirectStateV2(value: unknown): OmpDirectPersistedState {
-  const state = asRecord(value, "OMP direct state");
-  assertExactKeys(state, ["schemaVersion", "active"], "OMP direct state");
-  if (state.schemaVersion !== 2 || !Array.isArray(state.active)) {
-    throw new Error("OMP direct v2 state schema is unsupported");
-  }
-  for (const entry of state.active) assertOmpDirectEntry(entry);
-  return {
-    schemaVersion: 3,
-    active: state.active as PersistedOmpDirectEntry[],
-    tombstones: [],
-  };
-}
-
-export function decodeOmpDirectState(value: unknown): {
-  state: OmpDirectPersistedState;
-  migrated: boolean;
-} {
-  const record = asRecord(value, "OMP direct state");
-  if (record.schemaVersion === 1) {
-    return { state: migrateOmpDirectStateV1(value), migrated: true };
-  }
-  if (record.schemaVersion === 2) {
-    return { state: migrateOmpDirectStateV2(value), migrated: true };
-  }
-  return { state: assertOmpDirectState(value), migrated: false };
-}
-
+import type { OmpDirectPersistedState } from "./omp-direct-state-store.js";
+import type { ProjectedOmpSessionPresentation } from "./omp-session-presentation.js";
 export function assertOmpDirectState(value: unknown): OmpDirectPersistedState {
   const state = asRecord(value, "OMP direct state");
-  assertExactKeys(state, ["schemaVersion", "active", "tombstones"], "OMP direct state");
-  if (
-    state.schemaVersion !== 3 ||
-    !Array.isArray(state.active) ||
-    !Array.isArray(state.tombstones)
-  ) {
-    throw new Error("OMP direct state schema is unsupported");
+  assertExactKeys(state, ["active", "tombstones"], "OMP direct state");
+  if (!Array.isArray(state.active) || !Array.isArray(state.tombstones)) {
+    throw new Error("OMP direct state shape is unsupported");
   }
   for (const entry of state.active) assertOmpDirectEntry(entry);
   for (const tombstone of state.tombstones) assertOmpDirectTombstone(tombstone);
@@ -138,9 +69,14 @@ function assertOmpDirectRevision(
   sessionId: string,
 ): string {
   const revision = asRecord(value, "OMP direct revision");
-  assertExactKeys(revision, ["occurredAt", "displayTitle", "sourceEvent"], "OMP direct revision");
+  assertExactKeys(
+    revision,
+    ["occurredAt", "displayTitle", "presentation", "sourceEvent"],
+    "OMP direct revision",
+  );
   const occurredAt = storedTimestamp(revision.occurredAt, "OMP direct occurrence");
   assertOmpAttentionDisplayText(revision.displayTitle, 160, "persisted display title");
+  assertOmpSessionPresentation(revision.presentation);
   const sourceEventRecord = asRecord(revision.sourceEvent, "OMP direct source event");
   assertDirectSourceEventFields(sourceEventRecord);
   const sourceEvent = revision.sourceEvent as SourceEvent;
@@ -153,14 +89,9 @@ function assertOmpDirectRevision(
   }
   const source = asRecord(sourceEvent.source, "OMP direct source");
   assertExactKeys(source, ["id", "kind", "label"], "OMP direct source");
-  if (
-    source.kind !== "omp" ||
-    typeof source.label !== "string" ||
-    (source.label !== "OMP" && (!source.label.startsWith("OMP ") || !source.label.slice(4).trim()))
-  ) {
+  if (source.kind !== "omp" || source.label !== "OMP") {
     throw new Error("OMP direct source is invalid");
   }
-  assertOmpAttentionDisplayText(source.label, 120, "persisted source label");
   const metadata = asRecord(sourceEvent.metadata, "OMP direct metadata");
   assertExactKeys(metadata, ["ompDirect"], "OMP direct metadata");
   const direct = asRecord(metadata.ompDirect, "OMP direct metadata facts");
@@ -174,14 +105,10 @@ function assertOmpDirectRevision(
   if ("summary" in sourceEvent && sourceEvent.summary !== undefined) {
     assertOmpAttentionDisplayText(sourceEvent.summary, 320, "persisted event summary");
   }
-  if ("context" in sourceEvent) {
-    assertDirectSessionContext(sourceEvent.context);
-  }
   return occurredAt;
 }
 
 function assertDirectSourceEventFields(event: Record<string, unknown>): void {
-  const optionalContext = "context" in event ? ["context"] : [];
   switch (event.type) {
     case "human.input.requested":
       assertExactKeys(
@@ -199,7 +126,6 @@ function assertDirectSourceEventFields(event: Record<string, unknown>): void {
           "summary",
           "request",
           "riskHint",
-          ...optionalContext,
         ],
         "OMP direct human input event",
       );
@@ -219,16 +145,8 @@ function assertDirectSourceEventFields(event: Record<string, unknown>): void {
           "status",
           "activityClass",
           "semanticHints",
-          ...optionalContext,
         ],
         "OMP direct task update",
-      );
-      return;
-    case "task.completed":
-      assertExactKeys(
-        event,
-        ["id", "taskId", "timestamp", "source", "metadata", "type", "summary", ...optionalContext],
-        "OMP direct task completion",
       );
       return;
     default:
@@ -236,14 +154,38 @@ function assertDirectSourceEventFields(event: Record<string, unknown>): void {
   }
 }
 
-function assertDirectSessionContext(value: unknown): void {
+function assertOmpSessionPresentation(value: unknown): ProjectedOmpSessionPresentation {
+  const presentation = asRecord(value, "OMP direct session presentation");
+  const permitted =
+    presentation.context === undefined ? ["sourceLabel"] : ["sourceLabel", "context"];
+  assertExactKeys(presentation, permitted, "OMP direct session presentation");
+  const sourceLabel = assertLegacySourceLabel(presentation.sourceLabel);
+  return {
+    sourceLabel,
+    ...(presentation.context === undefined
+      ? {}
+      : { context: assertDirectSessionContext(presentation.context) }),
+  };
+}
+
+function assertLegacySourceLabel(value: unknown): string {
+  const label = assertOmpAttentionDisplayText(value, 120, "persisted source label");
+  if (label !== "OMP" && (!label.startsWith("OMP ") || !label.slice(4).trim())) {
+    throw new Error("OMP direct source presentation is invalid");
+  }
+  return label;
+}
+
+function assertDirectSessionContext(
+  value: unknown,
+): NonNullable<ProjectedOmpSessionPresentation["context"]> {
   const context = asRecord(value, "OMP direct session context");
   assertExactKeys(context, ["items"], "OMP direct session context");
   if (!Array.isArray(context.items) || context.items.length < 1 || context.items.length > 4) {
     throw new Error("OMP direct session context items are invalid");
   }
   const ids = new Set<string>();
-  for (const rawItem of context.items) {
+  const items = context.items.map((rawItem) => {
     const item = asRecord(rawItem, "OMP direct session context item");
     assertExactKeys(item, ["id", "label", "value"], "OMP direct session context item");
     if (
@@ -254,9 +196,13 @@ function assertDirectSessionContext(value: unknown): void {
       throw new Error("OMP direct session context item id is invalid");
     }
     ids.add(item.id);
-    assertOmpAttentionDisplayText(item.label, 32, "persisted session facet label");
-    assertOmpAttentionDisplayText(item.value, 120, "persisted session facet value");
-  }
+    return {
+      id: item.id,
+      label: assertOmpAttentionDisplayText(item.label, 32, "persisted session facet label"),
+      value: assertOmpAttentionDisplayText(item.value, 120, "persisted session facet value"),
+    };
+  });
+  return { items };
 }
 
 function asRecord(value: unknown, label: string): Record<string, unknown> {

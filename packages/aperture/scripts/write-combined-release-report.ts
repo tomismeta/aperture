@@ -16,7 +16,6 @@ type BuildInfo = {
   aperturePackageVersion: string;
   apertureCoreVersion: string;
   ompPackageVersion: string;
-  stateMigration: { legacyNotificationState: string };
   artifactLimits: { maximumTextArtifactBytes: number };
   sourceDirty: boolean;
   provenanceAttestationReference: string;
@@ -24,8 +23,7 @@ type BuildInfo = {
   integrations: { omp: { packageVersion: string; bytes: number; sha256: string } };
   workerContract: {
     notificationInput: boolean;
-    notificationInputSchemaVersion: number;
-    notificationOutputSchemaVersion: number;
+    ompWorkerOutputSchemaVersion: number;
     surfaceProtocolVersion: number;
     ompAttentionEventSchemaVersion: number;
     workerDirectProtocolVersion: number;
@@ -136,7 +134,6 @@ const report = {
   },
   artifactMode: buildInfo.artifactMode,
   notificationInput: buildInfo.workerContract.notificationInput,
-  legacyNotificationState: buildInfo.stateMigration.legacyNotificationState,
   workerBytes: buildInfo.workerBundle.bytes,
   workerSha256: buildInfo.workerBundle.sha256,
   aperturePackageVersion: buildInfo.aperturePackageVersion,
@@ -152,7 +149,6 @@ const report = {
       sha256: buildInfo.integrations.omp.sha256,
     },
   },
-  identityConfigSha256: findFile(buildInfo.files, "config/identities.json").sha256,
   nodeMatrix: buildInfo.validation.nodeCompatibility.map((entry) => ({
     version: entry.nodeVersion,
     status: entry.status,
@@ -189,19 +185,12 @@ const report = {
     .filter((entry) => entry.path.startsWith("evidence/"))
     .map((entry) => ({ path: entry.path, sha256: entry.sha256 })),
   allValidationsPassed: true,
-  fixedIdentitiesMatched: true,
   unmetPrerequisites: [],
-  fixedIdentityMismatchReason: null,
 };
 
 await writeFile(path.resolve(options.output), `${JSON.stringify(report, null, 2)}\n`, "utf8");
 process.stdout.write(`${path.resolve(options.output)}\n`);
 
-function findFile(files: ArtifactFile[], expectedPath: string): ArtifactFile {
-  const entry = files.find((candidate) => candidate.path === expectedPath);
-  if (!entry) throw new Error(`BUILDINFO.files is missing ${expectedPath}`);
-  return entry;
-}
 
 function sha256(content: Uint8Array): string {
   return createHash("sha256").update(content).digest("hex");

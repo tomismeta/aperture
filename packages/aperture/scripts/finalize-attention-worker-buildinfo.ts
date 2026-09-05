@@ -238,8 +238,9 @@ const reports = await Promise.all(
       !Array.isArray(report.checks) ||
       !report.checks.includes("cleanup-mode-no-config-or-engine") ||
       !report.checks.includes("omp-only-handshake") ||
-      !report.checks.includes("generic-notification-input-disabled") ||
-      !report.checks.includes("legacy-notification-state-removed") ||
+      !report.checks.includes("omp-control-input-only") ||
+      !report.checks.includes("no-generic-state-access") ||
+      !report.checks.includes("generic-notification-modules-absent") ||
       !report.checks.includes("bounded-ascii-output")
     ) {
       throw new Error(`invalid attention worker compatibility report: ${absolutePath}`);
@@ -461,7 +462,6 @@ const ompOnlyEvidence = {
   status: "passed",
   artifactMode: "omp-only",
   notificationInput: false,
-  legacyNotificationState: "removed-without-restore",
   checks: ompOnlyChecks,
   sourceTest: "packages/aperture/scripts/smoke-attention-worker.ts",
   compatibilityReports: compatibility.map((entry) => entry.reportPath),

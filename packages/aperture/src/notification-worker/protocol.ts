@@ -68,7 +68,7 @@ export type NotificationWorkerCapabilities = {
 };
 
 export type NotificationWorkerHello = {
-  protocolVersion: 4;
+  protocolVersion: typeof NOTIFICATION_WORKER_OUTPUT_SCHEMA_VERSION;
   type: "hello";
   packageVersion: string;
   worker: "aperture-attention-engine";

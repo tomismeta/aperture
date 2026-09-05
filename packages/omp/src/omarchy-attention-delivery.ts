@@ -8,6 +8,17 @@ import {
 import type { OmarchyNotificationTransport } from "./omarchy-notification-transport.js";
 import type { OmpEvent, OmpMappingContext } from "./types.js";
 const MAXIMUM_AMBIGUOUS_DELIVERY_ATTEMPTS = 3;
+const TRANSIENT_DIRECT_REJECTION_CODES = new Set([
+  "capacity",
+  "processing_failed",
+  "attention_engine_failed",
+]);
+export class AttentionDeliveryRetryError extends Error {
+  constructor(readonly deliveryCause: unknown) {
+    super("Aperture direct attention delivery remains acceptance-unknown");
+    this.name = "AttentionDeliveryRetryError";
+  }
+}
 
 export type QueuedAttentionDelivery = {
   kind: "event";
@@ -15,18 +26,24 @@ export type QueuedAttentionDelivery = {
   context: OmpMappingContext;
   directEvents?: OmpAttentionEvent[];
   forceNative?: boolean;
+  nativeFallbackAllowed?: boolean;
+  retryAttempt?: number;
 };
 
 export type AttentionDeliveryRoute = "direct" | "native" | "accepted";
 
 export type AttentionDeliveryObserver = {
+  prepare(event: OmpAttentionEvent): void;
   routeFor(event: OmpAttentionEvent): AttentionDeliveryRoute;
+  mayUseNative(event: OmpAttentionEvent): boolean;
   acceptedDirect(event: OmpAttentionEvent): void;
   selectedNative(event: OmpAttentionEvent): void;
 };
 
 const untrackedDelivery: AttentionDeliveryObserver = {
+  prepare: () => undefined,
   routeFor: () => "direct",
+  mayUseNative: () => true,
   acceptedDirect: () => undefined,
   selectedNative: () => undefined,
 };
@@ -52,9 +69,14 @@ export async function deliverQueuedAttention(
 
   let nativeRequired = false;
   for (const event of directEvents) {
+    observer.prepare(event);
     const route = observer.routeFor(event);
     if (route === "accepted") continue;
-    if (delivery.forceNative || route === "native") {
+    if (
+      delivery.nativeFallbackAllowed !== false &&
+      (delivery.forceNative || route === "native") &&
+      observer.mayUseNative(event)
+    ) {
       observer.selectedNative(event);
       nativeRequired = true;
       continue;
@@ -63,12 +85,24 @@ export async function deliverQueuedAttention(
       await sendDirectEvent(event, direct);
       observer.acceptedDirect(event);
     } catch (error) {
+      if (!observer.mayUseNative(event) && isTransientDirectRejection(error)) {
+        throw new AttentionDeliveryRetryError(error);
+      }
       const disposition = ompDirectDeliveryDisposition(error);
-      const workerRejected = error instanceof Error && error.name === "WorkerDirectRejectedError";
-      if (disposition !== "acceptance-unknown" && !workerRejected) {
+      if (disposition === "acceptance-unknown") {
+        throw new AttentionDeliveryRetryError(error);
+      }
+      if (
+        disposition === "definitely-not-accepted" &&
+        delivery.nativeFallbackAllowed !== false &&
+        observer.mayUseNative(event)
+      ) {
         observer.selectedNative(event);
         nativeRequired = true;
         continue;
+      }
+      if (disposition === "definitely-not-accepted") {
+        throw new AttentionDeliveryRetryError(error);
       }
       throw error;
     }
@@ -94,4 +128,14 @@ async function sendDirectEvent(
       }
     }
   }
+}
+
+function isTransientDirectRejection(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { name?: unknown; code?: unknown };
+  return (
+    candidate.name === "WorkerDirectRejectedError" &&
+    typeof candidate.code === "string" &&
+    TRANSIENT_DIRECT_REJECTION_CODES.has(candidate.code)
+  );
 }

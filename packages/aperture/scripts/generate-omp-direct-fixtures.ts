@@ -4,10 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { assertOmpAttentionEvent, type OmpAttentionEvent } from "../src/omp-attention-event.js";
-import { assertWorkerDirectMessage } from "../src/worker-direct-message.js";
-import type { NotificationWorkerIdentity } from "../src/notification-worker/adapter.js";
-import { NotificationWorkerEngine } from "../src/notification-worker/engine.js";
+import {
+  assertOmpAttentionEvent,
+  OMP_ATTENTION_EVENT_SCHEMA_VERSION,
+  type OmpAttentionEvent,
+} from "../src/omp-attention-event.js";
+import { assertWorkerDirectMessage, WORKER_DIRECT_PROTOCOL_VERSION } from "../src/worker-direct-message.js";
+import { OmpWorkerEngine } from "../src/notification-worker/omp-engine.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(scriptDir, "..");
@@ -16,12 +19,6 @@ const writeMode = process.argv.slice(2).includes("--write");
 const occurredAt = "2026-09-01T16:00:00.000Z";
 const sessionId = "01a0123456789abcdef";
 const focusHandle = "A23456789_-bcdefghijklmnopqrstuv";
-const identity: NotificationWorkerIdentity = {
-  id: "omp",
-  kind: "omp",
-  label: "OMP",
-  applicationNames: ["aperture-omp"],
-};
 
 const approval = event({
   eventId: "fixture:approval:1",
@@ -76,17 +73,8 @@ const completionResolved = event({
   summary: "New agent work superseded the previous completed result.",
   transition: "resolved",
 });
-const status = event({
-  eventId: "fixture:status:1",
-  occurredAt: "2026-09-01T16:00:06.000Z",
-  classification: "status_updated",
-  title: "OMP is waiting",
-  summary: "OMP is waiting for the authoritative session stop event.",
-  transition: "updated",
-  status: "waiting",
-});
 const focusRegistration = assertWorkerDirectMessage({
-  schemaVersion: 4,
+  schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
   type: "focus.register",
   requestId: "fixture-focus-register-1",
   publicHandle: focusHandle,
@@ -99,7 +87,7 @@ const focusRegistration = assertWorkerDirectMessage({
   },
 });
 const focusDirectFootRegistration = assertWorkerDirectMessage({
-  schemaVersion: 4,
+  schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
   type: "focus.register",
   requestId: "fixture-focus-foot-1",
   publicHandle: focusHandle,
@@ -111,7 +99,7 @@ const focusDirectFootRegistration = assertWorkerDirectMessage({
   },
 });
 const focusTmuxRegistration = assertWorkerDirectMessage({
-  schemaVersion: 4,
+  schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
   type: "focus.register",
   requestId: "fixture-focus-tmux-1",
   publicHandle: focusHandle,
@@ -136,8 +124,7 @@ const focusResult = {
 
 const stateRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-fixtures-"));
 try {
-  const restored = await NotificationWorkerEngine.restoreOmpOnly({
-    identities: [identity],
+  const restored = await OmpWorkerEngine.restore({
     stateDir: path.join(stateRoot, "direct"),
     now: () => Date.parse(input.occurredAt),
   });
@@ -154,8 +141,7 @@ try {
   const resolved = restored.engine.snapshot();
 
   const snapshotFor = async (name: string, directEvent: OmpAttentionEvent) => {
-    const instance = await NotificationWorkerEngine.restoreOmpOnly({
-      identities: [identity],
+    const instance = await OmpWorkerEngine.restore({
       stateDir: path.join(stateRoot, name),
       now: () => Date.parse(directEvent.occurredAt),
     });
@@ -167,9 +153,7 @@ try {
   };
   const failureSnapshot = await snapshotFor("failure", failure);
   const completionSnapshot = await snapshotFor("completion", completion);
-  const statusSnapshot = await snapshotFor("status", status);
-  const completionResolvedEngine = await NotificationWorkerEngine.restoreOmpOnly({
-    identities: [identity],
+  const completionResolvedEngine = await OmpWorkerEngine.restore({
     stateDir: path.join(stateRoot, "completion-resolved"),
     now: () => Date.parse(completionResolved.occurredAt),
   });
@@ -192,7 +176,6 @@ try {
   assert.equal(completionResolvedSnapshot.view.now, null);
   assert.deepEqual(completionResolvedSnapshot.view.next, []);
   assert.deepEqual(completionResolvedSnapshot.view.ambient, []);
-  assert.equal(statusSnapshot.view.ambient[0]?.title, status.title);
 
   const fixtures = new Map<string, unknown>([
     ["approval-request.json", approval],
@@ -200,7 +183,6 @@ try {
     ["failure-event.json", failure],
     ["completion-event.json", completion],
     ["completion-resolved-event.json", completionResolved],
-    ["status-event.json", status],
     ["snapshot-now-next.json", nowNext],
     ["snapshot-resolved.json", resolved],
     ["snapshot-failure.json", failureSnapshot],
@@ -211,7 +193,6 @@ try {
     ["focus-registration-tmux.json", focusTmuxRegistration],
     ["focus-activation.json", focusActivation],
     ["focus-result.json", focusResult],
-    ["snapshot-status.json", statusSnapshot],
   ]);
   await mkdir(fixtureRoot, { recursive: true });
   for (const [name, value] of fixtures) {
@@ -240,7 +221,7 @@ function event(
 ): OmpAttentionEvent {
   const { eventId, occurredAt: eventOccurredAt, ...rest } = facts;
   return assertOmpAttentionEvent({
-    schemaVersion: 4,
+    schemaVersion: OMP_ATTENTION_EVENT_SCHEMA_VERSION,
     type: "omp.attention-event",
     eventId,
     occurredAt: eventOccurredAt ?? occurredAt,

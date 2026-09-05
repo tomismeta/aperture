@@ -85,7 +85,7 @@ export const APERTURE_STDIO_CAPABILITIES: Readonly<ApertureSurfaceCapabilities> 
 
 export type ApertureSurfaceHelloMessage = {
   type: "hello";
-  protocolVersion: 4;
+  protocolVersion: typeof APERTURE_SURFACE_PROTOCOL_VERSION;
   packageVersion: string;
   surface: "aperture-stdio";
   capabilities: ApertureSurfaceCapabilities;

@@ -1,5 +1,6 @@
 import type { OmpAttentionEvent } from "../omp-attention-event.js";
 import {
+  WORKER_DIRECT_PROTOCOL_VERSION,
   directMessageRequestId,
   type WorkerDirectAcknowledgement,
 } from "../worker-direct-message.js";
@@ -20,12 +21,12 @@ export class DirectReceiptLedger {
     operation: () => Promise<WorkerDirectAcknowledgement>,
   ): Promise<WorkerDirectAcknowledgement> {
     const requestId = directMessageRequestId(message);
-    const fingerprint = JSON.stringify(message);
+    const fingerprint = attentionReceiptFingerprint(message);
     const existing = this.receipts.get(requestId);
     if (existing) {
       if (existing.fingerprint === fingerprint) return existing.outcome;
       return Promise.resolve({
-        schemaVersion: 4,
+        schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
         status: "rejected",
         requestId,
         code: "request_identity_conflict",
@@ -34,7 +35,7 @@ export class DirectReceiptLedger {
     this.evictSettled();
     if (this.receipts.size >= this.maximumReceipts) {
       return Promise.resolve({
-        schemaVersion: 4,
+        schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
         status: "rejected",
         requestId,
         code: "capacity",
@@ -63,4 +64,9 @@ export class DirectReceiptLedger {
       this.receipts.delete(settled[0]);
     }
   }
+}
+
+function attentionReceiptFingerprint(message: OmpAttentionEvent): string {
+  const { occurredAt: _occurredAt, session: _session, focus: _focus, ...causalPayload } = message;
+  return JSON.stringify(causalPayload);
 }

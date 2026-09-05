@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { OmpAttentionEvent } from "../omp-attention-event.js";
 
 export type ProjectedOmpSessionPresentation = {
@@ -19,8 +21,15 @@ export function projectOmpSessionPresentation(
         })),
       }
     : undefined;
+  const anonymousDiscriminator = createHash("sha256")
+    .update(event.sessionId)
+    .digest("hex")
+    .slice(0, 8)
+    .toUpperCase();
   return {
-    sourceLabel: event.session?.label ? `OMP ${event.session.label}` : "OMP",
+    sourceLabel: event.session?.label
+      ? `OMP ${event.session.label}`
+      : `OMP Session ${anonymousDiscriminator}`,
     ...(context ? { context } : {}),
   };
 }

@@ -188,14 +188,14 @@ aperture surface --stdio --label omarchy-attention
 The process stays alive and reports an honest disconnected state while no local
 runtime is available.
 
-The self-contained Omarchy integration uses a separate bidirectional worker
+The self-contained Omarchy integration uses a separate OMP-only worker
 contract. It does not attach to, discover, or require an Aperture runtime. The
-dependency-free `dist/aperture-attention-engine.cjs` owns `ApertureCore`, state,
-and the canonical XDG socket and targets the Node 22 runtime supplied by
-Omarchy. Its canonical schemas are exported as:
+dependency-free `dist/aperture-attention-engine.cjs` owns bundled first-party
+`ApertureCore`, OMP direct state, and the canonical XDG socket and targets the
+Node 22 runtime supplied by Omarchy. The signed artifact contains only these
+canonical OMP boundary schemas:
 
-- `@tomismeta/aperture/notification-worker-input.schema.json`
-- `@tomismeta/aperture/notification-worker-output.schema.json`
+- `@tomismeta/aperture/omp-worker-output.schema.json`
 - `@tomismeta/aperture/surface-protocol.schema.json`
 - `@tomismeta/aperture/omp-attention-event.schema.json`
 - `@tomismeta/aperture/worker-direct-message.schema.json`
@@ -213,32 +213,41 @@ The staged payload also includes a private `@tomismeta/aperture-omp@0.1.0`
 manifest and `integrations/omp/aperture-omp-extension.mjs`, a first-class OMP
 extension. When
 the worker owns `$XDG_RUNTIME_DIR/omarchy/aperture/attention.sock`, the extension
-sends bounded typed OMP events directly and suppresses the corresponding native
-notification only after worker acknowledgement. The worker alone feeds those
-facts into `ApertureCore`; Core remains the lane authority. If direct delivery
-is unavailable, OMP falls back to its native notification outside the Aperture
-surface. Shipping the extension does not automatically activate it in OMP.
+sends bounded typed OMP events directly. Native fallback is allowed only after a
+definite failure before any write. Acceptance-unknown or post-write outcomes,
+including a legacy `processing_timeout` acknowledgement, retry the same stable
+event ID and never emit a native duplicate. Once a request was directly
+accepted, its resolution and session closure remain direct-authority facts until
+accepted or the worker's session lease expires. The worker alone feeds those
+facts into `ApertureCore`; Core remains the lane authority. Shipping the
+extension does not automatically activate it in OMP.
 
 The production bundle is fixed to `artifactMode: "omp-only"`. Its hello reports
-`notificationInput: false`; generic notification inputs are rejected, legacy
-notification state is removed without restore, and native fallback remains
-outside the Aperture surface. The payload retains notification input schema `2`
-only as a canonical protocol artifact. It uses private notification-worker
-output schema `4`, public surface protocol `4`, OMP attention event schema `4`,
-and private worker-direct protocol `4`. OMP session presentation is optional,
-bounded display metadata: a label plus up to four typed facets. It never enters
-event identity, judgment, ordering, focus, or navigation. Both hello frames require
-`protocolVersion: 4` independently from package semver. Only private worker
-snapshots may carry navigation, and the exact shape is
+`notificationInput: false`; its input loop accepts only focus activation and
+shutdown controls, and its module graph excludes the generic notification
+adapter, lifecycle, state store, and input schema. Failure to establish the
+required direct socket is fatal so the stock service restart policy can recover
+it. It uses private OMP-worker output schema `4`, public surface protocol `4`,
+OMP attention event schema `4`, and private worker-direct protocol `4`. OMP
+session presentation is optional bounded display metadata: a label plus up to
+four typed facets. Named and anonymous labels are projected only after Core;
+anonymous labels use a stable privacy-safe session digest. Presentation never
+enters event identity, judgment, lane choice, ordering, continuity, focus, or
+navigation. Heartbeat renewal, lease expiry, attention commits, and snapshots
+are serialized by the worker. Both hello frames require `protocolVersion: 4`
+independently from package semver. Only private worker snapshots may carry
+navigation, and the exact shape is
 `{ "kind": "opaque-focus", "handle": "…" }`; public surface frames cannot carry
 focus handles. Activation returns only `focused`, `stale`, or `missing`.
 Session identity remains a private event fact and is never executable
 navigation.
 
-Upgrade from older direct workers migrates unresolved OMP direct state schemas
-`1` and `2` to schema `3` atomically with mode `0600`, while dropping executable
-session navigation and all persisted focus-private facts. Migrated attention
-restores non-navigable until a live focus capability registers.
+OMP direct persistence has one unversioned, closed internal shape. Older or
+unknown state files are incompatible and are recovered as empty state rather
+than migrated. Every state-path component is checked without following symlinks
+before reads, writes, replacement, or cleanup; state files must be same-UID
+regular single-link files with mode `0600`. Restored attention is non-navigable
+until a live focus capability registers.
 
 Worker stdout is ASCII-only JSONL with non-ASCII JSON code units escaped and a
 256 KiB encoded-line limit. Production worker and OMP extension artifacts are

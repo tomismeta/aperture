@@ -97,8 +97,8 @@ export function createApertureOmarchyOmpExtension(
               transport: direct,
               ...focusHostOptions,
               ...(capabilities.terminalTitle ? { terminalTitle: capabilities.terminalTitle } : {}),
-              onRegistered: (publicHandle, workerGeneration) => {
-                transport.replayFocus(workerGeneration, publicHandle);
+              onRegistered: (publicHandle, workerGeneration, receiptEpisodeToken) => {
+                transport.replayFocus(workerGeneration, publicHandle, receiptEpisodeToken);
               },
               onStatus: (status) => {
                 pi.logger?.debug?.(`Aperture focus ${status}`);

@@ -35,8 +35,7 @@
         "turn_completed",
         "completion_resolved",
         "session_stop_failure",
-        "session_shutdown",
-        "status_updated"
+        "session_shutdown"
       ]
     },
     "title": {
@@ -52,9 +51,8 @@
       "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
     },
     "transition": {
-      "enum": ["requested", "resolved", "failed", "completed", "stopped", "shutdown", "updated"]
+      "enum": ["requested", "resolved", "failed", "completed", "shutdown"]
     },
-    "status": { "enum": ["running", "waiting", "blocked", "completed", "failed"] },
     "focus": { "$ref": "#/$defs/focus" }
   },
   "allOf": [
@@ -77,19 +75,6 @@
         "properties": { "interactionId": { "$ref": "#/$defs/opaqueId" } },
         "required": ["interactionId"]
       }
-    },
-    {
-      "if": {
-        "properties": { "classification": { "const": "status_updated" } },
-        "required": ["classification"]
-      },
-      "then": {
-        "properties": {
-          "status": { "enum": ["running", "waiting", "blocked", "completed", "failed"] }
-        },
-        "required": ["status"]
-      },
-      "else": { "not": { "required": ["status"] } }
     },
     {
       "if": {
@@ -144,15 +129,6 @@
       },
       "then": {
         "properties": { "transition": { "const": "shutdown" } }
-      }
-    },
-    {
-      "if": {
-        "properties": { "classification": { "const": "status_updated" } },
-        "required": ["classification"]
-      },
-      "then": {
-        "properties": { "transition": { "const": "updated" } }
       }
     }
   ],

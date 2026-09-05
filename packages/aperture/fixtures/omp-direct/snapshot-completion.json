@@ -28,10 +28,6 @@
         "kind": "omp",
         "label": "OMP omarchy-aperture"
       },
-      "navigation": {
-        "kind": "opaque-focus",
-        "handle": "A23456789_-bcdefghijklmnopqrstuv"
-      },
       "context": {
         "items": [
           {
@@ -47,6 +43,10 @@
       "timing": {
         "createdAt": "2026-09-01T16:00:04.000Z",
         "updatedAt": "2026-09-01T16:00:04.000Z"
+      },
+      "navigation": {
+        "kind": "opaque-focus",
+        "handle": "A23456789_-bcdefghijklmnopqrstuv"
       }
     },
     "next": [],

@@ -31,8 +31,12 @@ export class OmarchyAttentionTransport implements OmpEventSink {
     this.coordinator.handleMapped(event, context, directEvents);
   }
 
-  replayFocus(workerGeneration: string, publicHandle: string): void {
-    this.coordinator.replayFocus(workerGeneration, publicHandle);
+  replayFocus(
+    workerGeneration: string,
+    publicHandle: string,
+    receiptEpisodeToken: string,
+  ): void {
+    this.coordinator.replayFocus(workerGeneration, publicHandle, receiptEpisodeToken);
   }
 
   async close(): Promise<void> {

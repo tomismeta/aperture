@@ -129,31 +129,33 @@ Cleanup exit codes are part of the host contract:
 
 The shell must not replace this mode with an unconditional `rm`.
 
-## Artifact and provenance contract
+## Artifact and release contract
 
-Production payloads come only from trusted CI tied to the reviewed signed
-source tag. Required staged files include the worker, OMP extension, private OMP
-manifest, canonical schemas and fixtures, import audits, BUILDINFO, and evidence.
-Both executable text artifacts are minified and each must be at most 524,288
-bytes. Build, finalization, candidate, and release gates enforce the limit
-independently for the worker and extension.
-BUILDINFO pins `artifactLimits.maximumTextArtifactBytes: 524288`, and records
-the private OMP version both as top-level `ompPackageVersion` and
-`integrations.omp.packageVersion`.
-The release report mirrors those paths exactly. Release publication requires
-successful exact-commit Release Check, signed-tag Worker Artifact, Direct
-Release, and Release Evidence runs. The report is written only after Direct
-Release has completed; its finalizer identity deliberately has no
-self-conclusion. Payload/BUILDINFO/archive attestations are signed by Direct
-Release, while the report is signed by Release Evidence, all on the exact tag
-ref and source digest. The only `contents: write` job executes no checked-out
-repository dependencies and is protected by the `aperture-worker-release`
-environment.
+Production payloads come only from the `Aperture Worker Release` workflow for
+an authorized signed source tag whose commit is on protected `main`. The tag
+workflow requires a successful exact-commit Release Check, builds once on Node
+22, and smokes the exact worker, direct transport, and OMP extension before
+finalizing the payload. Broader compatibility matrices remain protected-main CI
+evidence rather than release payload members.
+Required staged files include the worker, OMP extension, private OMP manifest,
+canonical schemas and fixtures, import audits, BUILDINFO, and evidence. Both
+executable text artifacts are minified and each must be at most 524,288 bytes.
+BUILDINFO pins `artifactLimits.maximumTextArtifactBytes: 524288`, records the
+private OMP version both as top-level `ompPackageVersion` and
+`integrations.omp.packageVersion`, and identifies the exact tag-workflow run.
+Its sorted manifest covers the exact 30 payload files and their SHA-256 hashes,
+byte counts, and modes.
+
+The workflow creates a deterministic tag-named tarball plus
+`<tag>.tar.gz.sha256` and `BUILDINFO.sha256`. Those are the release's only three
+assets. Publication runs in the protected `aperture-worker-release` environment
+and succeeds only when GitHub reports the published release immutable.
 
 Downstream production vendoring is mechanical, not a manual copy:
 `.github/scripts/vendor-aperture-worker-release.mjs` pins the authorized SSH tag
-signer, authenticates all four completed runs and every attestation, validates
-safe archive membership, then installs the exact bytes and policy.
+signer, authenticates protected-main Release Check and the exact release
+workflow run, validates the checksums and every safe archive member, then
+installs the exact bytes and policy.
 
 ## Ownership
 

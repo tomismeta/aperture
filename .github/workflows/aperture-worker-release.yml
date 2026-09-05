@@ -1,0 +1,304 @@
+name: Aperture Worker Release
+
+on:
+  push:
+    tags:
+      - "aperture-worker-v*"
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: aperture-worker-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOURCE_TAG: ${{ github.ref_name }}
+      SOURCE_COMMIT: ${{ github.sha }}
+
+    steps:
+      - name: Checkout signed source tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Initialize release paths
+        run: |
+          [[ "$SOURCE_TAG" =~ ^aperture-worker-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          test "$GITHUB_REF" = "refs/tags/$SOURCE_TAG"
+          printf 'PAYLOAD_DIR=%s/aperture-worker\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'REPORT_DIR=%s/reports\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'PACKET_DIR=%s/release-packet\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'ARCHIVE_NAME=%s.tar.gz\n' "$SOURCE_TAG" >> "$GITHUB_ENV"
+
+      - name: Verify protected-main source and authorized signed tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test -z "$(git status --porcelain)"
+
+          protected_main=$(gh api "repos/$GITHUB_REPOSITORY/branches/main")
+          test "$(jq -r '.protected' <<<"$protected_main")" = "true"
+          jq -e '.protection.required_status_checks.contexts | index("release-check") != null' \
+            <<<"$protected_main"
+          main_ref="refs/remotes/origin/release-main"
+          git fetch --no-tags --force origin "refs/heads/main:$main_ref"
+          git merge-base --is-ancestor "$SOURCE_COMMIT" "$main_ref"
+          git show "$main_ref:.github/release-signers" > "$RUNNER_TEMP/release-signers"
+          test -s "$RUNNER_TEMP/release-signers"
+
+          tag_object=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$SOURCE_TAG" --jq '.object.sha')
+          tag_type=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$SOURCE_TAG" --jq '.object.type')
+          test "$tag_type" = "tag"
+          verification_ref="refs/tags/release-verification/$SOURCE_TAG"
+          git fetch --no-tags --force origin \
+            "refs/tags/$SOURCE_TAG:$verification_ref"
+          test "$(git rev-parse "$verification_ref")" = "$tag_object"
+          test "$(git cat-file -t "$verification_ref")" = "tag"
+          test "$(git rev-parse "$verification_ref^{}")" = "$SOURCE_COMMIT"
+          git -c gpg.format=ssh \
+            -c gpg.ssh.allowedSignersFile="$RUNNER_TEMP/release-signers" \
+            verify-tag "$verification_ref"
+          tag_commit=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq '.object.sha')
+          tag_verified=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq '.verification.verified')
+          test "$tag_commit" = "$SOURCE_COMMIT"
+          test "$tag_verified" = "true"
+
+          gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/release-check.yml/runs?head_sha=$SOURCE_COMMIT&event=push&status=success&per_page=100" |
+            jq -e --arg commit "$SOURCE_COMMIT" --arg repository "$GITHUB_REPOSITORY" '
+              any(
+                .workflow_runs[];
+                .name == "Release Check" and
+                .path == ".github/workflows/release-check.yml" and
+                .event == "push" and
+                .conclusion == "success" and
+                .head_branch == "main" and
+                .head_sha == $commit and
+                .head_repository.full_name == $repository
+              )
+            '
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10.29.1
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.2
+          cache: pnpm
+
+      - name: Install exact source dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build trusted Aperture worker payload
+        env:
+          APERTURE_TRUSTED_CI: "1"
+          APERTURE_SOURCE_TAG: ${{ github.ref_name }}
+          APERTURE_SOURCE_COMMIT: ${{ github.sha }}
+        run: >-
+          pnpm --dir packages/aperture build:attention-worker --
+          --output-dir "$PAYLOAD_DIR"
+
+      - name: Smoke exact worker and direct transport on Node 22
+        run: |
+          mkdir -p "$REPORT_DIR" "$PACKET_DIR"
+          pnpm --dir packages/aperture smoke:attention-worker -- \
+            --worker "$PAYLOAD_DIR/lib/aperture-attention-engine.cjs" \
+            --report "$REPORT_DIR/node-22.json"
+          pnpm --dir packages/aperture smoke:omp-direct-worker -- \
+            --worker "$PAYLOAD_DIR/lib/aperture-attention-engine.cjs" \
+            --report "$REPORT_DIR/direct-node-22.json"
+
+      - name: Smoke exact OMP extension on Node 22
+        run: >-
+          pnpm --dir packages/aperture smoke:omp-extension --
+          --extension "$PAYLOAD_DIR/integrations/omp/aperture-omp-extension.mjs"
+          --manifest "$PAYLOAD_DIR/integrations/omp/package.json"
+          --report "$REPORT_DIR/omp-adapter.json"
+
+      - name: Finalize exact 30-file payload
+        run: >-
+          pnpm --dir packages/aperture finalize:attention-worker --
+          --artifact-dir "$PAYLOAD_DIR"
+          --node-report "$REPORT_DIR/node-22.json"
+          --direct-report "$REPORT_DIR/direct-node-22.json"
+          --omp-report "$REPORT_DIR/omp-adapter.json"
+
+      - name: Verify BUILDINFO and exact payload contract
+        run: |
+          jq -e \
+            --arg commit "$SOURCE_COMMIT" \
+            --arg tag "$SOURCE_TAG" \
+            --arg runId "$GITHUB_RUN_ID" \
+            --arg runAttempt "$GITHUB_RUN_ATTEMPT" \
+            --arg workflowRef "$GITHUB_REPOSITORY/.github/workflows/aperture-worker-release.yml@refs/tags/$SOURCE_TAG" '
+              .artifactType == "node-commonjs-bundle" and
+              .artifactMode == "omp-only" and
+              .minimumNodeMajor == 22 and
+              .apertureCommit == $commit and
+              .apertureSourceTag == $tag and
+              .trustedCi == true and
+              .sourceDirty == false and
+              .ci.workflowRef == $workflowRef and
+              .ci.runId == $runId and
+              .ci.runAttempt == $runAttempt and
+              .validation.status == "passed" and
+              .runtimeDependencies.policy == "node-builtins-only" and
+              .runtimeDependencies.status == "passed" and
+              (.runtimeDependencies.imports | all(startswith("node:"))) and
+              .integrations.omp.runtimeDependencies.policy == "node-builtins-only" and
+              .integrations.omp.runtimeDependencies.status == "passed" and
+              (.integrations.omp.runtimeDependencies.imports | all(startswith("node:"))) and
+              .ompPackageVersion == "0.1.0" and
+              .integrations.omp.packageVersion == "0.1.0" and
+              .workerBundle.bytes <= 524288 and
+              .integrations.omp.bytes <= 524288 and
+              (.files | length) == 30 and
+              [.files[].path] == ([.files[].path] | sort) and
+              (has("provenanceAttestationReference") | not) and
+              (has("provenanceAttestationRequired") | not)
+            ' "$PAYLOAD_DIR/BUILDINFO.json"
+          pnpm --dir packages/aperture verify:attention-worker-release -- \
+            --artifact-dir "$PAYLOAD_DIR" \
+            --source-commit "$SOURCE_COMMIT" \
+            --source-tag "$SOURCE_TAG"
+
+      - name: Create deterministic archive and checksums
+        run: |
+          source_epoch=$(git show -s --format=%ct "$SOURCE_COMMIT")
+          tar \
+            --sort=name \
+            --mtime="@$source_epoch" \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            -cf "$PACKET_DIR/$SOURCE_TAG.tar" \
+            -C "$PAYLOAD_DIR" \
+            BUILDINFO.json evidence fixtures integrations lib schemas
+          gzip -n "$PACKET_DIR/$SOURCE_TAG.tar"
+          (cd "$PACKET_DIR" && sha256sum "$ARCHIVE_NAME" > "$ARCHIVE_NAME.sha256")
+          buildinfo_sha=$(sha256sum "$PAYLOAD_DIR/BUILDINFO.json" | cut -d' ' -f1)
+          printf '%s  BUILDINFO.json\n' "$buildinfo_sha" > "$PACKET_DIR/BUILDINFO.sha256"
+
+      - name: Verify release packet checksums
+        run: |
+          (cd "$PACKET_DIR" && sha256sum -c "$ARCHIVE_NAME.sha256")
+          archived_buildinfo_sha=$(tar -xOzf "$PACKET_DIR/$ARCHIVE_NAME" BUILDINFO.json | sha256sum | cut -d' ' -f1)
+          test "$archived_buildinfo_sha" = "$(cut -d' ' -f1 "$PACKET_DIR/BUILDINFO.sha256")"
+          test "$(find "$PACKET_DIR" -maxdepth 1 -type f | wc -l | tr -d '[:space:]')" = "3"
+
+      - name: Upload exact release packet
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ env.SOURCE_TAG }}-release
+          path: |
+            ${{ runner.temp }}/release-packet/${{ env.SOURCE_TAG }}.tar.gz
+            ${{ runner.temp }}/release-packet/${{ env.SOURCE_TAG }}.tar.gz.sha256
+            ${{ runner.temp }}/release-packet/BUILDINFO.sha256
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: aperture-worker-release
+      url: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+    permissions:
+      actions: read
+      contents: write
+    env:
+      SOURCE_TAG: ${{ github.ref_name }}
+
+    steps:
+      - name: Download exact release packet
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf 'RELEASE_DIR=%s/final-release\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/final-release"
+          gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$SOURCE_TAG-release" \
+            --dir "$RUNNER_TEMP/final-release"
+
+      - name: Verify exact publisher inputs
+        run: |
+          python3 - <<'PY'
+          import os
+          import pathlib
+
+          root = pathlib.Path(os.environ["RELEASE_DIR"])
+          tag = os.environ["SOURCE_TAG"]
+          actual = sorted(path.name for path in root.iterdir() if path.is_file())
+          expected = sorted(["BUILDINFO.sha256", f"{tag}.tar.gz", f"{tag}.tar.gz.sha256"])
+          if actual != expected:
+              raise SystemExit(f"unexpected release packet files: {actual!r}")
+          if any(not path.is_file() or path.is_symlink() for path in root.iterdir()):
+              raise SystemExit("release packet contains a non-file or symlink entry")
+          PY
+          (cd "$RELEASE_DIR" && sha256sum -c "$SOURCE_TAG.tar.gz.sha256")
+          archived_buildinfo_sha=$(tar -xOzf "$RELEASE_DIR/$SOURCE_TAG.tar.gz" BUILDINFO.json | sha256sum | cut -d' ' -f1)
+          test "$archived_buildinfo_sha" = "$(cut -d' ' -f1 "$RELEASE_DIR/BUILDINFO.sha256")"
+
+      - name: Create exact private draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if existing_release=$(gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isImmutable 2>/dev/null); then
+            test "$(jq -r '.isDraft' <<<"$existing_release")" = "true" || {
+              echo "published release already exists for $SOURCE_TAG" >&2
+              exit 1
+            }
+            test "$(jq -r '.isImmutable' <<<"$existing_release")" = "false"
+            gh release delete "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --yes
+          fi
+          gh release create "$SOURCE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --draft \
+            --title "Aperture Worker $SOURCE_TAG" \
+            --notes "Signed production OMP-only worker payload for Aperture. Verify the protected-main source, successful exact-commit Release Check, release workflow identity, checksums, BUILDINFO, and every archive member before vendoring." \
+            "$RELEASE_DIR/$SOURCE_TAG.tar.gz" \
+            "$RELEASE_DIR/$SOURCE_TAG.tar.gz.sha256" \
+            "$RELEASE_DIR/BUILDINFO.sha256"
+
+      - name: Verify exact draft and publish immutably
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release=$(gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isImmutable,isPrerelease,tagName,assets)
+          jq -e \
+            --arg tag "$SOURCE_TAG" '
+              .isDraft == true and
+              .isImmutable == false and
+              .isPrerelease == false and
+              .tagName == $tag and
+              ([.assets[].name] | sort) ==
+                (["BUILDINFO.sha256", ($tag + ".tar.gz"), ($tag + ".tar.gz.sha256")] | sort)
+            ' <<<"$release"
+          gh release edit "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+          published=$(gh release view "$SOURCE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isImmutable,isPrerelease,tagName,assets)
+          jq -e \
+            --arg tag "$SOURCE_TAG" '
+              .isDraft == false and
+              .isImmutable == true and
+              .isPrerelease == false and
+              .tagName == $tag and
+              ([.assets[].name] | sort) ==
+                (["BUILDINFO.sha256", ($tag + ".tar.gz"), ($tag + ".tar.gz.sha256")] | sort)
+            ' <<<"$published"

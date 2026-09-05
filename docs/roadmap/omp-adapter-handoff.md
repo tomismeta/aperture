@@ -164,22 +164,24 @@ no path or file metadata.
 Trusted CI stages the worker, extension, manifest, schemas, canonical fixtures,
 runtime-import audits, compatibility evidence, and BUILDINFO. Production builds
 minify both text artifacts. Each staged artifact independently must be no larger
-than 524,288 bytes; build, finalizer, candidate, and release gates fail with a
-clear size error above that limit.
-BUILDINFO pins the ceiling at
+than 524,288 bytes, and BUILDINFO pins that ceiling at
 `artifactLimits.maximumTextArtifactBytes: 524288`.
-The signed release report mirrors the three exact package versions, artifact
-cap, two JSONL handshake contracts, and socket lifecycle contract. It is
-created by Release Evidence only after Release Check, Worker Artifact, and
-Direct Release have completed successfully; it never claims its own future
-conclusion. All attestations bind to the exact signed tag ref, source digest,
-and signer workflow.
 
-Both artifacts are dependency-free at runtime except for audited `node:`
-builtins. Every staged file has an exact SHA-256, byte count, and mode in
-BUILDINFO. Downstream production vendoring runs only through the
-downstream-pinned tag signer and authenticated release tool; locally built or
-manually copied bytes are never eligible.
+`Aperture Worker Release` is the sole production release workflow. It accepts
+only an authorized signed tag on protected `main`, requires successful
+exact-commit Release Check, and re-smokes the exact worker, direct transport,
+and OMP extension on Node 22. Broader compatibility matrices remain
+protected-main CI evidence rather than release payload members. The final
+BUILDINFO records the release workflow's exact run identity and a sorted
+30-file manifest without attestation or provenance fields.
+
+The deterministic archive, its SHA-256 sidecar, and `BUILDINFO.sha256` are the
+release's only assets. The workflow verifies that exact draft asset set before
+publishing and requires GitHub to report the published release immutable. Both
+runtime artifacts remain dependency-free except for audited `node:` builtins.
+Downstream production vendoring runs only through the downstream-pinned tag
+signer and authenticated release tool; locally built or manually copied bytes
+are never eligible.
 
 ## Activation and removal
 

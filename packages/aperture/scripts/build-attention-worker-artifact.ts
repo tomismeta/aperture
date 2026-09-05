@@ -50,6 +50,7 @@ const ompFixtureNames = [
   "focus-result.json",
   "completion-event.json",
   "completion-resolved-event.json",
+  "session-heartbeat.json",
   "snapshot-failure.json",
   "snapshot-completion.json",
   "snapshot-completion-resolved.json",
@@ -196,7 +197,8 @@ const ompManifestMetadata = JSON.parse(await readFile(stagedOmpManifest, "utf8")
 };
 if (
   ompManifestMetadata.name !== "@tomismeta/aperture-omp" ||
-  ompManifestMetadata.version !== "0.1.0" ||
+  typeof ompManifestMetadata.version !== "string" ||
+  !/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(ompManifestMetadata.version) ||
   ompManifestMetadata.private !== true ||
   ompManifestMetadata.type !== "module" ||
   !Array.isArray(ompManifestMetadata.omp?.extensions) ||
@@ -256,17 +258,15 @@ if (ompExtensionFile.bytes > maximumMarketplaceArtifactBytes) {
 const ompManifestFile = requiredFile("integrations/omp/package.json");
 const ompImportEvidence = requiredFile("evidence/omp-runtime-imports.json");
 const apertureSourceTag = process.env.APERTURE_SOURCE_TAG || null;
-const releaseSeries = apertureSourceTag ? apertureSourceTag.replace(/\.\d+$/, "") : "development";
 
 const buildInfo = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   artifactType: "node-commonjs-bundle",
   worker: "aperture-attention-engine",
   artifactMode: "omp-only",
   minimumNodeVersion,
   minimumNodeMajor: 22,
   apertureCommit: commit,
-  releaseSeries,
   apertureSourceTag,
   sourceDirty,
   payloadProfile: options.allowUnsignedLocal ? "development" : "release",
@@ -275,7 +275,6 @@ const buildInfo = {
     maximumTextArtifactBytes: maximumMarketplaceArtifactBytes,
   },
   apertureCoreVersion: String(coreMetadata.version || ""),
-  ompPackageVersion: String(ompManifestMetadata.version),
   builder: {
     name: "esbuild",
     version: String(esbuildMetadata.version || ""),
@@ -283,10 +282,6 @@ const buildInfo = {
   },
   workerContract: {
     notificationInput: false,
-    ompWorkerOutputSchemaVersion: OMP_WORKER_OUTPUT_PROTOCOL_VERSION,
-    surfaceProtocolVersion: APERTURE_SURFACE_PROTOCOL_VERSION,
-    ompAttentionEventSchemaVersion: OMP_ATTENTION_EVENT_SCHEMA_VERSION,
-    workerDirectProtocolVersion: WORKER_DIRECT_PROTOCOL_VERSION,
     jsonlHandshakes: {
       privateWorker: {
         protocolVersion: OMP_WORKER_OUTPUT_PROTOCOL_VERSION,
@@ -387,7 +382,6 @@ const buildInfo = {
   },
   fixtures: {
     ompDirect: {
-      version: 4,
       paths: ompFixtureNames.map((fixtureName) => `fixtures/omp-direct/${fixtureName}`),
     },
   },

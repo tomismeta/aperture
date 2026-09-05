@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import { EventEmitter, once } from "node:events";
 import test from "node:test";
 
+import { Ajv2020 } from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
+
 import {
   FocusHost,
   resolveFocusTarget,
@@ -11,6 +14,7 @@ import {
 } from "@tomismeta/aperture/focus-host";
 import type { OmpAttentionEvent } from "@tomismeta/aperture/omp-attention-event";
 import {
+  assertWorkerDirectMessage,
   directMessageRequestId,
   WorkerDirectRejectedError,
   type FocusRecovery,
@@ -106,6 +110,97 @@ class FakeDirectTransport extends OmpDirectWorkerTransport {
     };
   }
 }
+
+test("emitted session heartbeats conform to the canonical direct request schema", async () => {
+  const readJson = (relativePath: string): unknown =>
+    JSON.parse(readFileSync(new URL(relativePath, import.meta.url), "utf8"));
+  const ajv = new Ajv2020({ strict: true });
+  addFormats.default(ajv);
+  ajv.addSchema(
+    readJson("../../aperture/src/omp-attention-event.schema.json") as object,
+  );
+  const validate = ajv.compile(
+    readJson("../../aperture/src/worker-direct-message.schema.json") as object,
+  );
+  const fixture = readJson("../../aperture/fixtures/omp-direct/session-heartbeat.json") as {
+    sessionId: string;
+  };
+  const sent: WorkerDirectMessage[] = [];
+  const heartbeat = new SessionHeartbeatSender({
+    async send(message: WorkerDirectMessage): Promise<WorkerDirectAcknowledgement> {
+      sent.push(message);
+      return {
+        schemaVersion: 4,
+        status: "accepted",
+        requestId: directMessageRequestId(message),
+      };
+    },
+  });
+  try {
+    heartbeat.observe(fixture.sessionId);
+    await flushMicrotasks();
+    assert.equal(validate(fixture), true, JSON.stringify(validate.errors));
+    assert.equal(validate(sent[0]), true, JSON.stringify(validate.errors));
+  } finally {
+    await heartbeat.close();
+  }
+
+  for (const name of [
+    "approval-request",
+    "input-request",
+    "failure-event",
+    "completion-event",
+    "completion-resolved-event",
+    "focus-registration",
+    "focus-registration-direct-terminal",
+    "focus-registration-tmux",
+  ]) {
+    const request = readJson(`../../aperture/fixtures/omp-direct/${name}.json`);
+    assert.equal(validate(request), true, `${name}: ${JSON.stringify(validate.errors)}`);
+  }
+
+  for (const request of [
+    { ...fixture, requestId: " ".repeat(160) },
+    { ...fixture, requestId: "𐀀".repeat(160), sessionId: "𐀀".repeat(160) },
+    { ...fixture, sessionId: "opaque;$(not-a-path)" },
+    { ...fixture, sessionId: " \u2028opaque" },
+  ]) {
+    assert.deepEqual(assertWorkerDirectMessage(request), request);
+    assert.equal(validate(request), true, JSON.stringify(validate.errors));
+  }
+  for (const field of ["schemaVersion", "type", "requestId", "sessionId"]) {
+    const request: Record<string, unknown> = { ...fixture };
+    delete request[field];
+    assert.throws(() => assertWorkerDirectMessage(request));
+    assert.equal(validate(request), false, `missing ${field}`);
+  }
+  for (const overrides of [
+    { schemaVersion: 3 },
+    { type: "omp.session-heartbeat-ack" },
+    { extra: true },
+    { requestId: 1 },
+    { requestId: "" },
+    { requestId: "x".repeat(161) },
+    { requestId: "bad\nrequest" },
+    { requestId: "request\n" },
+    { requestId: "bad\u007frequest" },
+    { sessionId: null },
+    { sessionId: "" },
+    { sessionId: " \u00a0" },
+    { sessionId: "𐀀".repeat(161) },
+    { sessionId: "bad\u0000session" },
+    { sessionId: "session\n" },
+    { sessionId: "/home/operator/session.jsonl" },
+    { sessionId: "session ~/private" },
+    { sessionId: "C:\\Users\\operator\\session.jsonl" },
+    { sessionId: "session FiLe:///opaque" },
+  ]) {
+    const request = { ...fixture, ...overrides };
+    assert.throws(() => assertWorkerDirectMessage(request));
+    assert.equal(validate(request), false, JSON.stringify(overrides));
+  }
+  assert.equal(validate({ schemaVersion: 4, status: "accepted", requestId: "heartbeat-1" }), false);
+});
 
 test("session heartbeats bypass attention ordering and remain single-flight", async () => {
   const attentionGate = deferred<WorkerDirectAcknowledgement>();
@@ -902,9 +997,12 @@ test("duplicate OMP facts retain stable direct identities while distinct turns r
   const duplicate = mapOmpDirectAttentionEvents(stop, {
     now: () => "2026-09-04T11:30:20.604Z",
   })[0];
-  const nextTurn = mapOmpDirectAttentionEvents({ ...stop, turn_id: 1 }, {
-    now: () => "2026-09-04T11:30:21.000Z",
-  })[0];
+  const nextTurn = mapOmpDirectAttentionEvents(
+    { ...stop, turn_id: 1 },
+    {
+      now: () => "2026-09-04T11:30:21.000Z",
+    },
+  )[0];
 
   assert.ok(first);
   assert.ok(duplicate);

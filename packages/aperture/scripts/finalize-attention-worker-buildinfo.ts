@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { OMP_WORKER_OUTPUT_PROTOCOL_VERSION } from "../src/notification-worker/omp-worker-protocol.js";
+import { APERTURE_SURFACE_PROTOCOL_VERSION } from "../src/surface/protocol.js";
 
 type ArtifactFile = {
   path: string;
@@ -10,14 +12,15 @@ type ArtifactFile = {
 };
 
 type BuildInfoShape = {
+  schemaVersion?: unknown;
   artifactType?: unknown;
   artifactMode?: unknown;
   aperturePackageVersion?: unknown;
   apertureCoreVersion?: unknown;
-  ompPackageVersion?: unknown;
   artifactLimits?: { maximumTextArtifactBytes?: unknown };
   minimumNodeMajor?: unknown;
   workerContract?: unknown;
+  fixtures?: { ompDirect?: unknown };
   directSocketLifecycle?: unknown;
   workerBundle?: { sha256?: unknown; bytes?: unknown };
   integrations?: {
@@ -84,7 +87,7 @@ type OmpCompatibilityReport = {
 const maximumMarketplaceArtifactBytes = 524_288;
 const expectedJsonlHandshakes = {
   privateWorker: {
-    protocolVersion: 4,
+    protocolVersion: OMP_WORKER_OUTPUT_PROTOCOL_VERSION,
     peer: "aperture-attention-engine",
     framing: "jsonl",
     outputEncoding: "ascii-json-escapes",
@@ -92,7 +95,7 @@ const expectedJsonlHandshakes = {
     navigation: "validated-opaque-focus-only",
   },
   publicSurface: {
-    protocolVersion: 4,
+    protocolVersion: APERTURE_SURFACE_PROTOCOL_VERSION,
     peer: "aperture-stdio",
     framing: "jsonl",
     outputEncoding: "ascii-json-escapes",
@@ -122,6 +125,7 @@ const buildInfo = JSON.parse(await readFile(buildInfoPath, "utf8")) as BuildInfo
 const workerBundle = buildInfo.workerBundle;
 const ompIntegration = buildInfo.integrations?.omp;
 const workerContract = optionalRecord(buildInfo.workerContract);
+const ompFixtures = optionalRecord(buildInfo.fixtures?.ompDirect);
 if (
   workerBundle &&
   typeof workerBundle.bytes === "number" &&
@@ -141,15 +145,22 @@ if (
   );
 }
 if (
+  buildInfo.schemaVersion !== 2 ||
+  "ompPackageVersion" in buildInfo ||
+  "releaseSeries" in buildInfo ||
   buildInfo.artifactType !== "node-commonjs-bundle" ||
   buildInfo.artifactMode !== "omp-only" ||
   buildInfo.minimumNodeMajor !== 22 ||
   buildInfo.aperturePackageVersion !== "0.10.0" ||
   buildInfo.apertureCoreVersion !== "0.9.0" ||
-  buildInfo.ompPackageVersion !== "0.1.0" ||
   !workerBundle ||
   buildInfo.artifactLimits?.maximumTextArtifactBytes !== maximumMarketplaceArtifactBytes ||
   workerContract?.notificationInput !== false ||
+  JSON.stringify(Object.keys(workerContract).sort()) !==
+    JSON.stringify(["jsonlHandshakes", "notificationInput"]) ||
+  !ompFixtures ||
+  JSON.stringify(Object.keys(ompFixtures)) !== JSON.stringify(["paths"]) ||
+  !Array.isArray(ompFixtures.paths) ||
   JSON.stringify(workerContract?.jsonlHandshakes) !== JSON.stringify(expectedJsonlHandshakes) ||
   JSON.stringify(buildInfo.directSocketLifecycle) !==
     JSON.stringify(expectedDirectSocketLifecycle) ||
@@ -160,7 +171,8 @@ if (
   !ompIntegration ||
   ompIntegration.proofId !== "aperture-omp-adapter-conformance-v1" ||
   typeof ompIntegration.sha256 !== "string" ||
-  ompIntegration.packageVersion !== "0.1.0" ||
+  typeof ompIntegration.packageVersion !== "string" ||
+  !/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(ompIntegration.packageVersion) ||
   typeof ompIntegration.bytes !== "number" ||
   ompIntegration.bytes < 1 ||
   ompIntegration.bytes > maximumMarketplaceArtifactBytes
@@ -178,9 +190,13 @@ const ompManifest = JSON.parse(
   type?: unknown;
   omp?: { extensions?: unknown };
 };
+const sourceOmpManifest = JSON.parse(
+  await readFile(new URL("../../omp/omarchy-package.json", import.meta.url), "utf8"),
+) as { version?: unknown };
 if (
   ompManifest.name !== "@tomismeta/aperture-omp" ||
-  ompManifest.version !== buildInfo.ompPackageVersion ||
+  ompManifest.version !== ompIntegration.packageVersion ||
+  ompManifest.version !== sourceOmpManifest.version ||
   ompManifest.private !== true ||
   ompManifest.type !== "module" ||
   JSON.stringify(ompManifest.omp?.extensions) !== JSON.stringify(["./aperture-omp-extension.mjs"])

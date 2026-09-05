@@ -70,12 +70,15 @@ after a terminal delivery failure; acceptance-unknown retries do not disable
 delivery. Shutdown also restores the prior setting. If the sender is
 unavailable, built-in notifications remain enabled.
 
-The staged private OMP manifest is version `0.1.0`, independently from the
+The staged private OMP manifest is version `0.1.1`, independently from the
 Aperture product package version.
 
-BUILDINFO records that version both at `ompPackageVersion` and
+BUILDINFO schema v2 records that version only at
 `integrations.omp.packageVersion`; it pins the worker/extension text ceiling as
-`artifactLimits.maximumTextArtifactBytes: 524288`.
+`artifactLimits.maximumTextArtifactBytes: 524288`. Release checks compare this
+identity with the staged manifest and the source component manifest, rather than
+pinning an eternal component version in tooling. Component semver advances for
+immutable component releases, not every commit.
 
 The trusted Omarchy payload vendors the compiled extension as:
 

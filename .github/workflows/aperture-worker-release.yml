@@ -129,7 +129,7 @@ jobs:
           --manifest "$PAYLOAD_DIR/integrations/omp/package.json"
           --report "$REPORT_DIR/omp-adapter.json"
 
-      - name: Finalize exact 30-file payload
+      - name: Finalize exact 31-file payload
         run: >-
           pnpm --dir packages/aperture finalize:attention-worker --
           --artifact-dir "$PAYLOAD_DIR"
@@ -140,11 +140,13 @@ jobs:
       - name: Verify BUILDINFO and exact payload contract
         run: |
           jq -e \
+            --arg ompVersion "$(jq -er '.version' packages/omp/omarchy-package.json)" \
             --arg commit "$SOURCE_COMMIT" \
             --arg tag "$SOURCE_TAG" \
             --arg runId "$GITHUB_RUN_ID" \
             --arg runAttempt "$GITHUB_RUN_ATTEMPT" \
             --arg workflowRef "$GITHUB_REPOSITORY/.github/workflows/aperture-worker-release.yml@refs/tags/$SOURCE_TAG" '
+              .schemaVersion == 2 and
               .artifactType == "node-commonjs-bundle" and
               .artifactMode == "omp-only" and
               .minimumNodeMajor == 22 and
@@ -162,11 +164,10 @@ jobs:
               .integrations.omp.runtimeDependencies.policy == "node-builtins-only" and
               .integrations.omp.runtimeDependencies.status == "passed" and
               (.integrations.omp.runtimeDependencies.imports | all(startswith("node:"))) and
-              .ompPackageVersion == "0.1.0" and
-              .integrations.omp.packageVersion == "0.1.0" and
+              .integrations.omp.packageVersion == $ompVersion and
               .workerBundle.bytes <= 524288 and
               .integrations.omp.bytes <= 524288 and
-              (.files | length) == 30 and
+              (.files | length) == 31 and
               [.files[].path] == ([.files[].path] | sort) and
               (has("provenanceAttestationReference") | not) and
               (has("provenanceAttestationRequired") | not)

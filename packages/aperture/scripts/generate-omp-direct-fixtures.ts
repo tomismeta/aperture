@@ -9,7 +9,10 @@ import {
   OMP_ATTENTION_EVENT_SCHEMA_VERSION,
   type OmpAttentionEvent,
 } from "../src/omp-attention-event.js";
-import { assertWorkerDirectMessage, WORKER_DIRECT_PROTOCOL_VERSION } from "../src/worker-direct-message.js";
+import {
+  assertWorkerDirectMessage,
+  WORKER_DIRECT_PROTOCOL_VERSION,
+} from "../src/worker-direct-message.js";
 import { OmpWorkerEngine } from "../src/notification-worker/omp-engine.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -72,6 +75,12 @@ const completionResolved = event({
   title: "OMP started new agent work",
   summary: "New agent work superseded the previous completed result.",
   transition: "resolved",
+});
+const sessionHeartbeat = assertWorkerDirectMessage({
+  schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
+  type: "omp.session-heartbeat",
+  requestId: "heartbeat-1",
+  sessionId,
 });
 const focusRegistration = assertWorkerDirectMessage({
   schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
@@ -183,6 +192,7 @@ try {
     ["failure-event.json", failure],
     ["completion-event.json", completion],
     ["completion-resolved-event.json", completionResolved],
+    ["session-heartbeat.json", sessionHeartbeat],
     ["snapshot-now-next.json", nowNext],
     ["snapshot-resolved.json", resolved],
     ["snapshot-failure.json", failureSnapshot],

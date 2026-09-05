@@ -36,6 +36,7 @@ const FIXED_FILES = [
   "fixtures/omp-direct/focus-result.json",
   "fixtures/omp-direct/input-request.json",
   "fixtures/omp-direct/completion-resolved-event.json",
+  "fixtures/omp-direct/session-heartbeat.json",
   "fixtures/omp-direct/snapshot-completion.json",
   "fixtures/omp-direct/snapshot-completion-resolved.json",
   "fixtures/omp-direct/focus-registration-direct-terminal.json",
@@ -80,7 +81,11 @@ async function validateMetadata(
   sourceCommit: string,
   sourceTag: string,
 ): Promise<void> {
-  assert(buildInfo.schemaVersion === 1, "BUILDINFO schemaVersion must be 1");
+  assert(buildInfo.schemaVersion === 2, "BUILDINFO schemaVersion must be 2");
+  assert(
+    !("ompPackageVersion" in buildInfo) && !("releaseSeries" in buildInfo),
+    "BUILDINFO must not contain redundant component or release versions",
+  );
   assert(buildInfo.artifactType === "node-commonjs-bundle", "invalid artifact type");
   assert(buildInfo.worker === "aperture-attention-engine", "invalid worker identity");
   assert(buildInfo.minimumNodeVersion === "22.0.0", "invalid minimum Node version");
@@ -91,15 +96,10 @@ async function validateMetadata(
   assert(buildInfo.apertureCommit === sourceCommit, "BUILDINFO source commit mismatch");
   assert(buildInfo.apertureSourceTag === sourceTag, "BUILDINFO source tag mismatch");
   assert(buildInfo.aperturePackageVersion === "0.10.0", "invalid Aperture package version");
-  assert(buildInfo.ompPackageVersion === "0.1.0", "invalid private OMP package version");
   const artifactLimits = record(buildInfo.artifactLimits, "missing artifact limits");
   assert(
     artifactLimits.maximumTextArtifactBytes === MAXIMUM_MARKETPLACE_ARTIFACT_BYTES,
     "invalid marketplace text artifact limit",
-  );
-  assert(
-    buildInfo.releaseSeries === sourceTag.replace(/\.\d+$/, ""),
-    "BUILDINFO release series mismatch",
   );
   assert(buildInfo.apertureCoreVersion === "0.9.0", "invalid ApertureCore version");
   assertUtcTimestamp(buildInfo.builtAt);
@@ -115,20 +115,9 @@ async function validateMetadata(
   const workerContract = record(buildInfo.workerContract, "missing worker contract");
   assert(workerContract.notificationInput === false, "notification input must be disabled");
   assert(
-    workerContract.ompWorkerOutputSchemaVersion === OMP_WORKER_OUTPUT_PROTOCOL_VERSION,
-    "invalid OMP worker output schema",
-  );
-  assert(
-    workerContract.surfaceProtocolVersion === APERTURE_SURFACE_PROTOCOL_VERSION,
-    "invalid surface protocol version",
-  );
-  assert(
-    workerContract.ompAttentionEventSchemaVersion === OMP_ATTENTION_EVENT_SCHEMA_VERSION,
-    "invalid OMP event schema",
-  );
-  assert(
-    workerContract.workerDirectProtocolVersion === WORKER_DIRECT_PROTOCOL_VERSION,
-    "invalid worker direct protocol",
+    JSON.stringify(Object.keys(workerContract).sort()) ===
+      JSON.stringify(["jsonlHandshakes", "notificationInput"]),
+    "worker contract must contain only notification input and JSONL handshakes",
   );
   assert(
     JSON.stringify(workerContract.jsonlHandshakes) ===
@@ -296,7 +285,11 @@ async function validateMetadata(
   assert(omp.artifactType === "omp-extension-module", "invalid OMP artifact type");
   assert(omp.path === "integrations/omp/aperture-omp-extension.mjs", "invalid OMP path");
   assert(omp.manifestPath === "integrations/omp/package.json", "invalid OMP manifest path");
-  assert(omp.packageVersion === buildInfo.ompPackageVersion, "invalid OMP integration version");
+  assert(
+    typeof omp.packageVersion === "string" &&
+      /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(omp.packageVersion),
+    "invalid OMP integration version",
+  );
   assert(typeof omp.bytes === "number" && omp.bytes > 0, "invalid OMP byte size");
   assert(
     omp.bytes <= MAXIMUM_MARKETPLACE_ARTIFACT_BYTES,
@@ -379,7 +372,10 @@ async function validateMetadata(
   );
   const fixtureMetadata = record(buildInfo.fixtures, "missing fixture metadata");
   const ompFixtures = record(fixtureMetadata.ompDirect, "missing OMP direct fixtures");
-  assert(ompFixtures.version === 4, "invalid OMP fixture version");
+  assert(
+    JSON.stringify(Object.keys(ompFixtures)) === JSON.stringify(["paths"]),
+    "OMP fixture metadata must contain only paths",
+  );
   const declaredFixturePaths = array(ompFixtures.paths, "missing OMP fixture paths");
   const requiredFixturePaths = [...FIXED_FILES]
     .filter((entry) => entry.startsWith("fixtures/"))
@@ -432,8 +428,12 @@ async function validateMetadata(
   const manifest = JSON.parse(
     await readFile(path.join(root, "integrations", "omp", "package.json"), "utf8"),
   ) as Record<string, unknown>;
+  const sourceManifest = JSON.parse(
+    await readFile(new URL("../../omp/omarchy-package.json", import.meta.url), "utf8"),
+  ) as Record<string, unknown>;
   assert(manifest.name === "@tomismeta/aperture-omp", "invalid OMP package name");
-  assert(manifest.version === buildInfo.ompPackageVersion, "OMP package version mismatch");
+  assert(manifest.version === omp.packageVersion, "OMP package version mismatch");
+  assert(manifest.version === sourceManifest.version, "OMP source package version mismatch");
   assert(manifest.private === true, "OMP package must be private");
   assert(manifest.type === "module", "OMP package must be an ES module");
   const ompManifest = record(manifest.omp, "missing OMP package manifest");
@@ -507,7 +507,7 @@ function validateAllowedFiles(files: ArtifactFile[]): void {
     /^evidence\/direct-node-\d+\.\d+\.\d+\.json$/.test(entry),
   );
   assert(directNodeReports.length === 1, "artifact must contain exactly one direct Node report");
-  assert(files.length === 30, "artifact must contain exactly 30 payload files");
+  assert(files.length === 31, "artifact must contain exactly 31 payload files");
   const allowed = new Set([...FIXED_FILES, ...nodeReports, ...directNodeReports]);
   for (const artifactPath of paths) {
     assert(allowed.has(artifactPath), `undeclared artifact file: ${artifactPath}`);

@@ -209,7 +209,7 @@ For an unsigned local development payload, use
 Its BUILDINFO records `payloadProfile: "development"` and the exact volatile
 focus-coordinator contract.
 
-The staged payload also includes a private `@tomismeta/aperture-omp@0.1.0`
+The staged payload also includes a private `@tomismeta/aperture-omp@0.1.1`
 manifest and `integrations/omp/aperture-omp-extension.mjs`, a first-class OMP
 extension. When
 the worker owns `$XDG_RUNTIME_DIR/omarchy/aperture/attention.sock`, the extension
@@ -254,10 +254,14 @@ resolved before navigation is removed; non-completion action items remain.
 
 Worker stdout is ASCII-only JSONL with non-ASCII JSON code units escaped and a
 256 KiB encoded-line limit. Production worker and OMP extension artifacts are
-minified and each must fit the 524,288-byte marketplace limit. BUILDINFO pins
-this as `artifactLimits.maximumTextArtifactBytes: 524288` and records the
-private version both at `ompPackageVersion` and
-`integrations.omp.packageVersion`.
+minified and each must fit the 524,288-byte marketplace limit. BUILDINFO schema v2
+pins this as `artifactLimits.maximumTextArtifactBytes: 524288` and records the
+private component version only at `integrations.omp.packageVersion`. The
+`schemas.{output,surface,ompAttentionEvent,workerDirectMessage}` inventory owns
+each protocol's version, path, and SHA-256. JSONL handshake declarations retain
+their independent output/surface protocol versions; fixture metadata contains
+paths only. The signed source tag identifies the release, without a redundant
+release-series field.
 
 A host can run
 `aperture-attention-engine.cjs --cleanup-owned-socket` after service teardown;

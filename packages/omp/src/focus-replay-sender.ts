@@ -154,6 +154,5 @@ function delay(milliseconds: number, signal: AbortSignal): Promise<void> {
       resolve();
     }
     signal.addEventListener("abort", abort, { once: true });
-    timer.unref?.();
   });
 }

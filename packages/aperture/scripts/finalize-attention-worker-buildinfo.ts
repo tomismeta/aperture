@@ -27,13 +27,10 @@ type BuildInfoShape = {
       bytes?: unknown;
       proofId?: unknown;
       validation?: unknown;
-      hostCompatibility?: unknown;
     };
   };
   files?: ArtifactFile[];
   validation?: unknown;
-  provenanceAttestationReference?: string | null;
-  trustedCi?: unknown;
 };
 
 type CompatibilityReport = {
@@ -82,23 +79,6 @@ type OmpCompatibilityReport = {
     nativeFallback?: unknown;
     deliveryScheduling?: unknown;
   };
-};
-
-type OmpHostCompatibilityReport = {
-  schemaVersion?: unknown;
-  proofId?: unknown;
-  passed?: unknown;
-  worker?: { sha256?: unknown; bytes?: unknown };
-  extension?: { sha256?: unknown; bytes?: unknown };
-  socketRemovedOnShutdown?: unknown;
-  matrix?: unknown;
-};
-type FocusBackendReport = {
-  schemaVersion?: unknown;
-  proofId?: unknown;
-  status?: unknown;
-  backends?: unknown;
-  checks?: unknown;
 };
 
 const maximumMarketplaceArtifactBytes = 524_288;
@@ -204,20 +184,14 @@ if (
 ) {
   throw new Error("attention worker OMP manifest does not match BUILDINFO");
 }
-if (options.nodeReports.length < 3) {
-  throw new Error("attention worker finalization requires Node 22, Node 24, and current reports");
+if (options.nodeReports.length !== 1) {
+  throw new Error("attention worker finalization requires exactly one Node 22 report");
 }
-if (options.directReports.length < 3) {
-  throw new Error("direct OMP finalization requires Node 22, Node 24, and current reports");
+if (options.directReports.length !== 1) {
+  throw new Error("direct OMP finalization requires exactly one Node 22 report");
 }
 if (!options.ompReport) {
   throw new Error("attention worker finalization requires an OMP adapter report");
-}
-if (!options.ompHostReport) {
-  throw new Error("attention worker finalization requires an OMP host matrix report");
-}
-if (!options.focusReport) {
-  throw new Error("attention worker finalization requires a focus backend report");
 }
 
 const reports = await Promise.all(
@@ -251,10 +225,8 @@ const reports = await Promise.all(
 const nodeMajors = new Set(
   reports.map(({ report }) => Number(String(report.nodeVersion).split(".")[0])),
 );
-if (!nodeMajors.has(22) || !nodeMajors.has(24) || ![...nodeMajors].some((major) => major > 24)) {
-  throw new Error(
-    "attention worker compatibility reports do not cover Node 22, Node 24, and current",
-  );
+if (nodeMajors.size !== 1 || !nodeMajors.has(22)) {
+  throw new Error("attention worker compatibility report must cover exactly Node 22");
 }
 const directReports = await Promise.all(
   options.directReports.map(async (reportPath) => {
@@ -287,12 +259,8 @@ const directReports = await Promise.all(
 const directNodeMajors = new Set(
   directReports.map(({ report }) => Number(String(report.nodeVersion).split(".")[0])),
 );
-if (
-  !directNodeMajors.has(22) ||
-  !directNodeMajors.has(24) ||
-  ![...directNodeMajors].some((major) => major > 24)
-) {
-  throw new Error("direct OMP reports do not cover Node 22, Node 24, and current");
+if (directNodeMajors.size !== 1 || !directNodeMajors.has(22)) {
+  throw new Error("direct OMP compatibility report must cover exactly Node 22");
 }
 const ompReportPath = path.resolve(options.ompReport);
 const ompReportContent = await readFile(ompReportPath);
@@ -317,65 +285,6 @@ if (
   ompReport.decisions.deliveryScheduling !== "non-blocking-bounded-queue"
 ) {
   throw new Error("invalid OMP adapter compatibility report");
-}
-const ompHostReportPath = path.resolve(options.ompHostReport);
-const ompHostReportContent = await readFile(ompHostReportPath);
-const ompHostReport = JSON.parse(
-  ompHostReportContent.toString("utf8"),
-) as OmpHostCompatibilityReport;
-if (
-  ompHostReport.schemaVersion !== 1 ||
-  ompHostReport.proofId !== "aperture-omp-host-direct-compatibility-v1" ||
-  ompHostReport.passed !== true ||
-  ompHostReport.worker?.sha256 !== workerBundle.sha256 ||
-  ompHostReport.worker.bytes !== workerBundle.bytes ||
-  ompHostReport.extension?.sha256 !== ompIntegration.sha256 ||
-  ompHostReport.extension.bytes !== ompIntegration.bytes ||
-  ompHostReport.socketRemovedOnShutdown !== true ||
-  !Array.isArray(ompHostReport.matrix) ||
-  !ompHostReport.matrix.every(
-    (entry) =>
-      entry &&
-      typeof entry === "object" &&
-      "status" in entry &&
-      entry.status === "passed" &&
-      "actualExtensionLoader" in entry &&
-      entry.actualExtensionLoader === true &&
-      "rpcReady" in entry &&
-      entry.rpcReady === true &&
-      "directSocketDelivered" in entry &&
-      entry.directSocketDelivered === true &&
-      "modelRequestSent" in entry &&
-      entry.modelRequestSent === false,
-  ) ||
-  !ompHostReport.matrix.some(
-    (entry) => (entry as { ompVersion?: unknown }).ompVersion === "18.0.11",
-  )
-) {
-  throw new Error("invalid OMP host compatibility report");
-}
-const focusReportPath = path.resolve(options.focusReport);
-const focusReportContent = await readFile(focusReportPath);
-const focusReport = JSON.parse(focusReportContent.toString("utf8")) as FocusBackendReport;
-if (
-  focusReport.schemaVersion !== 1 ||
-  focusReport.proofId !== "aperture-opaque-focus-navigation-v4" ||
-  focusReport.status !== "passed" ||
-  !Array.isArray(focusReport.backends) ||
-  !["herdr", "direct-terminal", "tmux"].every((backend) =>
-    focusReport.backends!.some(
-      (entry) =>
-        entry &&
-        typeof entry === "object" &&
-        "backend" in entry &&
-        entry.backend === backend &&
-        "result" in entry &&
-        entry.result === "focused",
-    ),
-  ) ||
-  !Array.isArray(focusReport.checks)
-) {
-  throw new Error("invalid positive focus backend report");
 }
 
 const evidenceRoot = path.join(artifactRoot, "evidence");
@@ -470,15 +379,11 @@ const ompOnlyEvidencePath = path.join(evidenceRoot, "omp-only-worker.json");
 await writeFile(ompOnlyEvidencePath, `${JSON.stringify(ompOnlyEvidence, null, 2)}\n`, "utf8");
 const stagedOmpReportPath = path.join(evidenceRoot, "omp-adapter.json");
 await writeFile(stagedOmpReportPath, ompReportContent);
-const stagedOmpHostReportPath = path.join(evidenceRoot, "omp-host-matrix.json");
-await writeFile(stagedOmpHostReportPath, ompHostReportContent);
-const stagedFocusReportPath = path.join(evidenceRoot, "focus-backends.json");
-await writeFile(stagedFocusReportPath, focusReportContent);
 const existingFiles = Array.isArray(buildInfo.files)
   ? buildInfo.files.filter(
       (entry) =>
         typeof entry.path === "string" &&
-        !/^evidence\/(?:node-|direct-node-|omp-only-worker\.json$|direct-transport\.json$|direct-privacy\.json$|omp-adapter\.json$|omp-host-matrix\.json$|focus-backends\.json$)/.test(
+        !/^evidence\/(?:node-|direct-node-|omp-only-worker\.json$|direct-transport\.json$|direct-privacy\.json$|omp-adapter\.json$)/.test(
           entry.path,
         ),
     )
@@ -494,8 +399,6 @@ const evidenceFiles = await Promise.all([
   artifactFile(artifactRoot, directEvidencePath),
   artifactFile(artifactRoot, privacyEvidencePath),
   artifactFile(artifactRoot, stagedOmpReportPath),
-  artifactFile(artifactRoot, stagedOmpHostReportPath),
-  artifactFile(artifactRoot, stagedFocusReportPath),
 ]);
 buildInfo.files = [...existingFiles, ...evidenceFiles].sort((left, right) =>
   left.path.localeCompare(right.path),
@@ -511,10 +414,7 @@ buildInfo.validation = {
   directPrivacyProofId: "aperture-omp-direct-privacy-v1",
   directPrivacyReport: "evidence/direct-privacy.json",
   navigationProofId: "aperture-opaque-focus-navigation-v4",
-  focusBackendReport: "evidence/focus-backends.json",
   directNodeCompatibility: directCompatibility,
-  ompHostProofId: "aperture-omp-host-direct-compatibility-v1",
-  ompHostReport: "evidence/omp-host-matrix.json",
 };
 ompIntegration.validation = {
   status: "passed",
@@ -522,19 +422,6 @@ ompIntegration.validation = {
   reportPath: "evidence/omp-adapter.json",
   reportSha256: createHash("sha256").update(ompReportContent).digest("hex"),
 };
-ompIntegration.hostCompatibility = {
-  status: "passed",
-  proofId: "aperture-omp-host-direct-compatibility-v1",
-  reportPath: "evidence/omp-host-matrix.json",
-  reportSha256: createHash("sha256").update(ompHostReportContent).digest("hex"),
-  versions: (ompHostReport.matrix as Array<{ ompVersion: string }>).map(
-    (entry) => entry.ompVersion,
-  ),
-};
-buildInfo.provenanceAttestationReference = options.attestationReference ?? null;
-if (buildInfo.trustedCi === true && !options.attestationReference) {
-  throw new Error("trusted attention worker BUILDINFO requires an attestation reference");
-}
 await writeFile(buildInfoPath, `${JSON.stringify(buildInfo, null, 2)}\n`, "utf8");
 process.stdout.write(`${buildInfoPath}\n`);
 
@@ -543,9 +430,6 @@ type FinalizeOptions = {
   nodeReports: string[];
   directReports: string[];
   ompReport: string;
-  ompHostReport: string;
-  focusReport: string;
-  attestationReference?: string;
 };
 
 function parseOptions(args: string[]): FinalizeOptions {
@@ -553,9 +437,6 @@ function parseOptions(args: string[]): FinalizeOptions {
   const nodeReports: string[] = [];
   const parsedDirectReports: string[] = [];
   let parsedOmpReport = "";
-  let parsedOmpHostReport = "";
-  let parsedFocusReport = "";
-  let attestationReference: string | undefined;
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === "--") continue;
@@ -563,20 +444,14 @@ function parseOptions(args: string[]): FinalizeOptions {
       argument === "--artifact-dir" ||
       argument === "--node-report" ||
       argument === "--direct-report" ||
-      argument === "--omp-report" ||
-      argument === "--omp-host-report" ||
-      argument === "--focus-report" ||
-      argument === "--attestation-reference"
+      argument === "--omp-report"
     ) {
       const value = args[index + 1];
       if (!value) throw new Error(`${argument} requires a value`);
       if (argument === "--artifact-dir") artifactDir = value;
       else if (argument === "--node-report") nodeReports.push(value);
       else if (argument === "--direct-report") parsedDirectReports.push(value);
-      else if (argument === "--omp-report") parsedOmpReport = value;
-      else if (argument === "--omp-host-report") parsedOmpHostReport = value;
-      else if (argument === "--focus-report") parsedFocusReport = value;
-      else attestationReference = value;
+      else parsedOmpReport = value;
       index += 1;
       continue;
     }
@@ -584,16 +459,11 @@ function parseOptions(args: string[]): FinalizeOptions {
   }
   if (!artifactDir) throw new Error("--artifact-dir is required");
   if (!parsedOmpReport) throw new Error("--omp-report is required");
-  if (!parsedOmpHostReport) throw new Error("--omp-host-report is required");
-  if (!parsedFocusReport) throw new Error("--focus-report is required");
   return {
     artifactDir,
     nodeReports,
     directReports: parsedDirectReports,
     ompReport: parsedOmpReport,
-    ompHostReport: parsedOmpHostReport,
-    focusReport: parsedFocusReport,
-    ...(attestationReference ? { attestationReference } : {}),
   };
 }
 

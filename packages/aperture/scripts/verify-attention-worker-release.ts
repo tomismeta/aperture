@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { chmod, lstat, readFile, readdir, writeFile } from "node:fs/promises";
+import { lstat, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { OMP_ATTENTION_EVENT_SCHEMA_VERSION } from "../src/omp-attention-event.js";
 import { OMP_WORKER_OUTPUT_PROTOCOL_VERSION } from "../src/notification-worker/omp-worker-protocol.js";
@@ -12,7 +12,6 @@ const OMP_PROOF = "aperture-omp-adapter-conformance-v1";
 const DIRECT_PROOF = "aperture-omp-direct-transport-conformance-v1";
 const PRIVACY_PROOF = "aperture-omp-direct-privacy-v1";
 const NAVIGATION_PROOF = "aperture-opaque-focus-navigation-v4";
-const OMP_HOST_PROOF = "aperture-omp-host-direct-compatibility-v1";
 const MAXIMUM_MARKETPLACE_ARTIFACT_BYTES = 524_288;
 const ROOT_ENTRIES = [
   "BUILDINFO.json",
@@ -25,9 +24,7 @@ const ROOT_ENTRIES = [
 const FIXED_FILES = [
   "evidence/direct-privacy.json",
   "evidence/direct-transport.json",
-  "evidence/focus-backends.json",
   "evidence/omp-adapter.json",
-  "evidence/omp-host-matrix.json",
   "evidence/omp-only-worker.json",
   "evidence/omp-runtime-imports.json",
   "evidence/runtime-imports.json",
@@ -64,30 +61,17 @@ type ArtifactFile = {
 
 type BuildInfo = Record<string, unknown> & {
   files?: unknown;
-  provenanceAttestationReference?: unknown;
 };
 
 const options = parseOptions(process.argv.slice(2));
 const artifactRoot = path.resolve(options.artifactDir);
 const buildInfoPath = path.join(artifactRoot, "BUILDINFO.json");
 
-const draftBuildInfo = JSON.parse(await readFile(buildInfoPath, "utf8")) as BuildInfo;
-await validateMetadata(draftBuildInfo, artifactRoot, options.sourceCommit, options.sourceTag);
+const buildInfo = JSON.parse(await readFile(buildInfoPath, "utf8")) as BuildInfo;
+await validateMetadata(buildInfo, artifactRoot, options.sourceCommit, options.sourceTag);
 const artifactFiles = await collectArtifactFiles(artifactRoot);
 validateAllowedFiles(artifactFiles);
-
-if (options.verifyOnly) {
-  assertManifest(draftBuildInfo.files, artifactFiles);
-} else {
-  draftBuildInfo.files = artifactFiles;
-  draftBuildInfo.provenanceAttestationReference = options.attestationReference;
-  await writeFile(buildInfoPath, `${JSON.stringify(draftBuildInfo, null, 2)}\n`, "utf8");
-  await chmod(buildInfoPath, 0o644);
-}
-
-const finalized = JSON.parse(await readFile(buildInfoPath, "utf8")) as BuildInfo;
-await validateMetadata(finalized, artifactRoot, options.sourceCommit, options.sourceTag);
-assertManifest(finalized.files, artifactFiles);
+assertManifest(buildInfo.files, artifactFiles);
 process.stdout.write(`${buildInfoPath}\n`);
 
 async function validateMetadata(
@@ -102,8 +86,8 @@ async function validateMetadata(
   assert(buildInfo.minimumNodeVersion === "22.0.0", "invalid minimum Node version");
   assert(buildInfo.minimumNodeMajor === 22, "invalid minimum Node major");
   assert(buildInfo.artifactMode === "omp-only", "invalid artifact mode");
-  assert(buildInfo.trustedCi === true, "combined release requires trusted CI");
-  assert(buildInfo.sourceDirty === false, "combined release source must be clean");
+  assert(buildInfo.trustedCi === true, "release requires trusted CI");
+  assert(buildInfo.sourceDirty === false, "release source must be clean");
   assert(buildInfo.apertureCommit === sourceCommit, "BUILDINFO source commit mismatch");
   assert(buildInfo.apertureSourceTag === sourceTag, "BUILDINFO source tag mismatch");
   assert(buildInfo.aperturePackageVersion === "0.10.0", "invalid Aperture package version");
@@ -119,7 +103,11 @@ async function validateMetadata(
   );
   assert(buildInfo.apertureCoreVersion === "0.9.0", "invalid ApertureCore version");
   assertUtcTimestamp(buildInfo.builtAt);
-  assertNonempty(buildInfo.provenanceAttestationReference, "missing provenance reference");
+  assert(
+    !("provenanceAttestationReference" in buildInfo) &&
+      !("provenanceAttestationRequired" in buildInfo),
+    "BUILDINFO must not contain attestation or provenance fields",
+  );
   const builder = record(buildInfo.builder, "missing builder metadata");
   assert(builder.name === "esbuild", "invalid builder");
   assertNonempty(builder.version, "missing esbuild version");
@@ -279,7 +267,7 @@ async function validateMetadata(
   assertNonempty(ci.workflowRef, "missing CI workflowRef");
   assert(
     ci.workflowRef ===
-      `tomismeta/aperture/.github/workflows/aperture-worker-artifact.yml@refs/tags/${sourceTag}`,
+      `tomismeta/aperture/.github/workflows/aperture-worker-release.yml@refs/tags/${sourceTag}`,
     "invalid CI workflowRef",
   );
   assert(typeof ci.runId === "string" && /^[1-9]\d*$/.test(ci.runId), "invalid CI runId");
@@ -328,62 +316,42 @@ async function validateMetadata(
   assert(validation.ompAdapterProofId === OMP_PROOF, "invalid OMP adapter proof identity");
   assert(validation.directTransportProofId === DIRECT_PROOF, "invalid direct transport proof");
   assert(validation.directPrivacyProofId === PRIVACY_PROOF, "invalid direct privacy proof");
-  assert(
-    validation.focusBackendReport === "evidence/focus-backends.json",
-    "missing positive focus backend report",
-  );
-  const focusReport = record(
-    JSON.parse(await readFile(path.join(root, "evidence", "focus-backends.json"), "utf8")),
-    "invalid positive focus backend report",
-  );
-  assert(focusReport.proofId === NAVIGATION_PROOF, "invalid focus backend proof");
-  assert(focusReport.status === "passed", "positive focus backend proof did not pass");
-  const focusBackends = array(focusReport.backends, "missing positive focus backends");
-  for (const backend of ["herdr", "direct-terminal", "tmux"]) {
-    assert(
-      focusBackends.some((entry) => {
-        const result = record(entry, "invalid focus backend result");
-        return result.backend === backend && result.result === "focused";
-      }),
-      `missing positive focus result for ${backend}`,
-    );
-  }
   assert(validation.navigationProofId === NAVIGATION_PROOF, "invalid navigation proof");
-  assert(validation.ompHostProofId === OMP_HOST_PROOF, "invalid OMP host proof");
-  const compatibility = array(validation.nodeCompatibility, "missing Node compatibility reports");
-  assert(compatibility.length > 0, "Node compatibility reports are empty");
-  const nodeMajors = new Set<number>();
-  for (const rawEntry of compatibility) {
-    const entry = record(rawEntry, "invalid Node compatibility entry");
-    assert(entry.status === "passed", "Node compatibility entry did not pass");
-    assertNonempty(entry.nodeVersion, "missing Node compatibility version");
-    nodeMajors.add(Number(String(entry.nodeVersion).split(".")[0]));
-  }
-  assert(nodeMajors.has(22), "Node 22 compatibility is missing");
-  assert(nodeMajors.has(24), "Node 24 compatibility is missing");
   assert(
-    [...nodeMajors].some((major) => major > 24),
-    "current Node compatibility is missing",
+    !("focusBackendReport" in validation) &&
+      !("ompHostProofId" in validation) &&
+      !("ompHostReport" in validation),
+    "BUILDINFO retains non-release validation evidence",
+  );
+  const compatibility = array(validation.nodeCompatibility, "missing Node compatibility reports");
+  assert(compatibility.length === 1, "release must contain exactly one Node report");
+  const nodeCompatibility = record(compatibility[0], "invalid Node compatibility entry");
+  assert(nodeCompatibility.status === "passed", "Node compatibility entry did not pass");
+  assertNonempty(nodeCompatibility.nodeVersion, "missing Node compatibility version");
+  assert(
+    Number(nodeCompatibility.nodeVersion.split(".")[0]) === 22,
+    "release Node compatibility must be Node 22",
   );
   const directCompatibility = array(
     validation.directNodeCompatibility,
     "missing direct Node compatibility reports",
   );
-  assert(directCompatibility.length === 3, "direct Node compatibility reports are incomplete");
-  for (const rawEntry of directCompatibility) {
-    const entry = record(rawEntry, "invalid direct Node compatibility entry");
-    assert(entry.status === "passed", "direct Node compatibility entry did not pass");
-  }
+  assert(directCompatibility.length === 1, "release must contain exactly one direct Node report");
+  const directNodeCompatibility = record(
+    directCompatibility[0],
+    "invalid direct Node compatibility entry",
+  );
+  assert(directNodeCompatibility.status === "passed", "direct Node compatibility did not pass");
+  assertNonempty(directNodeCompatibility.nodeVersion, "missing direct Node compatibility version");
+  assert(
+    Number(directNodeCompatibility.nodeVersion.split(".")[0]) === 22,
+    "release direct compatibility must be Node 22",
+  );
 
   const ompValidation = record(omp.validation, "missing OMP validation");
   assert(ompValidation.status === "passed", "OMP validation did not pass");
   assert(ompValidation.proofId === OMP_PROOF, "invalid OMP validation proof identity");
-  const hostCompatibility = record(omp.hostCompatibility, "missing OMP host compatibility");
-  assert(hostCompatibility.status === "passed", "OMP host compatibility did not pass");
-  assert(hostCompatibility.proofId === OMP_HOST_PROOF, "invalid OMP host proof identity");
-  const hostVersions = array(hostCompatibility.versions, "missing OMP host versions");
-  assert(hostVersions.includes("18.0.11"), "OMP 18.0.11 compatibility is missing");
-  assert(hostVersions.includes("18.1.2"), "current OMP compatibility is missing");
+  assert(!("hostCompatibility" in omp), "BUILDINFO retains OMP host compatibility evidence");
 
   const schemas = record(buildInfo.schemas, "missing schemas");
   assertSchema(
@@ -465,50 +433,6 @@ async function validateMetadata(
     JSON.stringify(ompManifest.extensions) === JSON.stringify(["./aperture-omp-extension.mjs"]),
     "invalid OMP extension declaration",
   );
-
-  const ompCompatibility = JSON.parse(
-    await readFile(path.join(root, "evidence", "omp-host-matrix.json"), "utf8"),
-  ) as Record<string, unknown>;
-  assert(ompCompatibility.schemaVersion === 1, "invalid OMP host evidence schema");
-  assert(ompCompatibility.proofId === OMP_HOST_PROOF, "invalid OMP host evidence proof");
-  assert(ompCompatibility.passed === true, "OMP host compatibility did not pass");
-  assert(
-    JSON.stringify(ompCompatibility.worker) ===
-      JSON.stringify({ bytes: worker.bytes, sha256: worker.sha256 }),
-    "OMP host worker identity mismatch",
-  );
-  assert(
-    JSON.stringify(ompCompatibility.extension) ===
-      JSON.stringify({ bytes: omp.bytes, sha256: omp.sha256 }),
-    "OMP host extension identity mismatch",
-  );
-  const ompMatrix = array(ompCompatibility.matrix, "missing OMP host matrix");
-  for (const version of ["18.0.11", "18.1.2"]) {
-    const entry = ompMatrix.find(
-      (candidate) =>
-        candidate &&
-        typeof candidate === "object" &&
-        "ompVersion" in candidate &&
-        candidate.ompVersion === version,
-    );
-    const matrixEntry = record(entry, `missing OMP ${version} evidence`);
-    assert(matrixEntry.status === "passed", `OMP ${version} did not pass`);
-    assert(matrixEntry.actualExtensionLoader === true, `OMP ${version} loader was not exercised`);
-    assert(
-      matrixEntry.stockSessionMethods === true,
-      `OMP ${version} stock session methods were not exercised`,
-    );
-    assert(
-      matrixEntry.attentionClassification === "input_requested",
-      `OMP ${version} input request was not delivered`,
-    );
-    assert(matrixEntry.directSocketDelivered === true, `OMP ${version} direct delivery failed`);
-    assert(
-      matrixEntry.navigation === "absent-rpc-headless",
-      `OMP ${version} RPC navigation was not fail-closed`,
-    );
-    assert(!("resumeArgv" in matrixEntry), `OMP ${version} retained executable navigation`);
-  }
 }
 
 async function collectArtifactFiles(root: string): Promise<ArtifactFile[]> {
@@ -570,11 +494,12 @@ function validateAllowedFiles(files: ArtifactFile[]): void {
     assert(paths.includes(fixedPath), `required artifact file is missing: ${fixedPath}`);
   }
   const nodeReports = paths.filter((entry) => /^evidence\/node-\d+\.\d+\.\d+\.json$/.test(entry));
-  assert(nodeReports.length === 3, "artifact must contain exactly three Node reports");
+  assert(nodeReports.length === 1, "artifact must contain exactly one Node report");
   const directNodeReports = paths.filter((entry) =>
     /^evidence\/direct-node-\d+\.\d+\.\d+\.json$/.test(entry),
   );
-  assert(directNodeReports.length === 3, "artifact must contain exactly three direct Node reports");
+  assert(directNodeReports.length === 1, "artifact must contain exactly one direct Node report");
+  assert(files.length === 30, "artifact must contain exactly 30 payload files");
   const allowed = new Set([...FIXED_FILES, ...nodeReports, ...directNodeReports]);
   for (const artifactPath of paths) {
     assert(allowed.has(artifactPath), `undeclared artifact file: ${artifactPath}`);
@@ -667,35 +592,27 @@ type Options = {
   artifactDir: string;
   sourceCommit: string;
   sourceTag: string;
-  attestationReference: string;
-  verifyOnly: boolean;
 };
 
 function parseOptions(args: string[]): Options {
-  const parsed: Partial<Options> = { verifyOnly: false };
+  const parsed: Partial<Options> = {};
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === "--") continue;
-    if (argument === "--verify-only") {
-      parsed.verifyOnly = true;
-      continue;
-    }
     if (
       argument === "--artifact-dir" ||
       argument === "--source-commit" ||
-      argument === "--source-tag" ||
-      argument === "--attestation-reference"
+      argument === "--source-tag"
     ) {
       const value = args[index + 1];
       if (!value) throw new Error(`${argument} requires a value`);
       if (argument === "--artifact-dir") parsed.artifactDir = value;
       else if (argument === "--source-commit") parsed.sourceCommit = value;
-      else if (argument === "--source-tag") parsed.sourceTag = value;
-      else parsed.attestationReference = value;
+      else parsed.sourceTag = value;
       index += 1;
       continue;
     }
-    throw new Error(`unknown combined release option: ${argument ?? "(missing)"}`);
+    throw new Error(`unknown release verification option: ${argument ?? "(missing)"}`);
   }
   if (!parsed.artifactDir) throw new Error("--artifact-dir is required");
   if (!parsed.sourceCommit) throw new Error("--source-commit is required");
@@ -706,14 +623,9 @@ function parseOptions(args: string[]): Options {
   if (!/^aperture-worker-v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(parsed.sourceTag)) {
     throw new Error("--source-tag must be an exact Aperture worker SemVer tag");
   }
-  if (!parsed.attestationReference && !parsed.verifyOnly) {
-    throw new Error("--attestation-reference is required");
-  }
   return {
     artifactDir: parsed.artifactDir,
     sourceCommit: parsed.sourceCommit,
     sourceTag: parsed.sourceTag,
-    attestationReference: parsed.attestationReference ?? "",
-    verifyOnly: parsed.verifyOnly ?? false,
   };
 }

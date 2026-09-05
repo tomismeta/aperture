@@ -11,7 +11,6 @@ import { WORKER_DIRECT_PROTOCOL_VERSION } from "../src/worker-direct-message.js"
 import { OMP_WORKER_OUTPUT_PROTOCOL_VERSION } from "../src/notification-worker/omp-worker-protocol.js";
 import { MAXIMUM_CONCURRENT_NATIVE_FALLBACKS } from "../../omp/src/omarchy-attention-state.js";
 
-
 const execFileAsync = promisify(execFile);
 const requireFromScript = createRequire(import.meta.url);
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -429,8 +428,6 @@ const buildInfo = {
     requiredNodeMajors: [22, 24, "current"],
     nodeCompatibility: [],
   },
-  provenanceAttestationReference: null,
-  provenanceAttestationRequired: true,
   trustedCi,
 };
 await writeFile(

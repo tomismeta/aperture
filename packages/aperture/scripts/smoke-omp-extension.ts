@@ -187,7 +187,12 @@ try {
       directTransport: {
         isAvailable: async () => true,
         send: async () => {
-          throw new Error("direct transport unavailable");
+          const error = new Error("direct transport unavailable") as Error & {
+            disposition: "definitely-not-accepted";
+          };
+          error.name = "OmpDirectDeliveryError";
+          error.disposition = "definitely-not-accepted";
+          throw error;
         },
         close: async () => undefined,
       },

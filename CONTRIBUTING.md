@@ -34,10 +34,12 @@ frames never carry navigation. Only private worker frames may carry the bounded
 channel owns Core, state, and its canonical socket and must not acquire a
 dependency on the Aperture CLI or runtime.
 
-The private OMP manifest is independently `0.1.0`. BUILDINFO records it at
-`ompPackageVersion` and `integrations.omp.packageVersion`, pins
+The private OMP manifest is independently `0.1.1`. BUILDINFO schema v2 records it
+only at `integrations.omp.packageVersion`, pins
 `artifactLimits.maximumTextArtifactBytes: 524288`, and records worker and OMP
-extension byte sizes checked against that ceiling.
+extension byte sizes checked against that ceiling. Its `schemas` inventory is
+the canonical protocol version/path/hash record; package versions and signed
+release tags are independent identities.
 
 Additional adapters are welcome.
 

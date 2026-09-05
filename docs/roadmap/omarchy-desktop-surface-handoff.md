@@ -52,14 +52,14 @@ The public companion surface and private worker output intentionally differ:
   requires `protocolVersion: 4`.
 - Private worker frames alone may carry navigation, and only as
   `{ "kind": "opaque-focus", "handle": "<32 base64url characters>" }`.
-- OMP attention events are exact schema v2.
+- OMP attention events are exact schema v4.
 - Worker-direct messages and acknowledgements are exact protocol v4.
 
-Package semver is independent from these wire versions. BUILDINFO records
-`aperturePackageVersion`, `apertureCoreVersion`, and `ompPackageVersion`
-separately. The private OMP manifest for this plugin release is
-`@tomismeta/aperture-omp@0.1.0`; it does not equal the Aperture product
-candidate version.
+Package semver is independent from these wire versions. BUILDINFO schema v2
+records `aperturePackageVersion`, `apertureCoreVersion`, and
+`integrations.omp.packageVersion` separately. The private OMP manifest for this
+plugin release is `@tomismeta/aperture-omp@0.1.1`; it does not equal the Aperture
+product candidate version.
 
 Common display semantics are implemented through the public display projection,
 then the private worker projection adds a validated volatile focus capability.
@@ -154,10 +154,14 @@ evidence rather than release payload members.
 Required staged files include the worker, OMP extension, private OMP manifest,
 canonical schemas and fixtures, import audits, BUILDINFO, and evidence. Both
 executable text artifacts are minified and each must be at most 524,288 bytes.
-BUILDINFO pins `artifactLimits.maximumTextArtifactBytes: 524288`, records the
-private OMP version both as top-level `ompPackageVersion` and
-`integrations.omp.packageVersion`, and identifies the exact tag-workflow run.
-Its sorted manifest covers the exact 30 payload files and their SHA-256 hashes,
+BUILDINFO schema v2 pins `artifactLimits.maximumTextArtifactBytes: 524288`,
+records the private OMP version only at `integrations.omp.packageVersion`, and
+identifies the exact tag-workflow run. Its `schemas` inventory is the canonical
+protocol version/path/hash record; `workerContract` retains only
+`notificationInput` and the independent private-output/public-surface JSONL
+handshakes. Direct fixture metadata lists paths without a redundant version.
+The source tag identifies the release; any release series is derived from it.
+Its sorted manifest covers the exact 31 payload files and their SHA-256 hashes,
 byte counts, and modes.
 
 The workflow creates a deterministic tag-named tarball plus

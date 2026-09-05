@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 4,
+  "type": "omp.session-heartbeat",
+  "requestId": "heartbeat-1",
+  "sessionId": "01a0123456789abcdef"
+}

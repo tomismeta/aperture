@@ -1,9 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:tomismeta:aperture:worker-direct-message:v4",
-  "title": "Aperture Private Worker Direct Message",
+  "title": "Aperture Private Worker Direct Request",
+  "description": "Requests accepted by the private worker-direct endpoint. Acknowledgements are a separate runtime contract and are not described by this schema.",
   "oneOf": [
-    { "$ref": "omp-attention-event.schema.json" },
+    { "$ref": "urn:tomismeta:aperture:omp-attention-event:v4" },
+    { "$ref": "#/$defs/sessionHeartbeat" },
     { "$ref": "#/$defs/focusRegistration" },
     { "$ref": "#/$defs/focusRevocation" }
   ],
@@ -117,6 +119,30 @@
           }
         }
       ]
+    },
+    "sessionHeartbeat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "type", "requestId", "sessionId"],
+      "properties": {
+        "schemaVersion": { "const": 4 },
+        "type": { "const": "omp.session-heartbeat" },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^[^\\u0000-\\u001F\\u007F]+(?![\\s\\S])"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^(?=[\\s\\S]*\\S)[^\\u0000-\\u001F\\u007F]+(?![\\s\\S])",
+          "not": {
+            "pattern": "(?:^|\\s)(?:~/|/(?:Users|home|private|tmp)/|[A-Za-z]:\\\\(?:Users|Documents|Temp)\\\\|[fF][iI][lL][eE]://)"
+          }
+        }
+      }
     },
     "focusRegistration": {
       "type": "object",

@@ -40,7 +40,7 @@ channel.
 
 ## Exact live contracts
 
-- OMP attention events: exact schema version `2`
+- OMP attention events: exact schema version `4`
 - worker-direct messages and acknowledgements: exact protocol version `4`
 - notification-worker input: exact schema version `2`
 - private notification-worker output: exact version `4`
@@ -65,7 +65,7 @@ The staged private manifest is independently versioned:
 ```json
 {
   "name": "@tomismeta/aperture-omp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "omp": {
@@ -74,11 +74,13 @@ The staged private manifest is independently versioned:
 }
 ```
 
-BUILDINFO records `ompPackageVersion: "0.1.0"` separately from the Aperture
-product and Core versions, and repeats it at
-`integrations.omp.packageVersion`. Build and release checks compare the staged
-manifest to both fields and must not assume the OMP and product versions are
-equal.
+BUILDINFO schema v2 records `integrations.omp.packageVersion: "0.1.1"` separately
+from the Aperture product and Core versions, without a top-level alias. Build
+and release checks validate the component version and compare the staged
+manifest with this field and its source manifest; they must not assume the OMP
+and product versions are equal. The `schemas` inventory owns protocol
+version/path/hash records. Component versions advance for immutable component
+releases, not every commit.
 
 ## Mapping contract
 

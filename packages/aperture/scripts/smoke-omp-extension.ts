@@ -51,7 +51,12 @@ try {
     omp?: { extensions?: unknown[] };
   };
   assert.equal(manifest.name, "@tomismeta/aperture-omp");
-  assert.equal(manifest.version, "0.1.0");
+  assert.equal(typeof manifest.version, "string");
+  assert.match(manifest.version as string, /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/);
+  const sourcePackage = JSON.parse(
+    await readFile(path.join(workspaceRoot, "packages", "omp", "omarchy-package.json"), "utf8"),
+  ) as { version?: unknown };
+  assert.equal(manifest.version, sourcePackage.version);
   assert.equal(manifest.private, true);
   assert.equal(manifest.type, "module");
   assert.deepEqual(manifest.omp?.extensions, ["./aperture-omp-extension.mjs"]);

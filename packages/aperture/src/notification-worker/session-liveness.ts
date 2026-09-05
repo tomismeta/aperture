@@ -14,6 +14,7 @@ export const OMP_SESSION_LIVENESS = {
 type SessionLease = {
   generation: number;
   deadline: number;
+  reconnectDeadline?: number;
 };
 
 export type OmpSessionLeaseExpiry = {
@@ -73,6 +74,7 @@ export class OmpSessionLiveness {
       this.leases.set(sessionId, {
         generation: this.newGeneration(),
         deadline,
+        reconnectDeadline: deadline,
       });
     }
     return overflow;
@@ -83,6 +85,18 @@ export class OmpSessionLiveness {
     if (!current && this.leases.size >= this.maximumSessions) {
       throw new OmpSessionCapacityError();
     }
+    this.leases.set(sessionId, {
+      generation: this.newGeneration(),
+      deadline: this.monotonicNow() + this.leaseMilliseconds,
+      ...(current?.reconnectDeadline === undefined
+        ? {}
+        : { reconnectDeadline: current.reconnectDeadline }),
+    });
+  }
+
+  confirmReconnect(sessionId: string): void {
+    const current = this.leases.get(sessionId);
+    if (!current || current.reconnectDeadline === undefined) return;
     this.leases.set(sessionId, {
       generation: this.newGeneration(),
       deadline: this.monotonicNow() + this.leaseMilliseconds,
@@ -97,17 +111,19 @@ export class OmpSessionLiveness {
     const now = this.monotonicNow();
     const expired: OmpSessionLeaseExpiry[] = [];
     for (const [sessionId, lease] of this.leases) {
-      if (lease.deadline <= now) expired.push({ sessionId, ...lease });
+      const deadline = lease.reconnectDeadline ?? lease.deadline;
+      if (deadline <= now) expired.push({ sessionId, generation: lease.generation, deadline });
     }
     return expired;
   }
 
   stillExpired(expiry: OmpSessionLeaseExpiry): boolean {
     const current = this.leases.get(expiry.sessionId);
+    const deadline = current?.reconnectDeadline ?? current?.deadline;
     return (
       current?.generation === expiry.generation &&
-      current.deadline === expiry.deadline &&
-      current.deadline <= this.monotonicNow()
+      deadline === expiry.deadline &&
+      deadline <= this.monotonicNow()
     );
   }
 

@@ -233,10 +233,10 @@ session presentation is optional bounded display metadata: a label plus up to
 four typed facets. Named and anonymous labels are projected only after Core;
 anonymous labels use a stable privacy-safe session digest. Presentation never
 enters event identity, judgment, lane choice, ordering, continuity, focus, or
-navigation. Heartbeat renewal, lease expiry, attention commits, and snapshots
-are serialized by the worker. Both hello frames require `protocolVersion: 4`
-independently from package semver. Only private worker snapshots may carry
-navigation, and the exact shape is
+navigation. Heartbeat renewal, post-restart attention proof, lease expiry,
+attention commits, and snapshots are serialized by the worker. Both hello frames
+require `protocolVersion: 4` independently from package semver. Only private
+worker snapshots may carry navigation, and the exact shape is
 `{ "kind": "opaque-focus", "handle": "…" }`; public surface frames cannot carry
 focus handles. Activation returns only `focused`, `stale`, or `missing`.
 Session identity remains a private event fact and is never executable
@@ -247,7 +247,10 @@ unknown state files are incompatible and are recovered as empty state rather
 than migrated. Every state-path component is checked without following symlinks
 before reads, writes, replacement, or cleanup; state files must be same-UID
 regular single-link files with mode `0600`. Restored attention is non-navigable
-until a live focus capability registers.
+and expires after the 10-second reconnect grace unless a fresh direct attention
+delivery proves that session state; heartbeats alone cannot retain restored rows.
+When a registered focus capability expires, its completed result is causally
+resolved before navigation is removed; non-completion action items remain.
 
 Worker stdout is ASCII-only JSONL with non-ASCII JSON code units escaped and a
 256 KiB encoded-line limit. Production worker and OMP extension artifacts are

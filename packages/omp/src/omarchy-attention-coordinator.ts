@@ -245,7 +245,6 @@ function retryDelay(attempt: number): Promise<void> {
     RETRY_MAXIMUM_MS,
   );
   return new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, milliseconds);
-    timer.unref?.();
+    setTimeout(resolve, milliseconds);
   });
 }

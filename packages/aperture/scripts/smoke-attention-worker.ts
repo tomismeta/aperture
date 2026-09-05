@@ -1,16 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  chmod,
-  copyFile,
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,27 +14,21 @@ const sourceBundle = path.resolve(
 );
 const checks: string[] = [];
 const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-only-worker-smoke-"));
+const workerRuntime = await mkdtemp("/tmp/aperture-worker-runtime-smoke-");
 const cleanupRuntime = await mkdtemp("/tmp/aperture-worker-cleanup-smoke-");
 try {
   const worker = path.join(temporaryRoot, "aperture-attention-engine.cjs");
   const stateDir = path.join(temporaryRoot, "state");
-  const runtimeDir = path.join(temporaryRoot, "runtime");
+  const runtimeDir = workerRuntime;
   await copyFile(sourceBundle, worker);
   await mkdir(runtimeDir, { recursive: true, mode: 0o700 });
   await chmod(runtimeDir, 0o700);
 
-  const cleanup = spawnSync(
-    process.execPath,
-    [
-      worker,
-      "--cleanup-owned-socket",
-    ],
-    {
-      env: { ...process.env, XDG_RUNTIME_DIR: cleanupRuntime },
-      encoding: "utf8",
-      timeout: 5_000,
-    },
-  );
+  const cleanup = spawnSync(process.execPath, [worker, "--cleanup-owned-socket"], {
+    env: { ...process.env, XDG_RUNTIME_DIR: cleanupRuntime },
+    encoding: "utf8",
+    timeout: 5_000,
+  });
   assert.equal(cleanup.status, 0, cleanup.stderr);
   assert.equal(cleanup.signal, null);
   assert.equal(cleanup.stdout, "");
@@ -104,12 +89,18 @@ try {
     (message) => message.type === "error" && message.code === "invalid_input",
   );
   assert.equal(invalidErrors.length, 3);
-  assert.equal(invalidErrors.every((message) => message.recoverable === true), true);
+  assert.equal(
+    invalidErrors.every((message) => message.recoverable === true),
+    true,
+  );
   assert.equal(
     result.lines.every((line) => Buffer.byteLength(`${line}\n`, "utf8") <= 256 * 1024),
     true,
   );
-  assert.equal(result.lines.every((line) => /^[\x00-\x7f]*$/.test(line)), true);
+  assert.equal(
+    result.lines.every((line) => /^[\x00-\x7f]*$/.test(line)),
+    true,
+  );
   checks.push("malformed-input", "oversized-input", "bounded-ascii-output");
 
   assert.equal(await readFile(path.join(stateDir, "state.json"), "utf8"), "legacy-generic-state\n");
@@ -149,6 +140,7 @@ try {
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
   await rm(cleanupRuntime, { recursive: true, force: true });
+  await rm(workerRuntime, { recursive: true, force: true });
 }
 
 type SmokeOptions = {
@@ -219,15 +211,19 @@ async function runWorker(
   child.stderr.on("data", (chunk: string) => {
     stderr += chunk;
   });
-  child.stdin.end(`${lines.join("\n")}\n`);
-  const outcome = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
+  const outcome = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
     (resolve, reject) => {
       child.once("error", reject);
+      child.stdin.once("error", (error) => {
+        if ((error as NodeJS.ErrnoException).code !== "EPIPE") reject(error);
+      });
       child.once("close", (code, signal) => resolve({ code, signal }));
     },
   );
-  assert.equal(outcome.signal, null, stderr);
-  assert.equal(outcome.code, 0, stderr);
+  child.stdin.end(`${lines.join("\n")}\n`);
+  const result = await outcome;
+  assert.equal(result.signal, null, stderr);
+  assert.equal(result.code, 0, stderr);
   const outputLines = stdout.split("\n").filter((line) => line.length > 0);
   return {
     lines: outputLines,

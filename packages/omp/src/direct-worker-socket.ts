@@ -167,6 +167,19 @@ export async function sendDirectWorkerMessage(options: {
           return;
         }
         if (acknowledgement.status === "rejected") {
+          if (
+            options.message.type === "omp.attention-event" &&
+            acknowledgement.code === "processing_timeout"
+          ) {
+            finish(
+              undefined,
+              new OmpDirectDeliveryError(
+                "acceptance-unknown",
+                "Aperture worker attention processing timed out",
+              ),
+            );
+            return;
+          }
           finish(undefined, new WorkerDirectRejectedError(acknowledgement.code));
           return;
         }

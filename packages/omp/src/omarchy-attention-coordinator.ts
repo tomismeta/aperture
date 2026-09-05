@@ -4,19 +4,22 @@ import { OmpDirectWorkerTransport } from "./direct-worker-transport.js";
 import { FocusReplaySender, type FocusReplayResult } from "./focus-replay-sender.js";
 import { OmarchyNotificationTransport } from "./omarchy-notification-transport.js";
 import {
+  AttentionDeliveryRetryError,
   deliverQueuedAttention,
   type AttentionDeliveryObserver,
   type QueuedAttentionDelivery,
 } from "./omarchy-attention-delivery.js";
 import {
   CausalAttentionState,
+  MAXIMUM_CONCURRENT_NATIVE_FALLBACKS,
   MAXIMUM_QUEUED_DELIVERIES,
   type FocusReplayRegistration,
 } from "./omarchy-attention-state.js";
 import type { OmpEvent, OmpMappingContext } from "./types.js";
 
 const SHUTDOWN_TIMEOUT_MS = 3_000;
-const MAXIMUM_CONCURRENT_NATIVE_FALLBACKS = 4;
+const RETRY_INITIAL_MS = 100;
+const RETRY_MAXIMUM_MS = 2_000;
 
 export type OmarchyAttentionCoordinatorOptions = {
   direct: OmpDirectWorkerTransport;
@@ -40,7 +43,9 @@ export class OmarchyAttentionCoordinator {
   private readonly queue: QueuedAttentionDelivery[] = [];
   private readonly nativeFallbacks = new Set<Promise<void>>();
   private readonly deliveryObserver: AttentionDeliveryObserver = {
+    prepare: (event) => this.state.prepareDelivery(event),
     routeFor: (event) => this.state.routeFor(event),
+    mayUseNative: (event) => this.state.mayUseNative(event),
     acceptedDirect: (event) => {
       if (this.stopped) return;
       if (this.state.acceptedDirect(event)) this.replayLatestFocus();
@@ -87,15 +92,20 @@ export class OmarchyAttentionCoordinator {
     this.enqueue({ kind: "event", event, context, directEvents: [...directEvents] });
   }
 
-  replayFocus(workerGeneration: string, publicHandle: string): void {
+  replayFocus(
+    workerGeneration: string,
+    publicHandle: string,
+    receiptEpisodeToken: string,
+  ): void {
     if (
       !this.accepting ||
       !/^[A-Za-z0-9_-]{32}$/.test(workerGeneration) ||
-      !/^[A-Za-z0-9_-]{32}$/.test(publicHandle)
+      !/^[A-Za-z0-9_-]{32}$/.test(publicHandle) ||
+      !/^[A-Za-z0-9_-]{32}$/.test(receiptEpisodeToken)
     ) {
       return;
     }
-    this.latestFocus = { workerGeneration, publicHandle };
+    this.latestFocus = { workerGeneration, publicHandle, receiptEpisodeToken };
     this.replayLatestFocus();
   }
 
@@ -130,20 +140,30 @@ export class OmarchyAttentionCoordinator {
   private enqueue(delivery: QueuedAttentionDelivery): void {
     if (!this.accepting) return;
     if (this.queue.length >= MAXIMUM_QUEUED_DELIVERIES) {
-      if (this.nativeFallbacks.size >= MAXIMUM_CONCURRENT_NATIVE_FALLBACKS) {
-        this.onFailure(new Error("Aperture OMP native fallback capacity was exhausted"));
-        return;
-      }
-      const fallback = this.deliverNativeFallback(delivery);
-      this.nativeFallbacks.add(fallback);
-      void fallback.then(
-        () => this.nativeFallbacks.delete(fallback),
-        () => this.nativeFallbacks.delete(fallback),
-      );
-      return;
+      const displaced = this.queue.shift();
+      if (displaced) this.startNativeFallback(displaced);
     }
     this.queue.push(delivery);
     this.draining ??= this.drain();
+  }
+
+  private startNativeFallback(delivery: QueuedAttentionDelivery): void {
+    if (delivery.nativeFallbackAllowed === false) {
+      this.onFailure(
+        new Error("Aperture OMP cannot use native fallback after ambiguous direct delivery"),
+      );
+      return;
+    }
+    if (this.nativeFallbacks.size >= MAXIMUM_CONCURRENT_NATIVE_FALLBACKS) {
+      this.onFailure(new Error("Aperture OMP native fallback capacity was exhausted"));
+      return;
+    }
+    const fallback = this.deliverNativeFallback(delivery);
+    this.nativeFallbacks.add(fallback);
+    void fallback.then(
+      () => this.nativeFallbacks.delete(fallback),
+      () => this.nativeFallbacks.delete(fallback),
+    );
   }
 
   private async deliverNativeFallback(delivery: QueuedAttentionDelivery): Promise<void> {
@@ -155,6 +175,10 @@ export class OmarchyAttentionCoordinator {
         this.deliveryObserver,
       );
     } catch (error) {
+      if (error instanceof AttentionDeliveryRetryError) {
+        if (this.accepting) this.enqueueRetry(delivery);
+        return;
+      }
       this.onFailure(error);
     }
   }
@@ -172,6 +196,13 @@ export class OmarchyAttentionCoordinator {
             this.deliveryObserver,
           );
         } catch (error) {
+          if (error instanceof AttentionDeliveryRetryError) {
+            if (this.accepting) {
+              this.enqueueRetry(delivery);
+              await retryDelay(delivery.retryAttempt ?? 1);
+            }
+            continue;
+          }
           this.onFailure(error);
         }
       }
@@ -181,11 +212,39 @@ export class OmarchyAttentionCoordinator {
     }
   }
 
+  private enqueueRetry(delivery: QueuedAttentionDelivery): void {
+    const retryAttempt = Math.min((delivery.retryAttempt ?? 0) + 1, 30);
+    const retry = {
+      ...delivery,
+      forceNative: false,
+      nativeFallbackAllowed: false,
+      retryAttempt,
+    };
+    if (this.queue.length >= MAXIMUM_QUEUED_DELIVERIES) {
+      const displaced = this.queue.shift();
+      if (displaced) this.startNativeFallback(displaced);
+    }
+    this.queue.push(retry);
+  }
+
   private replayLatestFocus(): void {
     if (!this.latestFocus || this.stopped) return;
     this.focusReplay.send(
       this.latestFocus.workerGeneration,
-      this.state.focusReplayEvents(this.latestFocus.publicHandle),
+      this.state.focusReplayEvents(
+        this.latestFocus.publicHandle,
+        this.latestFocus.receiptEpisodeToken,
+      ),
     );
   }
+}
+
+function retryDelay(attempt: number): Promise<void> {
+  const milliseconds = Math.min(
+    RETRY_INITIAL_MS * Math.pow(2, Math.min(attempt - 1, 5)),
+    RETRY_MAXIMUM_MS,
+  );
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }

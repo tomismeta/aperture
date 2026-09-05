@@ -4,6 +4,7 @@ import type { Writable } from "node:stream";
 
 import {
   WORKER_DIRECT_LIMITS,
+  WORKER_DIRECT_PROTOCOL_VERSION,
   parseWorkerDirectMessage,
   type FocusRecovery,
   type FocusRegistration,
@@ -141,7 +142,7 @@ async function handleConnection(
   };
   const rejectConnection = (): void => {
     if (!stopReading()) return;
-    respond({ schemaVersion: 4, status: "rejected" });
+    respond({ schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION, status: "rejected" });
   };
   const acceptData = (chunk: Buffer): void => {
     if (!reading) return;
@@ -156,7 +157,7 @@ async function handleConnection(
     const trailing = buffer.subarray(newline + 1).toString("utf8");
     if (!stopReading()) return;
     if (trailing.trim()) {
-      respond({ schemaVersion: 4, status: "rejected" });
+      respond({ schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION, status: "rejected" });
       return;
     }
     void processLine(line);
@@ -184,7 +185,7 @@ async function handleConnection(
       message = parseWorkerDirectMessage(line);
     } catch {
       diagnostic.write("Aperture rejected an invalid direct OMP event\n");
-      respond({ schemaVersion: 4, status: "rejected" });
+      respond({ schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION, status: "rejected" });
       return;
     }
 

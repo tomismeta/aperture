@@ -5,6 +5,12 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { OMP_ATTENTION_EVENT_SCHEMA_VERSION } from "../src/omp-attention-event.js";
+import { APERTURE_SURFACE_PROTOCOL_VERSION } from "../src/surface/protocol.js";
+import { WORKER_DIRECT_PROTOCOL_VERSION } from "../src/worker-direct-message.js";
+import { OMP_WORKER_OUTPUT_PROTOCOL_VERSION } from "../src/notification-worker/omp-worker-protocol.js";
+import { MAXIMUM_CONCURRENT_NATIVE_FALLBACKS } from "../../omp/src/omarchy-attention-state.js";
+
 
 const execFileAsync = promisify(execFile);
 const requireFromScript = createRequire(import.meta.url);
@@ -29,8 +35,7 @@ const ompRuntimeImportReport = path.join(
 const maximumMarketplaceArtifactBytes = 524_288;
 const minimumNodeVersion = "22.0.0";
 const schemaNames = [
-  "notification-worker-input.schema.json",
-  "notification-worker-output.schema.json",
+  "omp-worker-output.schema.json",
   "surface-protocol.schema.json",
   "omp-attention-event.schema.json",
   "worker-direct-message.schema.json",
@@ -46,25 +51,12 @@ const ompFixtureNames = [
   "focus-result.json",
   "completion-event.json",
   "completion-resolved-event.json",
-  "status-event.json",
   "snapshot-failure.json",
   "snapshot-completion.json",
   "snapshot-completion-resolved.json",
-  "snapshot-status.json",
   "snapshot-now-next.json",
   "snapshot-resolved.json",
 ] as const;
-const identityConfig = {
-  schemaVersion: 1,
-  identities: [
-    {
-      id: "omp",
-      kind: "omp",
-      label: "OMP",
-      applicationNames: ["aperture-omp"],
-    },
-  ],
-} as const;
 
 const options = parseOptions(process.argv.slice(2));
 const outputRoot = path.resolve(
@@ -104,18 +96,13 @@ await rm(outputRoot, { recursive: true, force: true });
 const libraryRoot = path.join(outputRoot, "lib");
 const schemaRoot = path.join(outputRoot, "schemas");
 const evidenceRoot = path.join(outputRoot, "evidence");
-const configRoot = path.join(outputRoot, "config");
 const ompIntegrationRoot = path.join(outputRoot, "integrations", "omp");
 const ompFixtureRoot = path.join(outputRoot, "fixtures", "omp-direct");
 await mkdir(libraryRoot, { recursive: true });
 await mkdir(schemaRoot, { recursive: true });
 await mkdir(evidenceRoot, { recursive: true });
 await mkdir(ompIntegrationRoot, { recursive: true });
-await mkdir(configRoot, { recursive: true });
 await mkdir(ompFixtureRoot, { recursive: true });
-const stagedIdentityConfig = path.join(configRoot, "identities.json");
-await writeFile(stagedIdentityConfig, `${JSON.stringify(identityConfig, null, 2)}\n`, "utf8");
-await chmod(stagedIdentityConfig, 0o644);
 const stagedBundle = path.join(libraryRoot, workerBundleName);
 await copyFile(workerBundle, stagedBundle);
 await chmod(stagedBundle, 0o644);
@@ -141,6 +128,7 @@ const importReport = JSON.parse(await readFile(stagedImportReport, "utf8")) as {
   status?: unknown;
   policy?: unknown;
   imports?: unknown;
+  sourceFiles?: unknown;
 };
 if (
   importReport.schemaVersion !== 1 ||
@@ -149,9 +137,17 @@ if (
   !Array.isArray(importReport.imports) ||
   !importReport.imports.every(
     (entry): entry is string => typeof entry === "string" && entry.startsWith("node:"),
+  ) ||
+  !Array.isArray(importReport.sourceFiles) ||
+  importReport.sourceFiles.some(
+    (entry) =>
+      typeof entry !== "string" ||
+      /notification-worker\/(?:adapter|config|engine|notification-lifecycle|state-store|stdio)\.ts$/.test(
+        entry,
+      ),
   )
 ) {
-  throw new Error("attention worker runtime import audit is invalid");
+  throw new Error("OMP-only worker source/import audit is invalid");
 }
 const stagedOmpImportReport = path.join(evidenceRoot, "omp-runtime-imports.json");
 await copyFile(ompRuntimeImportReport, stagedOmpImportReport);
@@ -216,7 +212,6 @@ const esbuildMetadata = JSON.parse(
   await readFile(requireFromScript.resolve("esbuild/package.json"), "utf8"),
 ) as { version?: unknown };
 const files = await Promise.all([
-  artifactFile(outputRoot, stagedIdentityConfig, "0644"),
   artifactFile(outputRoot, stagedBundle, "0644"),
   ...schemaNames.map((schemaName) =>
     artifactFile(outputRoot, path.join(schemaRoot, schemaName), "0644"),
@@ -236,8 +231,7 @@ const requiredFile = (relativePath: string) => {
   return entry;
 };
 const workerFile = requiredFile(`lib/${workerBundleName}`);
-const notificationInputSchema = requiredFile("schemas/notification-worker-input.schema.json");
-const notificationOutputSchema = requiredFile("schemas/notification-worker-output.schema.json");
+const ompWorkerOutputSchema = requiredFile("schemas/omp-worker-output.schema.json");
 const surfaceSchema = requiredFile("schemas/surface-protocol.schema.json");
 const workerDirectSchema = requiredFile("schemas/worker-direct-message.schema.json");
 const ompAttentionSchema = requiredFile("schemas/omp-attention-event.schema.json");
@@ -283,14 +277,13 @@ const buildInfo = {
   },
   workerContract: {
     notificationInput: false,
-    notificationInputSchemaVersion: 2,
-    notificationOutputSchemaVersion: 4,
-    surfaceProtocolVersion: 4,
-    ompAttentionEventSchemaVersion: 3,
-    workerDirectProtocolVersion: 4,
+    ompWorkerOutputSchemaVersion: OMP_WORKER_OUTPUT_PROTOCOL_VERSION,
+    surfaceProtocolVersion: APERTURE_SURFACE_PROTOCOL_VERSION,
+    ompAttentionEventSchemaVersion: OMP_ATTENTION_EVENT_SCHEMA_VERSION,
+    workerDirectProtocolVersion: WORKER_DIRECT_PROTOCOL_VERSION,
     jsonlHandshakes: {
       privateWorker: {
-        protocolVersion: 4,
+        protocolVersion: OMP_WORKER_OUTPUT_PROTOCOL_VERSION,
         peer: "aperture-attention-engine",
         framing: "jsonl",
         outputEncoding: "ascii-json-escapes",
@@ -298,7 +291,7 @@ const buildInfo = {
         navigation: "validated-opaque-focus-only",
       },
       publicSurface: {
-        protocolVersion: 4,
+        protocolVersion: APERTURE_SURFACE_PROTOCOL_VERSION,
         peer: "aperture-stdio",
         framing: "jsonl",
         outputEncoding: "ascii-json-escapes",
@@ -306,15 +299,6 @@ const buildInfo = {
         navigation: "absent",
       },
     },
-  },
-  stateMigration: {
-    ompDirect: {
-      fromSchemaVersions: [1, 2],
-      toSchemaVersion: 3,
-      navigationAfterMigration: "absent-until-live-registration",
-      causalTombstones: ["interaction-resolution", "session-shutdown"],
-    },
-    legacyNotificationState: "removed-without-restore",
   },
   focusCoordinator: {
     registrationTtlMs: 15_000,
@@ -330,7 +314,11 @@ const buildInfo = {
     maximumDirectClients: 32,
     maximumDirectReceipts: 1_024,
     maximumAmbiguousDeliveryAttempts: 3,
+    directClosureAuthority: "retry-until-accepted-or-session-lease-expiry",
+    focusReplayTransientAttempts: 3,
+    focusReplayReceiptEpisodes: "fresh-random-token-per-registration-stable-across-retries",
     nativeFallbackPolicy: "definite-pre-write-only",
+    maximumConcurrentNativeFallbacks: MAXIMUM_CONCURRENT_NATIVE_FALLBACKS,
     sessionHeartbeatIntervalMs: 5_000,
     sessionLeaseMs: 20_000,
     sessionReconnectGraceMs: 10_000,
@@ -367,28 +355,23 @@ const buildInfo = {
   },
   focusBackends: ["herdr-0.8.2", "foot-1.27", "tmux-3.7c"],
   schemas: {
-    input: {
-      version: 2,
-      path: notificationInputSchema.path,
-      sha256: notificationInputSchema.sha256,
-    },
     output: {
-      version: 4,
-      path: notificationOutputSchema.path,
-      sha256: notificationOutputSchema.sha256,
+      version: OMP_WORKER_OUTPUT_PROTOCOL_VERSION,
+      path: ompWorkerOutputSchema.path,
+      sha256: ompWorkerOutputSchema.sha256,
     },
     surface: {
-      version: 4,
+      version: APERTURE_SURFACE_PROTOCOL_VERSION,
       path: surfaceSchema.path,
       sha256: surfaceSchema.sha256,
     },
     ompAttentionEvent: {
-      version: 3,
+      version: OMP_ATTENTION_EVENT_SCHEMA_VERSION,
       path: ompAttentionSchema.path,
       sha256: ompAttentionSchema.sha256,
     },
     workerDirectMessage: {
-      version: 4,
+      version: WORKER_DIRECT_PROTOCOL_VERSION,
       path: workerDirectSchema.path,
       sha256: workerDirectSchema.sha256,
     },

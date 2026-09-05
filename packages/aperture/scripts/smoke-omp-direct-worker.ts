@@ -24,31 +24,12 @@ const temporaryRoot = await mkdtemp("/tmp/ap-omp-smoke-");
 
 try {
   const runtimeDir = path.join(temporaryRoot, "runtime");
-  const configHome = path.join(temporaryRoot, "config");
   const stateDir = path.join(temporaryRoot, "state");
-  const configDir = path.join(configHome, "omarchy", "aperture");
-  const configPath = path.join(configDir, "config.json");
   const socketPath = path.join(runtimeDir, "omarchy", "aperture", "attention.sock");
   await mkdir(runtimeDir, { recursive: true, mode: 0o700 });
   await chmod(runtimeDir, 0o700);
-  await mkdir(configDir, { recursive: true });
-  await writeFile(
-    configPath,
-    `${JSON.stringify({
-      schemaVersion: 1,
-      identities: [
-        {
-          id: "omp",
-          kind: "omp",
-          label: "OMP",
-          applicationNames: ["aperture-omp"],
-        },
-      ],
-    })}\n`,
-    "utf8",
-  );
 
-  const first = startWorker(sourceBundle, configPath, stateDir, runtimeDir);
+  const first = startWorker(sourceBundle, stateDir, runtimeDir);
   const firstHello = await first.waitFor((message) => message.type === "hello");
   assert.equal(firstHello.protocolVersion, 4);
   assert.equal(firstHello.capabilities?.notificationInput, false);
@@ -119,7 +100,7 @@ try {
 
   await first.shutdown();
   await assert.rejects(() => stat(socketPath), /ENOENT/);
-  const second = startWorker(sourceBundle, configPath, stateDir, runtimeDir);
+  const second = startWorker(sourceBundle, stateDir, runtimeDir);
   const secondHello = await second.waitFor((message) => message.type === "hello");
   assert.equal(secondHello.protocolVersion, 4);
   await second.waitFor((message) => message.type === "engine" && message.state === "ready");
@@ -161,7 +142,7 @@ try {
     (message) =>
       message.type === "error" &&
       message.code === "invalid_input" &&
-      message.message?.includes("disabled in OMP-only mode") === true,
+      message.message?.includes("unsupported") === true,
   );
   assert.equal(rejectedGenericInput.recoverable, true);
   checks.push("generic-notification-input-disabled");
@@ -237,13 +218,8 @@ type WorkerHarness = {
   shutdown(): Promise<void>;
 };
 
-function startWorker(
-  worker: string,
-  config: string,
-  stateDir: string,
-  runtimeDir: string,
-): WorkerHarness {
-  const child = spawn(process.execPath, [worker, "--config", config, "--state-dir", stateDir], {
+function startWorker(worker: string, stateDir: string, runtimeDir: string): WorkerHarness {
+  const child = spawn(process.execPath, [worker, "--state-dir", stateDir], {
     cwd: path.dirname(worker),
     env: { ...process.env, XDG_RUNTIME_DIR: runtimeDir },
     stdio: ["pipe", "pipe", "pipe"],

@@ -291,7 +291,6 @@ jobs:
                 "tomismeta/aperture/.github/workflows/aperture-worker-release-evidence.yml" and
               .artifactMode == "omp-only" and
               .notificationInput == false and
-              .legacyNotificationState == "removed-without-restore" and
               .ompOnlyWorkerProof == "aperture-omp-only-worker-conformance-v1" and
               .ompOnlyWorkerEvidence == "evidence/omp-only-worker.json" and
               (has("ambientCeilingProof") | not) and
@@ -300,8 +299,9 @@ jobs:
               .apertureCoreVersion == "0.9.0" and
               .artifactLimits.maximumTextArtifactBytes == 524288 and
               .schemaVersions.notificationInput == false and
-              .schemaVersions.notificationOutputSchemaVersion == 4 and
+              .schemaVersions.ompWorkerOutputSchemaVersion == 4 and
               .schemaVersions.surfaceProtocolVersion == 4 and
+              .schemaVersions.ompAttentionEventSchemaVersion == 4 and
               .schemaVersions.workerDirectProtocolVersion == 4 and
               .allValidationsPassed == true and
               .schemaVersions.jsonlHandshakes.privateWorker.protocolVersion == 4 and

@@ -176,10 +176,12 @@ jobs:
             .ci.runId == $artifactRunId and
             .ci.runAttempt == $artifactRunAttempt and
             .workerContract.notificationInput == false and
-            .workerContract.notificationOutputSchemaVersion == 4 and
+            .workerContract.ompWorkerOutputSchemaVersion == 4 and
             .workerContract.surfaceProtocolVersion == 4 and
+            .workerContract.ompAttentionEventSchemaVersion == 4 and
             .workerContract.workerDirectProtocolVersion == 4 and
             .schemas.workerDirectMessage.version == 4 and
+            .schemas.ompAttentionEvent.version == 4 and
             .schemas.output.version == 4 and
             .schemas.surface.version == 4 and
             .validation.conformanceProofId == "aperture-omp-only-worker-conformance-v1" and
@@ -187,7 +189,7 @@ jobs:
             .validation.navigationProofId == "aperture-opaque-focus-navigation-v4" and
             .validation.focusBackendReport == "evidence/focus-backends.json" and
             .validation.status == "passed" and
-            (.files | length) == 40 and
+            (.files | length) == 36 and
             any(.files[]; .path == "evidence/omp-only-worker.json") and
             ([.files[].path] | index("evidence/ambient-ceiling.json")) == null and
             ([.files[].path] | index("fixtures/omp-direct/notification-fallback-ambient.json")) == null

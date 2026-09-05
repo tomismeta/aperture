@@ -23,7 +23,7 @@ const WORKER_DIRECT_MESSAGE_ENTRY_POINT = path.join(
   "worker-direct-message.ts",
 );
 const WORKER_DIRECT_MESSAGE_OUTFILE = path.join(DIST_DIR, "worker-direct-message.js");
-const ATTENTION_WORKER_ENTRY_POINT = path.join(PACKAGE_ROOT, "src", "attention-worker.ts");
+const ATTENTION_WORKER_ENTRY_POINT = path.join(PACKAGE_ROOT, "src", "omp-attention-worker.ts");
 const ATTENTION_WORKER_OUTFILE = path.join(DIST_DIR, "aperture-attention-engine.cjs");
 const ATTENTION_WORKER_IMPORT_REPORT = path.join(
   DIST_DIR,
@@ -47,6 +47,7 @@ const SCHEMA_FILES = [
   "surface-protocol.schema.json",
   "notification-worker-input.schema.json",
   "notification-worker-output.schema.json",
+  "omp-worker-output.schema.json",
   "omp-attention-event.schema.json",
   "worker-direct-message.schema.json",
 ] as const;
@@ -109,12 +110,27 @@ const attentionWorkerBuild = await build({
   minify: true,
   define: {
     APERTURE_PACKAGE_VERSION: JSON.stringify(packageMetadata.version),
-    APERTURE_WORKER_ARTIFACT_MODE: JSON.stringify("omp-only"),
   },
   metafile: true,
   entryPoints: [ATTENTION_WORKER_ENTRY_POINT],
   outfile: ATTENTION_WORKER_OUTFILE,
 });
+const forbiddenOmpWorkerInputs = [
+  "notification-worker/adapter.ts",
+  "notification-worker/config.ts",
+  "notification-worker/engine.ts",
+  "notification-worker/notification-lifecycle.ts",
+  "notification-worker/state-store.ts",
+  "notification-worker/stdio.ts",
+] as const;
+const attentionWorkerSourceFiles = Object.keys(attentionWorkerBuild.metafile.inputs).map((input) =>
+  input.replaceAll("\\", "/"),
+);
+for (const forbidden of forbiddenOmpWorkerInputs) {
+  if (attentionWorkerSourceFiles.some((input) => input.endsWith(forbidden))) {
+    throw new Error(`OMP-only worker retained generic notification module: ${forbidden}`);
+  }
+}
 const compressedWorker = await minify(
   await readFile(ATTENTION_WORKER_OUTFILE, "utf8"),
   {
@@ -146,6 +162,7 @@ await writeFile(
       status: "passed",
       policy: "node-builtins-only",
       imports: [...runtimeImports].sort(),
+      sourceFiles: attentionWorkerSourceFiles.sort(),
     },
     null,
     2,

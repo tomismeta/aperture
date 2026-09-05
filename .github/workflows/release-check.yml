@@ -236,14 +236,15 @@ jobs:
             .artifactLimits.maximumTextArtifactBytes == 524288 and
             .integrations.omp.packageVersion == "0.1.0" and
             .workerContract.notificationInput == false and
-            .workerContract.notificationOutputSchemaVersion == 4 and
+            .workerContract.ompWorkerOutputSchemaVersion == 4 and
             .workerContract.surfaceProtocolVersion == 4 and
+            .workerContract.ompAttentionEventSchemaVersion == 4 and
             .workerContract.workerDirectProtocolVersion == 4 and
             .schemas.workerDirectMessage.version == 4 and
+            .schemas.ompAttentionEvent.version == 4 and
             .schemas.output.version == 4 and
             .schemas.surface.version == 4 and
-            (.files | length) == 40 and
-            any(.files[]; .path == "config/identities.json") and
+            (.files | length) == 36 and
             any(.files[]; .path == "evidence/omp-only-worker.json") and
             ([.files[].path] | index("evidence/ambient-ceiling.json")) == null and
             ([.files[].path] | index("fixtures/omp-direct/notification-fallback-ambient.json")) == null and

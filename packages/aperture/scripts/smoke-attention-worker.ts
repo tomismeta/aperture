@@ -26,7 +26,6 @@ const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-only-wo
 const cleanupRuntime = await mkdtemp("/tmp/aperture-worker-cleanup-smoke-");
 try {
   const worker = path.join(temporaryRoot, "aperture-attention-engine.cjs");
-  const config = path.join(temporaryRoot, "identities.json");
   const stateDir = path.join(temporaryRoot, "state");
   const runtimeDir = path.join(temporaryRoot, "runtime");
   await copyFile(sourceBundle, worker);
@@ -37,8 +36,6 @@ try {
     process.execPath,
     [
       worker,
-      "--config",
-      path.join(temporaryRoot, "missing-identities.json"),
       "--cleanup-owned-socket",
     ],
     {
@@ -57,25 +54,10 @@ try {
   );
   checks.push("cleanup-mode-no-config-or-engine");
 
-  await writeFile(
-    config,
-    `${JSON.stringify({
-      schemaVersion: 1,
-      identities: [
-        {
-          id: "omp",
-          kind: "omp",
-          label: "OMP",
-          applicationNames: ["aperture-omp"],
-        },
-      ],
-    })}\n`,
-    "utf8",
-  );
   await mkdir(stateDir, { recursive: true, mode: 0o700 });
   await writeFile(path.join(stateDir, "state.json"), "legacy-generic-state\n", { mode: 0o600 });
 
-  const result = await runWorker(worker, config, stateDir, runtimeDir, [
+  const result = await runWorker(worker, stateDir, runtimeDir, [
     JSON.stringify({
       type: "notification.observed",
       key: "generic-input-must-be-rejected",
@@ -116,7 +98,7 @@ try {
   assert.equal(snapshots[0]?.view?.now, null);
   assert.deepEqual(snapshots[0]?.view?.next, []);
   assert.deepEqual(snapshots[0]?.view?.ambient, []);
-  checks.push("generic-notification-input-disabled", "calm-snapshot-only");
+  checks.push("omp-control-input-only", "calm-snapshot-only");
 
   const invalidErrors = result.messages.filter(
     (message) => message.type === "error" && message.code === "invalid_input",
@@ -124,27 +106,27 @@ try {
   assert.equal(invalidErrors.length, 3);
   assert.equal(invalidErrors.every((message) => message.recoverable === true), true);
   assert.equal(
-    invalidErrors.some((message) => message.message?.includes("disabled in OMP-only mode")),
-    true,
-  );
-  assert.equal(
     result.lines.every((line) => Buffer.byteLength(`${line}\n`, "utf8") <= 256 * 1024),
     true,
   );
   assert.equal(result.lines.every((line) => /^[\x00-\x7f]*$/.test(line)), true);
   checks.push("malformed-input", "oversized-input", "bounded-ascii-output");
 
-  await assert.rejects(
-    () => stat(path.join(stateDir, "state.json")),
-    (error: unknown) =>
-      Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT"),
-  );
+  assert.equal(await readFile(path.join(stateDir, "state.json"), "utf8"), "legacy-generic-state\n");
   if (process.platform !== "win32") {
     assert.equal((await stat(stateDir)).mode & 0o777, 0o700);
   }
-  checks.push("legacy-notification-state-removed", "no-generic-state-persistence");
+  checks.push("no-generic-state-access");
 
   const bundleContent = await readFile(worker);
+  for (const genericModuleMarker of [
+    "notification.observed requires",
+    "identity.matched",
+    "ambient-limit",
+  ]) {
+    assert.equal(bundleContent.includes(Buffer.from(genericModuleMarker)), false);
+  }
+  checks.push("generic-notification-modules-absent");
   const report = {
     schemaVersion: 1,
     proofId: "aperture-omp-only-worker-conformance-v1",
@@ -218,12 +200,11 @@ function parseOptions(args: string[]): SmokeOptions {
 
 async function runWorker(
   worker: string,
-  config: string,
   stateDir: string,
   runtimeDir: string,
   lines: string[],
 ): Promise<WorkerRun> {
-  const child = spawn(process.execPath, [worker, "--config", config, "--state-dir", stateDir], {
+  const child = spawn(process.execPath, [worker, "--state-dir", stateDir], {
     cwd: path.dirname(worker),
     env: { ...process.env, XDG_RUNTIME_DIR: runtimeDir },
     stdio: ["pipe", "pipe", "pipe"],

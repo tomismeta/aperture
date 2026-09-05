@@ -5,7 +5,10 @@ import {
   type SourceEvent,
 } from "@tomismeta/aperture-core";
 
-import type { OmpAttentionEvent } from "../omp-attention-event.js";
+import {
+  OMP_ATTENTION_EVENT_SCHEMA_VERSION,
+  type OmpAttentionEvent,
+} from "../omp-attention-event.js";
 import { projectNotificationWorkerSnapshot } from "./projection.js";
 import type { NotificationWorkerNavigation, NotificationWorkerSnapshot } from "./protocol.js";
 import { mapNotificationToSourceEvent, type NotificationWorkerIdentity } from "./adapter.js";
@@ -26,6 +29,7 @@ import {
   type OmpDirectPersistedState,
   type PersistedOmpDirectEntry,
 } from "./omp-direct-state-store.js";
+import type { ProjectedOmpSessionPresentation } from "./omp-session-presentation.js";
 import {
   emptyNotificationWorkerState,
   loadNotificationWorkerState,
@@ -67,6 +71,7 @@ export class NotificationWorkerEngine {
   private state: NotificationWorkerPersistedState;
   private readonly activeByKey = new Map<string, PersistedActiveNotification>();
   private readonly displayTitleByTaskId = new Map<string, string>();
+  private readonly ompPresentationByTaskId = new Map<string, ProjectedOmpSessionPresentation>();
   private directState: OmpDirectPersistedState;
   private readonly directByKey = new Map<string, PersistedOmpDirectEntry>();
   private readonly directCausality = new OmpDirectCausalityIndex();
@@ -189,6 +194,7 @@ export class NotificationWorkerEngine {
           this.core.getAttentionView(),
           this.displayTitleByTaskId,
           this.notificationTaskIds,
+          this.ompPresentationByTaskId,
         ),
         navigationByTaskId: this.navigationByTaskId,
       },
@@ -286,7 +292,7 @@ export class NotificationWorkerEngine {
     const completedAt = latestOmpDirectRevision(completion).occurredAt;
     await this.handleOmpAttention(
       {
-        schemaVersion: 4,
+        schemaVersion: OMP_ATTENTION_EVENT_SCHEMA_VERSION,
         type: "omp.attention-event",
         eventId: `${completion.key}:focused`,
         occurredAt: completedAt > occurredAt ? completedAt : occurredAt,
@@ -350,6 +356,7 @@ export class NotificationWorkerEngine {
     this.activeByKey.clear();
     this.directByKey.clear();
     this.displayTitleByTaskId.clear();
+    this.ompPresentationByTaskId.clear();
     this.navigationByTaskId.clear();
     this.notificationTaskIds.clear();
     this.directCausality.rebuild(this.directState.tombstones);
@@ -375,6 +382,7 @@ export class NotificationWorkerEngine {
             if (index === entry.revisions.length - 1) {
               this.directByKey.set(entry.key, entry);
               this.displayTitleByTaskId.set(entry.taskId, revision.displayTitle);
+              this.ompPresentationByTaskId.set(entry.taskId, revision.presentation);
               const retainedNavigation = volatileNavigation.get(entry.taskId);
               if (retainedNavigation) {
                 this.navigationByTaskId.set(entry.taskId, retainedNavigation);
@@ -427,6 +435,7 @@ export class NotificationWorkerEngine {
     this.directByKey.clear();
     this.directCausality.rebuild(this.directState.tombstones);
     this.displayTitleByTaskId.clear();
+    this.ompPresentationByTaskId.clear();
     this.navigationByTaskId.clear();
     this.notificationTaskIds.clear();
     for (const active of this.state.active) {
@@ -437,6 +446,7 @@ export class NotificationWorkerEngine {
     for (const active of this.directState.active) {
       this.directByKey.set(active.key, active);
       this.displayTitleByTaskId.set(active.taskId, latestOmpDirectRevision(active).displayTitle);
+      this.ompPresentationByTaskId.set(active.taskId, latestOmpDirectRevision(active).presentation);
       const navigation = volatileNavigation.get(active.taskId);
       if (navigation) this.navigationByTaskId.set(active.taskId, navigation);
     }

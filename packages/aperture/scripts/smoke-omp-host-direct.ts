@@ -13,31 +13,12 @@ const temporaryRoot = await mkdtemp("/tmp/ap-omp-host-");
 
 try {
   const runtimeDir = path.join(temporaryRoot, "runtime");
-  const configHome = path.join(temporaryRoot, "config");
   const stateDir = path.join(temporaryRoot, "state");
-  const configDir = path.join(configHome, "omarchy", "aperture");
-  const configPath = path.join(configDir, "config.json");
   const socketPath = path.join(runtimeDir, "omarchy", "aperture", "attention.sock");
   await mkdir(runtimeDir, { recursive: true, mode: 0o700 });
   await chmod(runtimeDir, 0o700);
-  await mkdir(configDir, { recursive: true });
-  await writeFile(
-    configPath,
-    `${JSON.stringify({
-      schemaVersion: 1,
-      identities: [
-        {
-          id: "omp",
-          kind: "omp",
-          label: "OMP",
-          applicationNames: ["aperture-omp"],
-        },
-      ],
-    })}\n`,
-    "utf8",
-  );
 
-  const workerHarness = startWorker(worker, configPath, stateDir, runtimeDir);
+  const workerHarness = startWorker(worker, stateDir, runtimeDir);
   await workerHarness.waitFor((message) => message.type === "engine" && message.state === "ready");
   const matrix = [];
   for (const version of options.ompVersions) {
@@ -146,8 +127,8 @@ type Options = {
   report?: string;
 };
 
-function startWorker(workerFile: string, config: string, stateDir: string, runtimeDir: string) {
-  const child = spawn(process.execPath, [workerFile, "--config", config, "--state-dir", stateDir], {
+function startWorker(workerFile: string, stateDir: string, runtimeDir: string) {
+  const child = spawn(process.execPath, [workerFile, "--state-dir", stateDir], {
     cwd: path.dirname(workerFile),
     env: { ...process.env, XDG_RUNTIME_DIR: runtimeDir },
     stdio: ["pipe", "pipe", "pipe"],

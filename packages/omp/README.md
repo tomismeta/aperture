@@ -13,22 +13,33 @@ Exports:
   self-contained Omarchy worker, with native notification as outside-surface fallback.
 
 The Omarchy extension emits only approval, input, terminal failure, provisional
-completion, and resolution transitions. A successful `session_stop` means that
-a result may now be ready for review; subsequent same-session activity
-self-corrects that provisional completion. The extension never includes prompt
-transcripts, tool results, credentials, private paths, or executable
-notification actions.
+completion, resolution, and shutdown transitions. A successful `session_stop`
+means that a result may now be ready for review; subsequent same-session
+activity self-corrects that provisional completion. Keyed callbacks derive
+identity from stable OMP session/turn/interaction facts, not callback time or
+presentation. Duplicate facts therefore retry the same event ID, while distinct
+turn IDs remain unambiguous. The extension never includes prompt transcripts,
+tool results, credentials, private paths, or executable notification actions.
 
 When the Aperture worker owns
 `$XDG_RUNTIME_DIR/omarchy/aperture/attention.sock`, the Omarchy extension sends
 bounded typed OMP attention facts over that same-user Unix socket. The worker
 feeds those facts into `ApertureCore`; neither the adapter nor the downstream
-panel chooses a lane. Acknowledged direct delivery suppresses the corresponding
-native `aperture-omp` notification. A definite pre-write socket failure falls
-back to a native notification outside the Aperture surface without blocking
-OMP; acceptance-unknown failures do not duplicate the event.
+panel chooses a lane. A native `aperture-omp` fallback is permitted only for a
+definite failure before any socket write. Acceptance-unknown and post-write
+outcomes retry the same event ID and never emit native fallback. A
+`processing_timeout` acknowledgement is treated as acceptance-unknown rather
+than a durable rejection. Requests accepted by the direct worker establish
+direct authority for their resolutions and session shutdown: those closure
+facts retry directly and are cleared only by acknowledgement or worker-side
+session lease expiry. Completion-family resolution fences completions at or
+before its occurrence; a genuinely newer turn may create a new completion.
+Each successful focus registration creates a fresh private receipt episode token.
+Replay event IDs include that token, remain stable across transient retries in
+the episode, and change after re-registration even when the worker generation
+is unchanged.
 
-Only private notification-worker v4 frames may expose a bounded opaque focus capability:
+Only private OMP-worker v4 frames may expose a bounded opaque focus capability:
 
 ```json
 { "navigation": { "kind": "opaque-focus", "handle": "<32-character opaque handle>" } }
@@ -49,9 +60,10 @@ unsupported and remain non-navigable; there are no heuristic probes or aliases.
 
 When `omarchy-notification-send` is executable, the Omarchy extension disables
 OMP's built-in notifications process-locally to avoid duplicates. It restores
-the prior setting and disables adapter delivery for the rest of the session on
-delivery failure; shutdown also restores it. If the sender is unavailable,
-built-in notifications remain enabled.
+the prior setting and disables adapter delivery for the rest of the session only
+after a terminal delivery failure; acceptance-unknown retries do not disable
+delivery. Shutdown also restores the prior setting. If the sender is
+unavailable, built-in notifications remain enabled.
 
 The staged private OMP manifest is version `0.1.0`, independently from the
 Aperture product package version.

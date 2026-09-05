@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 
 import {
+  OMP_ATTENTION_EVENT_SCHEMA_VERSION,
   assertOmpAttentionEvent,
   type OmpAttentionClassification,
   type OmpAttentionEvent,
-  type OmpAttentionStatus,
   type OmpAttentionTransition,
 } from "@tomismeta/aperture/omp-attention-event";
 
@@ -21,19 +21,9 @@ export function mapOmpDirectAttentionEvents(
   const occurredAt = eventTimestamp(event, context);
   const session = safeOmpSessionPresentation(context.session);
   const directEvent = (facts: DirectEventFacts): OmpAttentionEvent => {
-    const identity = JSON.stringify({
-      occurredAt: facts.occurredAt,
-      sessionId: facts.sessionId,
-      turnId: facts.turnId ?? null,
-      interactionId: facts.interactionId ?? null,
-      classification: facts.classification,
-      title: facts.title,
-      summary: facts.summary,
-      transition: facts.transition,
-      status: facts.status ?? null,
-    });
+    const identity = sourceEventIdentity(facts);
     return assertOmpAttentionEvent({
-      schemaVersion: 4,
+      schemaVersion: OMP_ATTENTION_EVENT_SCHEMA_VERSION,
       type: "omp.attention-event",
       eventId: `omp:${createHash("sha256").update(identity).digest("hex")}`,
       ...facts,
@@ -117,7 +107,7 @@ export function mapOmpDirectAttentionEvents(
         }),
       ];
     case "session_stop": {
-      const interactionId = completionInteractionId(sessionId, event.turn_id, occurredAt);
+      const interactionId = completionInteractionId(sessionId, event.turn_id);
       return readStopReason(event.last_assistant_message) === "error"
         ? [
             directEvent({
@@ -212,7 +202,6 @@ type DirectEventFacts = {
   title: string;
   summary: string;
   transition: OmpAttentionTransition;
-  status?: OmpAttentionStatus;
 };
 
 function sessionIdForEvent(event: OmpEvent, context: OmpMappingContext): string | undefined {
@@ -235,13 +224,24 @@ function safeToken(value: string, fallback: string): string {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(normalized) ? normalized : fallback;
 }
 
-function completionInteractionId(sessionId: string, turnId: number, occurredAt: string): string {
-  return `completion:${createHash("sha256")
-    .update(sessionId)
-    .update("\u0000")
-    .update(String(turnId))
-    .update("\u0000")
-    .update(occurredAt)
-    .digest("hex")
-    .slice(0, 32)}`;
+function completionInteractionId(sessionId: string, turnId: number): string {
+  return `completion:${digestIdentity([sessionId, String(turnId)]).slice(0, 32)}`;
+}
+
+function sourceEventIdentity(facts: DirectEventFacts): string {
+  const causalIdentity =
+    facts.interactionId !== undefined
+      ? ["interaction", facts.sessionId, facts.interactionId, facts.classification]
+      : facts.turnId !== undefined
+        ? ["turn", facts.sessionId, facts.turnId, facts.classification]
+        : facts.classification === "session_shutdown"
+          ? ["session", facts.sessionId, facts.classification]
+          : ["occurrence", facts.sessionId, facts.classification, facts.occurredAt];
+  return JSON.stringify(causalIdentity);
+}
+
+function digestIdentity(parts: readonly string[]): string {
+  const hash = createHash("sha256");
+  for (const part of parts) hash.update(part).update("\u0000");
+  return hash.digest("hex");
 }

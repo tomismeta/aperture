@@ -27,26 +27,17 @@ export type OmpAttentionClassification =
   | "turn_completed"
   | "completion_resolved"
   | "session_stop_failure"
-  | "session_shutdown"
-  | "status_updated";
+  | "session_shutdown";
 
-export type OmpAttentionTransition =
-  | "requested"
-  | "resolved"
-  | "failed"
-  | "completed"
-  | "stopped"
-  | "shutdown"
-  | "updated";
+export type OmpAttentionTransition = "requested" | "resolved" | "failed" | "completed" | "shutdown";
 
-export type OmpAttentionStatus = "running" | "waiting" | "blocked" | "completed" | "failed";
 export type OmpAttentionFocus = {
   kind: "opaque-focus";
   handle: string;
 };
 
 export type OmpAttentionEvent = {
-  schemaVersion: 4;
+  schemaVersion: typeof OMP_ATTENTION_EVENT_SCHEMA_VERSION;
   type: "omp.attention-event";
   eventId: string;
   occurredAt: string;
@@ -58,7 +49,6 @@ export type OmpAttentionEvent = {
   title: string;
   summary: string;
   transition: OmpAttentionTransition;
-  status?: OmpAttentionStatus;
   focus?: OmpAttentionFocus;
 };
 
@@ -73,23 +63,13 @@ const CLASSIFICATIONS = new Set<OmpAttentionClassification>([
   "completion_resolved",
   "session_stop_failure",
   "session_shutdown",
-  "status_updated",
 ]);
 const TRANSITIONS = new Set<OmpAttentionTransition>([
   "requested",
   "resolved",
   "failed",
   "completed",
-  "stopped",
   "shutdown",
-  "updated",
-]);
-const STATUSES = new Set<OmpAttentionStatus>([
-  "running",
-  "waiting",
-  "blocked",
-  "completed",
-  "failed",
 ]);
 const REQUIRED_INTERACTION = new Set<OmpAttentionClassification>([
   "approval_requested",
@@ -109,7 +89,6 @@ const EXPECTED_TRANSITION: Readonly<Record<OmpAttentionClassification, OmpAttent
   completion_resolved: "resolved",
   session_stop_failure: "failed",
   session_shutdown: "shutdown",
-  status_updated: "updated",
 };
 
 export function parseOmpAttentionEvent(line: string): OmpAttentionEvent {
@@ -155,14 +134,10 @@ export function assertOmpAttentionEvent(value: unknown): OmpAttentionEvent {
   if (REQUIRED_INTERACTION.has(classification) && interactionId === undefined) {
     throw new OmpAttentionEventError("OMP attention event interactionId is required");
   }
-  const status = optionalStatus(record.status);
-  if ((classification === "status_updated") !== (status !== undefined)) {
-    throw new OmpAttentionEventError("OMP status is valid only for status_updated events");
-  }
 
   const focus = optionalFocus(record.focus);
   return {
-    schemaVersion: 4,
+    schemaVersion: OMP_ATTENTION_EVENT_SCHEMA_VERSION,
     type: "omp.attention-event",
     eventId: opaqueId(record.eventId, "eventId"),
     occurredAt: timestamp(record.occurredAt),
@@ -174,7 +149,6 @@ export function assertOmpAttentionEvent(value: unknown): OmpAttentionEvent {
     title: safeDisplayText(record.title, OMP_ATTENTION_LIMITS.titleCodePoints, "title"),
     summary: safeDisplayText(record.summary, OMP_ATTENTION_LIMITS.summaryCodePoints, "summary"),
     transition,
-    ...(status === undefined ? {} : { status }),
     ...(focus === undefined ? {} : { focus }),
   };
 }
@@ -231,7 +205,7 @@ function assertExactKeys(record: Record<string, unknown>): void {
     "summary",
     "transition",
   ];
-  const optional = ["turnId", "interactionId", "session", "status", "focus"];
+  const optional = ["turnId", "interactionId", "session", "focus"];
   const allowed = new Set([...required, ...optional]);
   for (const key of Object.keys(record)) {
     if (!allowed.has(key)) {
@@ -259,13 +233,6 @@ function optionalOpaqueId(value: unknown, label: string): string | undefined {
   return value === undefined ? undefined : opaqueId(value, label);
 }
 
-function optionalStatus(value: unknown): OmpAttentionStatus | undefined {
-  if (value === undefined) return undefined;
-  if (!STATUSES.has(value as OmpAttentionStatus)) {
-    throw new OmpAttentionEventError("OMP attention status is unsupported");
-  }
-  return value as OmpAttentionStatus;
-}
 function optionalFocus(value: unknown): OmpAttentionFocus | undefined {
   if (value === undefined) return undefined;
   const record = asRecord(value);

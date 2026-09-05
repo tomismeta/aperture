@@ -61,7 +61,7 @@ export type FocusRecovery =
     };
 
 export type FocusRegistration = {
-  schemaVersion: 4;
+  schemaVersion: typeof WORKER_DIRECT_PROTOCOL_VERSION;
   type: "focus.register";
   requestId: string;
   publicHandle: string;
@@ -75,7 +75,7 @@ export type FocusRegistrationResult = {
 };
 
 export type FocusRevocation = {
-  schemaVersion: 4;
+  schemaVersion: typeof WORKER_DIRECT_PROTOCOL_VERSION;
   type: "focus.revoke";
   requestId: string;
   publicHandle: string;
@@ -83,7 +83,7 @@ export type FocusRevocation = {
 };
 
 export type OmpSessionHeartbeat = {
-  schemaVersion: 4;
+  schemaVersion: typeof WORKER_DIRECT_PROTOCOL_VERSION;
   type: "omp.session-heartbeat";
   requestId: string;
   sessionId: string;
@@ -104,8 +104,7 @@ export type WorkerDirectRejectionCode =
   | "request_identity_conflict"
   | "processing_failed"
   | "processing_timeout"
-  | "attention_engine_failed"
-  | "attention_snapshot_failed";
+  | "attention_engine_failed";
 const WORKER_DIRECT_REJECTION_CODES: Readonly<Record<WorkerDirectRejectionCode, true>> = {
   unsupported_terminal_owned: true,
   marker_missing: true,
@@ -116,7 +115,6 @@ const WORKER_DIRECT_REJECTION_CODES: Readonly<Record<WorkerDirectRejectionCode, 
   processing_failed: true,
   processing_timeout: true,
   attention_engine_failed: true,
-  attention_snapshot_failed: true,
 };
 
 export class WorkerDirectRejectedError extends Error {
@@ -128,14 +126,14 @@ export class WorkerDirectRejectedError extends Error {
 
 export type WorkerDirectAcknowledgement =
   | {
-      schemaVersion: 4;
+      schemaVersion: typeof WORKER_DIRECT_PROTOCOL_VERSION;
       status: "accepted";
       requestId: string;
       recovery?: FocusRecovery;
       workerGeneration?: string;
     }
   | {
-      schemaVersion: 4;
+      schemaVersion: typeof WORKER_DIRECT_PROTOCOL_VERSION;
       status: "rejected";
       requestId: string;
       code: WorkerDirectRejectionCode;
@@ -208,7 +206,7 @@ export function parseWorkerDirectAcknowledgement(line: string): WorkerDirectAckn
     if (record.workerGeneration !== undefined) expected.push("workerGeneration");
     assertExactKeys(record, expected);
     return {
-      schemaVersion: 4,
+      schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
       status: "accepted",
       requestId,
       ...(record.recovery === undefined ? {} : { recovery: assertRecovery(record.recovery) }),
@@ -226,7 +224,7 @@ export function parseWorkerDirectAcknowledgement(line: string): WorkerDirectAckn
   ) {
     assertExactKeys(record, ["code", "requestId", "schemaVersion", "status"]);
     return {
-      schemaVersion: 4,
+      schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
       status: "rejected",
       requestId,
       code: record.code as WorkerDirectRejectionCode,
@@ -238,7 +236,7 @@ export function parseWorkerDirectAcknowledgement(line: string): WorkerDirectAckn
 function assertSessionHeartbeat(record: Record<string, unknown>): OmpSessionHeartbeat {
   assertExactKeys(record, ["schemaVersion", "type", "requestId", "sessionId"]);
   return {
-    schemaVersion: 4,
+    schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
     type: "omp.session-heartbeat",
     requestId: boundedVisible(
       record.requestId,
@@ -269,7 +267,7 @@ function assertRegistration(record: Record<string, unknown>): FocusRegistration 
     throw new WorkerDirectProtocolError("focus recovery kind does not match its target");
   }
   return {
-    schemaVersion: 4,
+    schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
     type: "focus.register",
     requestId: boundedVisible(
       record.requestId,
@@ -374,7 +372,7 @@ function savedTmuxOption(value: unknown, booleanValue: boolean): SavedTmuxOption
 function assertRevocation(record: Record<string, unknown>): FocusRevocation {
   assertExactKeys(record, ["schemaVersion", "type", "requestId", "publicHandle", "hostGeneration"]);
   return {
-    schemaVersion: 4,
+    schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
     type: "focus.revoke",
     requestId: boundedVisible(
       record.requestId,

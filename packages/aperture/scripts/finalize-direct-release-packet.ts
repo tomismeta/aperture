@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
-import { chmod, lstat, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { chmod, lstat, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { OMP_ATTENTION_EVENT_SCHEMA_VERSION } from "../src/omp-attention-event.js";
+import { OMP_WORKER_OUTPUT_PROTOCOL_VERSION } from "../src/notification-worker/omp-worker-protocol.js";
+import { APERTURE_SURFACE_PROTOCOL_VERSION } from "../src/surface/protocol.js";
+import { WORKER_DIRECT_PROTOCOL_VERSION } from "../src/worker-direct-message.js";
+import { MAXIMUM_CONCURRENT_NATIVE_FALLBACKS } from "../../omp/src/omarchy-attention-state.js";
+
 
 const WORKER_PROOF = "aperture-omp-only-worker-conformance-v1";
 const OMP_PROOF = "aperture-omp-adapter-conformance-v1";
@@ -11,7 +17,6 @@ const OMP_HOST_PROOF = "aperture-omp-host-direct-compatibility-v1";
 const MAXIMUM_MARKETPLACE_ARTIFACT_BYTES = 524_288;
 const ROOT_ENTRIES = [
   "BUILDINFO.json",
-  "config",
   "evidence",
   "integrations",
   "fixtures",
@@ -19,7 +24,6 @@ const ROOT_ENTRIES = [
   "schemas",
 ] as const;
 const FIXED_FILES = [
-  "config/identities.json",
   "evidence/direct-privacy.json",
   "evidence/direct-transport.json",
   "evidence/focus-backends.json",
@@ -43,28 +47,14 @@ const FIXED_FILES = [
   "fixtures/omp-direct/snapshot-failure.json",
   "fixtures/omp-direct/snapshot-now-next.json",
   "fixtures/omp-direct/snapshot-resolved.json",
-  "fixtures/omp-direct/snapshot-status.json",
-  "fixtures/omp-direct/status-event.json",
   "integrations/omp/aperture-omp-extension.mjs",
   "integrations/omp/package.json",
   "lib/aperture-attention-engine.cjs",
-  "schemas/notification-worker-input.schema.json",
-  "schemas/notification-worker-output.schema.json",
+  "schemas/omp-worker-output.schema.json",
   "schemas/omp-attention-event.schema.json",
   "schemas/worker-direct-message.schema.json",
   "schemas/surface-protocol.schema.json",
 ];
-const IDENTITY_CONFIG = {
-  schemaVersion: 1,
-  identities: [
-    {
-      id: "omp",
-      kind: "omp",
-      label: "OMP",
-      applicationNames: ["aperture-omp"],
-    },
-  ],
-};
 
 type ArtifactFile = {
   path: string;
@@ -82,13 +72,6 @@ const options = parseOptions(process.argv.slice(2));
 const artifactRoot = path.resolve(options.artifactDir);
 const buildInfoPath = path.join(artifactRoot, "BUILDINFO.json");
 
-if (!options.verifyOnly) {
-  const configRoot = path.join(artifactRoot, "config");
-  await mkdir(configRoot, { recursive: true });
-  const identityPath = path.join(configRoot, "identities.json");
-  await writeFile(identityPath, `${JSON.stringify(IDENTITY_CONFIG, null, 2)}\n`, "utf8");
-  await chmod(identityPath, 0o644);
-}
 
 const draftBuildInfo = JSON.parse(await readFile(buildInfoPath, "utf8")) as BuildInfo;
 await validateMetadata(draftBuildInfo, artifactRoot, options.sourceCommit, options.sourceTag);
@@ -145,19 +128,27 @@ async function validateMetadata(
   assertNonempty(builder.nodeVersion, "missing build Node version");
   const workerContract = record(buildInfo.workerContract, "missing worker contract");
   assert(workerContract.notificationInput === false, "notification input must be disabled");
-  assert(workerContract.notificationInputSchemaVersion === 2, "invalid notification input schema");
   assert(
-    workerContract.notificationOutputSchemaVersion === 4,
-    "invalid notification output schema",
+    workerContract.ompWorkerOutputSchemaVersion === OMP_WORKER_OUTPUT_PROTOCOL_VERSION,
+    "invalid OMP worker output schema",
   );
-  assert(workerContract.surfaceProtocolVersion === 4, "invalid surface protocol version");
-  assert(workerContract.ompAttentionEventSchemaVersion === 3, "invalid OMP event schema");
-  assert(workerContract.workerDirectProtocolVersion === 4, "invalid worker direct protocol");
+  assert(
+    workerContract.surfaceProtocolVersion === APERTURE_SURFACE_PROTOCOL_VERSION,
+    "invalid surface protocol version",
+  );
+  assert(
+    workerContract.ompAttentionEventSchemaVersion === OMP_ATTENTION_EVENT_SCHEMA_VERSION,
+    "invalid OMP event schema",
+  );
+  assert(
+    workerContract.workerDirectProtocolVersion === WORKER_DIRECT_PROTOCOL_VERSION,
+    "invalid worker direct protocol",
+  );
   assert(
     JSON.stringify(workerContract.jsonlHandshakes) ===
       JSON.stringify({
         privateWorker: {
-          protocolVersion: 4,
+          protocolVersion: OMP_WORKER_OUTPUT_PROTOCOL_VERSION,
           peer: "aperture-attention-engine",
           framing: "jsonl",
           outputEncoding: "ascii-json-escapes",
@@ -165,7 +156,7 @@ async function validateMetadata(
           navigation: "validated-opaque-focus-only",
         },
         publicSurface: {
-          protocolVersion: 4,
+          protocolVersion: APERTURE_SURFACE_PROTOCOL_VERSION,
           peer: "aperture-stdio",
           framing: "jsonl",
           outputEncoding: "ascii-json-escapes",
@@ -174,22 +165,6 @@ async function validateMetadata(
         },
       }),
     "invalid JSONL handshake contract",
-  );
-  const stateMigration = record(buildInfo.stateMigration, "missing state migration policy");
-  const directMigration = record(stateMigration.ompDirect, "missing direct state migration");
-  assert(
-    JSON.stringify(directMigration.fromSchemaVersions) === JSON.stringify([1, 2]) &&
-      directMigration.toSchemaVersion === 3,
-    "invalid direct state migration",
-  );
-  assert(
-    JSON.stringify(directMigration.causalTombstones) ===
-      JSON.stringify(["interaction-resolution", "session-shutdown"]),
-    "invalid direct causal tombstones",
-  );
-  assert(
-    stateMigration.legacyNotificationState === "removed-without-restore",
-    "invalid legacy notification state policy",
   );
   assert(
     JSON.stringify(buildInfo.directSocketLifecycle) ===
@@ -240,8 +215,27 @@ async function validateMetadata(
     "invalid ambiguous delivery retry cap",
   );
   assert(
+    focusCoordinator.directClosureAuthority ===
+      "retry-until-accepted-or-session-lease-expiry",
+    "invalid direct closure authority",
+  );
+  assert(
+    focusCoordinator.focusReplayTransientAttempts === 3,
+    "invalid focus replay retry bound",
+  );
+  assert(
+    focusCoordinator.focusReplayReceiptEpisodes ===
+      "fresh-random-token-per-registration-stable-across-retries",
+    "invalid focus replay receipt episode policy",
+  );
+  assert(
     focusCoordinator.nativeFallbackPolicy === "definite-pre-write-only",
     "invalid native fallback policy",
+  );
+  assert(
+    focusCoordinator.maximumConcurrentNativeFallbacks ===
+      MAXIMUM_CONCURRENT_NATIVE_FALLBACKS,
+    "invalid concurrent native fallback cap",
   );
   assert(
     focusCoordinator.sessionHeartbeatIntervalMs === 5_000,
@@ -399,11 +393,26 @@ async function validateMetadata(
   assert(hostVersions.includes("18.1.2"), "current OMP compatibility is missing");
 
   const schemas = record(buildInfo.schemas, "missing schemas");
-  assertSchema(schemas.input, "schemas/notification-worker-input.schema.json", 2);
-  assertSchema(schemas.output, "schemas/notification-worker-output.schema.json", 4);
-  assertSchema(schemas.surface, "schemas/surface-protocol.schema.json", 4);
-  assertSchema(schemas.ompAttentionEvent, "schemas/omp-attention-event.schema.json", 3);
-  assertSchema(schemas.workerDirectMessage, "schemas/worker-direct-message.schema.json", 4);
+  assertSchema(
+    schemas.output,
+    "schemas/omp-worker-output.schema.json",
+    OMP_WORKER_OUTPUT_PROTOCOL_VERSION,
+  );
+  assertSchema(
+    schemas.surface,
+    "schemas/surface-protocol.schema.json",
+    APERTURE_SURFACE_PROTOCOL_VERSION,
+  );
+  assertSchema(
+    schemas.ompAttentionEvent,
+    "schemas/omp-attention-event.schema.json",
+    OMP_ATTENTION_EVENT_SCHEMA_VERSION,
+  );
+  assertSchema(
+    schemas.workerDirectMessage,
+    "schemas/worker-direct-message.schema.json",
+    WORKER_DIRECT_PROTOCOL_VERSION,
+  );
   const fixtureMetadata = record(buildInfo.fixtures, "missing fixture metadata");
   const ompFixtures = record(fixtureMetadata.ompDirect, "missing OMP direct fixtures");
   assert(ompFixtures.version === 4, "invalid OMP fixture version");
@@ -433,10 +442,6 @@ async function validateMetadata(
   assert(ompOnlyEvidence.artifactMode === "omp-only", "invalid OMP-only evidence mode");
   assert(ompOnlyEvidence.notificationInput === false, "OMP-only evidence enables notifications");
   assert(
-    ompOnlyEvidence.legacyNotificationState === "removed-without-restore",
-    "invalid legacy notification state policy",
-  );
-  assert(
     !array(ompOnlyEvidence.checks, "missing OMP-only checks").includes(
       "ambient-notification-ceiling",
     ),
@@ -446,22 +451,15 @@ async function validateMetadata(
   for (const requiredCheck of [
     "cleanup-mode-no-config-or-engine",
     "omp-only-handshake",
-    "generic-notification-input-disabled",
+    "omp-control-input-only",
     "calm-snapshot-only",
-    "legacy-notification-state-removed",
-    "no-generic-state-persistence",
     "bounded-ascii-output",
+    "direct-socket-lifecycle",
+    "generic-notification-modules-absent",
   ]) {
     assert(ompOnlyChecks.includes(requiredCheck), `missing OMP-only check: ${requiredCheck}`);
   }
 
-  const identityConfig = JSON.parse(
-    await readFile(path.join(root, "config", "identities.json"), "utf8"),
-  ) as unknown;
-  assert(
-    JSON.stringify(identityConfig) === JSON.stringify(IDENTITY_CONFIG),
-    "identity configuration is not the reviewed OMP-only contract",
-  );
 
   const manifest = JSON.parse(
     await readFile(path.join(root, "integrations", "omp", "package.json"), "utf8"),

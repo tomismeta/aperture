@@ -56,7 +56,8 @@
     "./worker-direct-message.schema.json": "./dist/worker-direct-message.schema.json",
     "./surface-protocol.schema.json": "./dist/surface-protocol.schema.json",
     "./notification-worker-input.schema.json": "./dist/notification-worker-input.schema.json",
-    "./notification-worker-output.schema.json": "./dist/notification-worker-output.schema.json"
+    "./notification-worker-output.schema.json": "./dist/notification-worker-output.schema.json",
+    "./omp-worker-output.schema.json": "./dist/omp-worker-output.schema.json"
   },
   "files": [
     "dist",

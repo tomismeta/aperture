@@ -1,11 +1,18 @@
 import { randomUUID } from "node:crypto";
-import { renameSync } from "node:fs";
-import { chmod, lstat, mkdir, open, readFile, readdir, rm } from "node:fs/promises";
+import { renameSync, type Stats } from "node:fs";
+import { lstat, open, readFile, readdir, unlink } from "node:fs/promises";
 import path from "node:path";
 import type { SourceEvent } from "@tomismeta/aperture-core";
 
-import { assertOmpDirectState, decodeOmpDirectState } from "./omp-direct-state-validation.js";
-export { migrateOmpDirectStateV1, migrateOmpDirectStateV2 } from "./omp-direct-state-validation.js";
+import { assertOmpDirectState } from "./omp-direct-state-validation.js";
+import type { ProjectedOmpSessionPresentation } from "./omp-session-presentation.js";
+import {
+  assertOwnedStateRoot,
+  assertPrivateOwnedFile,
+  prepareOwnedStateRoot,
+  sameStateIdentity,
+  type OwnedStateRoot,
+} from "./owned-state-path.js";
 
 const STATE_FILE_NAME = "omp-direct-state.json";
 const MAXIMUM_AGE_MS = 24 * 60 * 60 * 1000;
@@ -15,6 +22,7 @@ const MAXIMUM_BYTES = 4 * 1024 * 1024;
 export type PersistedOmpDirectRevision = {
   occurredAt: string;
   displayTitle: string;
+  presentation: ProjectedOmpSessionPresentation;
   sourceEvent: SourceEvent;
 };
 
@@ -40,7 +48,6 @@ export type PersistedOmpDirectTombstone =
     };
 
 export type OmpDirectPersistedState = {
-  schemaVersion: 3;
   active: PersistedOmpDirectEntry[];
   tombstones: PersistedOmpDirectTombstone[];
 };
@@ -51,37 +58,47 @@ export type OmpDirectStateLoad = {
 };
 
 export function emptyOmpDirectState(): OmpDirectPersistedState {
-  return { schemaVersion: 3, active: [], tombstones: [] };
+  return { active: [], tombstones: [] };
 }
 
 export async function loadOmpDirectState(
   rootDir: string,
   now = Date.now(),
 ): Promise<OmpDirectStateLoad> {
-  await ensurePrivateDirectory(rootDir);
-  await removeStaleTemporaryFiles(rootDir);
+  const root = await prepareOwnedStateRoot(rootDir);
+  await removeStaleTemporaryFiles(rootDir, root);
   const statePath = path.join(rootDir, STATE_FILE_NAME);
+  let identity: Stats;
   try {
-    const metadata = await lstat(statePath);
-    if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size > MAXIMUM_BYTES) {
-      return recoverInvalidState(statePath);
-    }
-    await chmod(statePath, 0o600);
-    const parsed: unknown = JSON.parse(await readFile(statePath, "utf8"));
-    const decoded = decodeOmpDirectState(parsed);
-    const validated = decoded.state;
-    const bounded = fitStateToBounds(pruneOmpDirectState(validated, now));
-    if (decoded.migrated || JSON.stringify(bounded) !== JSON.stringify(validated)) {
-      return {
-        state: await saveOmpDirectState(rootDir, bounded, now),
-        recoveredCorruptState: false,
-      };
-    }
-    return { state: bounded, recoveredCorruptState: false };
+    identity = await lstat(statePath);
   } catch (error) {
     if (isMissing(error)) return { state: emptyOmpDirectState(), recoveredCorruptState: false };
-    return recoverInvalidState(statePath);
+    throw error;
   }
+  assertPrivateOwnedFile(identity, root.uid);
+  if (identity.size > MAXIMUM_BYTES) return recoverInvalidState(statePath, root, identity);
+  const raw = await readFile(statePath, "utf8");
+  const after = await lstat(statePath);
+  assertPrivateOwnedFile(after, root.uid);
+  if (!sameStateIdentity(identity, after)) {
+    throw new Error("Aperture worker state file changed while reading");
+  }
+  await assertOwnedStateRoot(root);
+  let validated: OmpDirectPersistedState;
+  let bounded: OmpDirectPersistedState;
+  try {
+    validated = assertOmpDirectState(JSON.parse(raw));
+    bounded = fitStateToBounds(pruneOmpDirectState(validated, now));
+  } catch {
+    return recoverInvalidState(statePath, root, identity);
+  }
+  if (JSON.stringify(bounded) !== JSON.stringify(validated)) {
+    return {
+      state: await saveOmpDirectState(rootDir, bounded, now),
+      recoveredCorruptState: false,
+    };
+  }
+  return { state: bounded, recoveredCorruptState: false };
 }
 
 export async function saveOmpDirectState(
@@ -91,11 +108,13 @@ export async function saveOmpDirectState(
   signal?: AbortSignal,
 ): Promise<OmpDirectPersistedState> {
   signal?.throwIfAborted();
-  await ensurePrivateDirectory(rootDir);
+  const root = await prepareOwnedStateRoot(rootDir);
   signal?.throwIfAborted();
   const bounded = fitStateToBounds(pruneOmpDirectState(assertOmpDirectState(state), now));
   const targetPath = path.join(rootDir, STATE_FILE_NAME);
+  const previous = await existingPrivateFile(targetPath, root.uid);
   const temporaryPath = path.join(rootDir, `.omp-direct-state-${randomUUID()}.tmp`);
+  let created: Stats | undefined;
   try {
     const file = await open(temporaryPath, "wx", 0o600);
     try {
@@ -109,11 +128,20 @@ export async function saveOmpDirectState(
     } finally {
       await file.close();
     }
-    signal?.throwIfAborted();
+    created = await lstat(temporaryPath);
+    assertPrivateOwnedFile(created, root.uid);
+    await assertOwnedStateRoot(root);
+    await assertTargetUnchanged(targetPath, previous, root.uid);
     renameSync(temporaryPath, targetPath);
+    const installed = await lstat(targetPath);
+    assertPrivateOwnedFile(installed, root.uid);
+    if (!sameStateIdentity(created, installed)) {
+      throw new Error("Aperture worker state file changed while installing");
+    }
+    await assertOwnedStateRoot(root);
     return bounded;
   } catch (error) {
-    await rm(temporaryPath, { force: true });
+    await unlinkPrivateTemporaryFile(temporaryPath, root).catch(() => undefined);
     throw error;
   }
 }
@@ -139,24 +167,19 @@ export function pruneOmpDirectState(
   const tombstones = state.tombstones.filter(
     (tombstone) => Date.parse(tombstone.occurredAt) >= cutoff,
   );
-  while (recordCount(active, tombstones) > MAXIMUM_RECORDS) {
-    removeOldest(active, tombstones);
-  }
-  return { schemaVersion: 3, active, tombstones };
+  while (recordCount(active, tombstones) > MAXIMUM_RECORDS) removeOldest(active, tombstones);
+  return { active, tombstones };
 }
 
 function fitStateToBounds(state: OmpDirectPersistedState): OmpDirectPersistedState {
   const active = state.active.map((entry) => ({ ...entry, revisions: [...entry.revisions] }));
   const tombstones = state.tombstones.map((tombstone) => ({ ...tombstone }));
-  while (
-    Buffer.byteLength(`${JSON.stringify({ schemaVersion: 3, active, tombstones })}\n`, "utf8") >
-    MAXIMUM_BYTES
-  ) {
+  while (Buffer.byteLength(`${JSON.stringify({ active, tombstones })}\n`, "utf8") > MAXIMUM_BYTES) {
     if (!removeOldest(active, tombstones)) {
       throw new Error("OMP direct state cannot fit within the byte limit");
     }
   }
-  return { schemaVersion: 3, active, tombstones };
+  return { active, tombstones };
 }
 
 function recordCount(
@@ -199,23 +222,69 @@ function removeOldest(
   return true;
 }
 
-async function recoverInvalidState(statePath: string): Promise<OmpDirectStateLoad> {
-  await rm(statePath, { force: true });
+async function recoverInvalidState(
+  statePath: string,
+  root: OwnedStateRoot,
+  identity: Stats,
+): Promise<OmpDirectStateLoad> {
+  await assertOwnedStateRoot(root);
+  const current = await lstat(statePath);
+  assertPrivateOwnedFile(current, root.uid);
+  if (!sameStateIdentity(current, identity)) {
+    throw new Error("Aperture worker state file changed before recovery");
+  }
+  await unlink(statePath);
   return { state: emptyOmpDirectState(), recoveredCorruptState: true };
 }
 
-async function ensurePrivateDirectory(rootDir: string): Promise<void> {
-  await mkdir(rootDir, { recursive: true, mode: 0o700 });
-  await chmod(rootDir, 0o700);
+async function removeStaleTemporaryFiles(rootDir: string, root: OwnedStateRoot): Promise<void> {
+  for (const entry of await readdir(rootDir)) {
+    if (!/^\.omp-direct-state-[0-9a-f-]+\.tmp$/i.test(entry)) continue;
+    await unlinkPrivateTemporaryFile(path.join(rootDir, entry), root);
+  }
 }
 
-async function removeStaleTemporaryFiles(rootDir: string): Promise<void> {
-  const entries = await readdir(rootDir);
-  await Promise.all(
-    entries
-      .filter((entry) => /^\.omp-direct-state-[0-9a-f-]+\.tmp$/i.test(entry))
-      .map((entry) => rm(path.join(rootDir, entry), { force: true })),
-  );
+async function unlinkPrivateTemporaryFile(
+  temporaryPath: string,
+  root: OwnedStateRoot,
+): Promise<void> {
+  let identity: Stats;
+  try {
+    identity = await lstat(temporaryPath);
+  } catch (error) {
+    if (isMissing(error)) return;
+    throw error;
+  }
+  assertPrivateOwnedFile(identity, root.uid);
+  await assertOwnedStateRoot(root);
+  const current = await lstat(temporaryPath);
+  assertPrivateOwnedFile(current, root.uid);
+  if (!sameStateIdentity(identity, current)) {
+    throw new Error("Aperture worker temporary state changed before cleanup");
+  }
+  await unlink(temporaryPath);
+}
+
+async function existingPrivateFile(filePath: string, uid: number): Promise<Stats | undefined> {
+  try {
+    const metadata = await lstat(filePath);
+    assertPrivateOwnedFile(metadata, uid);
+    return metadata;
+  } catch (error) {
+    if (isMissing(error)) return undefined;
+    throw error;
+  }
+}
+
+async function assertTargetUnchanged(
+  targetPath: string,
+  previous: Stats | undefined,
+  uid: number,
+): Promise<void> {
+  const current = await existingPrivateFile(targetPath, uid);
+  if (previous === undefined && current === undefined) return;
+  if (previous && current && sameStateIdentity(previous, current)) return;
+  throw new Error("Aperture worker state file changed before replacement");
 }
 
 function isMissing(error: unknown): boolean {

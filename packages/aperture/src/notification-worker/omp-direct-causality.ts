@@ -86,6 +86,9 @@ export function applyMappedOmpDirectEvent(
   if (mapped.kind === "resolve-family") {
     const resolution = causality.family(mapped.sessionId, mapped.family);
     if (resolution && resolution.occurredAt >= mapped.occurredAt) return "ignored";
+    const resolvedEntries = candidate.active.filter(
+      (entry) => entry.sessionId === mapped.sessionId && isOmpCompletionEntry(entry),
+    );
     candidate.active = candidate.active.filter((entry) => {
       const cancelled =
         entry.sessionId === mapped.sessionId &&
@@ -94,6 +97,15 @@ export function applyMappedOmpDirectEvent(
       if (cancelled) nextNavigation.delete(entry.taskId);
       return !cancelled;
     });
+    for (const entry of resolvedEntries) {
+      if (latestOmpDirectRevision(entry).occurredAt > mapped.occurredAt) continue;
+      causality.remember(candidate, {
+        kind: "interaction",
+        key: entry.key,
+        eventId: mapped.eventId,
+        occurredAt: mapped.occurredAt,
+      });
+    }
     causality.remember(candidate, {
       kind: "interaction",
       key: directKey(mapped.sessionId, mapped.family, ""),
@@ -105,7 +117,7 @@ export function applyMappedOmpDirectEvent(
 
   if (mapped.kind === "resolve") {
     const resolution = causality.interaction(mapped.key);
-    if (resolution && resolution.occurredAt >= mapped.occurredAt) return "ignored";
+    if (resolution) return "ignored";
     if (previous && latestOmpDirectRevision(previous).occurredAt <= mapped.occurredAt) {
       candidate.active = candidate.active.filter((entry) => entry.key !== previous.key);
       nextNavigation.delete(previous.taskId);
@@ -120,11 +132,11 @@ export function applyMappedOmpDirectEvent(
   }
 
   const sessionShutdown = causality.session(mapped.sessionId);
-  if (sessionShutdown && sessionShutdown.occurredAt >= mapped.occurredAt) return "ignored";
-  const familyResolution = causality.family(mapped.sessionId, mapped.family);
-  if (familyResolution && familyResolution.occurredAt >= mapped.occurredAt) return "ignored";
+  if (sessionShutdown) return "ignored";
   const interactionResolution = causality.interaction(mapped.key);
-  if (interactionResolution && interactionResolution.occurredAt >= mapped.occurredAt) {
+  if (interactionResolution) return "ignored";
+  const familyResolution = causality.family(mapped.sessionId, mapped.family);
+  if (familyResolution && familyResolution.occurredAt >= mapped.occurredAt) {
     return "ignored";
   }
   const previousRevision = previous ? latestOmpDirectRevision(previous) : undefined;
@@ -200,6 +212,7 @@ export function persistedOmpDirectEntry(
       {
         occurredAt: mapped.occurredAt,
         displayTitle: mapped.displayTitle,
+        presentation: mapped.presentation,
         sourceEvent: mapped.sourceEvent,
       },
     ],

@@ -1,6 +1,7 @@
 import { assertOmpSessionId } from "@tomismeta/aperture/omp-attention-event";
 import {
   OMP_SESSION_HEARTBEAT_INTERVAL_MS,
+  WORKER_DIRECT_PROTOCOL_VERSION,
   type OmpSessionHeartbeat,
 } from "@tomismeta/aperture/worker-direct-message";
 
@@ -71,7 +72,7 @@ export class SessionHeartbeatSender {
     if (this.closed || !sessionId || this.pending) return;
     this.serial = this.serial >= Number.MAX_SAFE_INTEGER ? 1 : this.serial + 1;
     const message: OmpSessionHeartbeat = {
-      schemaVersion: 4,
+      schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
       type: "omp.session-heartbeat",
       requestId: `heartbeat-${this.serial}`,
       sessionId,

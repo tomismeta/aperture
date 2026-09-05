@@ -1,4 +1,5 @@
 import {
+  WORKER_DIRECT_PROTOCOL_VERSION,
   directMessageRequestId,
   type WorkerDirectAcknowledgement,
   type WorkerDirectMessage,
@@ -7,7 +8,6 @@ import type { OmpAttentionSocketServerOptions } from "./direct-server.js";
 import { FocusRegistrationError } from "./focus/types.js";
 import { OmpSessionCapacityError } from "./session-liveness.js";
 
-const ATTENTION_PROCESSING_TIMEOUT_MS = 500;
 const FOCUS_PROCESSING_TIMEOUT_MS = 2_250;
 
 type DirectMessageHandlers = Pick<
@@ -22,32 +22,30 @@ export async function executeDirectMessage(
   workerGeneration: string,
 ): Promise<WorkerDirectAcknowledgement> {
   try {
-    const recovery = await withDeadline(
-      async (signal) => {
-        if (message.type === "omp.attention-event") {
-          await options.handleAttention(message, signal);
-          return undefined;
-        }
-        if (message.type === "omp.session-heartbeat") {
-          if (!options.heartbeatSession) {
-            throw new Error("Aperture session heartbeat is unavailable");
-          }
-          await options.heartbeatSession(message, signal);
-          return undefined;
-        }
-        if (message.type === "focus.register") {
-          return options.registerFocus(message, signal);
-        }
-        await options.revokeFocus(message, signal);
+    const operation = async (signal: AbortSignal) => {
+      if (message.type === "omp.attention-event") {
+        await options.handleAttention(message, signal);
         return undefined;
-      },
+      }
+      if (message.type === "omp.session-heartbeat") {
+        if (!options.heartbeatSession) {
+          throw new Error("Aperture session heartbeat is unavailable");
+        }
+        await options.heartbeatSession(message, signal);
+        return undefined;
+      }
+      if (message.type === "focus.register") {
+        return options.registerFocus(message, signal);
+      }
+      await options.revokeFocus(message, signal);
+      return undefined;
+    };
+    const recovery =
       message.type === "focus.register" || message.type === "focus.revoke"
-        ? FOCUS_PROCESSING_TIMEOUT_MS
-        : ATTENTION_PROCESSING_TIMEOUT_MS,
-      activeOperations,
-    );
+        ? await withDeadline(operation, FOCUS_PROCESSING_TIMEOUT_MS, activeOperations)
+        : await withAbort(operation, activeOperations);
     return {
-      schemaVersion: 4,
+      schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
       status: "accepted",
       requestId: directMessageRequestId(message),
       ...(message.type === "focus.register" && recovery ? { recovery } : {}),
@@ -56,7 +54,7 @@ export async function executeDirectMessage(
   } catch (error) {
     if (error instanceof OmpSessionCapacityError) {
       return {
-        schemaVersion: 4,
+        schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
         status: "rejected",
         requestId: directMessageRequestId(message),
         code: "capacity",
@@ -64,7 +62,7 @@ export async function executeDirectMessage(
     }
     if (message.type === "focus.register" && error instanceof FocusRegistrationError) {
       return {
-        schemaVersion: 4,
+        schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
         status: "rejected",
         requestId: message.requestId,
         code: error.code,
@@ -73,18 +71,28 @@ export async function executeDirectMessage(
     const code =
       error instanceof Error && error.message === "Aperture attention engine failed"
         ? "attention_engine_failed"
-        : error instanceof Error && error.message === "Aperture attention snapshot failed"
-          ? "attention_snapshot_failed"
-          : error instanceof Error &&
-              error.message === "Aperture direct message processing timed out"
-            ? "processing_timeout"
-            : "processing_failed";
+        : error instanceof Error && error.message === "Aperture direct message processing timed out"
+          ? "processing_timeout"
+          : "processing_failed";
     return {
-      schemaVersion: 4,
+      schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
       status: "rejected",
       requestId: directMessageRequestId(message),
       code,
     };
+  }
+}
+
+async function withAbort<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  activeOperations: Set<AbortController>,
+): Promise<T> {
+  const controller = new AbortController();
+  activeOperations.add(controller);
+  try {
+    return await operation(controller.signal);
+  } finally {
+    activeOperations.delete(controller);
   }
 }
 

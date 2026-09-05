@@ -33,6 +33,7 @@ import {
 } from "../src/worker-direct-message.js";
 import type { NotificationWorkerIdentity } from "../src/notification-worker/adapter.js";
 import { startOmpAttentionSocketServer } from "../src/notification-worker/direct-server.js";
+import { DirectReceiptLedger } from "../src/notification-worker/direct-receipt-ledger.js";
 import {
   assertOwnedSocketMetadata,
   cleanupOwnedSocket,
@@ -42,13 +43,13 @@ import {
   OWNED_SOCKET_CLEANUP_DEADLINE_MS,
 } from "../src/notification-worker/direct-socket-lifecycle.js";
 import { NotificationWorkerEngine } from "../src/notification-worker/engine.js";
+import { OmpWorkerEngine } from "../src/notification-worker/omp-engine.js";
 import type { NotificationWorkerInput } from "../src/notification-worker/protocol.js";
 import {
   loadOmpDirectState,
   ompDirectRecordCount,
   pruneOmpDirectState,
   saveOmpDirectState,
-  migrateOmpDirectStateV1,
   type OmpDirectPersistedState,
 } from "../src/notification-worker/omp-direct-state-store.js";
 import {
@@ -56,6 +57,7 @@ import {
   OmpSessionLiveness,
 } from "../src/notification-worker/session-liveness.js";
 import { runNotificationWorkerStdio } from "../src/notification-worker/stdio.js";
+import { runOmpWorkerStdio } from "../src/notification-worker/omp-stdio.js";
 import { assertApertureSurfaceMessage } from "../src/surface/protocol-validator.js";
 import { OmpDirectWorkerTransport } from "../../omp/src/direct-worker-transport.js";
 
@@ -305,10 +307,40 @@ test("session heartbeat protocol and monotonic lease capacity are exact", () => 
   assert.throws(() => liveness.observe("session-fourth"), OmpSessionCapacityError);
 });
 
+test("attention receipts ignore only volatile delivery presentation", async () => {
+  const ledger = new DirectReceiptLedger(4);
+  const original = directEvent({
+    eventId: "stable-receipt",
+    session: { label: "first" },
+    focus: { kind: "opaque-focus", handle: "A".repeat(32) },
+  });
+  let operations = 0;
+  const execute = (event: OmpAttentionEvent) =>
+    ledger.execute(event, async () => {
+      operations += 1;
+      return { schemaVersion: 4, status: "accepted", requestId: event.eventId };
+    });
+  assert.equal((await execute(original)).status, "accepted");
+  assert.equal(
+    (
+      await execute({
+        ...original,
+        occurredAt: "2026-09-01T16:00:30.000Z",
+        session: { label: "renamed" },
+        focus: { kind: "opaque-focus", handle: "B".repeat(32) },
+      })
+    ).status,
+    "accepted",
+  );
+  assert.equal(operations, 1);
+  const changed = await execute({ ...original, summary: "Changed causal content." });
+  assert.equal(changed.status, "rejected");
+  if (changed.status === "rejected") assert.equal(changed.code, "request_identity_conflict");
+  assert.equal(operations, 1);
+});
 test("direct OMP session presentation projects and persists without changing identity", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-session-label-"));
-  const restored = await NotificationWorkerEngine.restore({
-    identities: [identity],
+  const restored = await OmpWorkerEngine.restore({
     stateDir: root,
     now: () => Date.parse(occurredAt),
   });
@@ -318,16 +350,24 @@ test("direct OMP session presentation projects and persists without changing ide
       facets: [{ id: "branch", label: "Branch", value: "main" }],
     },
   });
-  const unnamed = directEvent({ session: undefined });
 
   await restored.engine.handleOmpAttention(named);
   assert.equal(restored.engine.snapshot().view.now?.source?.label, "OMP omarchy-aperture");
   assert.deepEqual(restored.engine.snapshot().view.now?.context?.items, [
     { id: "omp-session:branch", label: "Branch", value: "main" },
   ]);
+  const persisted = JSON.parse(
+    await readFile(path.join(root, "omp-direct-state.json"), "utf8"),
+  ) as {
+    active: Array<{
+      revisions: Array<{ sourceEvent: { source: Record<string, unknown>; context?: unknown } }>;
+    }>;
+  };
+  const canonicalSource = persisted.active[0]?.revisions[0]?.sourceEvent;
+  assert.deepEqual(canonicalSource?.source, { id: "omp", kind: "omp", label: "OMP" });
+  assert.equal(canonicalSource?.context, undefined);
 
-  const replayed = await NotificationWorkerEngine.restore({
-    identities: [identity],
+  const replayed = await OmpWorkerEngine.restore({
     stateDir: root,
     now: () => Date.parse(occurredAt),
   });
@@ -335,8 +375,35 @@ test("direct OMP session presentation projects and persists without changing ide
   assert.deepEqual(replayed.engine.snapshot().view.now?.context?.items, [
     { id: "omp-session:branch", label: "Branch", value: "main" },
   ]);
-  assert.equal(named.eventId, unnamed.eventId);
-  assert.equal(named.sessionId, unnamed.sessionId);
+
+  const anonymousRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-anonymous-"));
+  const anonymous = await OmpWorkerEngine.restore({
+    stateDir: anonymousRoot,
+    now: () => Date.parse(occurredAt),
+  });
+  await anonymous.engine.handleOmpAttention(directEvent({ session: undefined }));
+  const anonymousLabel = anonymous.engine.snapshot().view.now?.source?.label;
+  assert.match(anonymousLabel ?? "", /^OMP Session [0-9A-F]{8}$/);
+  assert.equal(anonymousLabel?.includes(sessionId), false);
+  const anonymousReplay = await OmpWorkerEngine.restore({
+    stateDir: anonymousRoot,
+    now: () => Date.parse(occurredAt),
+  });
+  assert.equal(anonymousReplay.engine.snapshot().view.now?.source?.label, anonymousLabel);
+  const otherRoot = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-anonymous-other-"));
+  const other = await OmpWorkerEngine.restore({
+    stateDir: otherRoot,
+    now: () => Date.parse(occurredAt),
+  });
+  await other.engine.handleOmpAttention(
+    directEvent({
+      eventId: "other-anonymous-event",
+      interactionId: "other-anonymous-interaction",
+      sessionId: "other-anonymous-session",
+      session: undefined,
+    }),
+  );
+  assert.notEqual(other.engine.snapshot().view.now?.source?.label, anonymousLabel);
 });
 
 test("live restored sessions survive grace while dead sessions expire causally", async () => {
@@ -637,6 +704,20 @@ test("completion lifecycle supersedes, resolves, and fences delayed replay", asy
     handle: focusHandle,
   });
   assert.equal(restored.engine.snapshot().view.now, null);
+  await restored.engine.handleOmpAttention(
+    directEvent({
+      eventId: "event:completion:equal-tombstone",
+      sessionId: completionSessionId,
+      occurredAt: "2026-09-04T11:30:40.000Z",
+      turnId: "equal",
+      interactionId: "completion:equal",
+      classification: "turn_completed",
+      title: "Equal-time OMP result",
+      summary: "This result must remain fenced.",
+      transition: "completed",
+    }),
+  );
+  assert.equal(restored.engine.snapshot().view.now, null);
 
   const third = directEvent({
     eventId: "event:completion:third",
@@ -847,6 +928,15 @@ test("resolution and shutdown tombstones dominate delayed replay", async () => {
     });
     assert.equal(restored.engine.snapshot().view.now, null);
     assert.deepEqual(restored.engine.snapshot().view.next, []);
+    await restored.engine.handleOmpAttention(
+      {
+        ...request,
+        eventId: `${family}-same-key-after-resolution`,
+        occurredAt: "2026-09-01T16:00:02.000Z",
+      },
+      { kind: "opaque-focus", handle: focusHandle },
+    );
+    assert.equal(restored.engine.snapshot().view.now, null);
 
     const replayed = await NotificationWorkerEngine.restore({
       identities: [identity],
@@ -929,61 +1019,21 @@ test("notification fallback remains Ambient and cannot manufacture navigation", 
   assert.equal(snapshot.view.ambient[0]?.navigation, undefined);
 });
 
-test("v1 direct state migrates atomically to causal v3 and rejects rollback", async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-v1-migration-"));
-  const original = await NotificationWorkerEngine.restore({
-    identities: [identity],
+test("direct state accepts only the current unversioned closed shape", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-state-shape-"));
+  const original = await OmpWorkerEngine.restore({
     stateDir: root,
     now: () => Date.parse(occurredAt),
   });
   await original.engine.handleOmpAttention(directEvent());
   const statePath = path.join(root, "omp-direct-state.json");
-  const v2 = JSON.parse(await readFile(statePath, "utf8")) as {
-    active: Array<Record<string, unknown> & { sessionId: string }>;
-  };
-  const v1 = {
-    schemaVersion: 1,
-    active: v2.active.map(({ sessionId: legacySessionId, ...entry }) => ({
-      ...entry,
-      navigation: { kind: "omp-session", sessionId: legacySessionId },
-    })),
-  };
-  await writeFile(statePath, `${JSON.stringify(v1)}\n`, { mode: 0o600 });
+  const current = JSON.parse(await readFile(statePath, "utf8")) as Record<string, unknown>;
+  assert.deepEqual(Object.keys(current).sort(), ["active", "tombstones"]);
 
-  const migrated = await NotificationWorkerEngine.restore({
-    identities: [identity],
-    stateDir: root,
-    now: () => Date.parse(occurredAt),
+  await writeFile(statePath, `${JSON.stringify({ schemaVersion: 3, ...current })}\n`, {
+    mode: 0o600,
   });
-  assert.equal(migrated.recoveredCorruptState, false);
-  assert.equal(migrated.engine.snapshot().view.now?.title, directEvent().title);
-  assert.equal(migrated.engine.snapshot().view.now?.navigation, undefined);
-  const canonical = await readFile(statePath, "utf8");
-  assert.match(canonical, /"schemaVersion":3/);
-  assert.doesNotMatch(canonical, /navigation|focusHandle|marker|socketPath|compositor/);
-  assert.equal((await stat(statePath)).mode & 0o777, 0o600);
-
-  await NotificationWorkerEngine.restore({
-    identities: [identity],
-    stateDir: root,
-    now: () => Date.parse(occurredAt),
-  });
-  assert.equal(await readFile(statePath, "utf8"), canonical);
-  assert.throws(
-    () => migrateOmpDirectStateV1(JSON.parse(canonical)),
-    /state fields|v1 state schema/,
-  );
-
-  const malformed = {
-    ...v1,
-    active: v1.active.map((entry) => ({
-      ...entry,
-      navigation: { ...entry.navigation, marker: "private" },
-    })),
-  };
-  await writeFile(statePath, `${JSON.stringify(malformed)}\n`, { mode: 0o600 });
-  const recovered = await NotificationWorkerEngine.restore({
-    identities: [identity],
+  const recovered = await OmpWorkerEngine.restore({
     stateDir: root,
     now: () => Date.parse(occurredAt),
   });
@@ -1035,6 +1085,88 @@ test("direct OMP persistence remains private and record-bounded", async () => {
   });
   assert.equal(recovered.recoveredCorruptState, true);
   assert.equal(recovered.engine.snapshot().view.now, null);
+});
+
+test("OMP worker treats an unsafe direct socket startup as fatal", async () => {
+  const root = await mkdtemp("/tmp/ap-omp-fatal-socket-");
+  const runtimeDir = path.join(root, "runtime");
+  const socketDir = path.join(runtimeDir, "omarchy", "aperture");
+  const socketPath = path.join(socketDir, "attention.sock");
+  const stateDir = path.join(root, "state");
+  await mkdir(socketDir, { recursive: true, mode: 0o700 });
+  await chmod(runtimeDir, 0o700);
+  await chmod(path.join(runtimeDir, "omarchy"), 0o700);
+  await chmod(socketDir, 0o700);
+  const external = path.join(root, "external");
+  await writeFile(external, "must survive\n", { mode: 0o600 });
+  await symlink(external, socketPath);
+  const input = new PassThrough();
+  input.end();
+  let output = "";
+  const sink = new Writable({
+    write(chunk, _encoding, callback) {
+      output += String(chunk);
+      callback();
+    },
+  });
+  await assert.rejects(
+    () =>
+      runOmpWorkerStdio({
+        packageVersion: "0.10.0",
+        stateDir,
+        socketPath,
+        input,
+        output: sink,
+      }),
+    /must not be a symlink/,
+  );
+  const messages = output
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+  assert.equal(
+    messages.some(
+      (message) =>
+        message.type === "error" &&
+        message.code === "direct_transport_unavailable" &&
+        message.recoverable === false,
+    ),
+    true,
+  );
+  assert.equal(
+    messages.some((message) => message.type === "engine" && message.state === "ready"),
+    false,
+  );
+  assert.equal(await readFile(external, "utf8"), "must survive\n");
+});
+
+test("direct state rejects symlinked components and unsafe file identities without deletion", async () => {
+  const parent = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-state-path-"));
+  const actual = path.join(parent, "actual");
+  const linkedRoot = path.join(parent, "linked");
+  await mkdir(actual, { mode: 0o700 });
+  await symlink(actual, linkedRoot);
+  await assert.rejects(() => loadOmpDirectState(linkedRoot), /unsafe/);
+
+  const symlinkRoot = path.join(parent, "symlink-file");
+  await mkdir(symlinkRoot, { mode: 0o700 });
+  const external = path.join(parent, "external.json");
+  const canonicalEmpty = '{"active":[],"tombstones":[]}\n';
+  await writeFile(external, canonicalEmpty, { mode: 0o600 });
+  await symlink(external, path.join(symlinkRoot, "omp-direct-state.json"));
+  await assert.rejects(() => loadOmpDirectState(symlinkRoot), /unsafe/);
+  assert.equal(await readFile(external, "utf8"), canonicalEmpty);
+
+  const hardLinkRoot = path.join(parent, "hard-link");
+  await mkdir(hardLinkRoot, { mode: 0o700 });
+  await link(external, path.join(hardLinkRoot, "omp-direct-state.json"));
+  await assert.rejects(() => loadOmpDirectState(hardLinkRoot), /private/);
+  assert.equal(await readFile(external, "utf8"), canonicalEmpty);
+
+  const publicRoot = path.join(parent, "public-file");
+  await mkdir(publicRoot, { mode: 0o700 });
+  await writeFile(path.join(publicRoot, "omp-direct-state.json"), canonicalEmpty, { mode: 0o644 });
+  await assert.rejects(() => loadOmpDirectState(publicRoot), /private/);
 });
 
 test("worker-owned socket validates ownership, bounds input, and removes itself", async () => {
@@ -1150,64 +1282,87 @@ test("read timeout rejection is terminal for a half-open client", async () => {
   assert.equal(client.destroyed, true);
   await server.close();
 });
-
-test("direct attention deadlines reject before commit and receipts stay terminal", async () => {
-  for (const processingMilliseconds of [150, 250]) {
-    const runtimeRoot = await mkdtemp("/tmp/ap-direct-receipt-timing-");
-    const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
-    let commits = 0;
-    const server = await startOmpAttentionSocketServer({
-      socketPath,
-      handleAttention: async () => {
-        await new Promise<void>((resolve) => setTimeout(resolve, processingMilliseconds));
-        commits += 1;
-      },
-      registerFocus: async () => undefined,
-      revokeFocus: async () => undefined,
+test("attention processing_timeout acknowledgement is acceptance-unknown", async () => {
+  const runtimeRoot = await mkdtemp("/tmp/ap-direct-timeout-ack-");
+  const socketPath = path.join(runtimeRoot, "attention.sock");
+  const server = createServer((socket) => {
+    socket.once("data", () => {
+      socket.end(
+        `${JSON.stringify({
+          schemaVersion: 4,
+          status: "rejected",
+          requestId: "processing-timeout-event",
+          code: "processing_timeout",
+        })}\n`,
+      );
     });
-    const client = new OmpDirectWorkerTransport({ socketPath });
-    assert.equal((await client.send(directEvent())).status, "accepted");
-    assert.equal(commits, 1);
-    await server.close();
-  }
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(socketPath, resolve);
+  });
+  const client = new OmpDirectWorkerTransport({ socketPath });
+  await assert.rejects(
+    () => client.send({ ...directEvent(), eventId: "processing-timeout-event" }),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.name === "OmpDirectDeliveryError" &&
+      (error as Error & { disposition?: unknown }).disposition === "acceptance-unknown",
+  );
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+  });
+});
 
-  const runtimeRoot = await mkdtemp("/tmp/ap-direct-processing-deadline-");
+test("direct attention completion is durable after client ambiguity and retries join one receipt", async () => {
+  const runtimeRoot = await mkdtemp("/tmp/ap-direct-processing-ambiguity-");
   const socketPath = path.join(runtimeRoot, "omarchy", "aperture", "attention.sock");
   let calls = 0;
   let commits = 0;
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   const server = await startOmpAttentionSocketServer({
     socketPath,
-    handleAttention: async (_event, signal) => {
+    handleAttention: async () => {
       calls += 1;
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(resolve, 750);
-        signal.addEventListener(
-          "abort",
-          () => {
-            clearTimeout(timer);
-            reject(signal.reason);
-          },
-          { once: true },
-        );
-      });
+      await blocked;
       commits += 1;
     },
     registerFocus: async () => undefined,
     revokeFocus: async () => undefined,
   });
-  const client = new OmpDirectWorkerTransport({ socketPath });
-  const event = { ...directEvent(), eventId: "deadline-event" };
-  const startedAt = Date.now();
-  const timedOut = (error: unknown) =>
-    error instanceof Error &&
-    error.name === "WorkerDirectRejectedError" &&
-    (error as Error & { code?: unknown }).code === "processing_timeout";
-  await assert.rejects(() => client.send(event), timedOut);
-  assert(Date.now() - startedAt < 700);
-  assert.equal(commits, 0);
-  await assert.rejects(() => client.send(event), timedOut);
+  const event = { ...directEvent(), eventId: "ambiguous-event" };
+  const impatient = new OmpDirectWorkerTransport({
+    socketPath,
+    responseTimeoutMs: 25,
+  });
+  const first = impatient.send(event);
+  const second = impatient.send(event);
+  await assert.rejects(first, (error: unknown) => {
+    return (
+      error instanceof Error &&
+      error.name === "OmpDirectDeliveryError" &&
+      (error as Error & { disposition?: unknown }).disposition === "acceptance-unknown"
+    );
+  });
+  await assert.rejects(second, (error: unknown) => {
+    return (
+      error instanceof Error &&
+      error.name === "OmpDirectDeliveryError" &&
+      (error as Error & { disposition?: unknown }).disposition === "acceptance-unknown"
+    );
+  });
   assert.equal(calls, 1);
-  assert.equal(commits, 0);
+  release();
+  const patient = new OmpDirectWorkerTransport({
+    socketPath,
+    responseTimeoutMs: 1_000,
+  });
+  assert.equal((await patient.send(event)).status, "accepted");
+  assert.equal(calls, 1);
+  assert.equal(commits, 1);
   await server.close();
 });
 

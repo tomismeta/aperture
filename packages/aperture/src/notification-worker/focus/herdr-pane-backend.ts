@@ -4,7 +4,13 @@ import {
   HyprlandFootSurfaceController,
   markerTitleFor,
 } from "./hyprland-foot-surface-controller.js";
-import { focusedPaneFromSnapshot, requestHerdr, type HerdrRequest } from "./native.js";
+import {
+  assertOwnedSocket,
+  focusedPaneFromSnapshot,
+  requestHerdr,
+  type HerdrRequest,
+  type SocketValidator,
+} from "./native.js";
 import {
   type FocusBackend,
   type FocusMember,
@@ -18,16 +24,19 @@ import {
 export type HerdrPaneBackendOptions = {
   surfaceController: HyprlandFootSurfaceController;
   herdrRequest?: HerdrRequest;
+  socketValidator?: SocketValidator;
 };
 
 export class HerdrPaneBackend implements FocusBackend<"herdr"> {
   readonly kind = "herdr" as const;
   private readonly surfaceController: HyprlandFootSurfaceController;
   private readonly herdrRequest: HerdrRequest;
+  private readonly socketValidator: SocketValidator;
 
   constructor(options: HerdrPaneBackendOptions) {
     this.surfaceController = options.surfaceController;
     this.herdrRequest = options.herdrRequest ?? requestHerdr;
+    this.socketValidator = options.socketValidator ?? assertOwnedSocket;
   }
 
   async prepare(
@@ -114,6 +123,7 @@ export class HerdrPaneBackend implements FocusBackend<"herdr"> {
   }
 
   async validate(lease: HerdrPaneLease, signal: AbortSignal): Promise<void> {
+    await this.socketValidator(lease.socketPath, signal);
     await this.surfaceController.validate(lease.surface, signal);
   }
 
@@ -126,7 +136,7 @@ export class HerdrPaneBackend implements FocusBackend<"herdr"> {
     if (prepared.recovery && prepared.recovery.marker !== lease.surface.marker) {
       throw new Error("Herdr recovery marker changed");
     }
-    await this.surfaceController.validate(lease.surface, signal);
+    await this.validate(lease, signal);
   }
 
   member(prepared: PreparedHerdrTarget): FocusMember {

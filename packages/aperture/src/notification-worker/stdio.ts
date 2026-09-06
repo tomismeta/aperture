@@ -182,12 +182,8 @@ export async function runNotificationWorkerStdio(
       },
       onInvalidated: (publicHandle) => {
         void serialize(async () => {
-          const expired = await restored.engine.expireOmpCompletionByFocusHandle(
-            publicHandle,
-            new Date(wallNow()).toISOString(),
-          );
           const navigationRemoved = restored.engine.removeFocusHandle(publicHandle);
-          if (expired || navigationRemoved) await emitSnapshot();
+          if (navigationRemoved) await emitSnapshot();
         });
       },
     });

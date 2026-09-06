@@ -132,7 +132,7 @@ export function applyMappedOmpDirectEvent(
   }
 
   const sessionShutdown = causality.session(mapped.sessionId);
-  if (sessionShutdown) return "ignored";
+  if (sessionShutdown && sessionShutdown.occurredAt >= mapped.occurredAt) return "ignored";
   const interactionResolution = causality.interaction(mapped.key);
   if (interactionResolution) return "ignored";
   const familyResolution = causality.family(mapped.sessionId, mapped.family);

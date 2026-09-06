@@ -256,6 +256,10 @@ before reads, writes, replacement, or cleanup; state files must be same-UID
 regular single-link files with mode `0600`. Restored attention is non-navigable
 and expires after the 10-second reconnect grace unless a fresh direct attention
 delivery proves that session state; heartbeats alone cannot retain restored rows.
+Shutdown and lease expiry retain a timestamp fence, not a permanent ban on the
+conversation ID. Strictly newer attention can resume that conversation; older
+or equal-time replay remains blocked, including after another worker restart.
+Resolved interaction identities remain permanently fenced within retained state.
 Invalidating a focus capability removes navigation immediately, but does not
 resolve an unread completion. Successful activation, an explicit completion
 resolution, or independent session-liveness expiry ends that completion.

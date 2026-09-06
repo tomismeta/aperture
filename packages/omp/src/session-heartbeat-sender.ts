@@ -32,8 +32,7 @@ export class SessionHeartbeatSender {
     private readonly direct: SessionHeartbeatTransport,
     options: SessionHeartbeatSenderOptions = {},
   ) {
-    this.intervalMilliseconds =
-      options.intervalMilliseconds ?? OMP_SESSION_HEARTBEAT_INTERVAL_MS;
+    this.intervalMilliseconds = options.intervalMilliseconds ?? OMP_SESSION_HEARTBEAT_INTERVAL_MS;
     this.responseTimeoutMilliseconds =
       options.responseTimeoutMilliseconds ?? HEARTBEAT_RESPONSE_TIMEOUT_MS;
     this.onFailure = options.onFailure ?? (() => undefined);
@@ -50,9 +49,9 @@ export class SessionHeartbeatSender {
   observe(sessionId: string): void {
     if (this.closed) return;
     const validated = assertOmpSessionId(sessionId);
-    const changed = validated !== this.sessionId;
+    if (validated === this.sessionId) return;
     this.sessionId = validated;
-    if (changed) this.pulse();
+    this.pulse();
     clearInterval(this.timer);
     this.timer = setInterval(() => this.pulse(), this.intervalMilliseconds);
     this.timer.unref?.();

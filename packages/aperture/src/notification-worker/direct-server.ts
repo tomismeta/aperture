@@ -71,6 +71,7 @@ export async function startOmpAttentionSocketServer(
   const activeOperations = new Set<AbortController>();
   const attentionReceipts = new DirectReceiptLedger(maximumReceipts);
   let closing = false;
+  let closeOperation: Promise<void> | undefined;
   const server = createServer((socket) => {
     if (closing || clients.size >= maximumClients) {
       socket.destroy();
@@ -94,19 +95,22 @@ export async function startOmpAttentionSocketServer(
 
   return {
     path: options.socketPath,
-    async close(): Promise<void> {
-      if (closing) return;
+    close(): Promise<void> {
+      if (closeOperation) return closeOperation;
       closing = true;
-      for (const client of clients) client.destroy();
-      for (const operation of activeOperations) operation.abort();
-      await closeOwnedSocketServer(
-        server,
-        options.socketPath,
-        uid,
-        socketIdentity,
-        shutdownTimeoutMs,
-      );
-      attentionReceipts.clear();
+      closeOperation = (async () => {
+        for (const client of clients) client.destroy();
+        for (const operation of activeOperations) operation.abort();
+        await closeOwnedSocketServer(
+          server,
+          options.socketPath,
+          uid,
+          socketIdentity,
+          shutdownTimeoutMs,
+        );
+        attentionReceipts.clear();
+      })();
+      return closeOperation;
     },
   };
 }

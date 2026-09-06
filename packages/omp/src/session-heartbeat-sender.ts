@@ -5,6 +5,7 @@ import {
   type OmpSessionHeartbeat,
 } from "@tomismeta/aperture/worker-direct-message";
 
+import { boundedShutdownWait } from "./bounded-shutdown.js";
 import type { OmpDirectWorkerTransport } from "./direct-worker-transport.js";
 
 const HEARTBEAT_RESPONSE_TIMEOUT_MS = 1_000;
@@ -27,6 +28,7 @@ export class SessionHeartbeatSender {
   private sessionId: string | undefined;
   private serial = 0;
   private closed = false;
+  private closing: Promise<void> | undefined;
 
   constructor(
     private readonly direct: SessionHeartbeatTransport,
@@ -57,13 +59,16 @@ export class SessionHeartbeatSender {
     this.timer.unref?.();
   }
 
-  async close(): Promise<void> {
-    if (this.closed) return;
+  close(): Promise<void> {
+    if (this.closing) return this.closing;
     this.closed = true;
     this.sessionId = undefined;
     clearInterval(this.timer);
     this.pendingController?.abort(new Error("Aperture OMP heartbeat sender closed"));
-    await this.pending?.catch(() => undefined);
+    return (this.closing = boundedShutdownWait(
+      this.pending ?? Promise.resolve(),
+      this.responseTimeoutMilliseconds,
+    ));
   }
 
   private pulse(): void {

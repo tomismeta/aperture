@@ -147,9 +147,15 @@ export async function runOmpWorkerStdio(options: OmpWorkerStdioOptions): Promise
       ...(options.now ? { now: options.now } : {}),
       onDiagnostic: (stage) => diagnostic.write(`Aperture focus ${stage}\n`),
       onInvalidated: (publicHandle) => {
+        if (stopping) return;
         void serialize(async () => {
+          if (stopping) return;
           const navigationRemoved = restored.engine.removeFocusHandle(publicHandle);
           if (navigationRemoved) await emitSnapshot();
+        }).catch(() => {
+          if (stopping) return;
+          diagnostic.write("Aperture could not invalidate OMP focus\n");
+          stop();
         });
       },
     });
@@ -183,16 +189,15 @@ export async function runOmpWorkerStdio(options: OmpWorkerStdioOptions): Promise
               sessionLiveness.observe(event.sessionId);
             }
             const navigation = coordinator.navigationFor(event.focus?.handle);
-            try {
-              await restored.engine.handleOmpAttention(event, navigation, signal);
-              if (event.classification !== "session_shutdown") {
-                sessionLiveness.confirmReconnect(event.sessionId);
-              }
-              if (event.classification === "session_shutdown") {
-                sessionLiveness.forget(event.sessionId);
-              }
-            } catch {
-              throw new Error("Aperture attention engine failed");
+            await restored.engine.handleOmpAttention(event, navigation, signal);
+            if (event.classification !== "session_shutdown") {
+              sessionLiveness.confirmReconnect(event.sessionId);
+            }
+            if (
+              event.classification === "session_shutdown" &&
+              !restored.engine.hasActiveOmpSession(event.sessionId)
+            ) {
+              sessionLiveness.forget(event.sessionId);
             }
             try {
               await emitSnapshot();
@@ -296,15 +301,13 @@ async function closeWorkerResources(
   focusCoordinator: FocusCoordinator | undefined,
   operationQueue: Promise<void>,
 ): Promise<void> {
-  const results = await Promise.allSettled([
+  // Start every cleanup, but surface a terminal failure without waiting for a
+  // stalled independent operation. The executable owns fatal process teardown.
+  await Promise.all([
     socketServer?.close() ?? Promise.resolve(),
     focusCoordinator?.close() ?? Promise.resolve(),
     operationQueue,
   ]);
-  const failure = results.find(
-    (result): result is PromiseRejectedResult => result.status === "rejected",
-  );
-  if (failure) throw failure.reason;
 }
 
 type DecodedLine = { line: string } | { error: string };

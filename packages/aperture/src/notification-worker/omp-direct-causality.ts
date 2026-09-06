@@ -117,16 +117,19 @@ export function applyMappedOmpDirectEvent(
 
   if (mapped.kind === "resolve") {
     const resolution = causality.interaction(mapped.key);
-    if (resolution) return "ignored";
-    if (previous && latestOmpDirectRevision(previous).occurredAt <= mapped.occurredAt) {
+    if (resolution && !previous) return "ignored";
+    const previousAt = previous ? latestOmpDirectRevision(previous).occurredAt : undefined;
+    // Approval/input identities are terminal even when the producer clock moves backward.
+    if (previous) {
       candidate.active = candidate.active.filter((entry) => entry.key !== previous.key);
       nextNavigation.delete(previous.taskId);
     }
+    if (resolution) return "persist";
     causality.remember(candidate, {
       kind: "interaction",
       key: mapped.key,
       eventId: mapped.eventId,
-      occurredAt: mapped.occurredAt,
+      occurredAt: previousAt && previousAt > mapped.occurredAt ? previousAt : mapped.occurredAt,
     });
     return "persist";
   }

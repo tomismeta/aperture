@@ -146,7 +146,33 @@ const compressedWorker = await minify(await readFile(ATTENTION_WORKER_OUTFILE, "
 if (!compressedWorker.code) {
   throw new Error("attention worker compression produced no output");
 }
-await writeFile(ATTENTION_WORKER_OUTFILE, `${compressedWorker.code}\n`, "utf8");
+const dependencyRoots = new Set<string>();
+for (const input of attentionWorkerSourceFiles) {
+  const dependency = /^(.*\/node_modules\/(?:@[^/]+\/)?[^/]+)\//.exec(input);
+  if (dependency) dependencyRoots.add(dependency[1]!);
+}
+const bundledNotices = await Promise.all(
+  [...dependencyRoots].sort().map(async (relativeRoot) => {
+    const root = path.resolve(PACKAGE_ROOT, relativeRoot);
+    const metadata = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")) as {
+      name: string;
+      version: string;
+      license: string;
+    };
+    const license = (await readFile(path.join(root, "LICENSE"), "utf8")).trim();
+    return `Package: ${metadata.name}@${metadata.version}\nLicense: ${metadata.license}\n\n${license}\n`;
+  }),
+);
+const thirdPartyNotices =
+  "Third-party software bundled in Aperture's attention worker.\n\n" + bundledNotices.join("\n");
+if (thirdPartyNotices.includes("*/")) {
+  throw new Error("bundled license text cannot be safely embedded in the worker");
+}
+await writeFile(
+  ATTENTION_WORKER_OUTFILE,
+  `/*!\n${thirdPartyNotices}*/\n${compressedWorker.code}\n`,
+  "utf8",
+);
 const runtimeImports = new Set<string>();
 for (const output of Object.values(attentionWorkerBuild.metafile.outputs)) {
   for (const imported of output.imports) {

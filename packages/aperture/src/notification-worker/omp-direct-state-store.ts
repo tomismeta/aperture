@@ -4,6 +4,7 @@ import { lstat, open, readFile, readdir, unlink } from "node:fs/promises";
 import path from "node:path";
 import type { SourceEvent } from "@tomismeta/aperture-core";
 
+import { DirectAttentionPrecommitError } from "./direct-message-execution.js";
 import { assertOmpDirectState } from "./omp-direct-state-validation.js";
 import type { ProjectedOmpSessionPresentation } from "./omp-session-presentation.js";
 import {
@@ -107,15 +108,17 @@ export async function saveOmpDirectState(
   now = Date.now(),
   signal?: AbortSignal,
 ): Promise<OmpDirectPersistedState> {
-  signal?.throwIfAborted();
-  const root = await prepareOwnedStateRoot(rootDir);
-  signal?.throwIfAborted();
-  const bounded = fitStateToBounds(pruneOmpDirectState(assertOmpDirectState(state), now));
-  const targetPath = path.join(rootDir, STATE_FILE_NAME);
-  const previous = await existingPrivateFile(targetPath, root.uid);
-  const temporaryPath = path.join(rootDir, `.omp-direct-state-${randomUUID()}.tmp`);
-  let created: Stats | undefined;
+  let root: OwnedStateRoot | undefined;
+  let temporaryPath: string | undefined;
+  let installationAttempted = false;
   try {
+    signal?.throwIfAborted();
+    root = await prepareOwnedStateRoot(rootDir);
+    signal?.throwIfAborted();
+    const bounded = fitStateToBounds(pruneOmpDirectState(assertOmpDirectState(state), now));
+    const targetPath = path.join(rootDir, STATE_FILE_NAME);
+    const previous = await existingPrivateFile(targetPath, root.uid);
+    temporaryPath = path.join(rootDir, `.omp-direct-state-${randomUUID()}.tmp`);
     const file = await open(temporaryPath, "wx", 0o600);
     try {
       await file.writeFile(`${JSON.stringify(bounded)}\n`, {
@@ -128,10 +131,11 @@ export async function saveOmpDirectState(
     } finally {
       await file.close();
     }
-    created = await lstat(temporaryPath);
+    const created = await lstat(temporaryPath);
     assertPrivateOwnedFile(created, root.uid);
     await assertOwnedStateRoot(root);
     await assertTargetUnchanged(targetPath, previous, root.uid);
+    installationAttempted = true;
     renameSync(temporaryPath, targetPath);
     const installed = await lstat(targetPath);
     assertPrivateOwnedFile(installed, root.uid);
@@ -141,8 +145,29 @@ export async function saveOmpDirectState(
     await assertOwnedStateRoot(root);
     return bounded;
   } catch (error) {
-    await unlinkPrivateTemporaryFile(temporaryPath, root).catch(() => undefined);
+    if (temporaryPath && root) {
+      await unlinkPrivateTemporaryFile(temporaryPath, root).catch(() => undefined);
+    }
+    if (!installationAttempted && !signal?.aborted && isTransientStateWriteError(error)) {
+      throw new DirectAttentionPrecommitError(error);
+    }
     throw error;
+  }
+}
+
+function isTransientStateWriteError(error: unknown): boolean {
+  if (!(error instanceof Error) || !("code" in error)) return false;
+  switch (error.code) {
+    case "EAGAIN":
+    case "EBUSY":
+    case "EDQUOT":
+    case "EIO":
+    case "EMFILE":
+    case "ENFILE":
+    case "ENOSPC":
+      return true;
+    default:
+      return false;
   }
 }
 

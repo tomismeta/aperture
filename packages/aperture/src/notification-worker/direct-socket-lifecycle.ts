@@ -129,21 +129,23 @@ export async function closeOwnedSocketServer(
   timeoutMs: number,
 ): Promise<void> {
   assertCanonicalSocketPath(socketPath);
-  let directoriesExist: boolean;
-  try {
-    directoriesExist = await socketDirectoriesExist(socketPath, uid);
-  } catch (error) {
-    await closeServer(server, timeoutMs);
-    throw error;
-  }
-  if (!directoriesExist) {
-    await closeServer(server, timeoutMs);
-    return;
-  }
+  // Node's server.close() can unlink its original pathname. If ownership cannot
+  // be established, fail closed; the executable must terminate without closing
+  // this handle through Node or touching a possibly replaced pathname.
+  await assertPrivateSocketDirectories(socketPath, uid);
   const now = Date.now;
   const deadline = now() + OWNED_SOCKET_CLEANUP_DEADLINE_MS;
   await withLifecycleLock(socketPath, uid, deadline, now, defaultSleep, async () => {
     await assertPrivateSocketDirectories(socketPath, uid);
+    try {
+      const current = await lstat(socketPath);
+      assertOwnedSocketMetadata(current, uid);
+      if (!sameIdentity(current, identity)) {
+        throw new Error("Aperture worker socket was replaced before shutdown");
+      }
+    } catch (error) {
+      if (!isMissing(error)) throw error;
+    }
     await closeServer(server, timeoutMs);
     await removeOwnedSocket(socketPath, uid, identity);
   });

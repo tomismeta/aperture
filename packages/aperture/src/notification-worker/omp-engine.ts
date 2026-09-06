@@ -88,6 +88,10 @@ export class OmpWorkerEngine {
       .map(([sessionId]) => sessionId);
   }
 
+  hasActiveOmpSession(sessionId: string): boolean {
+    return this.directState.active.some((entry) => entry.sessionId === sessionId);
+  }
+
   async expireOmpSessions(
     sessionIds: readonly string[],
     occurredAt: string,
@@ -105,22 +109,30 @@ export class OmpWorkerEngine {
     let changed = false;
     for (const sessionId of new Set(sessionIds)) {
       const previousExpiry = this.directCausality.session(sessionId);
-      if (previousExpiry && previousExpiry.occurredAt >= occurredAt) continue;
+      let fenceAt =
+        previousExpiry && previousExpiry.occurredAt > occurredAt
+          ? previousExpiry.occurredAt
+          : occurredAt;
+      let removed = false;
       candidate.active = candidate.active.filter((entry) => {
-        const expired =
-          entry.sessionId === sessionId && latestOmpDirectRevision(entry).occurredAt <= occurredAt;
-        if (expired) nextNavigation.delete(entry.taskId);
-        return !expired;
+        if (entry.sessionId !== sessionId) return true;
+        // Lease expiry is monotonic: wall-clock skew must not retain dead attention.
+        const revisionAt = latestOmpDirectRevision(entry).occurredAt;
+        if (revisionAt > fenceAt) fenceAt = revisionAt;
+        nextNavigation.delete(entry.taskId);
+        removed = true;
+        return false;
       });
+      if (!removed && previousExpiry && previousExpiry.occurredAt >= fenceAt) continue;
       candidateCausality.remember(candidate, {
         kind: "session",
         sessionId,
         eventId: `omp-session-lease:${createHash("sha256")
           .update(sessionId)
           .update("\u0000")
-          .update(occurredAt)
+          .update(fenceAt)
           .digest("hex")}`,
-        occurredAt,
+        occurredAt: fenceAt,
       });
       changed = true;
     }

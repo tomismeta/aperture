@@ -21,15 +21,10 @@ export function projectOmpSessionPresentation(
         })),
       }
     : undefined;
-  const anonymousDiscriminator = createHash("sha256")
-    .update(event.sessionId)
-    .digest("hex")
-    .slice(0, 8)
-    .toUpperCase();
   return {
     sourceLabel: event.session?.label
       ? `OMP ${event.session.label}`
-      : `OMP Session ${anonymousDiscriminator}`,
+      : `OMP Session ${createHash("sha256").update(event.sessionId).digest("hex").slice(0, 8).toUpperCase()}`,
     ...(context ? { context } : {}),
   };
 }

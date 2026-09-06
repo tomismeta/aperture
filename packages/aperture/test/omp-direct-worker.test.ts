@@ -48,7 +48,10 @@ import {
 import { NotificationWorkerEngine } from "../src/notification-worker/engine.js";
 import { OmpWorkerEngine } from "../src/notification-worker/omp-engine.js";
 import { HyprlandFootSurfaceController } from "../src/notification-worker/focus/hyprland-foot-surface-controller.js";
-import type { NotificationWorkerInput } from "../src/notification-worker/protocol.js";
+import type {
+  NotificationWorkerInput,
+  NotificationWorkerSnapshot,
+} from "../src/notification-worker/protocol.js";
 import {
   loadOmpDirectState,
   ompDirectRecordCount,
@@ -332,6 +335,25 @@ test("session heartbeat protocol and monotonic lease capacity are exact", () => 
   );
 });
 
+test("a renewed session lease cannot be removed by an older expiry candidate", () => {
+  let monotonicNow = 0;
+  const liveness = new OmpSessionLiveness({
+    monotonicNow: () => monotonicNow,
+    leaseMilliseconds: 20,
+  });
+  liveness.observe(sessionId);
+  monotonicNow = 20;
+  const expired = liveness.expired();
+  liveness.observe(sessionId);
+  liveness.commitExpired(expired);
+  assert.deepEqual(liveness.expired(), []);
+  monotonicNow = 40;
+  assert.deepEqual(
+    liveness.expired().map((entry) => entry.sessionId),
+    [sessionId],
+  );
+});
+
 test("attention receipts ignore only volatile delivery presentation", async () => {
   const ledger = new DirectReceiptLedger(4);
   const original = directEvent({
@@ -486,6 +508,110 @@ test("heartbeats alone cannot retain restored sessions past reconnect grace", as
     now: () => wallNow,
   });
   assert.equal(replayed.engine.snapshot().view.now, null);
+});
+
+test("OMP stdio keeps surviving attention leased and expires it despite wall-clock rollback", async (t) => {
+  for (const scenario of ["older-shutdown", "restored-future"] as const) {
+    await t.test(scenario, { timeout: 5_000 }, async (scenarioTest) => {
+      const root = await mkdtemp("/tmp/ap-omp-causal-lease-");
+      const stateDir = path.join(root, "state");
+      const socketPath = path.join(root, "omarchy", "aperture", "attention.sock");
+      let wallNow = Date.parse("2026-09-01T16:00:10.000Z");
+      let monotonicNow = 0;
+      const request = directEvent({
+        occurredAt: "2026-09-01T16:00:05.000Z",
+        focus: undefined,
+      });
+      if (scenario === "restored-future") {
+        const initial = await OmpWorkerEngine.restore({ stateDir, now: () => wallNow });
+        await initial.engine.handleOmpAttention(request);
+        wallNow = Date.parse(occurredAt);
+      }
+      const input = new PassThrough();
+      const messages = new EventEmitter();
+      let latest: NotificationWorkerSnapshot | undefined;
+      const output = new Writable({
+        write(chunk, _encoding, callback) {
+          const message = JSON.parse(String(chunk));
+          if (message.type === "snapshot") {
+            latest = message;
+            messages.emit("snapshot", message);
+          }
+          callback();
+        },
+      });
+      const initialSnapshot = once(messages, "snapshot");
+      const running = runOmpWorkerStdio({
+        packageVersion: "0.10.0",
+        stateDir,
+        socketPath,
+        input,
+        output,
+        now: () => wallNow,
+        sessionLiveness: {
+          monotonicNow: () => monotonicNow,
+          reconnectGraceMilliseconds: 20,
+          leaseMilliseconds: 100,
+        },
+        sessionLivenessSweepMilliseconds: 5,
+      });
+      scenarioTest.after(async () => {
+        input.end(`${JSON.stringify({ type: "shutdown" })}\n`);
+        try {
+          await running;
+        } finally {
+          await rm(root, { recursive: true, force: true });
+        }
+      });
+      await Promise.race([
+        initialSnapshot,
+        running.then(() => {
+          throw new Error("Worker stopped before its initial snapshot");
+        }),
+      ]);
+      const client = new OmpDirectWorkerTransport({ socketPath });
+      if (scenario === "older-shutdown") {
+        assert.equal((await client.send(request)).status, "accepted");
+        const shutdown = directEvent({
+          eventId: "older-session-shutdown",
+          occurredAt: "2026-09-01T16:00:02.000Z",
+          classification: "session_shutdown",
+          transition: "shutdown",
+          interactionId: undefined,
+          focus: undefined,
+        });
+        assert.equal((await client.send(shutdown)).status, "accepted");
+        wallNow = Date.parse(occurredAt);
+      }
+      assert.equal(latest?.view.now?.title, request.title);
+      const expiredSnapshot = once(messages, "snapshot");
+      monotonicNow = 100;
+      const [expired] = await expiredSnapshot;
+      assert.equal(expired.view.now, null);
+      assert.deepEqual(expired.view.next, []);
+      assert.deepEqual(expired.view.ambient, []);
+
+      // A different delivery id bypasses receipt deduplication and exercises the durable fence.
+      assert.equal(
+        (await client.send({ ...request, eventId: "replayed-after-lease-expiry" })).status,
+        "accepted",
+      );
+      assert.equal(latest?.view.now, null);
+      const replayed = await OmpWorkerEngine.restore({ stateDir, now: () => wallNow });
+      await replayed.engine.handleOmpAttention({
+        ...request,
+        eventId: "replayed-after-worker-restore",
+      });
+      assert.equal(replayed.engine.snapshot().view.now, null);
+      await replayed.engine.handleOmpAttention({
+        ...request,
+        eventId: "genuinely-new-session-attention",
+        interactionId: "new-session-interaction",
+        occurredAt: "2026-09-01T16:00:06.000Z",
+      });
+      assert.equal(replayed.engine.snapshot().view.now?.title, request.title);
+    });
+  }
 });
 
 test("public surface rejects private focus navigation", () => {
@@ -673,14 +799,14 @@ test("completed OMP turns become NOW-eligible review results with navigation", a
   });
 });
 
-test("both worker hosts retain unread completions when focus registration is revoked", async (t) => {
-  for (const mode of ["omp-only", "general"] as const) {
-    await t.test(mode, { timeout: 5_000 }, async (t) => {
+test("worker hosts retain unread completions through focus loss and clean shutdown", async (t) => {
+  for (const mode of ["omp-only", "general", "omp-shutdown"] as const) {
+    await t.test(mode, { timeout: 5_000 }, async (scenario) => {
       const root = await mkdtemp("/tmp/ap-focus-completion-");
       const socketPath = path.join(root, "omarchy", "aperture", "attention.sock");
       const herdrSocket = path.join(root, "herdr.sock");
       const marker = "A".repeat(32);
-      t.mock.method(HyprlandFootSurfaceController.prototype, "list", async () => [
+      scenario.mock.method(HyprlandFootSurfaceController.prototype, "list", async () => [
         { address: "0x1234", title: `Aperture Focus ${marker}`, className: "foot" },
       ]);
       const herdr = createServer((socket) => {
@@ -720,11 +846,11 @@ test("both worker hosts retain unread completions when focus registration is rev
         now: () => Date.parse("2026-09-04T11:30:20.604Z"),
       };
       const running =
-        mode === "omp-only"
-          ? runOmpWorkerStdio(options)
-          : runNotificationWorkerStdio({ ...options, identities: [identity] });
-      t.after(async () => {
-        input.end(`${JSON.stringify({ type: "shutdown" })}\n`);
+        mode === "general"
+          ? runNotificationWorkerStdio({ ...options, identities: [identity] })
+          : runOmpWorkerStdio(options);
+      scenario.after(async () => {
+        if (!input.destroyed) input.end(`${JSON.stringify({ type: "shutdown" })}\n`);
         try {
           await running;
         } finally {
@@ -765,6 +891,19 @@ test("both worker hosts retain unread completions when focus registration is rev
       await client.send(completion);
       const [before] = await published;
       assert.equal(before.view.now.navigation.handle, focusHandle);
+      if (mode === "omp-shutdown") {
+        input.end(`${JSON.stringify({ type: "shutdown" })}\n`);
+        await running;
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        await assert.rejects(() => lstat(socketPath), { code: "ENOENT" });
+        const replayed = await OmpWorkerEngine.restore({
+          stateDir: options.stateDir,
+          now: options.now,
+        });
+        assert.equal(replayed.engine.snapshot().view.now?.id, before.view.now.id);
+        assert.equal(replayed.engine.snapshot().view.now?.navigation, undefined);
+        return;
+      }
       const invalidated = once(messages, "snapshot");
       await client.revokeFocus({
         schemaVersion: 4,
@@ -1127,6 +1266,62 @@ test("resolution and shutdown tombstones dominate delayed replay", async () => {
   });
   assert.equal(shutdownEngine.engine.snapshot().view.now, null);
   assert.deepEqual(shutdownEngine.engine.snapshot().view.next, []);
+});
+
+test("older approval and input resolutions close active identities and fence later replay", async (t) => {
+  for (const family of ["approval", "input"] as const) {
+    await t.test(family, async (scenarioTest) => {
+      const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-old-resolution-"));
+      scenarioTest.after(() => rm(root, { recursive: true, force: true }));
+      const request = directEvent({
+        eventId: `${family}-future-request`,
+        interactionId: `${family}-terminal-identity`,
+        occurredAt: "2026-09-01T16:00:05.000Z",
+        classification: family === "approval" ? "approval_requested" : "input_requested",
+      });
+      const resolution = directEvent({
+        eventId: `${family}-older-resolution`,
+        interactionId: request.interactionId,
+        occurredAt: "2026-08-30T16:00:00.000Z",
+        classification: family === "approval" ? "approval_resolved" : "input_resolved",
+        transition: "resolved",
+        focus: undefined,
+      });
+      const { engine } = await OmpWorkerEngine.restore({
+        stateDir: root,
+        now: () => Date.parse(occurredAt),
+      });
+      await engine.handleOmpAttention(request, { kind: "opaque-focus", handle: focusHandle });
+      assert.equal(engine.snapshot().view.now?.navigation?.handle, focusHandle);
+      await engine.handleOmpAttention(resolution);
+      assert.equal(engine.snapshot().view.now, null);
+      assert.deepEqual(engine.activeOmpSessionIds(), []);
+      const closed = await OmpWorkerEngine.restore({
+        stateDir: root,
+        now: () => Date.parse(occurredAt),
+      });
+      await closed.engine.handleOmpAttention(request);
+      assert.equal(closed.engine.snapshot().view.now, null);
+      await engine.handleOmpAttention({
+        ...resolution,
+        eventId: `${family}-later-resolution`,
+        occurredAt: "2026-09-01T16:00:06.000Z",
+      });
+      const replayed = await OmpWorkerEngine.restore({
+        stateDir: root,
+        now: () => Date.parse(occurredAt),
+      });
+      await replayed.engine.handleOmpAttention({
+        ...request,
+        eventId: `${family}-replayed-request`,
+        occurredAt: "2026-09-01T16:00:07.000Z",
+      });
+      const snapshot = replayed.engine.snapshot();
+      assert.equal(snapshot.view.now, null);
+      assert.deepEqual(snapshot.view.next, []);
+      assert.deepEqual(snapshot.view.ambient, []);
+    });
+  }
 });
 
 test("resumed sessions accept newer attention while durable shutdown fences reject old replay", async (t) => {

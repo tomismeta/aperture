@@ -5,7 +5,7 @@ import {
   OmpDirectWorkerTransport,
   type OmpDirectWorkerTransportOptions,
 } from "./direct-worker-transport.js";
-import { mapOmpDirectAttentionEvents } from "./direct-event-mapping.js";
+import { mapOmpDirectAttentionEvents, sessionIdForEvent } from "./direct-event-mapping.js";
 import { OmarchyAttentionTransport } from "./omarchy-attention-transport.js";
 import {
   OmarchyNotificationTransport,
@@ -56,14 +56,35 @@ export function createApertureOmarchyOmpExtension(
     let suppressionActive = false;
     let deliveryActive = true;
     let focusHost: FocusHost | undefined;
+    let closing: Promise<void> | undefined;
+    function closeAdapter(): Promise<void> {
+      deliveryActive = false;
+      return (closing ??= (async () => {
+        try {
+          // Stop both leases immediately; retain the transport for fresh title
+          // ownership proof and revocation before closing delivery.
+          await Promise.allSettled([heartbeat.close(), focusHost?.close()]);
+          await transport.close();
+        } finally {
+          restoreBuiltInNotifications();
+        }
+      })());
+    }
     function handleDeliveryFailure(error: unknown): void {
       pi.logger?.warn?.("Aperture OMP adapter delivery failed", {
         error: error instanceof Error ? error.message : String(error),
       });
-      if (!suppressionActive || !deliveryActive) return;
+      // Shutdown stops new events, but a terminal failure must still stop its drain.
+      if (!suppressionActive) return;
       deliveryActive = false;
       transport.disable();
       restoreBuiltInNotifications();
+      suppressionActive = false;
+      void closeAdapter().catch((closeError) => {
+        pi.logger?.debug?.("Aperture OMP adapter cleanup failed", {
+          error: closeError instanceof Error ? closeError.message : String(closeError),
+        });
+      });
     }
     const previousNotifications = process.env.PI_NOTIFICATIONS;
     const restoreBuiltInNotifications = (): void => {
@@ -87,11 +108,11 @@ export function createApertureOmarchyOmpExtension(
       pi,
       {
         handle: async (event, context, capabilities) => {
-          const heartbeatSessionId = sessionIdForHeartbeat(event, context);
+          if (!deliveryActive) return;
+          const heartbeatSessionId = sessionIdForEvent(event, context);
           if (event.type !== "session_shutdown" && heartbeatSessionId) {
             heartbeat.observe(heartbeatSessionId);
           }
-          if (!deliveryActive) return;
           if (!focusHost && isFocusCandidateEvent(event)) {
             focusHost = FocusHost.create({
               transport: direct,
@@ -118,15 +139,7 @@ export function createApertureOmarchyOmpExtension(
             await transport.handle(event, deliveryContext);
           }
         },
-        close: async () => {
-          try {
-            await heartbeat.close();
-            await focusHost?.close();
-            await transport.close();
-          } finally {
-            restoreBuiltInNotifications();
-          }
-        },
+        close: closeAdapter,
       },
       mappingContext,
     );
@@ -139,14 +152,6 @@ function isFocusCandidateEvent(event: OmpEvent): boolean {
     event.type === "tool_approval_requested" ||
     (event.type === "tool_call" && event.toolName === "ask")
   );
-}
-
-function sessionIdForHeartbeat(event: OmpEvent, context: OmpMappingContext): string | undefined {
-  if (event.type === "session_stop") return event.session_id;
-  if (event.type === "tool_approval_requested" || event.type === "tool_approval_resolved") {
-    return event.sessionId;
-  }
-  return context.sessionId;
 }
 
 export default createApertureOmarchyOmpExtension();

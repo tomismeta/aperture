@@ -234,9 +234,7 @@ function sourceEventIdentity(facts: DirectEventFacts): string {
       ? ["interaction", facts.sessionId, facts.interactionId, facts.classification]
       : facts.turnId !== undefined
         ? ["turn", facts.sessionId, facts.turnId, facts.classification]
-        : facts.classification === "session_shutdown"
-          ? ["session", facts.sessionId, facts.classification]
-          : ["occurrence", facts.sessionId, facts.classification, facts.occurredAt];
+        : ["occurrence", facts.sessionId, facts.classification, facts.occurredAt];
   return JSON.stringify(causalIdentity);
 }
 

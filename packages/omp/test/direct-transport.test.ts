@@ -116,9 +116,7 @@ test("emitted session heartbeats conform to the canonical direct request schema"
     JSON.parse(readFileSync(new URL(relativePath, import.meta.url), "utf8"));
   const ajv = new Ajv2020({ strict: true });
   addFormats.default(ajv);
-  ajv.addSchema(
-    readJson("../../aperture/src/omp-attention-event.schema.json") as object,
-  );
+  ajv.addSchema(readJson("../../aperture/src/omp-attention-event.schema.json") as object);
   const validate = ajv.compile(
     readJson("../../aperture/src/worker-direct-message.schema.json") as object,
   );
@@ -257,6 +255,29 @@ test("session heartbeats bypass attention ordering and remain single-flight", as
     status: "accepted",
     requestId: "blocked-attention",
   });
+});
+
+test("continuous OMP activity cannot postpone session heartbeats", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const sent: WorkerDirectMessage[] = [];
+  const heartbeat = new SessionHeartbeatSender(
+    {
+      async send(message): Promise<WorkerDirectAcknowledgement> {
+        sent.push(message);
+        return { schemaVersion: 4, status: "accepted", requestId: directMessageRequestId(message) };
+      },
+    },
+    { intervalMilliseconds: 5_000 },
+  );
+  t.after(() => heartbeat.close());
+  heartbeat.observe("busy-session");
+  await flushMicrotasks();
+  for (let elapsed = 1; elapsed <= 15; elapsed += 1) {
+    t.mock.timers.tick(1_000);
+    heartbeat.observe("busy-session");
+    await flushMicrotasks();
+  }
+  assert.equal(sent.length, 4);
 });
 
 test("focus target detection is closed and rejects unsupported harness modes", () => {

@@ -64,6 +64,7 @@ import { runNotificationWorkerStdio } from "../src/notification-worker/stdio.js"
 import { runOmpWorkerStdio } from "../src/notification-worker/omp-stdio.js";
 import { assertApertureSurfaceMessage } from "../src/surface/protocol-validator.js";
 import { OmpDirectWorkerTransport } from "../../omp/src/direct-worker-transport.js";
+import { mapOmpDirectAttentionEvents } from "../../omp/src/direct-event-mapping.js";
 import { proveOmpWorkerStartup } from "./helpers/omp-worker-startup.js";
 
 const sessionId = "01a0123456789abcdef";
@@ -1124,6 +1125,81 @@ test("resolution and shutdown tombstones dominate delayed replay", async () => {
   });
   assert.equal(shutdownEngine.engine.snapshot().view.now, null);
   assert.deepEqual(shutdownEngine.engine.snapshot().view.next, []);
+});
+
+test("resumed sessions accept newer attention while durable shutdown fences reject old replay", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-resume-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const restore = () =>
+    OmpWorkerEngine.restore({
+      stateDir: root,
+      now: () => Date.parse("2026-09-01T16:00:10.000Z"),
+    });
+  let { engine } = await restore();
+  let receipts = new DirectReceiptLedger();
+  const deliver = (event: OmpAttentionEvent) =>
+    receipts.execute(event, async () => {
+      await engine.handleOmpAttention(event, { kind: "opaque-focus", handle: focusHandle });
+      return { schemaVersion: 4, status: "accepted", requestId: event.eventId };
+    });
+  const shutdownAt = (timestamp: string) => {
+    const [event] = mapOmpDirectAttentionEvents(
+      { type: "session_shutdown" },
+      { sessionId, now: () => timestamp },
+    );
+    assert.ok(event);
+    return event;
+  };
+  const original = directEvent();
+  await deliver(original);
+  const firstShutdown = shutdownAt("2026-09-01T16:00:01.000Z");
+  await deliver(firstShutdown);
+  assert.equal(engine.snapshot().view.now, null);
+
+  const resumed = directEvent({
+    eventId: "resumed-completion",
+    interactionId: "resumed-turn",
+    occurredAt: "2026-09-01T16:00:02.000Z",
+    classification: "turn_completed",
+    transition: "completed",
+  });
+  await deliver(resumed);
+  assert.equal(engine.snapshot().view.now?.navigation?.handle, focusHandle);
+  const secondShutdown = shutdownAt("2026-09-01T16:00:03.000Z");
+  await deliver(secondShutdown);
+  assert.equal(engine.snapshot().view.now, null);
+
+  ({ engine } = await restore());
+  receipts = new DirectReceiptLedger();
+  const newer = {
+    ...resumed,
+    eventId: "resumed-again",
+    interactionId: "newer-turn",
+    occurredAt: "2026-09-01T16:00:04.000Z",
+  };
+  await deliver(newer);
+  const current = engine.snapshot().view.now;
+  assert.equal(current?.navigation?.handle, focusHandle);
+  await deliver(original);
+  await deliver(resumed);
+  await deliver(
+    directEvent({
+      eventId: "equal-to-shutdown",
+      interactionId: "equal-boundary-request",
+      occurredAt: secondShutdown.occurredAt,
+    }),
+  );
+  await deliver(firstShutdown);
+  assert.equal(engine.snapshot().view.now?.id, current?.id);
+  assert.deepEqual(engine.snapshot().view.next, []);
+
+  ({ engine } = await restore());
+  receipts = new DirectReceiptLedger();
+  await deliver(original);
+  await deliver(newer);
+  assert.equal(engine.snapshot().view.now?.id, current?.id);
+  assert.equal(engine.snapshot().view.now?.navigation?.handle, focusHandle);
+  assert.deepEqual(engine.snapshot().view.next, []);
 });
 
 test("direct navigation expires with bounded private persisted state", async () => {

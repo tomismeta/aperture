@@ -36,6 +36,11 @@ session lease expiry. After a worker restart, a heartbeat renews transport
 liveness but only a fresh direct attention delivery preserves restored rows past
 the reconnect grace. Completion-family resolution fences completions at or
 before its occurrence; a genuinely newer turn may create a new completion.
+Session shutdown likewise fences attention at or before its occurrence without
+blocking genuinely newer work when the same conversation is resumed. Each
+shutdown occurrence has its own receipt identity, so a later shutdown cannot
+be mistaken for a retry of an earlier one. Session heartbeats keep their regular
+cadence even during continuous OMP activity.
 Each successful focus registration creates a fresh private receipt episode token.
 Replay event IDs include that token, remain stable across transient retries in
 the episode, and change after re-registration even when the worker generation

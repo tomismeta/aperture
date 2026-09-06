@@ -142,6 +142,8 @@ export type OmpMappingContext = {
   cwd?: string;
   sessionId?: string;
   sessionFile?: string;
+  /** Opaque agent-run identity; OMP turn numbers restart at each agent_start. */
+  agentRunId?: string;
   sourceLabel?: string;
   session?: OmpSessionPresentation;
   now?: () => string;

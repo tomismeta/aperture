@@ -107,7 +107,9 @@ export function mapOmpDirectAttentionEvents(
         }),
       ];
     case "session_stop": {
-      const interactionId = completionInteractionId(sessionId, event.turn_id);
+      if (!context.agentRunId)
+        throw new Error("OMP completion mapping requires an agent run identity");
+      const interactionId = completionInteractionId(sessionId, context.agentRunId, event.turn_id);
       return readStopReason(event.last_assistant_message) === "error"
         ? [
             directEvent({
@@ -224,8 +226,8 @@ function safeToken(value: string, fallback: string): string {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(normalized) ? normalized : fallback;
 }
 
-function completionInteractionId(sessionId: string, turnId: number): string {
-  return `completion:${digestIdentity([sessionId, String(turnId)]).slice(0, 32)}`;
+function completionInteractionId(sessionId: string, agentRunId: string, turnId: number): string {
+  return `completion:${digestIdentity([sessionId, agentRunId, String(turnId)]).slice(0, 32)}`;
 }
 
 function sourceEventIdentity(facts: DirectEventFacts): string {

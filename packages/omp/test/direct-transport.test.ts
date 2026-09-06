@@ -48,6 +48,7 @@ import type {
 
 const context: OmpMappingContext = {
   sessionId: "session;$(opaque)",
+  agentRunId: "test-agent-run",
   session: { label: "omarchy-aperture" },
   now: () => "2026-09-01T16:00:00.000Z",
 };
@@ -1013,14 +1014,17 @@ test("duplicate OMP facts retain stable direct identities while distinct turns r
     session_id: "stock-session-repeated-turn-index",
   };
   const first = mapOmpDirectAttentionEvents(stop, {
+    agentRunId: "test-agent-run",
     now: () => "2026-09-04T11:30:02.066Z",
   })[0];
   const duplicate = mapOmpDirectAttentionEvents(stop, {
+    agentRunId: "test-agent-run",
     now: () => "2026-09-04T11:30:20.604Z",
   })[0];
   const nextTurn = mapOmpDirectAttentionEvents(
     { ...stop, turn_id: 1 },
     {
+      agentRunId: "test-agent-run",
       now: () => "2026-09-04T11:30:21.000Z",
     },
   )[0];
@@ -1033,6 +1037,7 @@ test("duplicate OMP facts retain stable direct identities while distinct turns r
   assert.notEqual(first.occurredAt, duplicate.occurredAt);
   assert.notEqual(first.interactionId, nextTurn.interactionId);
   assert.notEqual(first.eventId, nextTurn.eventId);
+  assert.throws(() => mapOmpDirectAttentionEvents(stop, {}));
 });
 
 test("session presentation and callback time do not change keyed source causality", () => {

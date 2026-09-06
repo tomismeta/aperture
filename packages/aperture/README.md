@@ -260,6 +260,9 @@ Shutdown and lease expiry retain a timestamp fence, not a permanent ban on the
 conversation ID. Strictly newer attention can resume that conversation; older
 or equal-time replay remains blocked, including after another worker restart.
 Resolved interaction identities remain permanently fenced within retained state.
+The producer scopes completion identity to its agent run as well as the numeric
+turn, which OMP resets on every `agent_start`; newer runs do not reuse those
+closed interaction identities.
 Invalidating a focus capability removes navigation immediately, but does not
 resolve an unread completion. Successful activation, an explicit completion
 resolution, or independent session-liveness expiry ends that completion.

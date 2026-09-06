@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { TerminalTitleCapability } from "@tomismeta/aperture/focus-host";
 import { contextFromOmpExtension } from "./mapping.js";
 import type { OmpEvent, OmpExtensionApi, OmpExtensionContext, OmpMappingContext } from "./types.js";
@@ -40,9 +41,12 @@ export function bindOmpExtension(
   sink: OmpEventSink,
   baseContext: OmpMappingContext = {},
 ): void {
+  let agentRunId: string | undefined;
   for (const eventName of OMP_EXTENSION_EVENTS) {
     pi.on(eventName, async (event, extensionContext) => {
+      if (event.type === "agent_start") agentRunId = randomUUID();
       const context = contextFromOmpExtension(extensionContext, baseContext);
+      if (event.type === "session_stop") context.agentRunId = agentRunId ??= randomUUID();
       const sessionLabel = sessionLabelFromOmp(pi);
       if (sessionLabel) {
         context.session = { ...context.session, label: sessionLabel };

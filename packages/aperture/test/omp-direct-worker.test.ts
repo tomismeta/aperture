@@ -65,6 +65,8 @@ import { runOmpWorkerStdio } from "../src/notification-worker/omp-stdio.js";
 import { assertApertureSurfaceMessage } from "../src/surface/protocol-validator.js";
 import { OmpDirectWorkerTransport } from "../../omp/src/direct-worker-transport.js";
 import { mapOmpDirectAttentionEvents } from "../../omp/src/direct-event-mapping.js";
+import { bindOmpExtension } from "../../omp/src/bind.js";
+import type { OmpEvent, OmpExtensionApi } from "../../omp/src/types.js";
 import { proveOmpWorkerStartup } from "./helpers/omp-worker-startup.js";
 
 const sessionId = "01a0123456789abcdef";
@@ -1199,6 +1201,77 @@ test("resumed sessions accept newer attention while durable shutdown fences reje
   await deliver(newer);
   assert.equal(engine.snapshot().view.now?.id, current?.id);
   assert.equal(engine.snapshot().view.now?.navigation?.handle, focusHandle);
+  assert.deepEqual(engine.snapshot().view.next, []);
+});
+
+test("agent-run completions survive reused OMP turn numbers without reviving resolved work", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-agent-run-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let now = Date.parse(occurredAt);
+  const restore = () => OmpWorkerEngine.restore({ stateDir: root, now: () => now });
+  let { engine } = await restore();
+  let receipts = new DirectReceiptLedger();
+  const delivered: OmpAttentionEvent[] = [];
+  const deliver = (event: OmpAttentionEvent) =>
+    receipts.execute(event, async () => {
+      await engine.handleOmpAttention(event, { kind: "opaque-focus", handle: focusHandle });
+      return { schemaVersion: 4, status: "accepted", requestId: event.eventId };
+    });
+  const producer = () => {
+    const handlers = new Map<string, Parameters<OmpExtensionApi["on"]>[1]>();
+    bindOmpExtension(
+      {
+        on: (name, handler) => {
+          handlers.set(name, handler);
+        },
+      },
+      {
+        async handle(event, context) {
+          for (const mapped of mapOmpDirectAttentionEvents(event, context)) {
+            delivered.push(mapped);
+            await deliver(mapped);
+          }
+        },
+        async close() {},
+      },
+      { sessionId, now: () => new Date(now).toISOString() },
+    );
+    return async (event: OmpEvent) => {
+      now += 1_000;
+      await handlers.get(event.type)!(event, {});
+    };
+  };
+  let emit = producer();
+  const complete = async () => {
+    await emit({ type: "before_agent_start" });
+    await emit({ type: "agent_start" });
+    await emit({ type: "session_stop", session_id: sessionId, turn_id: 0 });
+    const frame = engine.snapshot().view.now;
+    assert.equal(frame?.navigation?.handle, focusHandle);
+    return { frame, event: delivered.at(-1)! };
+  };
+
+  const first = await complete();
+  const second = await complete();
+  assert.notEqual(second.frame?.id, first.frame?.id);
+  ({ engine } = await restore());
+  receipts = new DirectReceiptLedger();
+  await deliver(first.event);
+  await deliver(second.event);
+  assert.equal(engine.snapshot().view.now?.id, second.frame?.id);
+  assert.equal(engine.snapshot().view.now?.navigation?.handle, focusHandle);
+  assert.deepEqual(engine.snapshot().view.next, []);
+
+  await emit({ type: "session_shutdown" });
+  assert.equal(engine.snapshot().view.now, null);
+  ({ engine } = await restore());
+  receipts = new DirectReceiptLedger();
+  emit = producer();
+  const resumed = await complete();
+  assert.notEqual(resumed.frame?.id, second.frame?.id);
+  await deliver(first.event);
+  await deliver(second.event);
+  assert.equal(engine.snapshot().view.now?.id, resumed.frame?.id);
   assert.deepEqual(engine.snapshot().view.next, []);
 });
 

@@ -16,9 +16,14 @@ The Omarchy extension emits only approval, input, terminal failure, provisional
 completion, resolution, and shutdown transitions. A successful `session_stop`
 means that a result may now be ready for review; subsequent same-session
 activity self-corrects that provisional completion. Keyed callbacks derive
-identity from stable OMP session/turn/interaction facts, not callback time or
-presentation. Duplicate facts therefore retry the same event ID, while distinct
-turn IDs remain unambiguous. The extension never includes prompt transcripts,
+identity from stable OMP session/agent-run/turn/interaction facts, not callback
+time or presentation. OMP restarts its numeric `turn_id` at every `agent_start`.
+The binding therefore owns an opaque agent-run identity that changes at that
+boundary; replay keeps the original mapped identity. Fresh runs and resumed
+processes cannot collide with already-resolved completions, while duplicate
+facts still retry the same event ID. Direct callers of
+`mapOmpDirectAttentionEvents` must supply `context.agentRunId` for `session_stop`;
+the bound extensions provide it automatically. The extension never includes prompt transcripts,
 tool results, credentials, private paths, or executable notification actions.
 
 When the Aperture worker owns

@@ -54,9 +54,12 @@ resumes, or attaches a session. Native notification fallbacks and unsupported
 contexts remain non-navigable. Socket, pane, marker, host-generation,
 compositor, tmux option, and toplevel address facts are volatile worker-private
 state and are never projected or persisted.
-When a registered focus capability expires, its completed result is causally
-resolved before navigation is removed so the panel cannot strand an unopenable
-completion row. Non-completion action items remain visible.
+When a registered focus capability expires, navigation is removed immediately.
+Unread completions remain until successful activation, explicit completion
+resolution, or independent session-liveness expiry; focus loss does not imply
+that a result was consumed. A fresh accepted attention delivery can restore
+navigation with a valid capability. A stale Herdr recovery claim cannot revoke
+other panes while their shared socket and exact marked surface remain healthy.
 Herdr pane IDs are bounded opaque identifiers, including base-style IDs such
 as `wA:p1`; Aperture never derives numeric workspace or pane semantics.
 The focus backends are deliberately limited to Herdr, direct Foot, and tmux.

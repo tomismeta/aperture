@@ -494,6 +494,263 @@ test("partial tmux setup restores set-titles after title write failure", async (
   await coordinator.close();
 });
 
+test("stale Herdr joiners cannot deny a healthy shared lease or its renewals", async (t) => {
+  const native = new NativeHarness();
+  const recovery: FocusRecovery = { kind: "herdr", marker: "A".repeat(32) };
+  native.clients[0]!.title = markerTitleFor(recovery.marker);
+  const invalidated: string[] = [];
+  const coordinator = new FocusCoordinator({
+    ...native.options,
+    onInvalidated: (handle) => invalidated.push(handle),
+  });
+  t.after(() => coordinator.close());
+  const healthy: FocusRegistration = {
+    ...native.registration("herdr"),
+    publicHandle: "B".repeat(32),
+    hostGeneration: "C".repeat(32),
+    target: {
+      kind: "herdr",
+      socketPath: "/owned/herdr.sock",
+      hyprlandInstance: "instance_1",
+      paneId: "w2:p1",
+    },
+    recovery,
+  };
+  const joining: FocusRegistration = {
+    ...healthy,
+    requestId: "joining",
+    publicHandle: "D".repeat(32),
+    hostGeneration: "E".repeat(32),
+    target: { ...healthy.target, kind: "herdr", socketPath: "/owned/herdr.sock", paneId: "w2:p2" },
+    recovery: { kind: "herdr", marker: "F".repeat(32) },
+  };
+  assert.deepEqual(await coordinator.register(healthy), recovery);
+  assert.deepEqual(
+    await coordinator.register({ ...healthy, requestId: "healthy-heartbeat" }),
+    recovery,
+  );
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await assert.rejects(() =>
+      coordinator.register({ ...joining, requestId: `stale-join-${attempt}` }),
+    );
+    assert.equal(coordinator.navigationFor(joining.publicHandle), undefined);
+    assert.deepEqual(coordinator.navigationFor(healthy.publicHandle), {
+      kind: "opaque-focus",
+      handle: healthy.publicHandle,
+    });
+    assert.equal(await coordinator.activate(healthy.publicHandle), "focused");
+    assert.equal(native.herdrPane, "w2:p1");
+    assert.deepEqual(
+      await coordinator.register({ ...healthy, requestId: `healthy-heartbeat-${attempt}` }),
+      recovery,
+    );
+  }
+  assert.deepEqual(invalidated, []);
+
+  assert.deepEqual(await coordinator.register({ ...joining, recovery }), recovery);
+  assert.equal(await coordinator.activate(joining.publicHandle), "focused");
+  assert.equal(native.herdrPane, "w2:p2");
+  assert.equal(await coordinator.activate(healthy.publicHandle), "focused");
+  assert.equal(native.herdrPane, "w2:p1");
+  await coordinator.revoke(native.revoke(joining));
+  await assert.rejects(() => coordinator.register({ ...joining, recovery }));
+  assert.equal(await coordinator.activate(healthy.publicHandle), "focused");
+});
+
+test("rejected Herdr renewals preserve healthy members without extending their lifetime", async (t) => {
+  const native = new NativeHarness();
+  let now = 0;
+  let rejectPane = false;
+  const coordinator = new FocusCoordinator({
+    ...native.options,
+    now: () => now,
+    ttlMs: 10_000,
+    herdrRequest: async (socket, method, params, signal) => {
+      if (rejectPane && method === "pane.current") throw new Error("pane unavailable");
+      return native.options.herdrRequest!(socket, method, params, signal);
+    },
+  });
+  t.after(() => coordinator.close());
+  const first = native.registration("herdr");
+  const recovery = await coordinator.register(first);
+  const second = native.registration("herdr", "2", recovery);
+  await coordinator.register(second);
+  now = 5_000;
+  await assert.rejects(() =>
+    coordinator.register({ ...first, recovery: { kind: "herdr", marker: "F".repeat(32) } }),
+  );
+  rejectPane = true;
+  await assert.rejects(() => coordinator.register({ ...first, recovery }));
+  assert.equal(await coordinator.activate(first.publicHandle), "focused");
+  assert.equal(await coordinator.activate(second.publicHandle), "focused");
+  rejectPane = false;
+  await coordinator.register(second);
+  now = 10_001;
+  assert.equal(coordinator.navigationFor(first.publicHandle), undefined);
+  assert.equal(await coordinator.activate(second.publicHandle), "focused");
+});
+
+test("Herdr activation rejects a pane that disappeared after registration", async (t) => {
+  const native = new NativeHarness();
+  let paneMissing = false;
+  const coordinator = new FocusCoordinator({
+    ...native.options,
+    herdrRequest: async (socket, method, params, signal) => {
+      if (paneMissing && method === "pane.focus") throw new Error("pane missing");
+      return native.options.herdrRequest!(socket, method, params, signal);
+    },
+  });
+  t.after(() => coordinator.close());
+  const registration = native.registration("herdr");
+  await coordinator.register(registration);
+  paneMissing = true;
+  assert.equal(await coordinator.activate(registration.publicHandle), "stale");
+  assert.equal(coordinator.navigationFor(registration.publicHandle), undefined);
+  paneMissing = false;
+  await assert.rejects(() => coordinator.register(registration));
+});
+
+test("invalid shared Herdr ownership still fences every member despite a stale joining claim", async (t) => {
+  const mutations: Array<[string, (native: NativeHarness) => void]> = [
+    [
+      "marker loss",
+      (native) => {
+        native.clients[0]!.title = "lost";
+      },
+    ],
+    [
+      "duplicate marker",
+      (native) => {
+        native.clients[1]!.title = native.clients[0]!.title;
+      },
+    ],
+    [
+      "changed address",
+      (native) => {
+        native.clients[0]!.address = "0x999";
+      },
+    ],
+    [
+      "changed class",
+      (native) => {
+        native.clients[0]!.class = "kitty";
+      },
+    ],
+    ["unsafe socket", () => undefined],
+  ];
+  for (const [name, mutate] of mutations) {
+    await t.test(name, async (t) => {
+      const native = new NativeHarness();
+      let unsafeSocket = false;
+      const coordinator = new FocusCoordinator({
+        ...native.options,
+        socketValidator: async () => {
+          if (unsafeSocket) throw new Error("unsafe socket");
+        },
+      });
+      t.after(() => coordinator.close());
+      const first = native.registration("herdr");
+      const recovery = await coordinator.register(first);
+      const second = native.registration("herdr", "2", recovery);
+      await coordinator.register(second);
+      mutate(native);
+      unsafeSocket = name === "unsafe socket";
+      await assert.rejects(() =>
+        coordinator.register(
+          native.registration("herdr", "3", { kind: "herdr", marker: "F".repeat(32) }),
+        ),
+      );
+      assert.equal(coordinator.navigationFor(first.publicHandle), undefined);
+      assert.equal(coordinator.navigationFor(second.publicHandle), undefined);
+      assert.equal(await coordinator.activate(first.publicHandle), "missing");
+      assert.equal(await coordinator.activate(second.publicHandle), "missing");
+      await assert.rejects(() => coordinator.register({ ...first, recovery }));
+      await assert.rejects(() => coordinator.register(second));
+    });
+  }
+});
+
+test("Herdr preparation failure with an unsafe shared socket invalidates existing members", async (t) => {
+  const native = new NativeHarness();
+  let unsafeSocket = false;
+  const coordinator = new FocusCoordinator({
+    ...native.options,
+    socketValidator: async () => {
+      if (unsafeSocket) throw new Error("unsafe socket");
+    },
+    herdrRequest: async (socket, method, params, signal) => {
+      if (unsafeSocket) throw new Error("unsafe socket");
+      return native.options.herdrRequest!(socket, method, params, signal);
+    },
+  });
+  t.after(() => coordinator.close());
+  const first = native.registration("herdr");
+  const recovery = await coordinator.register(first);
+  const second = native.registration("herdr", "2", recovery);
+  await coordinator.register(second);
+  unsafeSocket = true;
+  await assert.rejects(() => coordinator.register({ ...first, recovery }));
+  assert.equal(coordinator.navigationFor(first.publicHandle), undefined);
+  assert.equal(coordinator.navigationFor(second.publicHandle), undefined);
+  unsafeSocket = false;
+  await assert.rejects(() => coordinator.register({ ...first, recovery }));
+  await assert.rejects(() => coordinator.register(second));
+});
+
+test("delayed Herdr joins cannot commit after abort or revocation", async (t) => {
+  for (const cancellation of ["abort", "revoke"] as const) {
+    await t.test(cancellation, async (t) => {
+      const native = new NativeHarness();
+      const coordinator = new FocusCoordinator(native.options);
+      t.after(() => coordinator.close());
+      const first = native.registration("herdr");
+      const recovery = await coordinator.register(first);
+      const joining = native.registration("herdr", "2", recovery);
+      const controller = new AbortController();
+      let release!: () => void;
+      native.clientQueryGate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      native.stalledClientQuery = native.clientQueryCount + 1;
+      const pending = coordinator.register(joining, controller.signal);
+      await flushUntil(() => native.clientQueryCount === native.stalledClientQuery);
+      let revoked: Promise<void> | undefined;
+      if (cancellation === "abort") controller.abort();
+      else revoked = coordinator.revoke(native.revoke(joining));
+      release();
+      await assert.rejects(pending);
+      await revoked;
+      assert.equal(coordinator.navigationFor(joining.publicHandle), undefined);
+      assert.equal(await coordinator.activate(joining.publicHandle), "missing");
+      assert.equal(await coordinator.activate(first.publicHandle), "focused");
+      if (cancellation === "revoke") {
+        await assert.rejects(() => coordinator.register(joining));
+      }
+    });
+  }
+});
+
+test("multiple Herdr hosts recover across worker restart without accepting obsolete markers", async (t) => {
+  const native = new NativeHarness();
+  const first = native.registration("herdr");
+  const original = new FocusCoordinator(native.options);
+  t.after(() => original.close());
+  const recovery = await original.register(first);
+  const second = native.registration("herdr", "2", recovery);
+  await original.register(second);
+  await original.close();
+  const restarted = new FocusCoordinator(native.options);
+  t.after(() => restarted.close());
+  const obsolete = native.registration("herdr", "3", { kind: "herdr", marker: "F".repeat(32) });
+  await assert.rejects(() => restarted.register(obsolete));
+  assert.deepEqual(await restarted.register({ ...first, recovery }), recovery);
+  await assert.rejects(() => restarted.register(obsolete));
+  assert.deepEqual(await restarted.register(second), recovery);
+  assert.equal(await restarted.activate(first.publicHandle), "focused");
+  assert.equal(await restarted.activate(second.publicHandle), "focused");
+  assert.equal(restarted.navigationFor(obsolete.publicHandle), undefined);
+});
+
 test("Herdr worker recovery retains marker when conditional clear is unavailable", async () => {
   const native = new NativeHarness();
   const registration = native.registration("herdr");

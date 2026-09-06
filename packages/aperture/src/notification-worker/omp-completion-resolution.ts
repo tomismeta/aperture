@@ -6,14 +6,11 @@ import { isOmpCompletionEntry, latestOmpDirectRevision } from "./omp-direct-caus
 import type { PersistedOmpDirectEntry } from "./omp-direct-state-store.js";
 import type { NotificationWorkerNavigation } from "./protocol.js";
 
-export type OmpCompletionResolution = "focused" | "focus-expired";
-
 export function ompCompletionResolutionEvent(
   active: readonly PersistedOmpDirectEntry[],
   navigationByTaskId: ReadonlyMap<string, NotificationWorkerNavigation>,
   handle: string,
   occurredAt: string,
-  resolution: OmpCompletionResolution,
 ): OmpAttentionEvent | undefined {
   const completion = active.find((entry) => {
     const navigation = navigationByTaskId.get(entry.taskId);
@@ -25,16 +22,15 @@ export function ompCompletionResolutionEvent(
   });
   if (!completion) return undefined;
   const completedAt = latestOmpDirectRevision(completion).occurredAt;
-  const focused = resolution === "focused";
   return {
     schemaVersion: OMP_ATTENTION_EVENT_SCHEMA_VERSION,
     type: "omp.attention-event",
-    eventId: `${completion.key}:${resolution}`,
+    eventId: `${completion.key}:focused`,
     occurredAt: completedAt > occurredAt ? completedAt : occurredAt,
     sessionId: completion.sessionId,
     classification: "completion_resolved",
-    title: focused ? "Result opened" : "Result expired",
-    summary: focused ? "Opened." : "Session focus expired.",
+    title: "Result opened",
+    summary: "Opened.",
     transition: "resolved",
   };
 }

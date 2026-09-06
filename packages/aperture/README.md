@@ -242,6 +242,13 @@ focus handles. Activation returns only `focused`, `stale`, or `missing`.
 Session identity remains a private event fact and is never executable
 navigation.
 
+Herdr panes sharing an owned socket and compositor instance share one surface
+lease. A rejected join or renewal does not invalidate healthy members: the
+established socket and exact marked surface are independently revalidated.
+Unsafe sockets and lost, duplicated, or changed surfaces still invalidate and
+fence the lease. A host retaining an obsolete recovery marker remains
+non-navigable until that session is reloaded; it cannot replace a healthy marker.
+
 OMP direct persistence has one unversioned, closed internal shape. Older or
 unknown state files are incompatible and are recovered as empty state rather
 than migrated. Every state-path component is checked without following symlinks
@@ -249,8 +256,10 @@ before reads, writes, replacement, or cleanup; state files must be same-UID
 regular single-link files with mode `0600`. Restored attention is non-navigable
 and expires after the 10-second reconnect grace unless a fresh direct attention
 delivery proves that session state; heartbeats alone cannot retain restored rows.
-When a registered focus capability expires, its completed result is causally
-resolved before navigation is removed; non-completion action items remain.
+Invalidating a focus capability removes navigation immediately, but does not
+resolve an unread completion. Successful activation, an explicit completion
+resolution, or independent session-liveness expiry ends that completion.
+Fresh accepted attention can restore navigation with a valid focus capability.
 
 Worker stdout is ASCII-only JSONL with non-ASCII JSON code units escaped and a
 256 KiB encoded-line limit. Production worker and OMP extension artifacts are

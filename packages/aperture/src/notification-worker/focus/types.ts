@@ -26,6 +26,8 @@ export type FocusDiagnosticStage =
   | "dispatch"
   | "active-confirm-timeout"
   | "inner-reconfirm"
+  | "registration-lease-retained"
+  | "registration-lease-invalid"
   | "capacity"
   | "exception";
 

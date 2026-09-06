@@ -30,6 +30,7 @@ export class ClosedFocusBackendRegistry {
       herdr: new HerdrPaneBackend({
         surfaceController: options.surfaceController,
         ...(options.herdrRequest ? { herdrRequest: options.herdrRequest } : {}),
+        ...(options.socketValidator ? { socketValidator: options.socketValidator } : {}),
       }),
       "direct-terminal": new DirectTerminalBackend({
         surfaceController: options.surfaceController,

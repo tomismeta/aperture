@@ -13,10 +13,7 @@ import type { NotificationClosedInput, NotificationWorkerInput } from "./protoco
 import { feedbackSignal, latestRevision, persistedActive } from "./notification-lifecycle.js";
 import { projectWorkerDisplayView } from "./notification-projection.js";
 import { mapOmpDirectEvent } from "./omp-direct-adapter.js";
-import {
-  ompCompletionResolutionEvent,
-  type OmpCompletionResolution,
-} from "./omp-completion-resolution.js";
+import { ompCompletionResolutionEvent } from "./omp-completion-resolution.js";
 import {
   applyMappedOmpDirectEvent,
   latestOmpDirectRevision,
@@ -280,29 +277,11 @@ export class NotificationWorkerEngine {
     occurredAt: string,
     signal?: AbortSignal,
   ): Promise<boolean> {
-    return this.finishOmpCompletionByFocusHandle(handle, occurredAt, "focused", signal);
-  }
-
-  async expireOmpCompletionByFocusHandle(
-    handle: string,
-    occurredAt: string,
-    signal?: AbortSignal,
-  ): Promise<boolean> {
-    return this.finishOmpCompletionByFocusHandle(handle, occurredAt, "focus-expired", signal);
-  }
-
-  private async finishOmpCompletionByFocusHandle(
-    handle: string,
-    occurredAt: string,
-    resolution: OmpCompletionResolution,
-    signal?: AbortSignal,
-  ): Promise<boolean> {
     const event = ompCompletionResolutionEvent(
       this.directState.active,
       this.navigationByTaskId,
       handle,
       occurredAt,
-      resolution,
     );
     if (!event) return false;
     await this.handleOmpAttention(event, undefined, signal);

@@ -275,7 +275,7 @@ export class FocusCoordinator {
       prepared = await this.backends.prepare(registration, signal);
     } catch (error) {
       if (current && !signal.aborted && !isAbort(error)) {
-        await this.invalidateLease(current.lease, signal);
+        await this.invalidateUnhealthyLease(current.lease, signal);
       }
       throw error;
     }
@@ -291,7 +291,7 @@ export class FocusCoordinator {
         await this.backends.refresh(current.lease, prepared, signal);
       } catch (error) {
         if (!signal.aborted && !isAbort(error)) {
-          await this.invalidateLease(current.lease, signal);
+          await this.invalidateUnhealthyLease(current.lease, signal);
         }
         throw error;
       }
@@ -314,7 +314,7 @@ export class FocusCoordinator {
         await this.backends.refresh(lease, prepared, signal);
       } catch (error) {
         if (!signal.aborted && !isAbort(error)) {
-          await this.invalidateLease(lease, signal);
+          await this.invalidateUnhealthyLease(lease, signal);
         }
         throw error;
       }
@@ -341,6 +341,14 @@ export class FocusCoordinator {
         await this.releaseLeaseBestEffort(lease);
         throw error;
       }
+    }
+
+    throwIfAborted(signal);
+    if (
+      this.closing ||
+      this.hasCancellation(registration.publicHandle, registration.hostGeneration)
+    ) {
+      throw abortError();
     }
 
     const record: FocusRegistrationRecord = {
@@ -425,6 +433,22 @@ export class FocusCoordinator {
     this.leases.delete(record.lease.key);
     await this.releaseLease(record.lease, signal);
     this.scheduleExpiry();
+  }
+
+  private async invalidateUnhealthyLease(lease: FocusLease, signal: AbortSignal): Promise<void> {
+    // A rejected pane or recovery claim is not evidence that the shared lease died.
+    // Validate only established ownership, never the incoming registration, before
+    // fencing its existing members. Rejection still cannot renew or add a member.
+    try {
+      await this.backends.validate(lease, signal);
+    } catch (error) {
+      if (!signal.aborted && !isAbort(error)) {
+        this.onDiagnostic("registration-lease-invalid");
+        await this.invalidateLease(lease, signal);
+      }
+      return;
+    }
+    if (!signal.aborted) this.onDiagnostic("registration-lease-retained");
   }
 
   private async invalidateLease(lease: FocusLease, signal: AbortSignal): Promise<void> {

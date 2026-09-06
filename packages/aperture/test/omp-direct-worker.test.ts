@@ -8,6 +8,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  rm,
   stat,
   symlink,
   unlink,
@@ -46,6 +47,7 @@ import {
 } from "../src/notification-worker/direct-socket-lifecycle.js";
 import { NotificationWorkerEngine } from "../src/notification-worker/engine.js";
 import { OmpWorkerEngine } from "../src/notification-worker/omp-engine.js";
+import { HyprlandFootSurfaceController } from "../src/notification-worker/focus/hyprland-foot-surface-controller.js";
 import type { NotificationWorkerInput } from "../src/notification-worker/protocol.js";
 import {
   loadOmpDirectState,
@@ -654,23 +656,136 @@ test("completed OMP turns become NOW-eligible review results with navigation", a
   });
   assert.deepEqual(snapshot.view.next, []);
   assert.deepEqual(snapshot.view.ambient, []);
-  assert.equal(
-    await restored.engine.expireOmpCompletionByFocusHandle(
-      "B23456789_-bcdefghijklmnopqrstuv",
-      "2026-09-04T11:30:21.000Z",
-    ),
-    false,
-  );
-  assert.equal(
-    await restored.engine.expireOmpCompletionByFocusHandle(focusHandle, "2026-09-04T11:30:21.000Z"),
-    true,
-  );
-  assert.equal(restored.engine.snapshot().view.now, null);
+  assert.equal(restored.engine.removeFocusHandle(focusHandle), true);
+  assert.equal(restored.engine.snapshot().view.now?.id, snapshot.view.now?.id);
+  assert.equal(restored.engine.snapshot().view.now?.navigation, undefined);
   await restored.engine.handleOmpAttention(completion, {
     kind: "opaque-focus",
     handle: focusHandle,
   });
-  assert.equal(restored.engine.snapshot().view.now, null);
+  assert.equal(restored.engine.snapshot().view.now?.id, snapshot.view.now?.id);
+  assert.deepEqual(restored.engine.snapshot().view.now?.navigation, {
+    kind: "opaque-focus",
+    handle: focusHandle,
+  });
+});
+
+test("both worker hosts retain unread completions when focus registration is revoked", async (t) => {
+  for (const mode of ["omp-only", "general"] as const) {
+    await t.test(mode, { timeout: 5_000 }, async (t) => {
+      const root = await mkdtemp("/tmp/ap-focus-completion-");
+      const socketPath = path.join(root, "omarchy", "aperture", "attention.sock");
+      const herdrSocket = path.join(root, "herdr.sock");
+      const marker = "A".repeat(32);
+      t.mock.method(HyprlandFootSurfaceController.prototype, "list", async () => [
+        { address: "0x1234", title: `Aperture Focus ${marker}`, className: "foot" },
+      ]);
+      const herdr = createServer((socket) => {
+        let buffered = "";
+        socket.on("data", (chunk) => {
+          buffered += String(chunk);
+          if (!buffered.includes("\n")) return;
+          const request = JSON.parse(buffered);
+          assert.equal(request.method, "pane.current");
+          socket.end(
+            `${JSON.stringify({
+              id: request.id,
+              result: { type: "pane_current", pane: { pane_id: request.params.caller_pane_id } },
+            })}\n`,
+          );
+        });
+      });
+      await new Promise<void>((resolve) => herdr.listen(herdrSocket, resolve));
+      await chmod(herdrSocket, 0o600);
+      const input = new PassThrough();
+      const messages = new EventEmitter();
+      const output = new Writable({
+        write(chunk, _encoding, callback) {
+          const message = JSON.parse(String(chunk));
+          if (message.type === "engine" && message.state === "ready") messages.emit("ready");
+          if (message.type === "snapshot") messages.emit("snapshot", message);
+          callback();
+        },
+      });
+      const ready = once(messages, "ready");
+      const options = {
+        packageVersion: "0.10.0",
+        stateDir: path.join(root, "state"),
+        socketPath,
+        input,
+        output,
+        now: () => Date.parse("2026-09-04T11:30:20.604Z"),
+      };
+      const running =
+        mode === "omp-only"
+          ? runOmpWorkerStdio(options)
+          : runNotificationWorkerStdio({ ...options, identities: [identity] });
+      t.after(async () => {
+        input.end(`${JSON.stringify({ type: "shutdown" })}\n`);
+        try {
+          await running;
+        } finally {
+          await new Promise<void>((resolve) => herdr.close(() => resolve()));
+          await rm(root, { recursive: true, force: true });
+        }
+      });
+      await Promise.race([
+        ready,
+        running.then(() => {
+          throw new Error("Worker stopped before ready");
+        }),
+      ]);
+      const client = new OmpDirectWorkerTransport({ socketPath });
+      const hostGeneration = "G".repeat(32);
+      await client.registerFocus({
+        schemaVersion: 4,
+        type: "focus.register",
+        requestId: "register-completion",
+        publicHandle: focusHandle,
+        hostGeneration,
+        target: {
+          kind: "herdr",
+          socketPath: herdrSocket,
+          paneId: "w2:p1",
+          hyprlandInstance: "instance_1",
+        },
+        recovery: { kind: "herdr", marker },
+      });
+      const published = once(messages, "snapshot");
+      const completion = directEvent({
+        eventId: "completion-focus-loss",
+        occurredAt: "2026-09-04T11:30:20.604Z",
+        interactionId: "completion:focus-loss",
+        classification: "turn_completed",
+        transition: "completed",
+      });
+      await client.send(completion);
+      const [before] = await published;
+      assert.equal(before.view.now.navigation.handle, focusHandle);
+      const invalidated = once(messages, "snapshot");
+      await client.revokeFocus({
+        schemaVersion: 4,
+        type: "focus.revoke",
+        requestId: "revoke-completion",
+        publicHandle: focusHandle,
+        hostGeneration,
+      });
+      const [after] = await invalidated;
+      assert.equal(after.view.now?.id, before.view.now.id);
+      assert.equal(after.view.now?.navigation, undefined);
+      const resolved = once(messages, "snapshot");
+      await client.send(
+        directEvent({
+          eventId: "completion-read",
+          occurredAt: "2026-09-04T11:30:21.000Z",
+          interactionId: undefined,
+          classification: "completion_resolved",
+          transition: "resolved",
+        }),
+      );
+      assert.equal((await resolved)[0].view.now, null);
+    });
+  }
 });
 
 test("completion lifecycle supersedes, resolves, and fences delayed replay", async () => {

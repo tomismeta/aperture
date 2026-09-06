@@ -13,6 +13,7 @@ import {
 } from "../src/omarchy-notification-transport.js";
 import { createApertureOmarchyOmpExtension } from "../src/omarchy-extension.js";
 import { OmpRuntimeTransport, type OmpRuntimeClient } from "../src/runtime-transport.js";
+import { SessionHeartbeatSender } from "../src/session-heartbeat-sender.js";
 import type {
   OmpEvent,
   OmpExtensionApi,
@@ -320,15 +321,25 @@ test("Omarchy OMP extension suppresses duplicate built-in notifications only whi
   }
 });
 
-test("Omarchy OMP extension preserves built-ins when its sender is unavailable", async () => {
+test("Omarchy OMP extension preserves built-ins when its sender is unavailable", async (t) => {
   const handlers = new Map<
     string,
     (event: OmpEvent, context: OmpExtensionContext) => Promise<void> | void
   >();
+  const senderEntered = deferred<void>();
+  const senderFailure = deferred<void>();
+  const shutdownStarted = deferred<void>();
+  const closeHeartbeat = SessionHeartbeatSender.prototype.close;
+  t.mock.method(SessionHeartbeatSender.prototype, "close", function (this: SessionHeartbeatSender) {
+    const closing = closeHeartbeat.call(this);
+    shutdownStarted.resolve(undefined);
+    return closing;
+  });
   const previous = process.env.PI_NOTIFICATIONS;
   process.env.PI_NOTIFICATIONS = "on";
   try {
     const unavailableExtension = createApertureOmarchyOmpExtension({
+      directTransportOptions: { environment: {} },
       availabilityCheck: async () => false,
       commandRunner: async () => {
         throw new Error("sender unavailable");
@@ -340,9 +351,13 @@ test("Omarchy OMP extension preserves built-ins when its sender is unavailable",
     handlers.clear();
     let commandAttempts = 0;
     const failingExtension = createApertureOmarchyOmpExtension({
+      directTransportOptions: { environment: {} },
+      focusHostOptions: { environment: {}, stdoutIsTTY: false },
       availabilityCheck: async () => true,
       commandRunner: async () => {
         commandAttempts += 1;
+        senderEntered.resolve(undefined);
+        await senderFailure.promise;
         throw new Error("sender failed");
       },
     });
@@ -352,14 +367,29 @@ test("Omarchy OMP extension preserves built-ins when its sender is unavailable",
       { type: "session_stop", session_id: "session-1", turn_id: 1 },
       {},
     );
+    await senderEntered.promise;
     await handlers.get("session_stop")?.(
       { type: "session_stop", session_id: "session-1", turn_id: 2 },
       {},
     );
-    await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, {});
+    const shutdown = handlers.get("session_shutdown")?.({ type: "session_shutdown" }, {});
+    // Reject only after shutdown has stopped admission and begun lease cleanup,
+    // with the second notification still queued behind the first sender.
+    await shutdownStarted.promise;
+    assert.equal(process.env.PI_NOTIFICATIONS, "off");
+    senderFailure.resolve(undefined);
+    await shutdown;
     assert.equal(commandAttempts, 1);
     assert.equal(process.env.PI_NOTIFICATIONS, "on");
+    await handlers.get("session_stop")?.(
+      { type: "session_stop", session_id: "session-1", turn_id: 3 },
+      {},
+    );
+    await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, {});
+    assert.equal(commandAttempts, 1);
   } finally {
+    senderFailure.resolve(undefined);
+    await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, {});
     if (previous === undefined) delete process.env.PI_NOTIFICATIONS;
     else process.env.PI_NOTIFICATIONS = previous;
   }
@@ -451,3 +481,14 @@ test("standard OMP extension registers against an injected runtime client", asyn
   await handlers.get("agent_start")?.({ type: "agent_start" }, {});
   assert.equal(batches[0]?.[0]?.type, "task.updated");
 });
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve(value: T): void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}

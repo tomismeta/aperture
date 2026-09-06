@@ -74,10 +74,12 @@ export function createApertureOmarchyOmpExtension(
       pi.logger?.warn?.("Aperture OMP adapter delivery failed", {
         error: error instanceof Error ? error.message : String(error),
       });
-      if (!suppressionActive || !deliveryActive) return;
+      // Shutdown stops new events, but a terminal failure must still stop its drain.
+      if (!suppressionActive) return;
       deliveryActive = false;
       transport.disable();
       restoreBuiltInNotifications();
+      suppressionActive = false;
       void closeAdapter().catch((closeError) => {
         pi.logger?.debug?.("Aperture OMP adapter cleanup failed", {
           error: closeError instanceof Error ? closeError.message : String(closeError),

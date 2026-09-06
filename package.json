@@ -87,7 +87,7 @@
     "product:smoke": "pnpm --dir packages/aperture run smoke",
     "product:work:prove": "tsx scripts/prove-aperture-work.ts",
     "product:omp-contract:prove": "tsx scripts/prove-omp-attention-contract.ts",
-    "release:focus-check": "pnpm typecheck && pnpm exec tsx --test packages/aperture/test/focus-coordinator.test.ts packages/aperture/test/notification-worker.test.ts packages/aperture/test/omp-direct-worker.test.ts packages/omp/test/*.test.ts && pnpm --dir packages/aperture omp:fixtures:check && pnpm --dir packages/aperture smoke:focus-backends && pnpm product:omp-contract:prove",
+    "release:focus-check": "pnpm typecheck && pnpm exec tsx --test packages/aperture/test/focus-coordinator.test.ts packages/aperture/test/notification-worker.test.ts packages/aperture/test/omp-direct-worker.test.ts packages/aperture/test/direct-receipt-ledger.test.ts packages/aperture/test/omp-worker-teardown.test.ts packages/omp/test/*.test.ts && pnpm --dir packages/aperture omp:fixtures:check && pnpm --dir packages/aperture smoke:focus-backends && pnpm product:omp-contract:prove",
     "release:check": "pnpm release:focus-check && pnpm lint && pnpm format:check && pnpm audit:deps && pnpm contract:check && pnpm schema:validate && pnpm surface:contract:check && pnpm boundary:check && pnpm architecture:check && pnpm kernel:conformance && pnpm kernel:surface && pnpm kernel:corpus && pnpm kernel:observation && pnpm kernel:observation:release && pnpm kernel:scale && pnpm test && pnpm judgment:battle && pnpm sdk:prove && pnpm product:smoke && pnpm product:work:prove",
     "schema:validate": "tsx scripts/validate-work-schema.ts",
     "surface:contract:check": "pnpm --dir packages/aperture run surface:fixtures:check",

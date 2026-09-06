@@ -10,6 +10,16 @@ import { OmpSessionCapacityError } from "./session-liveness.js";
 
 const FOCUS_PROCESSING_TIMEOUT_MS = 2_250;
 
+export class DirectAttentionPrecommitError extends Error {
+  constructor(
+    cause?: unknown,
+    readonly code: "attention_engine_failed" | "capacity" = "attention_engine_failed",
+  ) {
+    super("Aperture direct attention failed before commit", { cause });
+    this.name = "DirectAttentionPrecommitError";
+  }
+}
+
 type DirectMessageHandlers = Pick<
   OmpAttentionSocketServerOptions,
   "handleAttention" | "registerFocus" | "revokeFocus" | "heartbeatSession"
@@ -52,7 +62,13 @@ export async function executeDirectMessage(
       ...(message.type === "focus.register" ? { workerGeneration } : {}),
     };
   } catch (error) {
+    if (message.type === "omp.attention-event" && error instanceof DirectAttentionPrecommitError) {
+      throw error;
+    }
     if (error instanceof OmpSessionCapacityError) {
+      if (message.type === "omp.attention-event") {
+        throw new DirectAttentionPrecommitError(error, "capacity");
+      }
       return {
         schemaVersion: WORKER_DIRECT_PROTOCOL_VERSION,
         status: "rejected",

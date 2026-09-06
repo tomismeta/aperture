@@ -97,11 +97,21 @@ void main().catch((error) => {
       "unsafe",
     );
   }
-  stderr.write(
-    `${failure instanceof Error ? failure.message : "Aperture attention worker failed"}\n`,
-  );
-  process.exitCode =
+  const exitCode =
     failure instanceof OwnedSocketCleanupError || failure instanceof DirectSocketStartupError
       ? failure.exitCode
       : 1;
+  process.exitCode = exitCode;
+  if (runningWorker) {
+    // Teardown may have failed before Node could safely close the Unix listener.
+    // Process exit closes descriptors without unlinking a replacement pathname.
+    // Give the diagnostic a bounded chance to flush, even with blocked stderr.
+    setTimeout(() => process.exit(exitCode), 100).unref();
+  }
+  stderr.write(
+    `${failure instanceof Error ? failure.message : "Aperture attention worker failed"}\n`,
+    () => {
+      if (runningWorker) process.exit(exitCode);
+    },
+  );
 });

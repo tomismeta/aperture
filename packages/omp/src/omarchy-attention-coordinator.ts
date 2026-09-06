@@ -43,9 +43,11 @@ export class OmarchyAttentionCoordinator {
   private readonly queue: QueuedAttentionDelivery[] = [];
   private readonly nativeFallbacks = new Set<Promise<void>>();
   private readonly deliveryObserver: AttentionDeliveryObserver = {
-    prepare: (event) => this.state.prepareDelivery(event),
-    routeFor: (event) => this.state.routeFor(event),
-    mayUseNative: (event) => this.state.mayUseNative(event),
+    prepare: (event) => {
+      if (!this.stopped) this.state.prepareDelivery(event);
+    },
+    routeFor: (event) => (this.stopped ? "accepted" : this.state.routeFor(event)),
+    mayUseNative: (event) => !this.stopped && this.state.mayUseNative(event),
     acceptedDirect: (event) => {
       if (this.stopped) return;
       if (this.state.acceptedDirect(event)) this.replayLatestFocus();
@@ -92,11 +94,7 @@ export class OmarchyAttentionCoordinator {
     this.enqueue({ kind: "event", event, context, directEvents: [...directEvents] });
   }
 
-  replayFocus(
-    workerGeneration: string,
-    publicHandle: string,
-    receiptEpisodeToken: string,
-  ): void {
+  replayFocus(workerGeneration: string, publicHandle: string, receiptEpisodeToken: string): void {
     if (
       !this.accepting ||
       !/^[A-Za-z0-9_-]{32}$/.test(workerGeneration) ||
@@ -143,6 +141,7 @@ export class OmarchyAttentionCoordinator {
       const displaced = this.queue.shift();
       if (displaced) this.startNativeFallback(displaced);
     }
+    if (!this.accepting) return;
     this.queue.push(delivery);
     this.draining ??= this.drain();
   }
@@ -224,6 +223,7 @@ export class OmarchyAttentionCoordinator {
       const displaced = this.queue.shift();
       if (displaced) this.startNativeFallback(displaced);
     }
+    if (!this.accepting) return;
     this.queue.push(retry);
   }
 

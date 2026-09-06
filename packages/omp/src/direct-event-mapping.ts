@@ -206,7 +206,7 @@ type DirectEventFacts = {
   transition: OmpAttentionTransition;
 };
 
-function sessionIdForEvent(event: OmpEvent, context: OmpMappingContext): string | undefined {
+export function sessionIdForEvent(event: OmpEvent, context: OmpMappingContext): string | undefined {
   if (event.type === "session_stop") return event.session_id;
   if (event.type === "tool_approval_requested" || event.type === "tool_approval_resolved") {
     return event.sessionId;

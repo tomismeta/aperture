@@ -281,6 +281,346 @@ test("continuous OMP activity cannot postpone session heartbeats", async (t) => 
   assert.equal(sent.length, 4);
 });
 
+test("heartbeat close is bounded even when an in-flight sender ignores cancellation", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
+  const pending = deferred<WorkerDirectAcknowledgement>();
+  let calls = 0;
+  let signal: AbortSignal | undefined;
+  const heartbeat = new SessionHeartbeatSender(
+    {
+      async send(_message, _timeout, activeSignal) {
+        calls += 1;
+        signal = activeSignal;
+        return pending.promise;
+      },
+    },
+    { intervalMilliseconds: 5, responseTimeoutMilliseconds: 20 },
+  );
+  heartbeat.observe("session-one");
+  const closing = heartbeat.close();
+  assert.equal(signal?.aborted, true);
+  t.mock.timers.tick(20);
+  await closing;
+  await heartbeat.close();
+  heartbeat.observe("session-two");
+  pending.resolve({ schemaVersion: 4, status: "accepted", requestId: "heartbeat-1" });
+  await flushMicrotasks();
+  t.mock.timers.tick(100);
+  await flushMicrotasks();
+  assert.equal(calls, 1);
+});
+
+test("terminal disable relinquishes leases and awaits fresh title ownership before restoration", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const previous = process.env.PI_NOTIFICATIONS;
+  process.env.PI_NOTIFICATIONS = "on";
+  const timers = new ManualTimers();
+  const proof = deferred<FocusRegistrationResult>();
+  const disabled = deferred<void>();
+  const titles: string[] = [];
+  let heartbeatAborted = false;
+  let nativeAttempts = 0;
+  class DisablingTransport extends FakeDirectTransport {
+    heartbeats = 0;
+    registrations = 0;
+    revocations = 0;
+    closes = 0;
+    override async send(
+      message: WorkerDirectMessage,
+      _timeout?: number,
+      signal?: AbortSignal,
+    ): Promise<WorkerDirectAcknowledgement> {
+      if (message.type === "omp.session-heartbeat") {
+        this.heartbeats += 1;
+        assert.ok(signal);
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener(
+            "abort",
+            () => {
+              heartbeatAborted = true;
+              reject(signal.reason);
+            },
+            { once: true },
+          );
+        });
+      }
+      return super.send(message);
+    }
+    override async registerFocus(
+      registration: FocusRegistration,
+    ): Promise<FocusRegistrationResult> {
+      this.registrations += 1;
+      assert.equal(registration.target.kind, "direct-terminal");
+      assert.equal(titles.at(-1), `Aperture Focus ${registration.target.marker}`);
+      return this.registrations === 1 ? { workerGeneration: "W".repeat(32) } : proof.promise;
+    }
+    override async revokeFocus(): Promise<void> {
+      this.revocations += 1;
+    }
+    override async close(): Promise<void> {
+      this.closes += 1;
+      assert.equal(this.revocations, 1);
+    }
+  }
+  const direct = new DisablingTransport();
+  const handlers = new Map<
+    string,
+    (event: OmpEvent, context: OmpExtensionContext) => Promise<void> | void
+  >();
+  const extensionContext: OmpExtensionContext = {
+    ui: {
+      setTitle: (title) => {
+        titles.push(title);
+      },
+    },
+    sessionManager: { getSessionId: () => "session-one" },
+  };
+  t.after(async () => {
+    proof.resolve({ workerGeneration: "W".repeat(32) });
+    await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, extensionContext);
+    if (previous === undefined) delete process.env.PI_NOTIFICATIONS;
+    else process.env.PI_NOTIFICATIONS = previous;
+  });
+  await createApertureOmarchyOmpExtension({
+    directTransport: direct,
+    availabilityCheck: async () => true,
+    commandRunner: async () => {
+      nativeAttempts += 1;
+      throw new Error("native delivery unavailable");
+    },
+    sessionHeartbeat: { intervalMilliseconds: 5 },
+    focusHostOptions: {
+      environment: { TERM: "foot", HYPRLAND_INSTANCE_SIGNATURE: "instance_1" },
+      stdoutIsTTY: true,
+      randomToken: tokenFactory(),
+      setTimer: timers.setTimer as unknown as typeof setTimeout,
+      clearTimer: timers.clearTimer as unknown as typeof clearTimeout,
+    },
+  })({
+    on: (name, handler) => {
+      handlers.set(name, handler);
+    },
+    logger: {
+      warn: () => {
+        disabled.resolve(undefined);
+      },
+    },
+  });
+  await handlers.get("tool_approval_requested")?.(
+    {
+      type: "tool_approval_requested",
+      sessionId: "session-one",
+      toolCallId: "approval-one",
+      toolName: "bash",
+      approvalMode: "write",
+    },
+    extensionContext,
+  );
+  await flushMicrotasks();
+  assert.equal(direct.registrations, 1);
+  assert.ok(timers.nextDelay());
+  direct.failure = new OmpDirectDeliveryError("definitely-not-accepted", "offline");
+  await handlers.get("session_stop")?.(
+    {
+      type: "session_stop",
+      session_id: "session-one",
+      turn_id: 1,
+    },
+    extensionContext,
+  );
+  await disabled.promise;
+  await flushMicrotasks();
+  assert.equal(process.env.PI_NOTIFICATIONS, "on");
+  assert.equal(heartbeatAborted, true);
+  assert.equal(timers.nextDelay(), undefined);
+  assert.equal(direct.registrations, 2);
+  assert.equal(direct.revocations, 0);
+  assert.match(titles.at(-1) ?? "", /^Aperture Focus /);
+  const delivered = direct.sent.length;
+  await handlers.get("session_stop")?.(
+    {
+      type: "session_stop",
+      session_id: "session-two",
+      turn_id: 2,
+    },
+    extensionContext,
+  );
+  const shutdowns = [1, 2].map(() =>
+    handlers.get("session_shutdown")?.({ type: "session_shutdown" }, extensionContext),
+  );
+  let shutdownComplete = false;
+  const shutdown = Promise.all(shutdowns).then(() => {
+    shutdownComplete = true;
+  });
+  await flushMicrotasks();
+  assert.equal(shutdownComplete, false);
+  proof.resolve({ workerGeneration: "W".repeat(32) });
+  await shutdown;
+  assert.equal(titles.at(-1), "π");
+  assert.equal(direct.revocations, 1);
+  assert.equal(direct.closes, 1);
+  t.mock.timers.tick(60_000);
+  await handlers.get("session_stop")?.(
+    {
+      type: "session_stop",
+      session_id: "session-three",
+      turn_id: 3,
+    },
+    extensionContext,
+  );
+  await flushMicrotasks();
+  assert.equal(direct.heartbeats, 1);
+  assert.equal(direct.registrations, 2);
+  assert.equal(direct.sent.length, delivered);
+  assert.equal(nativeAttempts, 1);
+});
+
+test("terminal disable bounds an in-flight focus claim and ignores its late registration", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const previous = process.env.PI_NOTIFICATIONS;
+  process.env.PI_NOTIFICATIONS = "on";
+  const registration = deferred<FocusRegistrationResult>();
+  const disabled = deferred<void>();
+  const timers = new ManualTimers();
+  const titles: string[] = [];
+  class RacingTransport extends FakeDirectTransport {
+    heartbeats = 0;
+    registrations = 0;
+    revocations = 0;
+    override async send(message: WorkerDirectMessage): Promise<WorkerDirectAcknowledgement> {
+      if (message.type === "omp.session-heartbeat") {
+        this.heartbeats += 1;
+        return { schemaVersion: 4, status: "accepted", requestId: directMessageRequestId(message) };
+      }
+      return super.send(message);
+    }
+    override async registerFocus(): Promise<FocusRegistrationResult> {
+      this.registrations += 1;
+      return registration.promise;
+    }
+    override async revokeFocus(): Promise<void> {
+      this.revocations += 1;
+    }
+  }
+  const direct = new RacingTransport();
+  direct.failure = new OmpDirectDeliveryError("definitely-not-accepted", "offline");
+  const handlers = new Map<
+    string,
+    (event: OmpEvent, context: OmpExtensionContext) => Promise<void> | void
+  >();
+  const extensionContext: OmpExtensionContext = {
+    ui: {
+      setTitle: (title) => {
+        titles.push(title);
+      },
+    },
+  };
+  t.after(async () => {
+    registration.resolve({ workerGeneration: "W".repeat(32) });
+    await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, extensionContext);
+    if (previous === undefined) delete process.env.PI_NOTIFICATIONS;
+    else process.env.PI_NOTIFICATIONS = previous;
+  });
+  await createApertureOmarchyOmpExtension({
+    directTransport: direct,
+    availabilityCheck: async () => true,
+    commandRunner: async () => {
+      throw new Error("native unavailable");
+    },
+    sessionHeartbeat: { intervalMilliseconds: 5 },
+    focusHostOptions: {
+      environment: { TERM: "foot", HYPRLAND_INSTANCE_SIGNATURE: "instance_1" },
+      stdoutIsTTY: true,
+      randomToken: tokenFactory(),
+      closeTimeoutMs: 0,
+      setTimer: timers.setTimer as unknown as typeof setTimeout,
+      clearTimer: timers.clearTimer as unknown as typeof clearTimeout,
+    },
+  })({
+    on: (name, handler) => {
+      handlers.set(name, handler);
+    },
+    logger: {
+      warn: () => {
+        disabled.resolve(undefined);
+      },
+    },
+  });
+  await handlers.get("session_stop")?.(
+    {
+      type: "session_stop",
+      session_id: "session-one",
+      turn_id: 1,
+    },
+    extensionContext,
+  );
+  await disabled.promise;
+  await flushMicrotasks();
+  assert.equal(process.env.PI_NOTIFICATIONS, "on");
+  assert.equal(direct.revocations, 1);
+  assert.equal(direct.registrations, 1);
+  assert.equal(titles.length, 1);
+  await handlers.get("session_shutdown")?.({ type: "session_shutdown" }, extensionContext);
+  direct.failure = null;
+  registration.resolve({ workerGeneration: "W".repeat(32) });
+  await flushMicrotasks();
+  t.mock.timers.tick(60_000);
+  await handlers.get("session_stop")?.(
+    {
+      type: "session_stop",
+      session_id: "session-two",
+      turn_id: 2,
+    },
+    extensionContext,
+  );
+  await flushMicrotasks();
+  assert.equal(direct.heartbeats, 1);
+  assert.equal(direct.sent.length, 1);
+  assert.equal(timers.nextDelay(), undefined);
+  assert.equal(titles.length, 1);
+});
+
+test("terminal disable cannot start native fallback from an in-flight rejection", async () => {
+  const gate = deferred<void>();
+  const started = deferred<void>();
+  class PausedTransport extends FakeDirectTransport {
+    override async send(message: WorkerDirectMessage): Promise<WorkerDirectAcknowledgement> {
+      if (message.type === "omp.attention-event") {
+        started.resolve(undefined);
+        await gate.promise;
+        throw new OmpDirectDeliveryError("definitely-not-accepted", "offline");
+      }
+      return super.send(message);
+    }
+  }
+  const nativeCalls: string[] = [];
+  const transport = new OmarchyAttentionTransport({
+    direct: new PausedTransport(),
+    notification: new OmarchyNotificationTransport({
+      availabilityCheck: async () => true,
+      commandRunner: async (command) => {
+        nativeCalls.push(command);
+        return { stdout: "uint32 1", stderr: "" };
+      },
+    }),
+  });
+  await transport.handle(
+    {
+      type: "tool_approval_requested",
+      sessionId: "session-one",
+      toolCallId: "approval-one",
+      toolName: "bash",
+      approvalMode: "write",
+    },
+    context,
+  );
+  await started.promise;
+  transport.disable();
+  gate.resolve(undefined);
+  await transport.close();
+  assert.deepEqual(nativeCalls, []);
+});
+
 test("focus target detection is closed and rejects unsupported harness modes", () => {
   const herdr = {
     HERDR_ENV: "1",

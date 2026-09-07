@@ -31,10 +31,11 @@ try {
 
   const first = startWorker(sourceBundle, stateDir, runtimeDir);
   const firstHello = await first.waitFor((message) => message.type === "hello");
-  assert.equal(firstHello.protocolVersion, 4);
+  assert.equal(firstHello.protocolVersion, 5);
   assert.equal(firstHello.capabilities?.notificationInput, false);
   assert.equal(firstHello.capabilities?.ompDirectInput, true);
-  checks.push("private-output-v4-omp-only-handshake");
+  assert.equal(firstHello.capabilities?.attentionDismissal, true);
+  checks.push("private-output-v5-omp-only-handshake");
   await first.waitFor((message) => message.type === "engine" && message.state === "ready");
   await first.waitFor((message) => message.type === "snapshot");
   assert.equal((await stat(socketPath)).mode & 0o777, 0o600);
@@ -102,13 +103,58 @@ try {
   await assert.rejects(() => stat(socketPath), /ENOENT/);
   const second = startWorker(sourceBundle, stateDir, runtimeDir);
   const secondHello = await second.waitFor((message) => message.type === "hello");
-  assert.equal(secondHello.protocolVersion, 4);
+  assert.equal(secondHello.protocolVersion, 5);
   await second.waitFor((message) => message.type === "engine" && message.state === "ready");
   const replayed = await second.waitFor(
     (message) => message.type === "snapshot" && message.view?.now?.title === changed.title,
   );
   assert.equal(replayed.view?.now?.navigation, undefined);
   checks.push("volatile-navigation-is-not-replayed");
+
+  second.write({
+    type: "attention.dismiss",
+    requestId: "dismiss-replayed",
+    target: {
+      scope: "item",
+      id: replayed.view?.now?.id,
+      version: replayed.view?.now?.version,
+    },
+  });
+  const dismissed = await second.waitFor(
+    (message) => message.type === "attention.result" && message.requestId === "dismiss-replayed",
+  );
+  assert.equal(dismissed.result, "dismissed");
+  assert.equal(dismissed.count, 1);
+  await second.shutdown();
+  const third = startWorker(sourceBundle, stateDir, runtimeDir);
+  await third.waitFor((message) => message.type === "engine" && message.state === "ready");
+  const clearedReplay = await third.waitFor((message) => message.type === "snapshot");
+  assert.equal(clearedReplay.totals?.now, 0);
+  await sendDirect(socketPath, changed);
+  third.write({
+    type: "attention.dismiss",
+    requestId: "clear-retry",
+    target: { scope: "all", sequence: clearedReplay.sequence },
+  });
+  const retryResult = await third.waitFor(
+    (message) => message.type === "attention.result" && message.requestId === "clear-retry",
+  );
+  assert.equal(retryResult.result, "dismissed");
+  assert.equal(retryResult.count, 0);
+  await sendDirect(
+    socketPath,
+    event({
+      ...changed,
+      eventId: "smoke:input:after-dismissal",
+      occurredAt: timestamp(2_500),
+      title: "New attention after dismissal",
+    }),
+  );
+  await third.waitFor(
+    (message) =>
+      message.type === "snapshot" && message.view?.now?.title === "New attention after dismissal",
+  );
+  checks.push("persistent-dismissal-retry-fence-and-new-revision");
 
   await sendDirect(
     socketPath,
@@ -121,7 +167,7 @@ try {
       transition: "shutdown",
     }),
   );
-  await second.waitFor(
+  await third.waitFor(
     (message) =>
       message.type === "snapshot" &&
       message.totals?.now === 0 &&
@@ -130,7 +176,7 @@ try {
   );
   checks.push("session-shutdown-cleanup");
 
-  second.write({
+  third.write({
     type: "notification.observed",
     key: "native-fallback",
     occurredAt: timestamp(4_000),
@@ -138,7 +184,7 @@ try {
     summary: `Open OMP session ${sessionId}`,
     urgency: "critical",
   });
-  const rejectedGenericInput = await second.waitFor(
+  const rejectedGenericInput = await third.waitFor(
     (message) =>
       message.type === "error" &&
       message.code === "invalid_input" &&
@@ -147,7 +193,7 @@ try {
   assert.equal(rejectedGenericInput.recoverable, true);
   checks.push("generic-notification-input-disabled");
 
-  await second.shutdown();
+  await third.shutdown();
   await assert.rejects(() => stat(socketPath), /ENOENT/);
   const persisted = await readFile(path.join(stateDir, "omp-direct-state.json"), "utf8");
   assert.equal(persisted.includes("prompt"), false);
@@ -192,6 +238,10 @@ type WorkerMessage = {
   type?: string;
   protocolVersion?: number;
   state?: string;
+  sequence?: number;
+  requestId?: string;
+  result?: string;
+  count?: number;
   totals?: { now?: number; next?: number; ambient?: number };
   code?: string;
   message?: string;
@@ -199,6 +249,7 @@ type WorkerMessage = {
   capabilities?: {
     notificationInput?: boolean;
     ompDirectInput?: boolean;
+    attentionDismissal?: boolean;
   };
   view?: {
     now?: WorkerFrame | null;
@@ -208,6 +259,8 @@ type WorkerMessage = {
 };
 
 type WorkerFrame = {
+  id?: string;
+  version?: number;
   title?: string;
   navigation?: { kind?: string; handle?: string };
 };

@@ -27,6 +27,10 @@ they must be isolated from live ingestion and named as archival behavior.
 - Private notification-worker output: exact version `4`; hello requires
   `protocolVersion: 4`, and only private frames may carry the exact
   `{ kind: "opaque-focus", handle }` navigation capability
+- Private OMP-worker output: exact version `5`; hello requires
+  `protocolVersion: 5` and `attentionDismissal: true`. Private JSONL dismissal
+  controls return correlated `attention.result` outcomes; the generic
+  notification-worker output remains v4.
 - OMP attention event: exact schema version `4`
 - Private worker-direct request and acknowledgement protocol: exact version `4`.
   The canonical `worker-direct-message.schema.json` describes requests only:
@@ -44,10 +48,11 @@ private `@tomismeta/aperture-omp` manifest has its own release version and need
 not equal the `@tomismeta/aperture` product version. BUILDINFO schema version `2`
 records the product version at `packageVersion` and the independently released
 private integration version at `integrations.omp.packageVersion` (currently
-`0.1.1`). These are release identities, not counters bumped for every commit.
+`0.2.0`). These are release identities, not counters bumped for every commit.
 Protocol versions, paths, and hashes are recorded once in `schemas.output`,
 `schemas.surface`, `schemas.ompAttentionEvent`, and `schemas.workerDirectMessage`.
-Each live protocol owns its own constant even while all four are `4`; private
+Each live protocol owns its own constant; OMP private output is `5` while the
+surface, OMP attention event, and worker-direct protocols remain `4`. The private
 worker hello uses the output version and public surface hello uses the surface
 version. `workerContract` retains notification-input and JSONL-handshake
 requirements, not duplicate protocol versions. The source tag identifies the

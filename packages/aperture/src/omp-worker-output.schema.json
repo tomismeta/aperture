@@ -1,12 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tomismeta:aperture:omp-worker-output:v4",
+  "$id": "urn:tomismeta:aperture:omp-worker-output:v5",
   "title": "Aperture OMP Worker Output",
   "oneOf": [
     { "$ref": "#/$defs/hello" },
     { "$ref": "#/$defs/engine" },
     { "$ref": "#/$defs/snapshot" },
     { "$ref": "#/$defs/focusResult" },
+    { "$ref": "#/$defs/attentionResult" },
     { "$ref": "#/$defs/error" }
   ],
   "$defs": {
@@ -19,7 +20,7 @@
       "required": ["type", "protocolVersion", "packageVersion", "worker", "capabilities"],
       "properties": {
         "type": { "const": "hello" },
-        "protocolVersion": { "const": 4 },
+        "protocolVersion": { "const": 5 },
         "packageVersion": { "type": "string", "minLength": 1, "maxLength": 120 },
         "worker": { "const": "aperture-attention-engine" },
         "capabilities": {
@@ -30,14 +31,16 @@
             "ompDirectInput",
             "snapshots",
             "responses",
-            "focusActivation"
+            "focusActivation",
+            "attentionDismissal"
           ],
           "properties": {
             "notificationInput": { "const": false },
             "ompDirectInput": { "const": true },
             "snapshots": { "const": true },
             "responses": { "const": false },
-            "focusActivation": { "const": true }
+            "focusActivation": { "const": true },
+            "attentionDismissal": { "const": true }
           }
         }
       }
@@ -202,6 +205,22 @@
           "pattern": "^(?=.*\\S)[^\\u0000-\\u001F\\u007F]+$"
         },
         "result": { "enum": ["focused", "stale", "missing"] }
+      }
+    },
+    "attentionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "requestId", "result", "count"],
+      "properties": {
+        "type": { "const": "attention.result" },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^(?=.*\\S)[^\\u0000-\\u001F\\u007F]+$"
+        },
+        "result": { "enum": ["dismissed", "stale", "failed"] },
+        "count": { "type": "integer", "minimum": 0, "maximum": 1024 }
       }
     },
     "error": {

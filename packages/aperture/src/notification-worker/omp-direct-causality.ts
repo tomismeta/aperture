@@ -15,13 +15,19 @@ export class OmpDirectCausalityIndex {
     string,
     Extract<PersistedOmpDirectTombstone, { kind: "session" }>
   >();
+  private readonly dismissals = new Map<
+    string,
+    Extract<PersistedOmpDirectTombstone, { kind: "dismissal" }>
+  >();
 
   rebuild(tombstones: readonly PersistedOmpDirectTombstone[]): void {
     this.interactions.clear();
     this.sessions.clear();
+    this.dismissals.clear();
     for (const tombstone of tombstones) {
       if (tombstone.kind === "interaction") this.interactions.set(tombstone.key, tombstone);
-      else this.sessions.set(tombstone.sessionId, tombstone);
+      else if (tombstone.kind === "session") this.sessions.set(tombstone.sessionId, tombstone);
+      else this.dismissals.set(tombstone.key, tombstone);
     }
   }
 
@@ -43,6 +49,12 @@ export class OmpDirectCausalityIndex {
   ): Extract<PersistedOmpDirectTombstone, { kind: "session" }> | undefined {
     return this.sessions.get(sessionId);
   }
+  dismissed(key: string, eventId: string, occurredAt: string): boolean {
+    const dismissal = this.dismissals.get(key);
+    return Boolean(
+      dismissal && (occurredAt <= dismissal.occurredAt || eventId === dismissal.eventId),
+    );
+  }
 
   remember(state: OmpDirectPersistedState, tombstone: PersistedOmpDirectTombstone): void {
     const identity = tombstoneIdentity(tombstone);
@@ -52,7 +64,8 @@ export class OmpDirectCausalityIndex {
     if (index === -1) state.tombstones.push(tombstone);
     else state.tombstones[index] = tombstone;
     if (tombstone.kind === "interaction") this.interactions.set(tombstone.key, tombstone);
-    else this.sessions.set(tombstone.sessionId, tombstone);
+    else if (tombstone.kind === "session") this.sessions.set(tombstone.sessionId, tombstone);
+    else this.dismissals.set(tombstone.key, tombstone);
   }
 }
 
@@ -134,6 +147,7 @@ export function applyMappedOmpDirectEvent(
     return "persist";
   }
 
+  if (causality.dismissed(mapped.key, mapped.sourceEvent.id, mapped.occurredAt)) return "ignored";
   const sessionShutdown = causality.session(mapped.sessionId);
   if (sessionShutdown && sessionShutdown.occurredAt >= mapped.occurredAt) return "ignored";
   const interactionResolution = causality.interaction(mapped.key);
@@ -229,7 +243,6 @@ export function latestOmpDirectRevision(active: PersistedOmpDirectEntry) {
 }
 
 function tombstoneIdentity(tombstone: PersistedOmpDirectTombstone): string {
-  return tombstone.kind === "interaction"
-    ? `interaction\u0000${tombstone.key}`
-    : `session\u0000${tombstone.sessionId}`;
+  if (tombstone.kind === "session") return `session\u0000${tombstone.sessionId}`;
+  return `${tombstone.kind}\u0000${tombstone.key}`;
 }

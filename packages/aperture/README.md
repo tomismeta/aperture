@@ -223,24 +223,43 @@ facts into `ApertureCore`; Core remains the lane authority. Shipping the
 extension does not automatically activate it in OMP.
 
 The production bundle is fixed to `artifactMode: "omp-only"`. Its hello reports
-`notificationInput: false`; its input loop accepts only focus activation and
-shutdown controls, and its module graph excludes the generic notification
+`notificationInput: false`; its input loop accepts only focus activation,
+attention dismissal, and shutdown controls, and its module graph excludes the generic notification
 adapter, lifecycle, state store, and input schema. Failure to establish the
 required direct socket is fatal so the stock service restart policy can recover
-it. It uses private OMP-worker output schema `4`, public surface protocol `4`,
+it. It uses private OMP-worker output schema `5`, public surface protocol `4`,
 OMP attention event schema `4`, and private worker-direct protocol `4`. OMP
 session presentation is optional bounded display metadata: a label plus up to
 four typed facets. Named and anonymous labels are projected only after Core;
 anonymous labels use a stable privacy-safe session digest. Presentation never
 enters event identity, judgment, lane choice, ordering, continuity, focus, or
 navigation. Heartbeat renewal, post-restart attention proof, lease expiry,
-attention commits, and snapshots are serialized by the worker. Both hello frames
-require `protocolVersion: 4` independently from package semver. Only private
+attention commits, dismissals, and snapshots are serialized by the worker. The
+private OMP hello requires `protocolVersion: 5` and `attentionDismissal: true`;
+the public surface hello remains `protocolVersion: 4`, independently from package semver. Only private
 worker snapshots may carry navigation, and the exact shape is
 `{ "kind": "opaque-focus", "handle": "…" }`; public surface frames cannot carry
 focus handles. Activation returns only `focused`, `stale`, or `missing`.
 Session identity remains a private event fact and is never executable
 navigation.
+
+Private JSONL dismissal is not an OMP answer, approval, cancellation, or focus
+activation. Send `{ "type": "attention.dismiss", "requestId": "clear-1",
+"target": { "scope": "item", "id": "<accepted frame id>", "version": 1 } }`
+for one exact visible NOW/NEXT revision, or use
+`"target": { "scope": "all", "sequence": 1 }` for all NOW/NEXT attention,
+including projection overflow but never AMBIENT. Targets must come from the
+accepted snapshot. Frame versions are opaque safe integers, not counters.
+An unseen commit or superseded published snapshot makes clear-all stale.
+The worker commits durable dismissal tombstones before publishing the new
+snapshot, then emits `{ "type": "attention.result", "requestId": "clear-1",
+"result": "dismissed", "count": 1 }`. Stale targets return `stale` with count
+zero; storage failures return `failed` with count zero and a recoverable error,
+leaving current attention unchanged. Empty clear-all succeeds with count zero.
+Clients must wait for authoritative snapshots, not hide rows speculatively.
+Dismissal fences reject redelivery at or before the cleared revision timestamp;
+newer attention can reappear. They use the existing 24-hour, 1,024-record,
+4-MiB state retention policy, with no global fence over unrelated sessions.
 
 Herdr panes sharing an owned socket and compositor instance share one surface
 lease. A rejected join or renewal does not invalidate healthy members: the

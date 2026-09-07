@@ -116,15 +116,17 @@ export async function runOmpWorkerStdio(options: OmpWorkerStdioOptions): Promise
       );
     }
 
-    const emitSnapshot = async (): Promise<void> => {
+    const emitSnapshot = async (force = false): Promise<void> => {
       const snapshot = restored.engine.snapshot();
       const fingerprint = JSON.stringify({
+        attentionRevision: restored.engine.attentionStateRevision(),
         sources: snapshot.sources,
         totals: snapshot.totals,
         view: snapshot.view,
       });
-      if (fingerprint === lastProjection) return;
+      if (!force && fingerprint === lastProjection) return;
       await write(snapshot);
+      restored.engine.markSnapshotPublished(snapshot.sequence);
       lastProjection = fingerprint;
     };
     const expireDeadSessions = (): void => {
@@ -245,6 +247,28 @@ export async function runOmpWorkerStdio(options: OmpWorkerStdioOptions): Promise
         const shouldContinue = await serialize(async () => {
           const event = parseOmpWorkerInput(decoded.line);
           if (event.type === "shutdown") return false;
+          if (event.type === "attention.dismiss") {
+            let result;
+            try {
+              result = await restored.engine.dismissAttention(event.target);
+            } catch {
+              await write({
+                type: "attention.result",
+                requestId: event.requestId,
+                result: "failed",
+                count: 0,
+              });
+              await writeError(
+                "attention_dismiss_failed",
+                "Aperture could not persist the attention dismissal.",
+                true,
+              );
+              return true;
+            }
+            await emitSnapshot(true);
+            await write({ type: "attention.result", requestId: event.requestId, ...result });
+            return true;
+          }
           const result = await coordinator.activate(event.handle);
           if (result === "focused") {
             try {

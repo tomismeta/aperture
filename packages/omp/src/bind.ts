@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { TerminalTitleCapability } from "@tomismeta/aperture/focus-host";
 import { contextFromOmpExtension } from "./mapping.js";
+import { OmpSessionMetadata } from "./session-metadata.js";
 import type { OmpEvent, OmpExtensionApi, OmpExtensionContext, OmpMappingContext } from "./types.js";
 
 const OMP_EXTENSION_EVENTS = [
@@ -42,6 +43,7 @@ export function bindOmpExtension(
   baseContext: OmpMappingContext = {},
 ): void {
   let agentRunId: string | undefined;
+  const metadata = new OmpSessionMetadata();
   for (const eventName of OMP_EXTENSION_EVENTS) {
     pi.on(eventName, async (event, extensionContext) => {
       if (event.type === "agent_start") agentRunId = randomUUID();
@@ -53,6 +55,9 @@ export function bindOmpExtension(
       }
       const capabilities = capabilitiesFromOmpExtension(extensionContext);
       try {
+        const session = await metadata.capture(event, extensionContext, context);
+        if (session) context.session = session;
+        else delete context.session;
         await sink.handle(event, context, capabilities);
         if (event.type === "session_shutdown") await sink.close();
       } catch (error) {

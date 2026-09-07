@@ -1,10 +1,17 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, rename, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
+import { promisify } from "node:util";
 
 import type { SourceEvent } from "@tomismeta/aperture-core";
+import type { OmpAttentionEvent } from "@tomismeta/aperture/omp-attention-event";
 
 import { bindOmpExtension } from "../src/bind.js";
 import { createApertureOmpExtension } from "../src/extension.js";
+import { mapOmpDirectAttentionEvents } from "../src/direct-event-mapping.js";
 import { mapOmpEvent } from "../src/mapping.js";
 import { mapOmpNotificationTransitions } from "../src/notification-mapping.js";
 import {
@@ -480,6 +487,202 @@ test("standard OMP extension registers against an injected runtime client", asyn
   extension({ on: (event, handler) => handlers.set(event, handler) });
   await handlers.get("agent_start")?.({ type: "agent_start" }, {});
   assert.equal(batches[0]?.[0]?.type, "task.updated");
+});
+
+test("native metadata attributes completion to the response before asynchronous discovery", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "omp-metadata-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const handlers = new Map<string, Parameters<OmpExtensionApi["on"]>[1]>();
+  const delivered: OmpAttentionEvent[] = [];
+  bindOmpExtension(
+    {
+      on: (name, handler) => handlers.set(name, handler),
+      getSessionName: () => "Review session",
+    },
+    {
+      async handle(event, mapping) {
+        delivered.push(...mapOmpDirectAttentionEvents(event, mapping));
+      },
+      async close() {},
+    },
+    { sessionId: "s" },
+  );
+  const emit = (event: OmpEvent, native: OmpExtensionContext) =>
+    handlers.get(event.type)!(event, native);
+  const native = { cwd: root, model: { id: "selected", provider: "provider" } };
+  const started = emit({ type: "tool_call", toolName: "ask", toolCallId: "ask-1" }, native);
+  native.model.id = "switched";
+  await started;
+  assert.equal(
+    delivered[0]?.session?.facets?.find((facet) => facet.id === "model")?.value,
+    "provider/selected",
+  );
+  const response = { role: "assistant", model: "completed", provider: "actual-provider" };
+  const completed = emit(
+    {
+      type: "session_stop",
+      session_id: "s",
+      turn_id: 1,
+      last_assistant_message: "Response text, not model metadata",
+      messages: [
+        { role: "assistant", model: "earlier" },
+        response,
+        { role: "toolResult", model: "not-a-model" },
+      ],
+    },
+    native,
+  );
+  response.model = "mutated-after-callback";
+  native.model.id = "another-selection";
+  await completed;
+  assert.equal(delivered[1]?.session?.label, "Review session");
+  assert.equal(
+    delivered[1]?.session?.facets?.find((facet) => facet.id === "model")?.value,
+    "actual-provider/completed",
+  );
+  await emit(
+    {
+      type: "session_stop",
+      session_id: "s",
+      turn_id: 2,
+      messages: [
+        { role: "assistant", model: "old" },
+        { role: "assistant", content: [] },
+      ],
+    },
+    native,
+  );
+  assert.equal(
+    delivered[2]?.session?.facets?.find((facet) => facet.id === "model"),
+    undefined,
+  );
+});
+
+test("native metadata refreshes linked checkout branches without probing each tool event", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "omp-checkout-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const repo = path.join(root, "project with spaces");
+  const linked = path.join(root, "linked checkout");
+  const plain = path.join(root, "plain directory");
+  await mkdir(repo);
+  await mkdir(plain);
+  const git = promisify(execFile);
+  const runGit = (...args: string[]) => git("git", args, { cwd: repo, timeout: 5_000 });
+  await runGit("init", "-b", "unborn");
+  const handlers = new Map<string, Parameters<OmpExtensionApi["on"]>[1]>();
+  let presentation: OmpMappingContext["session"];
+  bindOmpExtension(
+    { on: (name, handler) => handlers.set(name, handler) },
+    {
+      async handle(_event, mapping) {
+        presentation = mapping.session;
+      },
+      async close() {},
+    },
+    { sessionId: "checkout-session" },
+  );
+  const emit = (event: OmpEvent, cwd = repo) => handlers.get(event.type)!(event, { cwd });
+  const values = () =>
+    Object.fromEntries(presentation?.facets?.map((facet) => [facet.id, facet.value]) ?? []);
+  await emit({ type: "session_start" });
+  assert.equal(values().branch, "unborn");
+  await runGit(
+    "-c",
+    "user.name=Metadata Test",
+    "-c",
+    "user.email=metadata@example.invalid",
+    "-c",
+    "commit.gpgSign=false",
+    "-c",
+    "core.hooksPath=/dev/null",
+    "commit",
+    "--allow-empty",
+    "-m",
+    "initial",
+  );
+  await runGit("worktree", "add", "-b", "linked", linked);
+  const subdir = path.join(linked, "nested directory");
+  await mkdir(subdir);
+  await emit({ type: "agent_start" }, subdir);
+  assert.equal(values().repo, "project with spaces");
+  assert.equal(values().worktree, "linked checkout");
+  assert.equal(values().branch, "linked");
+  await git("git", ["switch", "-c", "changed-during-run"], { cwd: linked, timeout: 5_000 });
+  await emit({ type: "tool_execution_update", toolCallId: "tool", toolName: "bash" }, subdir);
+  assert.equal(values().branch, "linked");
+  await emit({ type: "session_stop", session_id: "checkout-session", turn_id: 1 }, subdir);
+  assert.equal(values().branch, "changed-during-run");
+  await git("git", ["checkout", "--detach"], { cwd: linked, timeout: 5_000 });
+  await emit({ type: "session_stop", session_id: "checkout-session", turn_id: 2 }, subdir);
+  assert.match(values().branch ?? "", /^detached [a-f0-9]{12,64}$/);
+  await emit({ type: "tool_call", toolCallId: "plain", toolName: "ask" }, plain);
+  assert.deepEqual(values(), { worktree: "plain directory" });
+  await emit({ type: "agent_start" });
+  await rename(path.join(repo, ".git"), path.join(repo, "saved-git"));
+  await emit({ type: "session_stop", session_id: "checkout-session", turn_id: 3 });
+  assert.deepEqual(values(), { worktree: "project with spaces" });
+  await emit({ type: "agent_start" }, path.join(root, "missing directory"));
+  assert.deepEqual(values(), { worktree: "missing directory" });
+});
+
+test("native metadata omits unsafe fields independently and bounds Unicode presentation", async () => {
+  const handlers = new Map<string, Parameters<OmpExtensionApi["on"]>[1]>();
+  const delivered: OmpAttentionEvent[] = [];
+  const focusHandle = "0123456789abcdef0123456789abcdef";
+  bindOmpExtension(
+    {
+      on: (name, handler) => handlers.set(name, handler),
+      getSessionName: () => `private ${focusHandle}`,
+    },
+    {
+      async handle(event, mapping) {
+        delivered.push(...mapOmpDirectAttentionEvents(event, mapping));
+      },
+      async close() {},
+    },
+    {
+      focusHandle,
+      sessionId: "safe-session",
+      session: {
+        facets: [
+          { id: "custom", label: "Custom", value: "kept" },
+          { id: "branch", label: "Branch", value: "stale-explicit-branch" },
+          { id: "unsafe", label: "Unsafe", value: "password=private" },
+        ],
+      },
+    },
+  );
+  await handlers.get("tool_call")!(
+    { type: "tool_call", toolName: "ask", toolCallId: "a" },
+    {
+      model: { id: "界".repeat(200), provider: "provider" },
+    },
+  );
+  const presentation = delivered[0]?.session;
+  assert.equal(presentation?.label, undefined);
+  assert.deepEqual(
+    presentation?.facets?.map((facet) => facet.id),
+    ["custom", "model"],
+  );
+  assert.equal(Array.from(presentation!.facets![1]!.value).length, 120);
+  await handlers.get("tool_call")!(
+    { type: "tool_call", toolName: "ask", toolCallId: "b" },
+    {
+      model: { id: `${"m".repeat(130)} token=private` },
+    },
+  );
+  assert.deepEqual(delivered[1]?.session?.facets, [
+    { id: "custom", label: "Custom", value: "kept" },
+  ]);
+  await handlers.get("tool_call")!(
+    { type: "tool_call", toolName: "ask", toolCallId: "c" },
+    {
+      model: { id: "/Users/private/model", provider: "provider" },
+    },
+  );
+  assert.deepEqual(delivered[2]?.session?.facets, [
+    { id: "custom", label: "Custom", value: "kept" },
+  ]);
 });
 
 function deferred<T>(): {

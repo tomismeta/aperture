@@ -237,6 +237,8 @@ function sourceEventIdentity(facts: DirectEventFacts): string {
       : facts.turnId !== undefined
         ? ["turn", facts.sessionId, facts.turnId, facts.classification]
         : ["occurrence", facts.sessionId, facts.classification, facts.occurredAt];
+  // Provider keys recur; retries retain the captured occurrence timestamp.
+  if (facts.classification === "provider_failure") causalIdentity.push(facts.occurredAt);
   return JSON.stringify(causalIdentity);
 }
 

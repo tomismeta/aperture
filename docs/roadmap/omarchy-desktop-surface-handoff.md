@@ -27,7 +27,7 @@ OMP ExtensionAPI
   -> private bounded OMP attention event v2
   -> acknowledged worker-direct protocol v4 over the canonical Unix socket
   -> stateful ApertureCore
-  -> private notification-worker output v4
+  -> private OMP-worker output v5
   -> native Omarchy panel
 ```
 
@@ -50,6 +50,8 @@ The public companion surface and private worker output intentionally differ:
 - Notification-worker input remains exact schema v2.
 - Private notification-worker output is exact v4. Its hello independently
   requires `protocolVersion: 4`.
+- The dedicated OMP worker uses private output v5 and advertises
+  `attentionDismissal: true`; its private dismissal control never answers OMP.
 - Private worker frames alone may carry navigation, and only as
   `{ "kind": "opaque-focus", "handle": "<32 base64url characters>" }`.
 - OMP attention events are exact schema v4.
@@ -129,7 +131,7 @@ Cleanup exit codes are part of the host contract:
 
 The shell must not replace this mode with an unconditional `rm`.
 
-The dedicated OMP worker uses wire protocol v4. Startup contention (a live
+The dedicated OMP worker uses output protocol v5 (direct socket protocol v4). Startup contention (a live
 previous socket, inconclusive activity probe, lifecycle-lock deadline, or
 `EADDRINUSE`) emits `direct_transport_unavailable` with `recoverable: true` and
 terminates with exit `75`, even with stdin open. Unsafe path, configuration,

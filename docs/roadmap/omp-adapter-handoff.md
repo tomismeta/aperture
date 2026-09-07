@@ -44,10 +44,11 @@ channel.
 - worker-direct messages and acknowledgements: exact protocol version `4`
 - notification-worker input: exact schema version `2`
 - private notification-worker output: exact version `4`
+- private OMP-worker output: exact version `5`, with `attentionDismissal: true`
 - public companion surface: exact protocol version `4`
 
-Both output hello frames carry `protocolVersion: 4` independently from package
-semver. Public surface frames contain no navigation field. Private worker frames
+The OMP-worker hello carries `protocolVersion: 5`; the generic notification worker
+and public surface remain v4 independently from package semver. Public surface frames contain no navigation field. Private worker frames
 may carry only the bounded volatile capability:
 
 ```json

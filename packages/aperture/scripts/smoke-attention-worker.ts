@@ -58,13 +58,14 @@ try {
   ]);
   assert.equal(result.messages[0]?.type, "hello");
   assert.equal(result.messages[0]?.worker, "aperture-attention-engine");
-  assert.equal(result.messages[0]?.protocolVersion, 4);
+  assert.equal(result.messages[0]?.protocolVersion, 5);
   assert.deepEqual(result.messages[0]?.capabilities, {
     notificationInput: false,
     ompDirectInput: true,
     snapshots: true,
     responses: false,
     focusActivation: true,
+    attentionDismissal: true,
   });
   assert.equal(
     result.messages.some((message) => message.type === "engine" && message.state === "restoring"),

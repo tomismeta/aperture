@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { EventEmitter, once } from "node:events";
 import {
   chmod,
@@ -71,6 +72,7 @@ import { mapOmpDirectAttentionEvents } from "../../omp/src/direct-event-mapping.
 import { bindOmpExtension } from "../../omp/src/bind.js";
 import type { OmpEvent, OmpExtensionApi } from "../../omp/src/types.js";
 import { proveOmpWorkerStartup } from "./helpers/omp-worker-startup.js";
+import { parseOmpWorkerInput } from "../src/notification-worker/omp-worker-protocol.js";
 
 const sessionId = "01a0123456789abcdef";
 const occurredAt = "2026-09-01T16:00:00.000Z";
@@ -451,6 +453,206 @@ test("direct OMP session presentation projects and persists without changing ide
     }),
   );
   assert.notEqual(other.engine.snapshot().view.now?.source?.label, anonymousLabel);
+});
+
+test("attention dismissal persists exact revisions without answering or fencing new work", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-dismiss-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const options = { stateDir: root, now: () => Date.parse(occurredAt) };
+  const { engine } = await OmpWorkerEngine.restore(options);
+  const original = directEvent();
+  await engine.handleOmpAttention(original, { kind: "opaque-focus", handle: focusHandle });
+  const frame = engine.snapshot().view.now!;
+  assert.deepEqual(
+    await engine.dismissAttention({
+      scope: "item",
+      id: frame.id,
+      version: frame.version + 1,
+    }),
+    { result: "stale", count: 0 },
+  );
+  assert.equal(engine.snapshot().view.now?.title, original.title);
+  assert.deepEqual(
+    await engine.dismissAttention({
+      scope: "item",
+      id: frame.id,
+      version: frame.version,
+    }),
+    { result: "dismissed", count: 1 },
+  );
+  assert.equal(engine.snapshot().view.now, null);
+  const stored = await loadOmpDirectState(root, Date.parse(occurredAt));
+  assert.deepEqual(stored.state.active, []);
+  assert.equal(stored.state.tombstones[0]?.kind, "dismissal");
+
+  const restarted = (await OmpWorkerEngine.restore(options)).engine;
+  await restarted.handleOmpAttention(original);
+  assert.equal(restarted.snapshot().view.now, null);
+  const replacement = directEvent({
+    eventId: "dismiss-new-revision",
+    occurredAt: "2026-09-01T16:00:01.000Z",
+    title: "A genuinely new request",
+  });
+  await restarted.handleOmpAttention(replacement);
+  const renewed = restarted.snapshot().view.now!;
+  assert.equal(renewed.title, replacement.title);
+  assert.notEqual(renewed.version, frame.version);
+  assert.deepEqual(
+    await restarted.dismissAttention({
+      scope: "item",
+      id: frame.id,
+      version: frame.version,
+    }),
+    { result: "stale", count: 0 },
+  );
+  await restarted.handleOmpAttention(original);
+  assert.equal(restarted.snapshot().view.now?.title, replacement.title);
+});
+
+test("new provider failures reappear after dismissing an earlier occurrence and restarting", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-provider-recurrence-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const options = { stateDir: root, now: () => Date.parse(occurredAt) };
+  const mappedFailure = (timestamp: string) =>
+    mapOmpDirectAttentionEvents(
+      { type: "credential_disabled", provider: "opencode-go", disabledCause: "expired" },
+      { sessionId, now: () => timestamp },
+    )[0]!;
+  const original = mappedFailure(occurredAt);
+  const { engine } = await OmpWorkerEngine.restore(options);
+  await engine.handleOmpAttention(original);
+  const frame = engine.snapshot().view.now!;
+  assert.deepEqual(
+    await engine.dismissAttention({ scope: "item", id: frame.id, version: frame.version }),
+    { result: "dismissed", count: 1 },
+  );
+  const restored = (await OmpWorkerEngine.restore(options)).engine;
+  await restored.handleOmpAttention(original);
+  assert.equal(restored.snapshot().view.now, null);
+  const next = mappedFailure("2026-09-01T16:01:00.000Z");
+  await restored.handleOmpAttention(next);
+  assert.equal(restored.snapshot().view.now?.timing.updatedAt, next.occurredAt);
+});
+
+test("clear all rejects unseen arrivals and clears projection overflow atomically", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-clear-all-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let failStorage = false;
+  const { engine } = await OmpWorkerEngine.restore({
+    stateDir: root,
+    now: () => Date.parse(occurredAt),
+    saveDirectState: async (_root, state) => {
+      if (failStorage) throw new Error("injected dismissal failure");
+      return structuredClone(state);
+    },
+  });
+  for (let index = 0; index < 40; index += 1) {
+    await engine.handleOmpAttention(
+      directEvent({
+        eventId: `overflow-${index}`,
+        interactionId: `overflow-${index}`,
+        title: createHash("sha256").update(`title ${index}`).digest("hex"),
+        summary: createHash("sha256").update(`summary ${index}`).digest("hex"),
+      }),
+    );
+  }
+  const before = engine.snapshot();
+  assert.equal(before.totals.now + before.totals.next, 40);
+  engine.markSnapshotPublished(before.sequence);
+  assert.ok(before.view.next.length < before.totals.next);
+  await engine.handleOmpAttention(
+    directEvent({
+      eventId: "unseen-arrival",
+      interactionId: "unseen-arrival",
+    }),
+  );
+  assert.deepEqual(
+    await engine.dismissAttention({
+      scope: "all",
+      sequence: before.sequence,
+    }),
+    { result: "stale", count: 0 },
+  );
+  const current = engine.snapshot();
+  engine.markSnapshotPublished(current.sequence);
+  failStorage = true;
+  await assert.rejects(
+    () =>
+      engine.dismissAttention({
+        scope: "all",
+        sequence: current.sequence,
+      }),
+    /injected dismissal failure/,
+  );
+  const unchanged = engine.snapshot();
+  assert.deepEqual(unchanged.view, current.view);
+  assert.deepEqual(unchanged.totals, current.totals);
+  failStorage = false;
+  engine.markSnapshotPublished(unchanged.sequence);
+  assert.deepEqual(
+    await engine.dismissAttention({
+      scope: "all",
+      sequence: unchanged.sequence,
+    }),
+    { result: "dismissed", count: 41 },
+  );
+  const empty = engine.snapshot();
+  engine.markSnapshotPublished(empty.sequence);
+  assert.equal(empty.totals.now + empty.totals.next, 0);
+  assert.deepEqual(
+    await engine.dismissAttention({
+      scope: "all",
+      sequence: empty.sequence,
+    }),
+    { result: "dismissed", count: 0 },
+  );
+});
+
+test("clear all does not replay older coalesced attention after removing its representative", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "aperture-omp-clear-coalesced-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const options = { stateDir: root, now: () => Date.parse(occurredAt) };
+  const { engine } = await OmpWorkerEngine.restore(options);
+  for (let index = 0; index < 8; index += 1) {
+    await engine.handleOmpAttention(
+      directEvent({
+        eventId: `coalesced-${index}`,
+        interactionId: `coalesced-${index}`,
+      }),
+    );
+  }
+  const snapshot = engine.snapshot();
+  assert.ok(snapshot.totals.now + snapshot.totals.next < 8);
+  engine.markSnapshotPublished(snapshot.sequence);
+  assert.deepEqual(await engine.dismissAttention({ scope: "all", sequence: snapshot.sequence }), {
+    result: "dismissed",
+    count: 8,
+  });
+  assert.equal(engine.snapshot().totals.now, 0);
+  const restored = (await OmpWorkerEngine.restore(options)).engine.snapshot();
+  assert.equal(restored.totals.now + restored.totals.next, 0);
+});
+
+test("attention dismissal parser rejects imprecise and cross-scope control targets", () => {
+  const control = {
+    type: "attention.dismiss",
+    requestId: "clear",
+    target: {
+      scope: "item",
+      id: "frame:1",
+      version: 1,
+    },
+  };
+  assert.deepEqual(parseOmpWorkerInput(JSON.stringify(control)), control);
+  for (const target of [
+    { scope: "item", id: "frame:1", version: Number.MAX_SAFE_INTEGER + 1 },
+    { scope: "item", id: "frame:1", version: 1.5 },
+    { scope: "item", id: "frame:1", version: 1, sequence: 2 },
+    { scope: "all", sequence: -1 },
+    { scope: "all", sequence: 1, id: "frame:1" },
+  ]) {
+    assert.throws(() => parseOmpWorkerInput(JSON.stringify({ ...control, target })));
+  }
 });
 
 test("heartbeats alone cannot retain restored sessions past reconnect grace", async () => {

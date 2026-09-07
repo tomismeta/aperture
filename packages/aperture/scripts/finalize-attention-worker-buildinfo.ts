@@ -275,7 +275,8 @@ const directReports = await Promise.all(
       report.socket.socketMode !== "0600" ||
       report.socket.removedOnShutdown !== true ||
       !Array.isArray(report.checks) ||
-      !report.checks.includes("private-output-v4-omp-only-handshake")
+      !report.checks.includes("private-output-v5-omp-only-handshake") ||
+      !report.checks.includes("persistent-dismissal-retry-fence-and-new-revision")
     ) {
       throw new Error(`invalid direct OMP compatibility report: ${absolutePath}`);
     }

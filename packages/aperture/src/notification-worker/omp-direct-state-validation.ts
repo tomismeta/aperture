@@ -41,7 +41,7 @@ function assertOmpDirectEntry(value: unknown): void {
 
 function assertOmpDirectTombstone(value: unknown): void {
   const tombstone = asRecord(value, "OMP direct tombstone");
-  if (tombstone.kind === "interaction") {
+  if (tombstone.kind === "interaction" || tombstone.kind === "dismissal") {
     assertExactKeys(
       tombstone,
       ["kind", "key", "eventId", "occurredAt"],

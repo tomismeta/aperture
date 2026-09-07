@@ -152,6 +152,8 @@ export type OmpMappingContext = {
 
 export type OmpExtensionContext = {
   cwd?: string;
+  /** Selected model snapshot; response messages own completion attribution. */
+  model?: { id: string; provider?: string };
   sessionManager?: unknown;
   ui?: {
     notify?: (message: string, type?: "info" | "warning" | "error") => void;

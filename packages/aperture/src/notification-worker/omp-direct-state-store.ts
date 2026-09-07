@@ -42,6 +42,12 @@ export type PersistedOmpDirectTombstone =
       occurredAt: string;
     }
   | {
+      kind: "dismissal";
+      key: string;
+      eventId: string;
+      occurredAt: string;
+    }
+  | {
       kind: "session";
       sessionId: string;
       eventId: string;

@@ -20,6 +20,10 @@ import {
   type PersistedOmpDirectEntry,
 } from "./omp-direct-state-store.js";
 import type { ProjectedOmpSessionPresentation } from "./omp-session-presentation.js";
+import type {
+  OmpAttentionDismissResult,
+  OmpAttentionDismissTarget,
+} from "./omp-worker-protocol.js";
 
 const OMP_SURFACE_CAPABILITIES: AttentionSurfaceCapabilities = {
   topology: { supportsAmbient: true },
@@ -55,7 +59,10 @@ export class OmpWorkerEngine {
   private readonly displayTitleByTaskId = new Map<string, string>();
   private readonly presentationByTaskId = new Map<string, ProjectedOmpSessionPresentation>();
   private readonly navigationByTaskId = new Map<string, NotificationWorkerNavigation>();
+  private readonly revisionByTaskId = new Map<string, number>();
   private sequence = 0;
+  private publishedSequence = 0;
+  private attentionRevision = 0;
 
   private constructor(options: OmpWorkerEngineOptions) {
     this.stateDir = options.stateDir;
@@ -143,18 +150,90 @@ export class OmpWorkerEngine {
 
   snapshot(): NotificationWorkerSnapshot {
     this.sequence += 1;
+    const attentionView = projectOmpPresentation(
+      this.core.getAttentionView(),
+      this.displayTitleByTaskId,
+      this.presentationByTaskId,
+    );
+    for (const frame of [
+      ...(attentionView.now ? [attentionView.now] : []),
+      ...attentionView.next,
+      ...attentionView.ambient,
+    ]) {
+      frame.version = this.revisionByTaskId.get(frame.taskId) ?? frame.version;
+    }
     return projectOmpWorkerSnapshot(
       {
         sources: [...OMP_SOURCES],
-        attentionView: projectOmpPresentation(
-          this.core.getAttentionView(),
-          this.displayTitleByTaskId,
-          this.presentationByTaskId,
-        ),
+        attentionView,
         navigationByTaskId: this.navigationByTaskId,
       },
       this.sequence,
     );
+  }
+
+  attentionStateRevision(): number {
+    return this.attentionRevision;
+  }
+
+  markSnapshotPublished(sequence: number): void {
+    if (sequence === this.sequence) this.publishedSequence = sequence;
+  }
+
+  async dismissAttention(
+    target: OmpAttentionDismissTarget,
+    signal?: AbortSignal,
+  ): Promise<OmpAttentionDismissResult> {
+    signal?.throwIfAborted();
+    const view = this.core.getAttentionView();
+    let taskIds: Set<string>;
+    if (target.scope === "all") {
+      if (target.sequence !== this.publishedSequence || this.publishedSequence === 0) {
+        return { result: "stale", count: 0 };
+      }
+      // Retain quiet ambient work, but include coalesced pending entries: replaying
+      // only their surviving representative would otherwise resurrect old attention.
+      const ambient = new Set(view.ambient.map((frame) => frame.taskId));
+      taskIds = new Set(
+        this.directState.active
+          .filter((entry) => {
+            const task = this.core.getTaskView(entry.taskId);
+            return (
+              !ambient.has(entry.taskId) &&
+              !(task.ambient.length > 0 && !task.now && task.next.length === 0)
+            );
+          })
+          .map((entry) => entry.taskId),
+      );
+    } else {
+      const snapshot = this.snapshot();
+      const frame = [...(snapshot.view.now ? [snapshot.view.now] : []), ...snapshot.view.next].find(
+        (candidate) => candidate.id === target.id && candidate.version === target.version,
+      );
+      if (!frame) return { result: "stale", count: 0 };
+      taskIds = new Set([frame.taskId]);
+    }
+    if (taskIds.size === 0) return { result: "dismissed", count: 0 };
+    const candidate = structuredClone(this.directState);
+    const causality = new OmpDirectCausalityIndex();
+    causality.rebuild(candidate.tombstones);
+    const navigation = new Map(this.navigationByTaskId);
+    let count = 0;
+    candidate.active = candidate.active.filter((entry) => {
+      if (!taskIds.has(entry.taskId)) return true;
+      const revision = latestOmpDirectRevision(entry);
+      causality.remember(candidate, {
+        kind: "dismissal",
+        key: entry.key,
+        eventId: revision.sourceEvent.id,
+        occurredAt: revision.occurredAt,
+      });
+      navigation.delete(entry.taskId);
+      count += 1;
+      return false;
+    });
+    await this.persistDirect(candidate, navigation, signal);
+    return { result: "dismissed", count };
   }
 
   async handleOmpAttention(
@@ -229,6 +308,7 @@ export class OmpWorkerEngine {
     this.displayTitleByTaskId.clear();
     this.presentationByTaskId.clear();
     this.navigationByTaskId.clear();
+    this.revisionByTaskId.clear();
     const replay = this.directState.active
       .flatMap((entry) =>
         entry.revisions.map((revision, index) => ({
@@ -239,6 +319,15 @@ export class OmpWorkerEngine {
             this.directByKey.set(entry.key, entry);
             this.displayTitleByTaskId.set(entry.taskId, revision.displayTitle);
             this.presentationByTaskId.set(entry.taskId, revision.presentation);
+            // A replay/prune can reset core counters. Fingerprint the durable revision
+            // so a previously displayed id/version never targets its replacement.
+            this.revisionByTaskId.set(
+              entry.taskId,
+              Number.parseInt(
+                createHash("sha256").update(JSON.stringify(revision)).digest("hex").slice(0, 13),
+                16,
+              ),
+            );
             const retainedNavigation = volatileNavigation.get(entry.taskId);
             if (retainedNavigation) this.navigationByTaskId.set(entry.taskId, retainedNavigation);
           },
@@ -259,6 +348,8 @@ export class OmpWorkerEngine {
   ): Promise<void> {
     this.directState = await this.saveDirectState(this.stateDir, candidate, this.now(), signal);
     this.replayState(navigation);
+    this.publishedSequence = 0;
+    this.attentionRevision += 1;
   }
 
   private setDirectNavigation(

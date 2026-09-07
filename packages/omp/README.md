@@ -26,6 +26,15 @@ facts still retry the same event ID. Direct callers of
 the bound extensions provide it automatically. The extension never includes prompt transcripts,
 tool results, credentials, private paths, or executable notification actions.
 
+The binding captures optional session display metadata without changing event
+identity or Core judgment. OMP's `getSessionName()` supplies the human session
+label (when present); context-provided labels remain a fallback. Model,
+repository, branch, and worktree facets are bounded and privacy-checked before
+projection. Checkout discovery runs at session/agent lifecycle boundaries and
+is cached across tool callbacks; missing Git/model information simply omits
+that facet. Repository/worktree values are display basenames, never private
+absolute paths. The worker projects these facts after Core chooses the lane.
+
 When the Aperture worker owns
 `$XDG_RUNTIME_DIR/omarchy/aperture/attention.sock`, the Omarchy extension sends
 bounded typed OMP attention facts over that same-user Unix socket. The worker
@@ -51,7 +60,7 @@ Replay event IDs include that token, remain stable across transient retries in
 the episode, and change after re-registration even when the worker generation
 is unchanged.
 
-Only private OMP-worker v4 frames may expose a bounded opaque focus capability:
+Only private OMP-worker v5 frames may expose a bounded opaque focus capability:
 
 ```json
 { "navigation": { "kind": "opaque-focus", "handle": "<32-character opaque handle>" } }
@@ -66,7 +75,7 @@ compositor, tmux option, and toplevel address facts are volatile worker-private
 state and are never projected or persisted.
 When a registered focus capability expires, navigation is removed immediately.
 Unread completions remain until successful activation, explicit completion
-resolution, or independent session-liveness expiry; focus loss does not imply
+resolution, private attention dismissal, or independent session-liveness expiry; focus loss does not imply
 that a result was consumed. A fresh accepted attention delivery can restore
 navigation with a valid capability. A stale Herdr recovery claim cannot revoke
 other panes while their shared socket and exact marked surface remain healthy.
@@ -76,6 +85,16 @@ The focus backends are deliberately limited to Herdr, direct Foot, and tmux.
 Kitty, WezTerm, Zellij, Ghostty, Alacritty, and generic terminal contexts are
 unsupported and remain non-navigable; there are no heuristic probes or aliases.
 
+The private worker advertises `attentionDismissal: true`. Its JSONL
+`attention.dismiss` control clears an exact accepted frame revision or a
+sequence-guarded NOW/NEXT set (including overflow), never AMBIENT. This is
+worker-owned attention state only: no approval, answer, cancellation, or
+synthetic OMP resolution is sent to the agent. Durable bounded tombstones
+prevent retained cleared revisions from reappearing on retries or worker
+restart; genuinely newer attention can reappear. The correlated
+`attention.result` reports `dismissed`, `stale`, or `failed` plus a count.
+The OMP event and private worker-direct protocols independently remain v4.
+
 When `omarchy-notification-send` is executable, the Omarchy extension disables
 OMP's built-in notifications process-locally to avoid duplicates. It restores
 the prior setting and disables adapter delivery for the rest of the session only
@@ -83,7 +102,7 @@ after a terminal delivery failure; acceptance-unknown retries do not disable
 delivery. Shutdown also restores the prior setting. If the sender is
 unavailable, built-in notifications remain enabled.
 
-The staged private OMP manifest is version `0.1.1`, independently from the
+The staged private OMP manifest is version `0.2.0`, independently from the
 Aperture product package version.
 
 BUILDINFO schema v2 records that version only at

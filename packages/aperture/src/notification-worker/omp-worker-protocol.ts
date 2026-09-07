@@ -1,7 +1,7 @@
 import { serializeAsciiJsonLine } from "../ascii-jsonl.js";
 import type { NotificationWorkerSnapshot } from "./protocol.js";
 
-export const OMP_WORKER_OUTPUT_PROTOCOL_VERSION = 4;
+export const OMP_WORKER_OUTPUT_PROTOCOL_VERSION = 5;
 export const OMP_WORKER_LIMITS = {
   inputLineBytes: 64 * 1024,
   outputLineBytes: 256 * 1024,
@@ -11,8 +11,18 @@ export const OMP_WORKER_LIMITS = {
   focusHandleCharacters: 32,
 } as const;
 
+export type OmpAttentionDismissTarget =
+  | { scope: "item"; id: string; version: number }
+  | { scope: "all"; sequence: number };
+
+export type OmpAttentionDismissResult = {
+  result: "dismissed" | "stale" | "failed";
+  count: number;
+};
+
 export type OmpWorkerInput =
   | { type: "focus.activate"; requestId: string; handle: string }
+  | { type: "attention.dismiss"; requestId: string; target: OmpAttentionDismissTarget }
   | { type: "shutdown" };
 
 export type OmpWorkerOutput =
@@ -27,11 +37,13 @@ export type OmpWorkerOutput =
         snapshots: true;
         responses: false;
         focusActivation: true;
+        attentionDismissal: true;
       };
     }
   | { type: "engine"; state: "restoring" | "ready"; acceptedSources: 1 }
   | NotificationWorkerSnapshot
   | { type: "focus.result"; requestId: string; result: "focused" | "stale" | "missing" }
+  | ({ type: "attention.result"; requestId: string } & OmpAttentionDismissResult)
   | { type: "error"; code: string; message: string; recoverable: boolean };
 
 export class OmpWorkerProtocolError extends Error {
@@ -55,6 +67,7 @@ export function ompWorkerHello(
       snapshots: true,
       responses: false,
       focusActivation: true,
+      attentionDismissal: true,
     },
   };
 }
@@ -78,6 +91,40 @@ export function parseOmpWorkerInput(line: string): OmpWorkerInput {
       throw new OmpWorkerProtocolError("shutdown input fields are invalid");
     }
     return { type: "shutdown" };
+  }
+  if (record.type === "attention.dismiss" && Object.keys(record).length === 3) {
+    const requestId = requiredText(
+      record.requestId,
+      OMP_WORKER_LIMITS.requestIdCharacters,
+      "attention dismissal request id",
+    );
+    const target = record.target;
+    if (!target || typeof target !== "object" || Array.isArray(target)) {
+      throw new OmpWorkerProtocolError("attention dismissal target is invalid");
+    }
+    const fields = target as Record<string, unknown>;
+    if (fields.scope === "item" && Object.keys(fields).length === 3) {
+      return {
+        type: "attention.dismiss",
+        requestId,
+        target: {
+          scope: "item",
+          id: requiredText(fields.id, 160, "attention frame id"),
+          version: requiredInteger(fields.version, "attention frame version"),
+        },
+      };
+    }
+    if (fields.scope === "all" && Object.keys(fields).length === 2) {
+      return {
+        type: "attention.dismiss",
+        requestId,
+        target: {
+          scope: "all",
+          sequence: requiredInteger(fields.sequence, "attention snapshot sequence"),
+        },
+      };
+    }
+    throw new OmpWorkerProtocolError("attention dismissal target fields are invalid");
   }
   if (record.type !== "focus.activate" || Object.keys(record).length !== 3) {
     throw new OmpWorkerProtocolError("OMP worker input type is unsupported");
@@ -114,6 +161,13 @@ function requiredText(value: unknown, maximum: number, label: string): string {
     /[\u0000-\u001f\u007f]/.test(value) ||
     Array.from(value).length > maximum
   ) {
+    throw new OmpWorkerProtocolError(`${label} is invalid`);
+  }
+  return value;
+}
+
+function requiredInteger(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
     throw new OmpWorkerProtocolError(`${label} is invalid`);
   }
   return value;

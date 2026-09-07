@@ -231,23 +231,14 @@ function completionInteractionId(sessionId: string, agentRunId: string, turnId: 
 }
 
 function sourceEventIdentity(facts: DirectEventFacts): string {
-  // A provider identifies a recurring failure stream, not one causal interaction.
-  // Capture each occurrence once; direct transport retries retain these facts.
-  if (facts.classification === "provider_failure") {
-    return JSON.stringify([
-      "occurrence",
-      facts.sessionId,
-      facts.interactionId,
-      facts.classification,
-      facts.occurredAt,
-    ]);
-  }
   const causalIdentity =
     facts.interactionId !== undefined
       ? ["interaction", facts.sessionId, facts.interactionId, facts.classification]
       : facts.turnId !== undefined
         ? ["turn", facts.sessionId, facts.turnId, facts.classification]
         : ["occurrence", facts.sessionId, facts.classification, facts.occurredAt];
+  // Provider keys recur; retries retain the captured occurrence timestamp.
+  if (facts.classification === "provider_failure") causalIdentity.push(facts.occurredAt);
   return JSON.stringify(causalIdentity);
 }
 

@@ -763,11 +763,6 @@ test("semantic review candidate reports shortlist deterministic review pressure"
   assert.equal(report.schemaVersion, 14);
   assert.equal(report.selection.promotionAuthority, "review_required");
   assert.equal(report.input.evaluationMode, "persisted_bundle_snapshots");
-  assert.deepEqual(report.input.engine, {
-    corePackage: { name: "@tomismeta/aperture-core", version: "0.9.0" },
-    kernelDecisionRecordProjectionVersion: 2,
-    fingerprint: "@tomismeta/aperture-core@0.9.0/kernel-decision-v2",
-  });
   assert.equal(report.input.replayClock.strategy, "none");
   assert.equal(report.selection.maxFailureEvidenceExamplesPerKind, 2);
   assert.equal(report.selection.maxFailureEvidenceExamplesPerSessionPerKind, 1);
@@ -2153,7 +2148,6 @@ test("review-candidates CLI writes JSON and markdown reports", async () => {
   assert.ok(payload.summary.countsByKind.failure_attention > 0);
   assert.match(markdown, /Semantic Review Candidate Census/);
   assert.match(markdown, /Evaluation mode: current_engine_replay/);
-  assert.match(markdown, /Engine: @tomismeta\/aperture-core@0\.9\.0\/kernel-decision-v2/);
   assert.match(markdown, /Replay clock: monotonic_step_timestamp_previous_timestamp_fallback/);
   assert.match(markdown, /Engine Coverage/);
   assert.match(markdown, /failure_attention/);

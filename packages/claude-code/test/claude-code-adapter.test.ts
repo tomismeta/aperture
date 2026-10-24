@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { ApertureCore } from "@tomismeta/aperture-core";
 
 import {
-  bashConsequence,
   classifyToolRisk,
   mapClaudeCodeAskUserQuestionResponse,
   mapClaudeCodeFrameResponse,
@@ -60,7 +60,7 @@ test("maps PreToolUse Bash hooks into approval events", () => {
     assert.equal(mapped[0].request.kind, "approval");
     assert.equal(mapped[0].title, "Claude Code wants to run a shell command");
     assert.equal(mapped[0].summary, "git push origin main");
-    assert.equal(mapped[0].riskHint, "medium");
+    assert.equal(mapped[0].riskHint, undefined);
     assert.deepEqual(mapped[0].semanticHints, {
       intentFrame: "approval_request",
       activityClass: "permission_request",
@@ -247,9 +247,71 @@ test("formats source-native context labels into Aperture-style field labels", ()
   }
 });
 
-test("marks destructive Bash commands as high consequence", () => {
-  assert.equal(bashConsequence("rm -rf ./dist"), "high");
-  assert.equal(bashConsequence("git push origin main"), "medium");
+test("core infers ordinary and destructive command risk for both Claude approval hooks", () => {
+  for (const hook of ["PreToolUse", "PermissionRequest"] as const) {
+    for (const [command, consequence] of [
+      ["git push origin main", "medium"],
+      ["rm -rf ./dist", "high"],
+      ["rm -fr ./dist", "high"],
+      ["rm --recursive --force ./dist", "high"],
+      ["git push -f origin main", "high"],
+      ["git reset --hard HEAD", "high"],
+      ["docker rm container", "high"],
+      ["kill -9 1234", "high"],
+      ["chmod 777 ./config", "high"],
+      ["sqlite3 data.db 'DROP TABLE users'", "high"],
+    ] as const) {
+      const event = {
+        session_id: "session-risk",
+        cwd: "/repo",
+        hook_event_name: hook,
+        tool_name: "Bash",
+        tool_use_id: "tool-risk",
+        tool_input: { command },
+      };
+      const mapped = mapClaudeCodeHookEvent(event);
+      assert.equal(mapped[0]?.type, "human.input.requested");
+      if (mapped[0]?.type !== "human.input.requested") throw new Error("Expected approval");
+      assert.equal(mapped[0].toolFamily, "bash");
+      assert.equal(mapped[0].summary, command);
+      const core = new ApertureCore();
+      for (const sourceEvent of mapped) {
+        assert.equal(core.publishSourceEvent(sourceEvent)?.consequence, consequence, `${hook}: ${command}`);
+      }
+    }
+  }
+});
+
+test("Claude command policy overrides remain explicit source risk floors", () => {
+  const event: ClaudeCodePreToolUseEvent = {
+    session_id: "session-policy",
+    cwd: "/repo",
+    hook_event_name: "PreToolUse",
+    tool_name: "Bash",
+    tool_use_id: "tool-policy",
+    tool_input: { command: "pwd" },
+  };
+  for (const hook_event_name of ["PreToolUse", "PermissionRequest"] as const) {
+    const mapped = mapClaudeCodeHookEvent({ ...event, hook_event_name }, {
+      classifyCommand: () => "high",
+    });
+    assert.equal(mapped[0]?.type, "human.input.requested");
+    if (mapped[0]?.type !== "human.input.requested") throw new Error("Expected approval");
+    assert.equal(mapped[0].riskHint, "high");
+    const core = new ApertureCore();
+    assert.equal(core.publishSourceEvent(mapped[0])?.consequence, "high");
+    const destructive = mapClaudeCodeHookEvent({
+      ...event,
+      hook_event_name,
+      tool_input: { command: "git push -f origin main" },
+    }, {
+      classifyCommand: () => "low",
+    });
+    assert.equal(destructive[0]?.type, "human.input.requested");
+    if (destructive[0]?.type !== "human.input.requested") throw new Error("Expected approval");
+    assert.equal(destructive[0].riskHint, "low");
+    assert.equal(new ApertureCore().publishSourceEvent(destructive[0])?.consequence, "high");
+  }
 });
 
 test("accepts all tools by default", () => {
@@ -559,7 +621,7 @@ test("maps PermissionRequest hooks into approval events", () => {
     assert.equal(mapped[0].request.kind, "approval");
     assert.equal(mapped[0].title, "Claude Code wants permission to run a shell command");
     assert.equal(mapped[0].summary, "rm -rf ./dist");
-    assert.equal(mapped[0].riskHint, "high");
+    assert.equal(mapped[0].riskHint, undefined);
     assert.equal(mapped[0].provenance?.whyNow, "Clear the build output before packaging.");
     assert.deepEqual(mapped[0].context?.items?.at(-1), {
       id: "nativeSuggestions",

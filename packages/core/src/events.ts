@@ -99,6 +99,7 @@ type EventBase = {
   taskId: string;
   timestamp: string;
   source?: SourceRef;
+  /** Structured-cloneable data; non-cloneable values reject before state mutation. */
   metadata?: Record<string, unknown>;
   semantic?: SemanticInterpretation;
 };

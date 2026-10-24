@@ -1,5 +1,5 @@
 import type { AttentionResponse, AttentionView } from "@tomismeta/aperture-core";
-import type { ApertureTrace } from "@tomismeta/aperture-core/internal";
+import type { ApertureTrace } from "@tomismeta/aperture-core/trace";
 
 import type { ApertureRuntimeEvent, ApertureRuntimeSnapshot } from "./runtime-contract.js";
 

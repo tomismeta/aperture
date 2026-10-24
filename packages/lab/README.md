@@ -2,8 +2,8 @@
 
 Replay, scorecard, benchmark, and calibration scaffolding for Aperture.
 
-This is the secondary research and evaluation surface, not the primary product
-surface.
+This is a private workspace research and evaluation package, not the primary
+product surface or a separate npm release.
 
 This package is the first implementation surface behind **Aperture Lab**.
 
@@ -27,7 +27,6 @@ Normal operator commands:
 
 Lower-level debugging commands:
 
-- `pnpm lab:fstop:runner --provider <provider>`
 - `pnpm lab:fstop:review ...`
 - `pnpm lab:fstop:reviewer --provider <provider>`
 - `pnpm lab:fstop:propose ...`
@@ -115,7 +114,7 @@ The first semantic-robustness tranche now covers:
 
 - dangerous approval wording without an explicit `riskHint`
 - read-like approval wording that should stay low consequence
-- adapter semantic overrides
+- adapter semantic hints with explicit source risk floors preserved
 - implied asks buried in status text
 - dramatic status wording that should remain passive
 - relation semantics for recurring and resolving issue wording
@@ -247,8 +246,8 @@ so raw imports have one stable intermediate shape before replay.
 
 The standard input file for F-Stop is a canonical F-Stop Session JSON:
 
-- [docs/lab/fstop-session-format.md](/Users/tom/dev/aperture/docs/lab/fstop-session-format.md)
-- [docs/lab/fstop-cheat-sheet.md](/Users/tom/dev/aperture/docs/lab/fstop-cheat-sheet.md)
+- [docs/lab/fstop-session-format.md](../../docs/lab/fstop-session-format.md)
+- [docs/lab/fstop-cheat-sheet.md](../../docs/lab/fstop-cheat-sheet.md)
 
 That file can be handed directly to:
 
@@ -547,12 +546,6 @@ The stable optimizer adapter is:
 pnpm lab:fstop:optimizer --provider <provider>
 ```
 
-The stable runner adapter is:
-
-```bash
-pnpm lab:fstop:runner --provider <provider>
-```
-
 For the shortest default VPS commands, use:
 
 ```bash
@@ -606,8 +599,10 @@ The current source-of-truth stack is:
 
 - [Docs Home](../../docs/README.md)
 - [Engine Status Pillars](../../docs/engine/engine-status-pillars.md)
-- [Core Engine Audit (2026-03)](../../docs/engine/core-engine-audit-2026-03.md)
 - [Roadmaps Index](../../docs/roadmap/README.md)
+
+For historical context, see the
+[March 2026 Core audit](../../docs/engine/core-engine-audit-2026-03.md).
 
 For the broader lab architecture and naming ontology, see
 [Aperture Lab](../../docs/lab/aperture-lab.md).

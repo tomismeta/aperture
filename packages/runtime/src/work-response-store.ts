@@ -20,6 +20,7 @@ type WorkResponseStoreOptions = {
   pendingTtlMs: number;
   retentionMs: number;
   timeSource?: () => number;
+  onExpire?: (taskId: string, interactionId: string) => void;
 };
 
 const WORK_RESPONSE_STORE_SCHEMA_VERSION = 1 as const;
@@ -87,7 +88,9 @@ export class WorkResponseStore {
   private readonly pendingTtlMs: number;
   private readonly retentionMs: number;
   private readonly timeSource: () => number;
+  private readonly onExpire: WorkResponseStoreOptions["onExpire"];
   private readonly records = new Map<string, RuntimeWorkResponseRecord>();
+  private submittingRecord: RuntimeWorkResponseRecord | null = null;
   private persistChain: Promise<void> = Promise.resolve();
   private persistError: Error | null = null;
   private lastPersistedAt: string | null = null;
@@ -99,6 +102,7 @@ export class WorkResponseStore {
     this.pendingTtlMs = options.pendingTtlMs;
     this.retentionMs = options.retentionMs;
     this.timeSource = options.timeSource ?? Date.now;
+    this.onExpire = options.onExpire;
   }
 
   static async open(options: WorkResponseStoreOptions): Promise<WorkResponseStore> {
@@ -122,24 +126,97 @@ export class WorkResponseStore {
     return this.retentionMs;
   }
 
+  reservePending(interactionIds: string[]): boolean {
+    this.prune();
+    const requested = new Set(interactionIds);
+    let pending = requested.size;
+    let additions = 0;
+    for (const record of this.records.values()) {
+      if (record.state === "pending" && !requested.has(record.interactionId)) {
+        pending += 1;
+      }
+    }
+    if (pending > this.maxEntries) {
+      return false;
+    }
+    for (const interactionId of requested) {
+      if (!this.records.has(interactionId)) {
+        additions += 1;
+      }
+    }
+    const overflow = this.records.size + additions - this.maxEntries;
+    if (overflow > 0) {
+      const evicted = [...this.records.values()]
+        .filter((record) => record.state !== "pending" && !requested.has(record.interactionId))
+        .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt))
+        .slice(0, overflow);
+      for (const record of evicted) {
+        this.records.delete(record.interactionId);
+      }
+      this.persist();
+    }
+    return true;
+  }
+
   registerPending(
     taskId: string,
     interactionId: string,
     nowIso = this.nowIso(),
   ): RuntimeWorkResponseRecord {
+    if (!this.reservePending([interactionId])) {
+      throw new Error("Work response capacity is full of pending interactions.");
+    }
     const current = this.records.get(interactionId);
     const record: RuntimeWorkResponseRecord = {
       taskId,
       interactionId,
-      state: "pending",
       createdAt: current?.createdAt ?? nowIso,
       updatedAt: nowIso,
       expiresAt: new Date(Date.parse(nowIso) + this.pendingTtlMs).toISOString(),
+      ...(this.pendingTtlMs <= 0
+        ? {
+            state: "expired",
+            retentionExpiresAt: new Date(Date.parse(nowIso) + this.retentionMs).toISOString(),
+          }
+        : { state: "pending" }),
     };
     this.records.set(interactionId, record);
+    if (record.state === "expired") {
+      this.onExpire?.(taskId, interactionId);
+    }
     this.prune();
     this.persist();
-    return record;
+    return this.records.get(interactionId) ?? record;
+  }
+
+  limitExpiry(taskId: string, interactionId: string, expiresAt = this.nowIso()): void {
+    const current = this.records.get(interactionId);
+    if (
+      !current ||
+      current.taskId !== taskId ||
+      current.state !== "pending" ||
+      !(Date.parse(expiresAt) < Date.parse(current.expiresAt))
+    ) {
+      return;
+    }
+    this.records.set(interactionId, { ...current, expiresAt });
+    this.prune();
+    this.persist();
+  }
+
+  withResponseSubmission(
+    response: AttentionResponse,
+    submit: (record: RuntimeWorkResponseRecord | null) => void,
+  ): void {
+    const record = this.get(response.interactionId);
+    const previousSubmission = this.submittingRecord;
+    this.submittingRecord = record?.taskId === response.taskId ? record : null;
+    try {
+      submit(this.submittingRecord);
+    } finally {
+      this.submittingRecord = previousSubmission;
+      this.prune();
+    }
   }
 
   recordAnswered(
@@ -147,8 +224,12 @@ export class WorkResponseStore {
     nowIso = this.nowIso(),
   ): RuntimeWorkResponseRecord | null {
     const current = this.records.get(response.interactionId);
-    if (!current) {
+    if (!current || current.taskId !== response.taskId) {
       return null;
+    }
+    if (current.state !== "pending") {
+      this.prune(nowIso);
+      return this.records.get(response.interactionId) ?? null;
     }
     const record: RuntimeWorkResponseRecord = {
       taskId: response.taskId,
@@ -167,17 +248,16 @@ export class WorkResponseStore {
   }
 
   cancel(interactionId: string, nowIso = this.nowIso()): RuntimeWorkResponseRecord | null {
+    this.prune(nowIso);
     const current = this.records.get(interactionId);
     if (!current) {
       return null;
     }
-    if (current.state === "answered") {
+    if (current.state !== "pending") {
       return current;
     }
-    const withoutExpiry =
-      current.state === "pending" || current.state === "expired" ? omitExpiresAt(current) : current;
     const record: RuntimeWorkResponseRecord = {
-      ...withoutExpiry,
+      ...omitExpiresAt(current),
       state: "cancelled",
       updatedAt: nowIso,
       cancelledAt: nowIso,
@@ -229,9 +309,12 @@ export class WorkResponseStore {
 
   prune(nowIso = this.nowIso()): void {
     const nowMs = Date.parse(nowIso);
+    let changed = false;
 
     for (const [interactionId, record] of this.records.entries()) {
-      if (record.state === "pending" && record.expiresAt) {
+      // Admission is checked once before synchronous core submission. Listener
+      // work must not expire a response that core has already accepted.
+      if (record.state === "pending" && record !== this.submittingRecord && record.expiresAt) {
         const expiresAtMs = Date.parse(record.expiresAt);
         if (!Number.isNaN(expiresAtMs) && expiresAtMs <= nowMs) {
           this.records.set(interactionId, {
@@ -240,6 +323,8 @@ export class WorkResponseStore {
             updatedAt: nowIso,
             retentionExpiresAt: new Date(nowMs + this.retentionMs).toISOString(),
           });
+          changed = true;
+          this.onExpire?.(record.taskId, record.interactionId);
         }
       }
     }
@@ -251,20 +336,24 @@ export class WorkResponseStore {
       const retentionMs = Date.parse(record.retentionExpiresAt);
       if (!Number.isNaN(retentionMs) && retentionMs <= nowMs) {
         this.records.delete(interactionId);
+        changed = true;
       }
     }
 
-    if (this.records.size <= this.maxEntries) {
-      return;
+    if (this.records.size > this.maxEntries) {
+      const overflow = this.records.size - this.maxEntries;
+      const oldest = [...this.records.values()]
+        .filter((record) => record.state !== "pending")
+        .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt))
+        .slice(0, overflow);
+
+      for (const record of oldest) {
+        this.records.delete(record.interactionId);
+      }
+      changed = oldest.length > 0 || changed;
     }
-
-    const overflow = this.records.size - this.maxEntries;
-    const oldest = [...this.records.values()]
-      .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt))
-      .slice(0, overflow);
-
-    for (const record of oldest) {
-      this.records.delete(record.interactionId);
+    if (changed) {
+      this.persist();
     }
   }
 
@@ -320,7 +409,9 @@ export class WorkResponseStore {
   private persist(): void {
     const payload: PersistedWorkResponseStore = {
       schemaVersion: WORK_RESPONSE_STORE_SCHEMA_VERSION,
-      records: this.list(),
+      records: [...this.records.values()].sort((left, right) =>
+        left.updatedAt.localeCompare(right.updatedAt),
+      ),
     };
     this.persistChain = this.persistChain.then(async () => {
       try {

@@ -12,9 +12,9 @@ import {
   type OpencodeResponseAction,
 } from "./mapping-shared.js";
 
-export type OpencodeNativeResolution = {
-  response: AttentionResponse;
-};
+export type OpencodeNativeResolution =
+  | { kind: "response"; response: AttentionResponse }
+  | { kind: "retraction"; taskId: string; interactionId: string };
 
 export function mapOpencodeNativeResolution(
   event: OpencodeSseMessage,
@@ -35,7 +35,11 @@ export function mapOpencodeNativeResolution(
       );
       const interactionId = opencodeInteractionId(instanceKey, "permission", requestId);
       const reply = normalizePermissionDecision(event.properties.reply);
+      if (!reply) {
+        return null;
+      }
       return {
+        kind: "response",
         response: {
           taskId,
           interactionId,
@@ -46,26 +50,7 @@ export function mapOpencodeNativeResolution(
         },
       };
     }
-    case "question.replied": {
-      const requestId =
-        readString(event.properties.requestID) ?? readString(event.properties.id);
-      if (!requestId) {
-        return null;
-      }
-      const taskId = opencodeTaskId(
-        instanceKey,
-        readString(event.properties.sessionID),
-        requestId,
-      );
-      const interactionId = opencodeInteractionId(instanceKey, "question", requestId);
-      return {
-        response: {
-          taskId,
-          interactionId,
-          response: { kind: "acknowledged" },
-        },
-      };
-    }
+    case "question.replied":
     case "question.rejected": {
       const requestId =
         readString(event.properties.requestID) ?? readString(event.properties.id);
@@ -79,11 +64,9 @@ export function mapOpencodeNativeResolution(
       );
       const interactionId = opencodeInteractionId(instanceKey, "question", requestId);
       return {
-        response: {
-          taskId,
-          interactionId,
-          response: rejectedResponse(readString(event.properties.message)),
-        },
+        kind: "retraction",
+        taskId,
+        interactionId,
       };
     }
     default:

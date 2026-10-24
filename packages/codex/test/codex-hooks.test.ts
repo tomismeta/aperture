@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { ApertureCore } from "@tomismeta/aperture-core";
 
 import {
   buildCodexHookCommand,
@@ -50,6 +51,31 @@ test("maps PreToolUse hook events into approval SourceEvents", () => {
       approvalState: "pending",
     },
   });
+});
+
+test("Codex approval hooks preserve full command evidence ahead of display descriptions", () => {
+  for (const hook_event_name of ["PreToolUse", "PermissionRequest"] as const) {
+    for (const [command, consequence] of [
+      ["git push origin main", "medium"],
+      [`printf '${"x".repeat(400)}'; git reset --hard HEAD`, "high"],
+    ] as const) {
+      const event = parseCodexHookEvent({
+        session_id: "session-risk",
+        cwd: "/repo",
+        hook_event_name,
+        turn_id: "turn-risk",
+        tool_name: "Bash",
+        tool_use_id: "tool-risk",
+        tool_input: { command, description: "Continue the task" },
+      });
+      const mapped = mapCodexHookEvent(event);
+      assert.equal(mapped[0]?.type, "human.input.requested");
+      if (mapped[0]?.type !== "human.input.requested") throw new Error("Expected approval");
+      assert.equal(mapped[0].summary, command);
+      const core = new ApertureCore();
+      assert.equal(core.publishSourceEvent(mapped[0])?.consequence, consequence);
+    }
+  }
 });
 
 test("maps apply_patch and PermissionRequest hook events into approval SourceEvents", () => {

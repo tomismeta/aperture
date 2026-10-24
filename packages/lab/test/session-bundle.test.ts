@@ -1011,14 +1011,14 @@ test("canonical attention exports convert into replay scenarios with final-state
         kind: "response",
         occurredAt: "2026-03-21T19:39:30.000Z",
         source: {
-          eventType: "acknowledge-frame",
+          eventType: "approve-frame",
           entityId: "approval:1",
           entityType: "approval",
         },
         apertureResponse: {
           taskId: "task:paperclip:approval",
           interactionId: "interaction:paperclip:approval",
-          response: { kind: "acknowledged" },
+          response: { kind: "approved" },
         },
       },
     ],
@@ -1076,14 +1076,14 @@ test("session bundles can be created from canonical attention exports", () => {
         kind: "response",
         occurredAt: "2026-03-21T19:40:30.000Z",
         source: {
-          eventType: "acknowledge-frame",
+          eventType: "approve-frame",
           entityId: "approval:1",
           entityType: "approval",
         },
         apertureResponse: {
           taskId: "task:paperclip:approval",
           interactionId: "interaction:paperclip:approval",
-          response: { kind: "acknowledged" },
+          response: { kind: "approved" },
         },
       },
     ],

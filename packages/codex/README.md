@@ -2,6 +2,9 @@
 
 The Codex adapter for Aperture.
 
+This is a private workspace package. The npm product exposes the opt-in
+experimental hook path; the App Server commands below run from this repository.
+
 It connects Codex-native integration seams into Aperture's attention engine
 without leaking Codex-specific transport or client details into
 `@tomismeta/aperture-core`.
@@ -15,6 +18,11 @@ without leaking Codex-specific transport or client details into
 - translates attention-significant Codex facts into `SourceEvent`
 - publishes those events into Aperture runtime and core
 - maps `AttentionResponse` back into Codex-native approval, user-input, and MCP elicitation replies
+
+Both command-approval protocol variants preserve the command in the canonical
+event summary as well as display context; approval reasons remain in context and
+provenance. Core applies the same generic command-risk inference used for other
+hosts. Codex-native request and response translation remains adapter-owned.
 
 ## Napkin
 

@@ -474,19 +474,19 @@ The important thing is preserving:
 
 ### `permission.replied`
 
-Map to factual state-clearing or follow-up events only when useful.
-
-For V1, it is enough to:
-
-- clear or reconcile the outstanding attention interaction
-- optionally record a source event for timeline continuity
+`mapOpencodeNativeResolution` returns `{ kind: "response", response }` with
+the actual permission decision: `once` / `always` become `approved`, and
+`reject` becomes `rejected`. The bridge submits that response and suppresses
+only its matching outbound echo. Unknown permission decisions are not approvals.
 
 ### `question.replied` / `question.rejected`
 
-Same approach:
-
-- clear or reconcile the matching interaction
-- optionally record an ambient follow-up note if useful
+`mapOpencodeNativeResolution` returns `{ kind: "retraction", taskId, interactionId }`.
+The host has already resolved the question, so the bridge calls
+`ApertureRuntimeAdapterClient.retract(taskId, interactionId)` rather than inventing
+an acknowledgment, rejection, dismissal, or answer. This removes the exact pending
+choice or form, preserves sibling interactions, and emits no human response or
+outbound OpenCode reply. Duplicate resolutions with no pending frame are harmless.
 
 ### `session.status`
 

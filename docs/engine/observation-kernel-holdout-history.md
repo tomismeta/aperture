@@ -49,17 +49,42 @@ text. This was a documentation correction, not an expected-output change.
 
 ## Subject-continuation corrective wave
 
-The active holdout now includes `holdout-release-continued-diagnostic`, which
-keeps an expected execution clause and a later asserted diagnostic without
-repeating the execution subject. The structural grammar accepts this only when
-the same evidence also establishes an execution context; a bare pronoun
-diagnostic, blocked execution, and incomplete diagnostic remain indeterminate.
-The active release fixture count is 46, with 12 typed-evidence and 34 structural-fallback
-fixtures. This is a regression guard for the semantic grammar, not an
-independent oracle or a claim of broad language coverage.
+The subject-continuation corrective wave added
+`holdout-release-continued-diagnostic`, which keeps an expected execution clause
+and a later asserted diagnostic without repeating the execution subject. The
+structural grammar accepts this only when the same evidence also establishes an
+execution context; a bare pronoun diagnostic, blocked execution, and incomplete
+diagnostic remain indeterminate. That wave brought the fixture count to 46,
+with 12 typed-evidence and 34 structural-fallback fixtures. This is a regression
+guard for the semantic grammar, not an independent oracle or a claim of broad
+language coverage.
 
 The active custody artifact records the resulting digest and implementation
 freeze. Future holdout changes must update custody through the release-holdout
 workflow and must state whether they alter inputs, rationales, or expected
 outcomes. A holdout reseal is regression governance; it is not evidence of
 independent labeling or statistical accuracy over arbitrary agent output.
+
+## Core 0.10.0 release reseal
+
+The Core 0.10.0 release candidate freezes the Core tree at commit
+`442d60968b21b22f3be22e741e8d5ebbfca04af9`, with tree identity
+`6c555bc531be1f74630959124dd780400ddcd8bc`. The active artifact was regenerated
+through `kernel:observation:release:assemble`, followed by the existing guarded
+refresh, seal, and first-run commands.
+
+All 47 fixture inputs, expected outcomes, and rationales are unchanged. Only
+the methodology's implementation-freeze field changed; the custody and run
+evidence were regenerated for the new Core implementation and package version.
+The observed outputs are also unchanged: 12 typed-evidence and 35
+structural-fallback fixtures passed, with stable results across two runs.
+
+This is a reseal of the existing maintainer-authored regression set, not a new
+independent holdout. Numbered historical artifacts remain unchanged, and the
+prior active evidence remains available in Git history.
+
+The initial candidate freeze at
+`2e3841861162a2f49eef8f1d72557df28ef1e172` was superseded after Node 20 CI
+identified a Node 22-only Promise helper in checkpoint concurrency tests. The
+tests now use the existing plain-Promise barrier pattern; that compatibility
+correction changes neither product behavior nor holdout expectations.

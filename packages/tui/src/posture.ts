@@ -1,9 +1,6 @@
-import { forecastAttentionPressure } from "@tomismeta/aperture-core/internal";
-import type { SignalSummary, AttentionView, Posture } from "./types.js";
+import type { AttentionPressure, Posture } from "./types.js";
 
-export function computePosture(summary: SignalSummary, view: AttentionView): Posture {
-  const pressure = forecastAttentionPressure(summary, view, Date.now());
-
+export function computePosture(pressure: AttentionPressure): Posture {
   switch (pressure.level) {
     case "high":
       return "busy";

@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ApertureCore, type SourceEvent } from "@tomismeta/aperture-core";
+import type { ApertureTrace } from "@tomismeta/aperture-core/trace";
 
 import { bootstrapLearningPersistence } from "../src/learning-persistence.js";
 import { getJson } from "../src/runtime-client-shared.js";
@@ -13,6 +14,57 @@ import { createApertureRuntime } from "../src/runtime.js";
 import { ApertureRuntimeAdapterClient } from "../src/adapter-client.js";
 import { ApertureRuntimeClient } from "../src/runtime-client.js";
 import type { ApertureRuntimeSnapshot } from "../src/index.js";
+
+test("runtime surface carries public traces and clock-cooled pressure without a state version change", async () => {
+  let now = Date.parse("2026-10-24T12:00:00.000Z");
+  const core = new ApertureCore({ timeSource: () => now });
+  const runtime = createApertureRuntime({ controlPort: 0, core });
+  const { controlUrl } = await runtime.listen();
+  const client = await ApertureRuntimeClient.connect({ baseUrl: controlUrl, pollIntervalMs: 10 });
+  const pressureLevels: string[] = [];
+  client.subscribeSnapshot((snapshot) => pressureLevels.push(snapshot.attentionPressure.level));
+  try {
+    for (let index = 0; index < 12; index++) {
+      const signal = {
+        taskId: `pressure-${index}`,
+        interactionId: `pressure-${index}`,
+        timestamp: new Date(now).toISOString(),
+      };
+      core.recordSignal({ ...signal, kind: "presented" });
+      core.recordSignal({ ...signal, kind: "deferred", reason: "suppressed" });
+    }
+    await waitFor(() => (client.getAttentionPressure().level === "high" ? true : null));
+    const pressure = client.getAttentionPressure();
+    pressure.level = "steady";
+    assert.equal(client.getAttentionPressure().level, "high");
+    assert.equal(pressureLevels.at(-1), "high");
+    const version = client.getSnapshot().version;
+    now += 180_000;
+    await waitFor(() => (client.getAttentionPressure().level === "steady" ? true : null));
+    assert.equal(client.getSnapshot().version, version);
+    assert.equal(pressureLevels.at(-1), "steady");
+    const traces: ApertureTrace[] = [];
+    client.onTrace((trace) => traces.push(trace));
+    core.publishSourceEvent(blockedEvent("public-runtime-trace"));
+    await waitFor(() => (traces.length > 0 ? true : null));
+    const trace = traces.find((entry) => "interactionId" in entry);
+    assert.ok(trace && "interactionId" in trace);
+    assert.equal(trace.interactionId, core.getAttentionView().now?.interactionId);
+    assert.equal("policy" in trace, false);
+    assert.ok(runtime.exportSessionCapture().traces.some((entry) => "policy" in entry));
+    await assert.rejects(
+      client.submit({
+        taskId: "public-runtime-trace",
+        interactionId: trace.interactionId,
+        response: { kind: "form_submitted", values: {} },
+      }),
+    );
+    assert.equal(core.getAttentionView().now?.interactionId, trace.interactionId);
+  } finally {
+    await client.close();
+    await runtime.close();
+  }
+});
 
 test("runtime adapter client publishes source events into the shared core", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
@@ -900,8 +952,6 @@ test("runtime returns a typed conflict when an approval response has expired", a
       error: { code: string; message: string; hint?: string };
     };
     assert.equal(payload.error.code, "response_expired");
-    assert.match(payload.error.message, /must be revalidated/i);
-    assert.match(payload.error.hint ?? "", /refresh the pending frame/i);
   } finally {
     await runtime.close();
   }

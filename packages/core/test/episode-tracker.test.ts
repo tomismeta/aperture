@@ -120,6 +120,149 @@ test("episode tracker groups related interactions by source and anchor", () => {
   );
 });
 
+test("retracting one interaction preserves the shared episode and its remaining bindings", () => {
+  const tracker = new EpisodeTracker();
+  const first = tracker.assign(createCandidate());
+  const second = tracker.assign(
+    createCandidate({
+      interactionId: "interaction:two",
+      timestamp: "2026-03-08T12:01:00.000Z",
+    }),
+  );
+  assert.equal(second.episodeId, first.episodeId);
+  tracker.retractInteraction("interaction:two");
+  assert.equal(tracker.stats().boundInteractions, 1);
+  assert.equal(tracker.stats().retainedRecords, 1);
+  const refreshed = tracker.assign(createCandidate({ timestamp: "2026-03-08T12:02:00.000Z" }));
+  assert.equal(refreshed.episodeId, first.episodeId);
+  assert.equal(refreshed.episodeSize, 1);
+  tracker.retractInteraction("interaction:one");
+  assert.equal(tracker.stats().boundInteractions, 0);
+  assert.equal(tracker.stats().retainedRecords, 0);
+  const republished = tracker.assign(createCandidate({ timestamp: "2026-03-08T12:03:00.000Z" }));
+  assert.notEqual(republished.episodeId, first.episodeId);
+});
+
+test("withdrawal removes all evidence and recency from the cancelled interaction", () => {
+  const tracker = new EpisodeTracker();
+  const baseline = new EpisodeTracker();
+  const survivor = createCandidate({
+    blocking: false,
+    mode: "status",
+    responseSpec: { kind: "none" },
+    timestamp: "2026-03-08T12:01:00.000Z",
+  });
+  const first = tracker.assign(
+    createCandidate({
+      ...survivor,
+      interactionId: "interaction:withdrawn",
+      mode: "form",
+      consequence: "high",
+      tone: "critical",
+      relationHints: [{ kind: "repeats" }, { kind: "escalates" }],
+      timestamp: "2026-03-08T12:00:00.000Z",
+    }),
+  );
+  tracker.assign(survivor);
+  baseline.assign(survivor);
+  const retainedUpdate = { ...survivor, timestamp: "2026-03-08T12:02:00.000Z" };
+  tracker.assign(retainedUpdate);
+  const expected = baseline.assign(retainedUpdate);
+  tracker.assign({
+    ...survivor,
+    interactionId: "interaction:withdrawn",
+    timestamp: "2026-03-08T12:03:00.000Z",
+  });
+
+  const remaining = tracker.retractInteraction("interaction:withdrawn");
+  assert.deepEqual(remaining, baseline.readFrameEpisode(new FramePlanner().plan(expected, null)));
+  assert.equal(remaining?.id, first.episodeId);
+  assert.equal(remaining?.state, "emerging");
+  assert.equal(remaining?.evidenceScore, 0);
+  assert.equal(tracker.stats().latestEpisodeAt, retainedUpdate.timestamp);
+  const afterWithdrawal = tracker.stats();
+  assert.equal(tracker.retractInteraction("interaction:withdrawn"), null);
+  assert.deepEqual(tracker.stats(), afterWithdrawal);
+
+  const later = {
+    ...survivor,
+    interactionId: "interaction:later",
+    timestamp: "2026-03-08T12:04:00.000Z",
+  };
+  const actualLater = tracker.assign(later);
+  assert.deepEqual(actualLater, baseline.assign(later));
+  assert.equal(actualLater.episodeState, "batched");
+  assert.equal(actualLater.episodeEvidenceScore, 1);
+  assert.equal(tracker.stats().boundInteractions, 2);
+});
+
+test("withdrawal retains accumulated evidence from earlier updates of surviving interactions", () => {
+  const tracker = new EpisodeTracker();
+  const baseline = new EpisodeTracker();
+  const retained = createCandidate({
+    blocking: false,
+    mode: "form",
+    consequence: "high",
+    relationHints: [{ kind: "repeats" }],
+    responseSpec: { kind: "none" },
+  });
+  tracker.assign(retained);
+  baseline.assign(retained);
+  tracker.assign({
+    ...retained,
+    interactionId: "interaction:withdrawn",
+    relationHints: [{ kind: "escalates" }],
+    timestamp: "2026-03-08T12:01:00.000Z",
+  });
+  const latest = {
+    ...retained,
+    mode: "status" as const,
+    consequence: "low" as const,
+    relationHints: [],
+    timestamp: "2026-03-08T12:02:00.000Z",
+  };
+  tracker.assign(latest);
+  const expected = baseline.assign(latest);
+  const remaining = tracker.retractInteraction("interaction:withdrawn");
+
+  assert.deepEqual(remaining, baseline.readFrameEpisode(new FramePlanner().plan(expected, null)));
+  assert.equal(remaining?.state, "actionable");
+  assert.equal(remaining?.evidenceScore, expected.episodeEvidenceScore);
+  assert.ok((remaining?.evidenceScore ?? 0) > 0);
+});
+
+test("withdrawal reconstructs waiting from retained observation order, including equal timestamps", () => {
+  for (const extraUpdate of [false, true]) {
+    const tracker = new EpisodeTracker();
+    const baseline = new EpisodeTracker();
+    const retained = createCandidate();
+    tracker.assign(retained);
+    baseline.assign(retained);
+    tracker.assign(createCandidate({ interactionId: "interaction:withdrawn" }));
+    const status = createCandidate({
+      blocking: false,
+      mode: "status",
+      responseSpec: { kind: "none" },
+    });
+    tracker.assign(status);
+    let expected = baseline.assign(status);
+    if (extraUpdate) {
+      tracker.assign(status);
+      expected = baseline.assign(status);
+    }
+    tracker.assign(
+      createCandidate({
+        interactionId: "interaction:withdrawn",
+        consequence: "high",
+      }),
+    );
+
+    const remaining = tracker.retractInteraction("interaction:withdrawn");
+    assert.deepEqual(remaining, baseline.readFrameEpisode(new FramePlanner().plan(expected, null)));
+    assert.equal(remaining?.state, extraUpdate ? "emerging" : "waiting");
+  }
+});
+
 test("frame planner persists episode metadata onto frames", () => {
   const planner = new FramePlanner();
   const frame = planner.plan(

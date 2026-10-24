@@ -152,7 +152,7 @@ if (
   buildInfo.artifactMode !== "omp-only" ||
   buildInfo.minimumNodeMajor !== 22 ||
   buildInfo.aperturePackageVersion !== "0.10.0" ||
-  buildInfo.apertureCoreVersion !== "0.9.0" ||
+  buildInfo.apertureCoreVersion !== "0.10.0" ||
   !workerBundle ||
   buildInfo.artifactLimits?.maximumTextArtifactBytes !== maximumMarketplaceArtifactBytes ||
   workerContract?.notificationInput !== false ||

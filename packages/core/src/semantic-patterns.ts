@@ -71,6 +71,9 @@ export const HIGH_RISK_PHRASES = [
   "migrate",
 ] as const;
 
+export const HIGH_CONSEQUENCE_COMMAND_PATTERN =
+  /\b(?:rm\s+(?=(?:(?:-[a-z]+|--[a-z-]+)\s+)*(?:-[a-z]*r[a-z]*|--recursive)(?=\s|$))(?=(?:(?:-[a-z]+|--[a-z-]+)\s+)*(?:-[a-z]*f[a-z]*|--force)(?=\s|$))|git\s+(?:push\s+(?:-f|--force(?:-with-lease)?)(?=\s|=|$)|reset\s+--hard\b)|drop\s+table\b|docker\s+rm\b|kill\s+-9\b|chmod\s+777\b)/i;
+
 export const OBSERVATIONAL_READBACK_PHRASES = [
   "result of running cat -n",
   "result of running sed -n",

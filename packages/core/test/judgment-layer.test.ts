@@ -75,6 +75,49 @@ test("attention policy keeps background work ambient by default", () => {
   });
 });
 
+test("result-ready activity cannot bypass policy safety and response exclusions", () => {
+  const policy = new AttentionPolicy();
+  const base = createCandidate({
+    activityClass: "result_ready",
+    priority: "normal",
+  });
+  const eligible = policy.evaluateGates(base);
+  assert.equal(eligible.minimumLane, "next");
+  assert.equal(eligible.minimumLaneIsSticky, true);
+  assert.equal(eligible.mayInterrupt, false);
+  for (const overrides of [
+    { consequence: "high" },
+    { tone: "critical" },
+    { mode: "approval" },
+    { blocking: true },
+    {
+      judgmentInput: {
+        blockedLikeStatus: true,
+        semanticEvidence: {
+          confidence: "high",
+          source: "explicit",
+          strength: "strong",
+          abstained: false,
+        },
+      },
+    },
+    {
+      responseSpec: {
+        kind: "acknowledge",
+        actions: [
+          { id: "acknowledge", label: "Acknowledge", kind: "acknowledge", emphasis: "primary" },
+        ],
+      },
+    },
+  ] satisfies Partial<InteractionCandidate>[]) {
+    const verdict = policy.evaluateGates({ ...base, ...overrides });
+    assert.notDeepEqual(
+      [verdict.minimumLane, verdict.minimumLaneIsSticky, verdict.mayInterrupt],
+      ["next", true, false],
+    );
+  }
+});
+
 test("evidence context guard rejects partial objects with undefined derived fields", () => {
   assert.equal(
     isAttentionEvidenceContext({

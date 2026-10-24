@@ -280,7 +280,7 @@ If you prefer to wire it manually, the resulting config shape is:
 - `pnpm claude:connect --global` writes `~/.claude/settings.json`; the project-level command writes `.claude/settings.local.json`.
 - `pnpm claude:disconnect --global` removes only Aperture's Claude hook commands and leaves unrelated Claude hooks alone.
 - `Read`, `Grep`, `Glob`, `LS`, and web tools map to low risk; writes default to medium and escalate to high for sensitive paths.
-- Bash commands still use pattern-based risk classification for destructive commands.
+- Bash commands preserve their text and `bash` family for core-owned destructive-command classification. `classifyCommand` supplies an optional source risk floor; returning low cannot suppress high consequence inferred by core.
 
 ## Claude Plugin Packaging
 

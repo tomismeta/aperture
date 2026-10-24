@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import type { AttentionResponse } from "@tomismeta/aperture-core";
+import { ApertureCore } from "@tomismeta/aperture-core";
 
 import {
   mapCodexNotification,
@@ -33,6 +34,7 @@ test("maps command execution approvals into approval SourceEvents", () => {
     assert.equal(mapped.events[0].activityClass, "permission_request");
     assert.equal(mapped.events[0].toolFamily, "bash");
     assert.equal(mapped.events[0].taskId, "codex:thread:thread-1:turn:turn-1");
+    assert.equal(mapped.events[0].summary, "pnpm test");
     assert.deepEqual(mapped.events[0].metadata, {
       execution: {
         runner: "codex",
@@ -51,6 +53,54 @@ test("maps command execution approvals into approval SourceEvents", () => {
       { id: "cwd", label: "Working Directory", value: "/repo" },
       { id: "reason", label: "Reason", value: "Run tests before continuing" },
     ]);
+  }
+});
+
+test("core infers ordinary and destructive command risk across both Codex approval protocols", () => {
+  for (const [command, consequence] of [
+    ["git push origin main", "medium"],
+    ["rm -rf ./dist", "high"],
+    ["git reset --hard HEAD", "high"],
+  ] as const) {
+    const requests: CodexServerRequest[] = [
+      {
+        id: 17,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          threadId: "thread-risk",
+          turnId: "turn-risk",
+          itemId: "item-risk",
+          command,
+          cwd: "/repo",
+          reason: "Continue the task",
+          startedAtMs: 123,
+        },
+      },
+      {
+        id: 18,
+        method: "execCommandApproval",
+        params: {
+          conversationId: "thread-risk",
+          callId: "call-risk",
+          approvalId: "approval-risk",
+          parsedCmd: [],
+          command: command.split(" "),
+          cwd: "/repo",
+          reason: "Continue the task",
+        },
+      },
+    ];
+    for (const request of requests) {
+      const mapped = mapCodexServerRequest(request);
+      assert.ok(mapped);
+      const event = mapped.events[0];
+      assert.equal(event?.type, "human.input.requested");
+      if (event?.type !== "human.input.requested") throw new Error("Expected approval");
+      assert.equal(event.summary, command);
+      assert.equal(event.provenance?.whyNow, "Continue the task");
+      const core = new ApertureCore();
+      assert.equal(core.publishSourceEvent(event)?.consequence, consequence, `${request.method}: ${command}`);
+    }
   }
 });
 

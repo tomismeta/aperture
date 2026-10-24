@@ -81,7 +81,15 @@ export class EventEvaluator {
       ...(event.source !== undefined ? { source: event.source } : {}),
       ...(event.metadata !== undefined ? { metadata: event.metadata } : {}),
       ...(event.toolFamily !== undefined ? { toolFamily: event.toolFamily } : {}),
-      ...(event.activityClass !== undefined ? { activityClass: event.activityClass } : {}),
+      ...(event.activityClass !== undefined &&
+      (event.activityClass !== "result_ready" ||
+        (event.status === "completed" &&
+          disposition.responseSpec.kind === "none" &&
+          disposition.consequence !== "high" &&
+          disposition.tone !== "critical" &&
+          !hasActionableBlockedLikeStatusJudgmentInput(judgmentInput)))
+        ? { activityClass: event.activityClass }
+        : {}),
       mode: "status",
       tone: disposition.tone,
       consequence: disposition.consequence,
@@ -227,10 +235,12 @@ export class EventEvaluator {
     }
 
     if (event.status === "completed" && event.activityClass === "result_ready") {
+      const consequence =
+        judgmentInput.ontology?.consequence ?? event.semantic?.consequence ?? "low";
       return {
-        priority: "normal",
-        tone: "focused",
-        consequence: "low",
+        priority: consequence === "high" ? "high" : "normal",
+        tone: consequence === "high" ? "critical" : "focused",
+        consequence,
         responseSpec: { kind: "none" },
         includeFailureProvenance: false,
       };

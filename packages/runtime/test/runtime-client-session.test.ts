@@ -20,7 +20,12 @@ test("runtime attachment polling is single-flight and close waits before detach"
     poll: async () => {
       polls += 1;
       await once(pollGate, "release");
-      return { events: [], nextSequence: polls, stateVersion: polls };
+      return {
+        events: [],
+        nextSequence: polls,
+        stateVersion: polls,
+        attentionPressure: { level: "steady" },
+      };
     },
     onPoll: async () => {},
   });

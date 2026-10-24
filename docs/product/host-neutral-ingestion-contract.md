@@ -250,9 +250,14 @@ if (event !== null) {
 
 The kernel projection accepts capability authority only from
 `facts.capabilityFamily`. `context.items` and `metadata` remain descriptive
-payloads and do not promote capability facts. The capability value is opaque
-identity and cannot imply command, read, search, diagnostic, or authorization
-semantics.
+payloads and do not promote capability facts. With typed `SourceEvidence`, the
+capability value is opaque ownership identity and cannot imply command, read,
+search, diagnostic, or authorization semantics. The legacy text-only structured
+envelope parser retains ownership fences: command-execution families and `edit`
+accept native envelopes, `read`/`search`/`web`/`write` exclude execution envelopes,
+and unknown or absent families require exact complete envelopes. Native parsing
+allows string exit codes and bounded truncation recovery; exact parsing does not.
+Prefer typed evidence when capability-independent interpretation is required.
 
 A failed kernel work update may include one optional `evidence` value when the
 adapter has reliable native result facts. This is a closed `SourceEvidence`
@@ -820,6 +825,15 @@ That returns:
 - `state: "cancelled"` if the producer retracts the pending request
 - the final `response` object when available
 - expiry and retention timestamps when relevant
+
+Cancelling through `DELETE /work/response/{interactionId}` retracts only that
+pending interaction from Core, without emitting a human answer; sibling
+interactions on the same task remain available. Repeated cancellation preserves
+the cancelled record. Deleting an answered request returns `409`.
+
+Retained `cancelled`, `expired`, and `answered` ledger records ignore late
+answers. Explicitly publishing `input.requested` again with the same interaction
+id reopens it as a new pending request.
 
 ## Recommendation
 

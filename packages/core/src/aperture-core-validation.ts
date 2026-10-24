@@ -1,6 +1,7 @@
 import type { ApertureEvent, HumanInputRequest, SourceEvidence } from "./events.js";
 import type { SourceEvent } from "./source-event.js";
 import type { AttentionResponse } from "./frame-response.js";
+import type { AttentionFrame, AttentionField } from "./frame.js";
 import type { AttentionSignal } from "./interaction-signal.js";
 import { ApertureCoreValidationError } from "./aperture-core-error.js";
 
@@ -144,6 +145,93 @@ export function assertValidFrameResponse(response: AttentionResponse): void {
       return;
     default:
       throw invalidFrameResponse("response.response must have a supported kind");
+  }
+}
+
+export function assertResponseMatchesFrame(
+  frame: AttentionFrame,
+  response: AttentionResponse["response"],
+): void {
+  // Dismissal is a host-neutral escape hatch, including response-free status.
+  if (response.kind === "dismissed") {
+    return;
+  }
+  const spec = frame.responseSpec;
+  switch (response.kind) {
+    case "approved":
+    case "rejected":
+      if (spec?.kind === "approval") {
+        if (spec.requireReason) {
+          assertNonEmpty("response.reason", response.reason);
+        }
+        return;
+      }
+      break;
+    case "acknowledged":
+      if (spec?.kind === "acknowledge" || spec?.kind === "none" || spec === undefined) {
+        return;
+      }
+      break;
+    case "option_selected":
+      if (spec?.kind === "choice") {
+        const ids = response.optionIds;
+        if (
+          (spec.selectionMode === "single" && ids.length !== 1) ||
+          new Set(ids).size !== ids.length ||
+          ids.some((id) => !spec.options.some((option) => option.id === id))
+        ) {
+          throw invalidFrameResponse("response.optionIds must match the frame's choices");
+        }
+        return;
+      }
+      break;
+    case "text_submitted":
+      if (
+        (spec?.kind === "choice" && spec.allowTextResponse) ||
+        (spec?.kind === "form" &&
+          spec.fields.length === 1 &&
+          (spec.fields[0]?.type === "text" || spec.fields[0]?.type === "textarea"))
+      ) {
+        return;
+      }
+      break;
+    case "form_submitted":
+      if (spec?.kind === "form") {
+        for (const id of Object.keys(response.values)) {
+          if (!spec.fields.some((field) => field.id === id)) {
+            throw invalidFrameResponse(`response.values contains unknown field ${id}`);
+          }
+        }
+        for (const field of spec.fields) {
+          assertFieldValue(
+            field,
+            Object.hasOwn(response.values, field.id) ? response.values[field.id] : undefined,
+          );
+        }
+        return;
+      }
+      break;
+  }
+  throw invalidFrameResponse("response kind does not match the frame's responseSpec");
+}
+
+function assertFieldValue(field: AttentionField, value: unknown): void {
+  if (value === undefined || value === null || value === "") {
+    if (field.required) {
+      throw invalidFrameResponse(`response.values.${field.id} is required`);
+    }
+    return;
+  }
+  const valid =
+    field.type === "number"
+      ? typeof value === "number" && Number.isFinite(value)
+      : field.type === "boolean"
+        ? typeof value === "boolean"
+        : field.type === "select"
+          ? typeof value === "string" && field.options?.some((option) => option.value === value)
+          : typeof value === "string" && (!field.required || value.trim().length > 0);
+  if (!valid) {
+    throw invalidFrameResponse(`response.values.${field.id} does not match its field`);
   }
 }
 

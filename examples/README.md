@@ -31,11 +31,15 @@ Canonical `WorkEvent` JSON examples live here:
 - [../schemas/examples/work-event/subagent-failure-update.json](../schemas/examples/work-event/subagent-failure-update.json)
 - [../schemas/examples/work-event/workflow-completed.json](../schemas/examples/work-event/workflow-completed.json)
 
-The smallest live product example is still a string:
+The smallest live product example is an authenticated, one-way status update.
+Use the token path printed by `aperture internal runtime`, as described in the
+[ingestion contract](../docs/product/host-neutral-ingestion-contract.md):
 
 ```bash
+TOKEN="$(cat /path/to/runtime-token)"
 curl -X POST http://127.0.0.1:4546/work \
   -H 'Content-Type: text/plain' \
+  -H "Authorization: Bearer $TOKEN" \
   --data 'Waiting for approval before continuing with the deploy.'
 ```
 
@@ -45,8 +49,8 @@ These runnable repo examples use `@tomismeta/aperture-core` directly:
 
 - [core-full-engine/index.ts](./core-full-engine/index.ts)
   - full `ApertureCore` loop with publish -> frame -> submit
-- [core-judgment-primitives/index.ts](./core-judgment-primitives/index.ts)
-  - lower-level judgment types and lane reasoning
+- [core-attention-evaluator/index.ts](./core-attention-evaluator/index.ts)
+  - pure claim-to-decision evaluation with explicit context and clock input
 - [core-kernel-entrypoint/index.ts](./core-kernel-entrypoint/index.ts)
   - host-neutral event -> observation -> judgment projection
 - [core-kernel-host-embedder/index.ts](./core-kernel-host-embedder/index.ts)
@@ -56,13 +60,17 @@ These runnable repo examples use `@tomismeta/aperture-core` directly:
 - [core-trace-entrypoint/index.ts](./core-trace-entrypoint/index.ts)
   - public trace/explainability contract
 
+The [judgment-primitives example](./core-judgment-primitives/index.ts) imports
+workspace internals for engine development. Those primitives are not public SDK
+exports; consumers should use the root, `/evaluator`, or `/kernel` entrypoints.
+
 ## Review A Captured Session
 
 If you want to inspect a real run after the fact:
 
 1. capture a bundle with `aperture --capture` or `pnpm session:export`
 2. prepare an offline-review artifact with `pnpm session:review`
-3. run an offline reviewer with `pnpm lab:fstop:review-run`
+3. run an offline reviewer with `pnpm lab:fstop:review:run`
 
 The quickest guide is:
 

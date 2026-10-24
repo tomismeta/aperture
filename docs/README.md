@@ -5,7 +5,7 @@ This folder contains the current Aperture documentation.
 The docs are organized into seven groups:
 
 - **entry docs** for first orientation
-- **release notes** for shipped package cuts
+- **release notes** for package cuts and migration guidance
 - **product surface docs** for the current product contract
 - **source adapter docs** for source-specific integration paths
 - **engine and SDK reference docs** for the core judgment model
@@ -19,7 +19,7 @@ Choose the path that matches what you are trying to do.
 ### Use The Product
 
 1. [README](../README.md)
-2. [Aperture v0.5.0](./releases/aperture-v0.5.0.md)
+2. [Aperture v0.10.0](./releases/aperture-v0.10.0.md)
 3. [Architecture Overview](./product/architecture-overview.md)
 4. [Components](./product/components.md)
 5. [TUI Surface](./product/tui.md)
@@ -30,7 +30,7 @@ understand the current product surface.
 ### Build With The SDK
 
 1. [packages/core/README.md](../packages/core/README.md)
-2. [Aperture Core SDK v0.9.0](./releases/aperture-core-v0.9.0.md)
+2. [Aperture Core SDK v0.10.0](./releases/aperture-core-v0.10.0.md)
 3. [SDK Path](./product/sdk-path.md)
 4. [Core Mental Model](./engine/core-mental-model.md)
 
@@ -50,6 +50,7 @@ loop.
 
 ## Release Notes
 
+- [Aperture v0.10.0](./releases/aperture-v0.10.0.md)
 - [Aperture v0.5.0](./releases/aperture-v0.5.0.md)
 - [Aperture v0.4.3](./releases/aperture-v0.4.3.md)
 - [Aperture v0.4.2](./releases/aperture-v0.4.2.md)
@@ -60,6 +61,7 @@ loop.
 - [Aperture v0.2.0](./releases/aperture-v0.2.0.md)
 - [Aperture v0.1.2](./releases/aperture-v0.1.2.md)
 - [Aperture v0.1.0](./releases/aperture-v0.1.0.md)
+- [Aperture Core SDK v0.10.0](./releases/aperture-core-v0.10.0.md)
 - [Aperture Core SDK v0.9.0](./releases/aperture-core-v0.9.0.md)
 - [Aperture Core SDK v0.8.0](./releases/aperture-core-v0.8.0.md)
 - [Aperture Core SDK v0.7.0](./releases/aperture-core-v0.7.0.md)
@@ -104,7 +106,7 @@ These docs explain the source-specific integration seams:
 ## Engine And SDK Reference
 
 - [Core Mental Model](./engine/core-mental-model.md)
-- [Core Engine Audit (2026-03)](./engine/core-engine-audit-2026-03.md)
+- [Core Engine Audit (2026-03, historical)](./engine/core-engine-audit-2026-03.md)
 - [Engine Status Pillars](./engine/engine-status-pillars.md)
 - [Architecture Principles](./engine/architecture-principles.md)
 - [Attention And Judgment Doctrine](./engine/attention-judgment-doctrine.md)

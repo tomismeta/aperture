@@ -1,33 +1,18 @@
 import type { AttentionFrame, AttentionView } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
-import { readSemanticRelationEvidenceStrength } from "./judgment-input.js";
 import { JUDGMENT_DEFAULTS } from "./judgment-defaults.js";
-import type { SemanticRelationHint } from "./semantic-types.js";
 import { readSemanticRelationTarget } from "./semantic-relations.js";
 import { hasQualifiedResolvingRelation } from "./semantic-relation-judgment.js";
 import { createCoreClock, type CoreClock } from "./time.js";
+import {
+  accumulateEpisodeEvidence,
+  recomputeEpisodeEvidence,
+  type EpisodeRecord,
+  type EpisodeState,
+  type EpisodeSummary,
+} from "./episode-evidence.js";
 
-export type EpisodeState = "emerging" | "actionable" | "batched" | "waiting" | "stale" | "resolved";
 export type EpisodeVisibilityLane = "now" | "next" | "ambient";
-
-export type EpisodeSummary = {
-  id: string;
-  key: string;
-  state: EpisodeState;
-  size: number;
-  evidenceScore: number;
-  evidenceReasons: string[];
-  lastInteractionId: string;
-  updatedAt: string;
-};
-
-type EpisodeRecord = EpisodeSummary & {
-  interactions: Set<string>;
-  modes: Set<AttentionCandidate["mode"]>;
-  highSignals: number;
-  blockingSignals: number;
-  relationKinds: Set<SemanticRelationHint["kind"]>;
-};
 
 const DEFAULTS = JUDGMENT_DEFAULTS.episodeEvidence;
 const DEFAULT_DORMANT_EPISODE_RETENTION_MS = 24 * 60 * 60_000;
@@ -84,8 +69,14 @@ export class EpisodeTracker {
         : undefined;
     const keyedRecord = reusableBoundRecord ? null : this.byKey.get(key);
     const record = reusableBoundRecord ?? this.resolveAssignableRecord(key, keyedRecord, candidate);
-    const nextRecord = this.evolveRecord(record, candidate);
     const obsolete = isObsoleteCandidate(record, candidate, this.clock);
+    const nextRecord = obsolete
+      ? record
+      : accumulateEpisodeEvidence(
+          record,
+          candidate,
+          !isDormantEpisodeState(record.state) && hasQualifiedResolvingRelation(candidate),
+        );
 
     if (shouldIndexRecord(nextRecord, this.byKey.get(nextRecord.key))) {
       this.byKey.set(nextRecord.key, nextRecord);
@@ -123,9 +114,32 @@ export class EpisodeTracker {
       this.byKey.delete(record.key);
     }
     this.byId.delete(record.id);
-    for (const relatedInteractionId of record.interactions) {
+    for (const relatedInteractionId of record.interactions.keys()) {
       this.byInteractionId.delete(relatedInteractionId);
     }
+  }
+
+  retractInteraction(interactionId: string): EpisodeSummary | null {
+    const episodeId = this.byInteractionId.get(interactionId);
+    const record = episodeId ? this.byId.get(episodeId) : undefined;
+    if (!record || record.interactions.size <= 1) {
+      this.resolveInteraction(interactionId);
+      return null;
+    }
+    // Cancellation withdraws one member, not the related work still pending.
+    this.byInteractionId.delete(interactionId);
+    record.interactions.delete(interactionId);
+    recomputeEpisodeEvidence(record);
+    return {
+      id: record.id,
+      key: record.key,
+      state: record.state,
+      size: record.size,
+      evidenceScore: record.evidenceScore,
+      evidenceReasons: [...record.evidenceReasons],
+      lastInteractionId: record.lastInteractionId,
+      updatedAt: record.updatedAt,
+    };
   }
 
   readFrameEpisode(frame: AttentionFrame | null): EpisodeSummary | null {
@@ -185,28 +199,21 @@ export class EpisodeTracker {
   private createRecord(key: string, candidate: AttentionCandidate): EpisodeRecord {
     const nextSequence = (this.nextSequenceByKey.get(key) ?? 0) + 1;
     this.nextSequenceByKey.set(key, nextSequence);
-    const resolvingEpisode = isResolvingEpisodeCandidate(candidate);
-    const persistedRelationKinds = shouldPersistEpisodeRelationEvidence(candidate)
-      ? (candidate.relationHints ?? []).map((hint) => hint.kind)
-      : [];
     return {
       id: `episode:${key}:${nextSequence}`,
       key,
-      state: resolvingEpisode ? "resolved" : candidate.blocking ? "actionable" : "emerging",
+      state: "emerging",
       size: 0,
-      evidenceScore: resolvingEpisode ? 0 : candidate.blocking ? DEFAULTS.blockingBoost : 0,
-      evidenceReasons: resolvingEpisode
-        ? ["semantic relation hints indicate this episode is resolved"]
-        : candidate.blocking
-          ? ["operator-facing work makes this episode immediately actionable"]
-          : [],
+      evidenceScore: 0,
+      evidenceReasons: [],
       lastInteractionId: candidate.interactionId,
       updatedAt: candidate.timestamp,
-      interactions: new Set<string>(),
-      modes: new Set([candidate.mode]),
-      highSignals: candidate.consequence === "high" || candidate.tone === "critical" ? 1 : 0,
-      blockingSignals: candidate.blocking ? 1 : 0,
-      relationKinds: new Set(persistedRelationKinds),
+      interactions: new Map(),
+      observationSequence: 0,
+      modes: new Set(),
+      highSignals: 0,
+      blockingSignals: 0,
+      relationKinds: new Set(),
     };
   }
 
@@ -243,53 +250,6 @@ export class EpisodeTracker {
     }
 
     return nextMs - previousMs >= DEFAULTS.staleAfterMs;
-  }
-
-  private evolveRecord(record: EpisodeRecord, candidate: AttentionCandidate): EpisodeRecord {
-    if (isStaleCandidate(record, candidate, this.clock)) {
-      return record;
-    }
-
-    if (isDormantEpisodeState(record.state)) {
-      return preserveRecordState(record, candidate);
-    }
-
-    const interactions = new Set(record.interactions);
-    interactions.add(candidate.interactionId);
-
-    const modes = new Set(record.modes);
-    modes.add(candidate.mode);
-
-    const relationKinds = mergeEpisodeRelationKinds(record.relationKinds, candidate);
-    const nextRecord: EpisodeRecord = {
-      ...record,
-      lastInteractionId: candidate.interactionId,
-      updatedAt: candidate.timestamp,
-      size: interactions.size,
-      interactions,
-      modes,
-      relationKinds,
-      blockingSignals: record.blockingSignals + (candidate.blocking ? 1 : 0),
-      highSignals:
-        record.highSignals +
-        (candidate.consequence === "high" || candidate.tone === "critical" ? 1 : 0),
-    };
-    const evidence = measureEpisodeEvidence(nextRecord, candidate);
-    if (isResolvingEpisodeCandidate(candidate)) {
-      return {
-        ...nextRecord,
-        evidenceScore: 0,
-        evidenceReasons: ["semantic relation hints indicate this episode is resolved"],
-        state: "resolved",
-      };
-    }
-
-    return {
-      ...nextRecord,
-      evidenceScore: evidence.score,
-      evidenceReasons: evidence.reasons,
-      state: nextEpisodeState(record.state, candidate, nextRecord, evidence.score),
-    };
   }
 
   private pruneDormantRecords(): void {
@@ -330,7 +290,7 @@ export class EpisodeTracker {
       this.byKey.delete(record.key);
     }
     this.byId.delete(record.id);
-    for (const interactionId of record.interactions) {
+    for (const interactionId of record.interactions.keys()) {
       if (this.byInteractionId.get(interactionId) === record.id) {
         this.byInteractionId.delete(interactionId);
       }
@@ -438,95 +398,6 @@ function episodeAnchor(candidate: AttentionCandidate): string {
   return candidate.taskId;
 }
 
-function nextEpisodeState(
-  current: EpisodeState,
-  candidate: AttentionCandidate,
-  record: EpisodeRecord,
-  evidenceScore: number,
-): EpisodeState {
-  if (candidate.blocking) {
-    return "actionable";
-  }
-
-  if (evidenceScore >= DEFAULTS.actionableThreshold) {
-    return "actionable";
-  }
-
-  if (current === "actionable") {
-    return "waiting";
-  }
-
-  if (record.size >= 2) {
-    return "batched";
-  }
-
-  return "emerging";
-}
-
-function measureEpisodeEvidence(
-  record: EpisodeRecord,
-  candidate: AttentionCandidate,
-): { score: number; reasons: string[] } {
-  let score = 0;
-  const reasons: string[] = [];
-
-  if (candidate.blocking) {
-    score += DEFAULTS.blockingBoost;
-    reasons.push("operator-facing work makes this episode immediately actionable");
-  }
-
-  if (record.size >= 2) {
-    score += DEFAULTS.recurringEpisodeBoost;
-    reasons.push("multiple related interactions have accumulated in this episode");
-  }
-
-  if (record.size >= 3) {
-    score += DEFAULTS.persistentEpisodeBoost;
-    reasons.push("the same episode keeps recurring without resolution");
-  }
-
-  if (record.highSignals >= 1) {
-    score += DEFAULTS.highSignalBoost;
-    reasons.push("at least one related interaction carried high consequence or critical tone");
-  }
-
-  if (record.modes.size >= 2) {
-    score += DEFAULTS.multiModeBoost;
-    reasons.push("related work has spread across multiple interaction modes");
-  }
-
-  if (record.highSignals >= 1 && record.size >= 2) {
-    score += DEFAULTS.stackingBoost;
-    reasons.push("high-signal evidence is stacking up across the episode");
-  }
-
-  if (record.relationKinds.has("repeats")) {
-    score += DEFAULTS.relationRepeatBoost;
-    reasons.push("semantic relation hints indicate this issue is recurring");
-  }
-
-  if (record.relationKinds.has("escalates")) {
-    score += DEFAULTS.relationEscalationBoost;
-    reasons.push("semantic relation hints indicate this issue is escalating");
-  }
-
-  return { score, reasons };
-}
-
-function mergeEpisodeRelationKinds(
-  currentRelationKinds: Set<SemanticRelationHint["kind"]>,
-  candidate: AttentionCandidate,
-): Set<SemanticRelationHint["kind"]> {
-  const relationKinds = new Set(currentRelationKinds);
-  if (!shouldPersistEpisodeRelationEvidence(candidate)) {
-    return relationKinds;
-  }
-  for (const relationHint of candidate.relationHints ?? []) {
-    relationKinds.add(relationHint.kind);
-  }
-  return relationKinds;
-}
-
 function normalizeEpisodePart(value: string): string {
   return value
     .toLowerCase()
@@ -536,29 +407,12 @@ function normalizeEpisodePart(value: string): string {
     .slice(0, 120);
 }
 
-function shouldPersistEpisodeRelationEvidence(candidate: AttentionCandidate): boolean {
-  const strength = readSemanticRelationEvidenceStrength(candidate);
-  return strength === null || strength !== "weak";
-}
-
-function isResolvingEpisodeCandidate(candidate: AttentionCandidate): boolean {
-  return hasQualifiedResolvingRelation(candidate);
-}
-
 function shouldIndexRecord(record: EpisodeRecord, current: EpisodeRecord | undefined): boolean {
   if (!current || current.id === record.id) {
     return true;
   }
 
   return !isDormantEpisodeState(record.state);
-}
-
-function isStaleCandidate(
-  record: EpisodeRecord,
-  candidate: AttentionCandidate,
-  clock: CoreClock,
-): boolean {
-  return isBeforeTimestamp(candidate.timestamp, record.updatedAt, clock);
 }
 
 function isBeforeTimestamp(left: string, right: string, clock: CoreClock): boolean {
@@ -586,22 +440,7 @@ function isObsoleteCandidate(
   candidate: AttentionCandidate,
   clock: CoreClock,
 ): boolean {
-  return isStaleCandidate(record, candidate, clock);
-}
-
-function preserveRecordState(record: EpisodeRecord, candidate: AttentionCandidate): EpisodeRecord {
-  const interactions = new Set(record.interactions);
-  interactions.add(candidate.interactionId);
-
-  const modes = new Set(record.modes);
-  modes.add(candidate.mode);
-
-  return {
-    ...record,
-    size: interactions.size,
-    interactions,
-    modes,
-  };
+  return isBeforeTimestamp(candidate.timestamp, record.updatedAt, clock);
 }
 
 function readString(value: unknown, key: string): string | null {

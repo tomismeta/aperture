@@ -20,7 +20,7 @@ const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = resolve(dirname(scriptPath), "..");
 const SEMANTIC_MODULE_COUNT_BUDGET = 96;
 const SEMANTIC_LINE_COUNT_BUDGET = 8250;
-const SEMANTIC_MATCHER_SITE_BUDGET = 594;
+const SEMANTIC_MATCHER_SITE_BUDGET = 595;
 const SEMANTIC_PHRASE_LITERAL_BUDGET = 175;
 const OBSERVATION_PRIMITIVE_LINE_COUNT_BUDGET = 750;
 const TASK_FAILURE_PARSING_LINE_COUNT_BUDGET = 1090;
@@ -43,6 +43,7 @@ const budgets = [
   { file: "packages/runtime/src/runtime-registry-routes.ts", maxLines: 180 },
   { file: "packages/runtime/src/runtime-surface-routes.ts", maxLines: 175 },
   { file: "packages/runtime/src/runtime-route-utils.ts", maxLines: 50 },
+  { file: "packages/runtime/src/runtime-response-lifecycle.ts", maxLines: 75 },
   { file: "packages/runtime/src/runtime-client-session.ts", maxLines: 175 },
   { file: "packages/runtime/src/runtime-client.ts", maxLines: 275 },
   { file: "packages/runtime/src/runtime-client-subscriptions.ts", maxLines: 100 },
@@ -63,6 +64,7 @@ const budgets = [
   { file: "packages/core/src/aperture-core-frame-lifecycle.ts", maxLines: 375 },
   { file: "packages/core/src/aperture-core-relation-lifecycle.ts", maxLines: 250 },
   { file: "packages/core/src/episode-tracker.ts", maxLines: 700 },
+  { file: "packages/core/src/episode-evidence.ts", maxLines: 300 },
   { file: "packages/core/src/attention-claim.ts", maxLines: 275 },
   { file: "packages/core/src/attention-decision-record.ts", maxLines: 175 },
   { file: "packages/core/src/attention-decision-record-builder.ts", maxLines: 125 },

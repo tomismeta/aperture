@@ -39,8 +39,13 @@ The header shows:
   - `◐ elevated`
   - `● busy`
 
-That posture is derived from real engine burden/pressure state, not just frame
-tone.
+Posture displays the core-owned `getAttentionPressure()` projection:
+`steady` → `calm`, `elevated` → `elevated`, and `high` → `busy`.
+The core owns demand inference and time-based cooling; the TUI does not
+recompute pressure from signal counts or frame tone. Remote runtime snapshots
+and event polls carry that same projection, including cooling while no new
+event changes the state version. Reduced-motion mode still shows calm when
+the visible surface is empty.
 
 ## Now
 
@@ -125,6 +130,16 @@ When typing:
 - `[enter]` advances or submits
 - `[esc]` cancels editing
 
+For approvals that require a reason, `[a]` or `[r]` opens an editable reason
+prompt; `[enter]` sends the chosen decision only after a nonblank reason.
+Forms keep malformed numbers and other invalid fields editable with a status
+message rather than silently converting them. Blank optional fields are omitted.
+Submission keeps the draft until the core or remote runtime accepts it;
+validation failures leave the input available for correction and retry.
+Remote submission resolves when the response is accepted. A later state-refresh
+failure is reported through the client's error channel, not as an unsent answer;
+serialized refreshes and pressure-change notifications keep the cached view coherent.
+
 When there is no now frame, the idle lens pulse continues calmly even if
 ambient work is still present. That makes the "nothing currently owns my
 attention" transition feel explicit instead of frozen.
@@ -132,6 +147,12 @@ attention" transition feel explicit instead of frozen.
 ## Why Mode
 
 Press `[y]` to inspect the current judgment trace.
+
+The TUI consumes the public `@tomismeta/aperture-core/trace` explanation
+projection, keyed by the candidate's `interactionId`. Runtime event feeds use
+the same projection; richer internal traces remain in runtime session captures
+for diagnostics. Production TUI imports of the workspace-private core entrypoint
+are rejected by the package boundary checker.
 
 Why mode keeps the now frame visible and replaces the lower part of the
 screen with the routed explanation. It shows:

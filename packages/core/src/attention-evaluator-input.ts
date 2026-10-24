@@ -4,7 +4,7 @@ import type {
   AttentionClaimJudgment,
 } from "./attention-claim.js";
 import type { AttentionEvidenceInput } from "./attention-evidence.js";
-import type { EpisodeSummary } from "./episode-tracker.js";
+import type { EpisodeSummary } from "./episode-evidence.js";
 import type { AttentionFrame } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { formatTimestamp, parseTimestamp } from "./time.js";

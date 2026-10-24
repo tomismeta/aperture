@@ -7,6 +7,8 @@ import { normalizeSemanticText } from "../src/semantic-detection.js";
 import { interpretSourceEvent } from "../src/semantic-interpreter.js";
 import { normalizeSourceEvent } from "../src/semantic-normalizer.js";
 import { readAttentionOntologyDiagnostic } from "../src/semantic-ontology.js";
+import { EventEvaluator } from "../src/event-evaluator.js";
+import { AttentionPolicy } from "../src/attention-policy.js";
 
 const timestamp = "2026-03-10T12:00:00.000Z";
 const rejectedToolUseMessage =
@@ -39,6 +41,178 @@ test("normalizes high-risk human input into critical approval semantics", () => 
   if (normalized.type === "human.input.requested") {
     assert.equal(normalized.tone, "critical");
     assert.equal(normalized.consequence, "high");
+  }
+});
+
+test("source risk floors survive conflicting semantic hints and configured read auto-approval", () => {
+  for (const riskHint of ["medium", "high"] as const) {
+    const event: SourceEvent = {
+      id: `evt:risk-floor:${riskHint}`,
+      type: "human.input.requested",
+      taskId: "task:risk-floor",
+      interactionId: "interaction:risk-floor",
+      timestamp,
+      toolFamily: "read",
+      title: "Read sensitive configuration",
+      summary: "Inspect configuration",
+      request: { kind: "approval" },
+      riskHint,
+      semanticHints: { consequence: "low" },
+    };
+    const normalized = normalizeSourceEvent(event);
+    assert.equal(normalized.type, "human.input.requested");
+    if (normalized.type !== "human.input.requested") throw new Error("Expected approval");
+    assert.equal(normalized.consequence, riskHint);
+    assert.equal(normalized.semantic.consequence, riskHint);
+    assert.equal(normalized.semantic.provenance?.consequence, "source");
+    const core = new ApertureCore({
+      policyConfig: {
+        version: 1,
+        updatedAt: timestamp,
+        policy: { lowRiskRead: { autoApprove: true } },
+      },
+    });
+    let responses = 0;
+    core.onResponse(() => responses++);
+    core.publishSourceEvent(event);
+    assert.equal(responses, 0);
+    assert.equal(core.getFrame(event.taskId)?.responseSpec.kind, "approval");
+    const escalated = normalizeSourceEvent({
+      ...event,
+      riskHint: "low",
+      semanticHints: { consequence: "high" },
+    });
+    assert.equal(escalated.semantic.consequence, "high");
+    assert.equal(escalated.semantic.provenance?.consequence, "hint");
+  }
+});
+
+test("required-reason read approvals remain pending under configured auto-approval", () => {
+  const core = new ApertureCore({
+    policyConfig: {
+      version: 1,
+      updatedAt: timestamp,
+      policy: { lowRiskRead: { autoApprove: true } },
+    },
+  });
+  const responses: unknown[] = [];
+  core.onResponse((response) => responses.push(response));
+  const frame = core.publishSourceEvent({
+    id: "evt:required-reason",
+    type: "human.input.requested",
+    taskId: "task:required-reason",
+    interactionId: "interaction:required-reason",
+    timestamp,
+    toolFamily: "read",
+    title: "Read configuration",
+    summary: "Inspect configuration",
+    riskHint: "low",
+    request: { kind: "approval", requireReason: true },
+  });
+
+  assert.equal(frame?.responseSpec.kind, "approval");
+  assert.equal(core.getFrame("task:required-reason")?.id, frame?.id);
+  assert.equal(core.getAttentionView().now?.interactionId, "interaction:required-reason");
+  assert.deepEqual(responses, []);
+});
+
+test("source risk floors preserve command evidence escalation above the explicit floor", () => {
+  const normalized = normalizeSourceEvent({
+    id: "evt:risk-escalation",
+    type: "human.input.requested",
+    taskId: "task:risk-escalation",
+    interactionId: "interaction:risk-escalation",
+    timestamp,
+    toolFamily: "bash",
+    title: "Approve command",
+    summary: "git reset --hard HEAD",
+    request: { kind: "approval" },
+    riskHint: "medium",
+    semanticHints: { consequence: "low" },
+  });
+  assert.equal(normalized.semantic.consequence, "high");
+});
+
+test("result-ready routing requires completed safe response-free work", () => {
+  const evaluator = new EventEvaluator();
+  const policy = new AttentionPolicy();
+  for (const status of ["failed", "blocked", "waiting", "running", "completed"] as const) {
+    const event = normalizeSourceEvent({
+      id: `evt:result-ready:${status}`,
+      type: "task.updated",
+      taskId: `task:result-ready:${status}`,
+      timestamp,
+      title: "Work update",
+      status,
+      activityClass: "result_ready",
+      ...(status === "failed"
+        ? {
+            evidence: {
+              kind: "diagnostic" as const,
+              diagnostic: "runtime" as const,
+              subject: "command" as const,
+              channel: "command" as const,
+              complete: true as const,
+            },
+          }
+        : {}),
+    });
+    const result = evaluator.evaluate(event);
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") throw new Error("Expected candidate");
+    const verdict = policy.evaluateGates(result.candidate);
+    if (status === "completed") {
+      assert.equal(result.candidate.activityClass, "result_ready");
+      assert.equal(result.candidate.consequence, "low");
+      assert.equal(result.candidate.tone, "focused");
+      assert.equal(verdict.minimumLane, "next");
+      assert.equal(verdict.minimumLaneIsSticky, true);
+      assert.equal(verdict.mayInterrupt, false);
+    } else {
+      assert.notEqual(result.candidate.activityClass, "result_ready");
+      assert.notDeepEqual(
+        [verdict.minimumLane, verdict.minimumLaneIsSticky, verdict.mayInterrupt],
+        ["next", true, false],
+      );
+    }
+    if (status === "failed") {
+      assert.equal(result.candidate.consequence, "high");
+      assert.equal(verdict.mayInterrupt, true);
+      assert.equal(result.candidate.responseSpec.kind, "acknowledge");
+    }
+  }
+});
+
+test("completed result-ready work preserves high semantic consequence before policy gating", () => {
+  for (const evidence of [
+    { semanticHints: { consequence: "high" as const } },
+    { toolFamily: "bash", summary: "rm -fr ./dist" },
+  ]) {
+    const sourceEvent: SourceEvent = {
+      id: "evt:unsafe-result-ready",
+      type: "task.updated",
+      taskId: "task:unsafe-result-ready",
+      timestamp,
+      title: "Agent turn completed",
+      status: "completed",
+      activityClass: "result_ready",
+      ...evidence,
+    };
+    const event = normalizeSourceEvent(sourceEvent);
+    const result = new EventEvaluator().evaluate(event);
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") throw new Error("Expected candidate");
+    assert.equal(result.candidate.consequence, "high");
+    assert.equal(result.candidate.tone, "critical");
+    assert.equal(result.candidate.responseSpec.kind, "none");
+    assert.notEqual(result.candidate.activityClass, "result_ready");
+    const verdict = new AttentionPolicy().evaluateGates(result.candidate);
+    assert.notDeepEqual(
+      [verdict.minimumLane, verdict.minimumLaneIsSticky, verdict.mayInterrupt],
+      ["next", true, false],
+    );
+    const core = new ApertureCore();
+    assert.equal(core.publishSourceEvent(sourceEvent)?.consequence, "high");
   }
 });
 

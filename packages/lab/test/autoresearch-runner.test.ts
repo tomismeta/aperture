@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  defaultAutoresearchRunnerRunPath,
   renderAutoresearchRunnerRunMarkdown,
   type AutoresearchRunnerRun,
 } from "../src/index.js";
@@ -326,7 +325,3 @@ test("renderAutoresearchRunnerRunMarkdown retains intent for no-proposal runs", 
   assert.match(markdown, /no_change_patch_attempted/);
 });
 
-test("defaultAutoresearchRunnerRunPath writes run artifacts under the runner runs dir", () => {
-  const filePath = defaultAutoresearchRunnerRunPath("2026-03-28T00:00:00.000Z");
-  assert.match(filePath, /\.aperture\/lab\/results\/autoresearch\/runner\/runs\/autoresearch-runner-run-2026-03-28T00-00-00-000Z\.json$/);
-});

@@ -9,6 +9,7 @@ import {
 } from "@tomismeta/aperture-core";
 import type { ApertureTrace, InternalHealthEmitter } from "@tomismeta/aperture-core/internal";
 import { readInternalCoreHealthSnapshot } from "@tomismeta/aperture-core/internal";
+import type { ApertureTrace as PublicApertureTrace } from "@tomismeta/aperture-core/trace";
 
 import type {
   ApertureRuntimeAdapter,
@@ -60,6 +61,7 @@ type RuntimeStateOptions = {
   learningPersistence?: LearningPersistenceState;
   workResponses: WorkResponseStore;
   telemetry: RuntimeTelemetry;
+  timeSource?: () => number;
 };
 
 export class RuntimeState {
@@ -74,6 +76,7 @@ export class RuntimeState {
   private readonly capture: RuntimeCaptureStore;
   private readonly workResponses: WorkResponseStore;
   private readonly telemetry: RuntimeTelemetry;
+  private readonly timeSource: () => number;
   private stateVersion = 0;
   private learningPersistence: LearningPersistenceState | undefined;
 
@@ -91,6 +94,7 @@ export class RuntimeState {
     });
     this.workResponses = options.workResponses;
     this.telemetry = options.telemetry;
+    this.timeSource = options.timeSource ?? Date.now;
   }
 
   get version(): number {
@@ -209,8 +213,11 @@ export class RuntimeState {
   }
 
   recordRuntimeTrace(trace: ApertureTrace): void {
-    this.capture.recordRuntimeEvent({ type: "trace", trace });
     this.capture.recordTrace(trace);
+  }
+
+  recordPublicTrace(trace: PublicApertureTrace): void {
+    this.capture.recordRuntimeEvent({ type: "trace", trace });
   }
 
   recordSignal(signal: AttentionSignal): void {
@@ -230,17 +237,47 @@ export class RuntimeState {
     this.bumpStateVersion();
   }
 
-  recordSubmittedResponse(response: AttentionResponse, recordedAt: string): void {
+  recordSubmittedResponse(
+    response: AttentionResponse,
+    recordedAt = new Date(this.timeSource()).toISOString(),
+  ): void {
     this.capture.recordSubmittedResponse(response, recordedAt);
     this.bumpStateVersion();
   }
 
-  registerPendingWorkResponse(event: SourceEvent, recordedAt: string): void {
+  reserveWorkResponses(events: SourceEvent[]): boolean {
+    return this.workResponses.reservePending(
+      events
+        .filter((event) => event.type === "human.input.requested")
+        .map((event) => event.interactionId),
+    );
+  }
+
+  registerPendingWorkResponse(
+    event: SourceEvent,
+    recordedAt: string,
+  ): RuntimeWorkResponseRecord | null {
     if (event.type !== "human.input.requested") {
-      return;
+      return null;
     }
-    this.workResponses.registerPending(event.taskId, event.interactionId, recordedAt);
+    const record = this.workResponses.registerPending(
+      event.taskId,
+      event.interactionId,
+      recordedAt,
+    );
     this.bumpStateVersion();
+    return record;
+  }
+
+  limitWorkResponseExpiry(taskId: string, interactionId: string, expiresAt?: string): void {
+    this.workResponses.limitExpiry(taskId, interactionId, expiresAt);
+  }
+
+  withResponseSubmission(
+    response: AttentionResponse,
+    submit: (record: RuntimeWorkResponseRecord | null) => void,
+  ): void {
+    this.workResponses.withResponseSubmission(response, submit);
   }
 
   cancelWorkResponse(interactionId: string): RuntimeWorkResponseRecord | null {
@@ -268,23 +305,27 @@ export class RuntimeState {
       getAttentionView(): AttentionView;
       getSignalSummary(): ApertureRuntimeSnapshot["signalSummary"];
       getAttentionState(): ApertureRuntimeSnapshot["attentionState"];
+      getAttentionPressure(): ApertureRuntimeSnapshot["attentionPressure"];
     } & InternalHealthEmitter,
   ): ApertureRuntimeSnapshot {
     this.pruneAdapters();
     this.pruneSurfaces();
+    const health = this.health(core);
+    const attentionView = core.getAttentionView();
     return {
-      version: this.stateVersion,
-      attentionView: core.getAttentionView(),
+      attentionView,
       signalSummary: core.getSignalSummary(),
       attentionState: core.getAttentionState(),
+      attentionPressure: core.getAttentionPressure(),
       adapters: this.listAdapters(),
       surfaceCount: this.surfaces.size,
       responseSurfaceCount: [...this.surfaces.values()].filter(
         (surface) => surface.acceptsResponses,
       ).length,
       surfaceCapabilities: this.aggregateSurfaceCapabilities(),
-      health: this.health(core),
+      health,
       ...(this.learningPersistence ? { learningPersistence: this.learningPersistence } : {}),
+      version: this.stateVersion,
     };
   }
 

@@ -55,11 +55,10 @@ export async function runAttentionTui(
   const surfaceViewOptions = ambientStaleMs !== undefined ? { ambientStaleMs } : {};
 
   const initialView = buildSurfaceAttentionView(core.getAttentionView(), surfaceViewOptions);
-  const initialSummary = core.getSignalSummary();
   const initialPosture =
     reducedMotion && isAttentionViewEmpty(initialView)
       ? "calm"
-      : computePosture(initialSummary, initialView);
+      : computePosture(core.getAttentionPressure());
   const initialInputDraft = initialView.now ? createAutomaticInputDraft(initialView.now) : null;
 
   const state: TuiState = {
@@ -126,13 +125,14 @@ export async function runAttentionTui(
   const applyAttentionView = (attentionView: typeof state.attentionView) => {
     const previousActiveId = state.attentionView.now?.interactionId ?? null;
     const previousView = state.attentionView;
+    const previousPosture = state.posture;
     state.attentionView = attentionView;
     const active = attentionView.now;
 
     const newPosture =
       reducedMotion && isAttentionViewEmpty(attentionView)
         ? "calm"
-        : computePosture(core.getSignalSummary(), attentionView);
+        : computePosture(core.getAttentionPressure());
     if (!reducedMotion && newPosture !== state.posture) {
       state.previousPosture = state.posture;
       state.animation.postureFlash = { previous: state.posture, ticksRemaining: 2 };
@@ -172,7 +172,7 @@ export async function runAttentionTui(
       if (!visibleIds.has(id)) state.traceCache.delete(id);
     }
 
-    return !sameAttentionView(previousView, attentionView);
+    return previousPosture !== state.posture || !sameAttentionView(previousView, attentionView);
   };
 
   const onResize = () => requestRender();
@@ -228,10 +228,8 @@ export async function runAttentionTui(
   let unsubTrace: (() => void) | null = null;
   if (core.onTrace) {
     unsubTrace = core.onTrace((trace: ApertureTrace) => {
-      if (trace.evaluation.kind !== "candidate") return;
-      // TypeScript doesn't narrow the union through nested discriminants,
-      // so we extract the interactionId from the evaluation (always present on candidate).
-      const interactionId = trace.evaluation.adjusted?.interactionId;
+      if (!("interactionId" in trace)) return;
+      const interactionId = trace.interactionId;
       if (interactionId) {
         state.traceCache.set(interactionId, trace);
         if (state.whyMode) requestRender();
@@ -266,6 +264,7 @@ export async function runAttentionTui(
           return;
         }
         handleInputKeypress(core, state, key);
+        void state.pendingSubmission?.then(requestRender);
         requestRender();
         return;
       }
@@ -344,6 +343,7 @@ export async function runAttentionTui(
 
       // Frame response keys
       handleActiveKeypress(core, state, active, key);
+      void state.pendingSubmission?.then(requestRender);
       requestRender();
     };
 

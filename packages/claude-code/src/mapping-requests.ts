@@ -84,7 +84,7 @@ export function mapPreToolUse(
     title: approvalTitle(event.tool_name, event.tool_input, summary),
     summary,
     request,
-    riskHint: consequence,
+    ...(consequence !== undefined ? { riskHint: consequence } : {}),
     semanticHints: explicitRequestSemanticHints(request, "permission_request", whyNow),
     context: {
       items: contextItems,
@@ -190,7 +190,7 @@ export function mapPermissionRequest(
     title: permissionRequestTitle(event.tool_name, event.tool_input, summary),
     summary,
     request,
-    riskHint: consequence,
+    ...(consequence !== undefined ? { riskHint: consequence } : {}),
     semanticHints: explicitRequestSemanticHints(request, "permission_request", whyNow),
     context: {
       items: contextItems,

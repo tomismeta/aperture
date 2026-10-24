@@ -1,5 +1,6 @@
 import type {
   ApertureCore,
+  AttentionPressureSnapshot,
   AttentionResponse,
   AttentionSignal,
   AttentionSurfaceCapabilities,
@@ -12,6 +13,7 @@ import type {
   AttentionSignalSummary,
   AttentionState,
 } from "@tomismeta/aperture-core/internal";
+import type { ApertureTrace as PublicApertureTrace } from "@tomismeta/aperture-core/trace";
 
 import type { LearningPersistenceState } from "./learning-persistence.js";
 import type { WorkResponseState } from "./work-public-contract.js";
@@ -38,12 +40,28 @@ export type ApertureRuntimeOptions = {
   workResponseMaxEntries?: number;
   workResponsePendingTtlMs?: number;
   workResponseRetentionMs?: number;
+  /** Clock for Work lifecycle and response capture; also used by the default core. */
+  timeSource?: () => number;
   metadata?: Record<string, string>;
   core?: ApertureCore;
   learningPersistence?: LearningPersistenceState;
 };
 
 export type ApertureRuntimeSurfaceRole = "participant" | "companion";
+
+export type ApertureRuntimeClientOptions = {
+  baseUrl: string;
+  authToken?: string;
+  pollIntervalMs?: number;
+  label?: string;
+  surfaceRole?: ApertureRuntimeSurfaceRole;
+  acceptsResponses?: boolean;
+  signal?: AbortSignal;
+  surfaceCapabilities?: {
+    topology?: Partial<AttentionSurfaceCapabilities["topology"]>;
+    responses?: Partial<AttentionSurfaceCapabilities["responses"]>;
+  };
+};
 
 export type ApertureRuntimeEvent =
   | {
@@ -54,7 +72,7 @@ export type ApertureRuntimeEvent =
   | {
       sequence: number;
       type: "trace";
-      trace: ApertureTrace;
+      trace: PublicApertureTrace;
     };
 
 export type ApertureRuntimeSnapshot = {
@@ -62,6 +80,7 @@ export type ApertureRuntimeSnapshot = {
   attentionView: AttentionView;
   signalSummary: AttentionSignalSummary;
   attentionState: AttentionState;
+  attentionPressure: AttentionPressureSnapshot;
   adapters: ApertureRuntimeAdapter[];
   surfaceCount: number;
   responseSurfaceCount: number;

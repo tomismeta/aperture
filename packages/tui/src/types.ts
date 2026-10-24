@@ -1,15 +1,15 @@
 import type {
+  AttentionPressureSnapshot as AttentionPressure,
+  AttentionSignalSummary as SignalSummary,
+  AttentionState,
   AttentionFrame as Frame,
   AttentionResponse as FrameResponse,
   AttentionView,
 } from "@tomismeta/aperture-core";
-import type {
-  ApertureTrace,
-  AttentionField as FrameField,
-  AttentionResponseSpec as FrameResponseSpec,
-  AttentionSignalSummary as SignalSummary,
-  AttentionState,
-} from "@tomismeta/aperture-core/internal";
+import type { ApertureTrace } from "@tomismeta/aperture-core/trace";
+
+type FrameResponseSpec = NonNullable<Frame["responseSpec"]>;
+type FrameField = Extract<FrameResponseSpec, { kind: "form" }>["fields"][number];
 
 export type {
   FrameField,
@@ -20,6 +20,7 @@ export type {
   AttentionState,
   AttentionView,
   ApertureTrace,
+  AttentionPressure,
 };
 
 export type InputLike = NodeJS.ReadStream & {
@@ -33,10 +34,11 @@ export type AttentionSurface = {
   getAttentionView(): AttentionView;
   getSignalSummary(): SignalSummary;
   getAttentionState(): AttentionState;
+  getAttentionPressure(): AttentionPressure;
   subscribeAttentionView(listener: (attentionView: AttentionView) => void): () => void;
   onResponse(listener: (response: FrameResponse) => void): () => void;
   engage(taskId: string, interactionId: string, options?: { durationMs?: number }): void;
-  submit(response: FrameResponse): void;
+  submit(response: FrameResponse): void | Promise<void>;
   onTrace?(listener: (trace: ApertureTrace) => void): () => void;
 };
 
@@ -89,6 +91,7 @@ export type TextDraft = {
   kind: "text";
   interactionId: string;
   buffer: string;
+  approvalDecision?: "approved" | "rejected";
 };
 
 export type ChoiceDraft = {
@@ -112,6 +115,7 @@ export type TuiState = {
   attentionView: AttentionView;
   statusLine: string;
   inputDraft: InputDraft | null;
+  pendingSubmission?: Promise<void> | undefined;
   expanded: boolean;
   showSetup: boolean;
   whyMode: boolean;

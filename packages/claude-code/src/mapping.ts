@@ -44,7 +44,7 @@ export {
   mapClaudeCodeAskUserQuestionResponse,
   mapClaudeCodeFrameResponse,
 } from "./mapping-response.js";
-export { bashConsequence, classifyToolRisk } from "./mapping-shared.js";
+export { classifyToolRisk } from "./mapping-shared.js";
 
 export type ClaudeCodeHookEvent =
   | ClaudeCodeSessionStartEvent

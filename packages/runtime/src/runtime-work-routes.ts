@@ -73,6 +73,7 @@ export function createWorkRoutes(options: BuildRuntimeRoutesOptions): RuntimeRou
             "Answered work responses cannot be cancelled.",
           );
         }
+        options.core.retract(workResponse.taskId, workResponse.interactionId);
         writeJson(res, 200, describeWorkResponse(workResponse));
       },
     },
@@ -105,7 +106,15 @@ export function createWorkRoutes(options: BuildRuntimeRoutesOptions): RuntimeRou
           throw new RuntimeHttpError(400, "invalid_work_payload", detail);
         }
         const sourceEvents = mapWorkPayloadToSourceEvents(normalizedWork);
-        options.publishSourceEvents(sourceEvents);
+        if (!options.state.reserveWorkResponses(sourceEvents)) {
+          throw new RuntimeHttpError(
+            503,
+            "work_response_capacity",
+            "Work response capacity is full of pending interactions.",
+            "Answer, cancel, or allow existing Work requests to expire before publishing more.",
+          );
+        }
+        options.publishSourceEvents(sourceEvents, "work");
         const baseUrl = requestBaseUrl(
           req,
           options.controlHost,

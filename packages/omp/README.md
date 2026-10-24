@@ -2,6 +2,9 @@
 
 First-class Oh My Pi adapter for Aperture.
 
+This is a private workspace package, not a separate npm release. The signed
+worker channel carries its compiled Omarchy extension and component manifest.
+
 The package binds OMP `ExtensionAPI` lifecycle events, maps OMP-owned facts to
 canonical Aperture `SourceEvent` values, and keeps OMP-specific behavior outside
 `ApertureCore`.

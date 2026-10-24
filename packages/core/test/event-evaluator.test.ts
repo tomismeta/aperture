@@ -1864,6 +1864,37 @@ test("result-ready completions become focused review candidates without requirin
   assert.equal(result.candidate.judgmentInput.ontology.activity, "task_completion");
 });
 
+test("result-ready completion retains actionable blocked-like precedence, not weak hints", () => {
+  for (const confidence of ["low", "high"] as const) {
+    const result = evaluation.evaluate({
+      id: `evt:blocked-result-ready:${confidence}`,
+      taskId: "task:blocked-result-ready",
+      timestamp: "2026-03-08T12:03:40.000Z",
+      type: "task.updated",
+      title: "Agent turn completed",
+      summary: "Work cannot continue without credentials.",
+      status: "completed",
+      activityClass: "result_ready",
+      semantic: {
+        intentFrame: "blocked_work",
+        activityClass: "status_update",
+        consequence: "medium",
+        factors: ["semantic blocking signal"],
+        relationHints: [],
+        confidence,
+        reasons: ["work cannot continue"],
+      },
+    });
+    assert.equal(result.kind, "candidate");
+    if (result.kind !== "candidate") throw new Error("Expected candidate");
+    assert.equal(result.candidate.judgmentInput.blockedLikeStatus, true);
+    assert.equal(result.candidate.responseSpec.kind, "none");
+    assert.equal(result.candidate.consequence, "medium");
+    assert.equal(result.candidate.tone, "focused");
+    assert.equal(result.candidate.activityClass, confidence === "low" ? "result_ready" : undefined);
+  }
+});
+
 test("completed tasks clear current interaction state", () => {
   const result = evaluation.evaluate({
     id: "evt:complete",

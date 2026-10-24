@@ -8,7 +8,8 @@ import { TaskViewStore } from "./task-view-store.js";
 import type { CoreClock } from "./time.js";
 import { FramePlanner } from "./frame-planner.js";
 import { ApertureCoreResponseExpiredError } from "./aperture-core-error.js";
-import { findSupersededEpisodeFrames } from "./aperture-core-relation-lifecycle.js";
+import { assertResponseMatchesFrame } from "./aperture-core-validation.js";
+import { refreshEpisodeFrames } from "./aperture-core-relation-lifecycle.js";
 import {
   buildAttentionTransitionSignals,
   buildAutoResponseSignal,
@@ -203,6 +204,8 @@ export class ApertureCoreFrameLifecycle {
       });
     }
 
+    assertResponseMatchesFrame(current, response.response);
+
     const previousAttentionView = this.runtime.getAttentionView();
     const timestamp = this.runtime.clock.nowIso();
     this.runtime.clearOperatorEngagement(response.taskId, response.interactionId);
@@ -218,30 +221,36 @@ export class ApertureCoreFrameLifecycle {
     this.runtime.emitResponse(response);
   }
 
+  retract(taskId: string, interactionId: string): boolean {
+    if (!this.findFrame(taskId, interactionId)) {
+      return false;
+    }
+    const previousAttentionView = this.runtime.getAttentionView();
+    this.runtime.clearOperatorEngagement(taskId, interactionId);
+    const episode = this.runtime.episodes.retractInteraction(interactionId);
+    this.runtime.taskViews.resolve(taskId, interactionId);
+    const changedTaskIds = refreshEpisodeFrames(this.runtime.taskViews, episode);
+    changedTaskIds.add(taskId);
+    this.recordAttentionTransition(
+      previousAttentionView,
+      this.runtime.getAttentionView(),
+      this.runtime.clock.nowIso(),
+    );
+    for (const changedTaskId of changedTaskIds) {
+      const taskView = this.runtime.taskViews.get(changedTaskId);
+      this.runtime.notifyFrame(changedTaskId, taskView.now);
+      this.runtime.notifyTaskView(changedTaskId, taskView);
+    }
+    this.runtime.notifyAttentionView();
+    return true;
+  }
+
   applyAutoResponse(candidate: AttentionCandidate, response: AttentionResponse): null {
     const timestamp = this.runtime.clock.nowIso();
     this.runtime.recordSignal(buildAutoResponseSignal(candidate, response, timestamp));
     this.runtime.episodes.resolveInteraction(candidate.interactionId);
     this.runtime.emitResponse(response);
     return null;
-  }
-
-  findFrameByInteractionId(taskId: string, interactionId: string): AttentionFrame | null {
-    return this.findFrame(taskId, interactionId);
-  }
-
-  shouldRetireSupersededEpisodeFrames(
-    candidate: AttentionCandidate,
-    attentionView: AttentionView,
-  ): boolean {
-    return this.findSupersededEpisodeFrames(candidate, attentionView).length > 0;
-  }
-
-  findSupersededEpisodeFrames(
-    candidate: AttentionCandidate,
-    attentionView: AttentionView,
-  ): AttentionFrame[] {
-    return findSupersededEpisodeFrames(candidate, attentionView);
   }
 
   applyResponseExpiry(frame: AttentionFrame): AttentionFrame {

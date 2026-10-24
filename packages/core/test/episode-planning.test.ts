@@ -5,6 +5,14 @@ import type { AttentionView } from "../src/frame.js";
 import type { Frame } from "../src/frame.js";
 import type { InteractionCandidate } from "../src/interaction-candidate.js";
 import { JudgmentCoordinator } from "../src/judgment-coordinator.js";
+import { ApertureCoreFrameLifecycle } from "../src/aperture-core-frame-lifecycle.js";
+import { buildAttentionView } from "../src/attention-view.js";
+import { EpisodeTracker } from "../src/episode-tracker.js";
+import { FramePlanner } from "../src/frame-planner.js";
+import type { AttentionResponse } from "../src/frame-response.js";
+import type { AttentionSignal } from "../src/interaction-signal.js";
+import { TaskViewStore } from "../src/task-view-store.js";
+import { createCoreClock } from "../src/time.js";
 
 function createCandidate(overrides: Partial<InteractionCandidate> = {}): InteractionCandidate {
   const candidate = {
@@ -71,6 +79,135 @@ function createFrame(overrides: Partial<Frame> = {}): Frame {
     ...overrides,
   };
 }
+
+test("withdrawal refreshes surviving episode metadata across tasks and lanes without replaying work", () => {
+  const episodes = new EpisodeTracker();
+  const baseline = new EpisodeTracker();
+  const planner = new FramePlanner();
+  const taskViews = new TaskViewStore();
+  const signals: AttentionSignal[] = [];
+  const responses: AttentionResponse[] = [];
+  const changedTasks: string[] = [];
+  const changedFrames: Array<Frame | null> = [];
+  const attentionViews: AttentionView[] = [];
+  const clearedEngagements: Array<[string | undefined, string | undefined]> = [];
+  const lifecycle = new ApertureCoreFrameLifecycle({
+    episodes,
+    planner,
+    taskViews,
+    clock: createCoreClock(() => Date.parse("2026-03-08T12:05:00.000Z")),
+    responseExpiryMs: undefined,
+    getAttentionView: () => buildAttentionView(taskViews.values()),
+    recordSignal: (signal) => signals.push(signal),
+    clearOperatorEngagement: (taskId, interactionId) =>
+      clearedEngagements.push([taskId, interactionId]),
+    notifyFrame: (_taskId, frame) => changedFrames.push(frame),
+    notifyTaskView: (taskId) => changedTasks.push(taskId),
+    notifyAttentionView: () => attentionViews.push(buildAttentionView(taskViews.values())),
+    emitResponse: (response) => responses.push(response),
+  });
+  const withdrawn = createCandidate({
+    taskId: "task:withdrawn",
+    interactionId: "interaction:withdrawn",
+    consequence: "high",
+    timestamp: "2026-03-08T12:00:00.000Z",
+  });
+  const withdrawnFrame = planner.plan(episodes.assign(withdrawn), null);
+  taskViews.setNow(withdrawn.taskId, withdrawnFrame);
+  const survivors = [
+    createCandidate({ interactionId: "interaction:now" }),
+    createCandidate({
+      interactionId: "interaction:queued-one",
+      timestamp: "2026-03-08T12:02:00.000Z",
+    }),
+    createCandidate({
+      interactionId: "interaction:queued-two",
+      timestamp: "2026-03-08T12:03:00.000Z",
+    }),
+    createCandidate({
+      taskId: "task:ambient",
+      interactionId: "interaction:ambient",
+      timestamp: "2026-03-08T12:04:00.000Z",
+    }),
+  ];
+  const frames = survivors.map((candidate) => planner.plan(episodes.assign(candidate), null));
+  for (const candidate of survivors) {
+    baseline.assign(candidate);
+  }
+  const blockingUpdate = createCandidate({
+    ...survivors[3]!,
+    mode: "approval",
+    blocking: true,
+    responseSpec: {
+      kind: "approval",
+      actions: [{ id: "approve", label: "Approve", kind: "approve", emphasis: "primary" }],
+    },
+    timestamp: "2026-03-08T12:04:10.000Z",
+  });
+  episodes.assign(blockingUpdate);
+  baseline.assign(blockingUpdate);
+  const latest = createCandidate({
+    ...survivors[3]!,
+    timestamp: "2026-03-08T12:04:20.000Z",
+  });
+  frames[3] = planner.plan(episodes.assign(latest), null);
+  const expectedEpisode = baseline.readFrameEpisode(planner.plan(baseline.assign(latest), null));
+  taskViews.setNow(frames[0]!.taskId, frames[0]!);
+  taskViews.addNext(frames[1]!.taskId, frames[1]!);
+  taskViews.addNext(frames[2]!.taskId, frames[2]!);
+  taskViews.addAmbient(frames[3]!.taskId, frames[3]!);
+  const previousQueue = [...taskViews.get("task:session").next];
+
+  assert.equal(lifecycle.retract("task:session", withdrawn.interactionId), false);
+  assert.deepEqual(changedTasks, []);
+  assert.equal(lifecycle.retract(withdrawn.taskId, withdrawn.interactionId), true);
+  assert.equal(taskViews.get(withdrawn.taskId).now, null);
+  assert.deepEqual(
+    taskViews.get("task:session").next.map((frame) => frame.interactionId),
+    previousQueue.map((frame) => frame.interactionId),
+  );
+  for (const before of frames) {
+    const after = lifecycle.findFrame(before.taskId, before.interactionId);
+    assert.deepEqual(after, {
+      ...before,
+      metadata: { ...before.metadata, episode: expectedEpisode },
+    });
+    assert.notDeepEqual(before.metadata?.episode, expectedEpisode);
+  }
+  assert.equal(expectedEpisode?.id, withdrawnFrame.metadata?.episode?.id);
+  assert.equal(expectedEpisode?.state, "waiting");
+  assert.equal(expectedEpisode?.evidenceScore, 3);
+  assert.equal(episodes.stats().boundInteractions, survivors.length);
+  assert.deepEqual(
+    new Set(changedTasks),
+    new Set(["task:withdrawn", "task:session", "task:ambient"]),
+  );
+  assert.deepEqual(
+    changedFrames.find((frame) => frame?.taskId === "task:session")?.metadata?.episode,
+    expectedEpisode,
+  );
+  assert.equal(attentionViews.length, 1);
+  assert.deepEqual(clearedEngagements, [[withdrawn.taskId, withdrawn.interactionId]]);
+  assert.deepEqual(responses, []);
+  assert.ok(
+    signals.every(
+      (signal) =>
+        signal.kind !== "presented" && signal.kind !== "responded" && signal.kind !== "dismissed",
+    ),
+  );
+
+  const notificationCount = changedTasks.length;
+  const signalCount = signals.length;
+  assert.equal(lifecycle.retract(withdrawn.taskId, withdrawn.interactionId), false);
+  assert.equal(changedTasks.length, notificationCount);
+  assert.equal(signals.length, signalCount);
+  assert.equal(attentionViews.length, 1);
+  const later = createCandidate({
+    interactionId: "interaction:later",
+    timestamp: "2026-03-08T12:05:00.000Z",
+  });
+  assert.deepEqual(episodes.assign(later), baseline.assign(later));
+});
 
 test("same-episode status stays bundled with the active blocking episode", () => {
   const coordinator = new JudgmentCoordinator();

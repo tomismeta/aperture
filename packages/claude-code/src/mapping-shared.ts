@@ -23,32 +23,18 @@ export type ContextItem = NonNullable<
 export type HumanInputSemanticHints = NonNullable<SourceHumanInputRequestedEvent["semanticHints"]>;
 export type TaskUpdateSemanticHints = NonNullable<SourceTaskUpdatedEvent["semanticHints"]>;
 
-const HIGH_CONSEQUENCE_PATTERNS = [
-  /\brm\s+-rf\b/i,
-  /\bgit\s+push\s+--force\b/i,
-  /\bgit\s+reset\s+--hard\b/i,
-  /\bDROP\s+TABLE\b/i,
-  /\bdocker\s+rm\b/i,
-  /\bkill\s+-9\b/i,
-  /\bchmod\s+777\b/i,
-];
 
 export function nowIso(): string {
   return new Date().toISOString();
 }
 
-export function bashConsequence(command: string): ConsequenceLevel {
-  return HIGH_CONSEQUENCE_PATTERNS.some((pattern) => pattern.test(command)) ? "high" : "medium";
-}
-
 export function classifyToolRisk(
   event: ClaudeCodePreToolUseEvent,
   options: Pick<ClaudeCodeMappingOptions, "classifyCommand"> = {},
-): ConsequenceLevel {
+): ConsequenceLevel | undefined {
   const command = readString(event.tool_input.command);
-  const classifyCommand = options.classifyCommand ?? bashConsequence;
   if (command) {
-    return classifyCommand(command, event);
+    return options.classifyCommand?.(command, event);
   }
 
   return classifyToolNameRisk(event.tool_name, hasSensitivePathValues(event.tool_input, event.cwd));
@@ -57,11 +43,10 @@ export function classifyToolRisk(
 export function classifyPermissionRequestRisk(
   event: ClaudeCodePermissionRequestEvent,
   options: Pick<ClaudeCodeMappingOptions, "classifyCommand"> = {},
-): ConsequenceLevel {
+): ConsequenceLevel | undefined {
   const command = readString(event.tool_input.command);
-  const classifyCommand = options.classifyCommand ?? bashConsequence;
   if (command) {
-    return classifyCommand(command, {
+    return options.classifyCommand?.(command, {
       session_id: event.session_id,
       cwd: event.cwd,
       hook_event_name: "PreToolUse",

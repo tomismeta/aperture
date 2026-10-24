@@ -15,11 +15,15 @@ import { JudgmentCoordinator, type AttentionDecisionExplanation } from "./judgme
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import { AttentionSignalStore, type AttentionSignalStoreStats } from "./attention-signal-store.js";
 import type { PolicyConfig } from "./policy-config.js";
-import { distillMemoryProfile } from "./memory-aggregator.js";
+import { MemoryAccumulator } from "./memory-aggregator.js";
+import { forecastAttentionPressure } from "./attention-pressure.js";
 import { selectPeripheralBucket } from "./attention-planner.js";
 import { ApertureCoreAttentionEvidence } from "./aperture-core-attention-evidence.js";
 import { ApertureCoreFrameLifecycle } from "./aperture-core-frame-lifecycle.js";
-import { ApertureCoreRelationLifecycle } from "./aperture-core-relation-lifecycle.js";
+import {
+  ApertureCoreRelationLifecycle,
+  findSupersededEpisodeFrames,
+} from "./aperture-core-relation-lifecycle.js";
 import { ProfileStore, type MemoryProfile, type ApertureProfile } from "./profile-store.js";
 import type { AttentionSignalSummary } from "./signal-summary.js";
 import type { AttentionSurfaceCapabilities } from "./surface-capabilities.js";
@@ -44,7 +48,6 @@ import {
   preparePublishedSourceEvent,
 } from "./aperture-core-event-preparation.js";
 import {
-  checkpointMarkdownMemoryProfile,
   loadMarkdownRuntimeState,
   reloadMarkdownRuntimeState,
 } from "./aperture-core-markdown-state.js";
@@ -104,6 +107,10 @@ export type ApertureCoreHealthSnapshot = {
   };
 };
 
+export type AttentionPressureSnapshot = {
+  level: "steady" | "elevated" | "high";
+};
+
 export class ApertureCore {
   private readonly listeners = new ApertureCoreListeners();
   private readonly taskViews = new TaskViewStore();
@@ -128,6 +135,8 @@ export class ApertureCore {
   private readonly episodes: EpisodeTracker;
   private readonly operatorEngagement: OperatorEngagementController;
   private reloadInFlight: Promise<boolean> | null = null;
+  private persistenceTail: Promise<void> | null = null;
+  private readonly memory = new MemoryAccumulator();
 
   constructor(options: ApertureCoreOptions = {}) {
     const runtime = normalizeApertureCoreRuntimeSetup(options);
@@ -148,8 +157,8 @@ export class ApertureCore {
       signals: this.signals,
       episodes: this.episodes,
       clock: this.clock,
-      getTaskView: (taskId) => this.getTaskView(taskId),
-      getAttentionView: () => this.getAttentionView(),
+      getTaskView: (taskId) => this.readTaskView(taskId),
+      getAttentionView: () => this.readAttentionView(),
       getOperatorPresence: () => this.getOperatorPresence(),
       getSurfaceCapabilities: () => this.getSurfaceCapabilities(),
     });
@@ -159,15 +168,15 @@ export class ApertureCore {
       episodes: this.episodes,
       clock: this.clock,
       responseExpiryMs: this.responseExpiryMs,
-      getAttentionView: () => this.getAttentionView(),
-      recordSignal: (signal: AttentionSignal) => this.recordSignal(signal),
+      getAttentionView: () => this.readAttentionView(),
+      recordSignal: (signal: AttentionSignal) => this.recordOwnedSignal(signal),
       clearOperatorEngagement: (taskId: string | undefined, interactionId: string | undefined) =>
         this.operatorEngagement.clear(taskId, interactionId),
       notifyFrame: (taskId: string, frame: AttentionFrame | null) =>
         this.listeners.emitFrame(taskId, frame),
       notifyTaskView: (taskId: string, taskView: AttentionTaskView) =>
         this.listeners.emitTaskView(taskId, taskView),
-      notifyAttentionView: () => this.listeners.emitAttentionView(this.getAttentionView()),
+      notifyAttentionView: () => this.listeners.emitAttentionView(this.readAttentionView()),
       emitResponse: (response: AttentionResponse) => this.listeners.emitResponse(response),
     };
     this.frameLifecycle = new ApertureCoreFrameLifecycle(lifecycleRuntime);
@@ -196,7 +205,7 @@ export class ApertureCore {
       return this.reloadInFlight;
     }
 
-    this.reloadInFlight = this.performMarkdownReload();
+    this.reloadInFlight = this.serializePersistence(() => this.performMarkdownReload());
     try {
       return await this.reloadInFlight;
     } finally {
@@ -206,7 +215,9 @@ export class ApertureCore {
 
   publishSourceEvent(event: SourceEvent): AttentionFrame | null {
     assertValidSourceEvent(event);
-    return this.publishPreparedEvent(preparePublishedSourceEvent(event));
+    return structuredClone(
+      this.publishPreparedEvent(preparePublishedSourceEvent(structuredClone(event))),
+    );
   }
 
   publish(event: ApertureEvent, options: PublishOptions = {}): AttentionFrame | null {
@@ -215,7 +226,9 @@ export class ApertureCore {
     // -> AttentionCandidate -> AttentionJudgmentInput-aware judgment ->
     // AttentionFrame/AttentionView + trace`
     assertValidEvent(event);
-    return this.publishPreparedEvent(preparePublishedEvent(event, options));
+    return structuredClone(
+      this.publishPreparedEvent(preparePublishedEvent(structuredClone(event), options)),
+    );
   }
 
   private publishPreparedEvent(preparedEvent: PreparedPublishedEvent): AttentionFrame | null {
@@ -225,7 +238,7 @@ export class ApertureCore {
       originalEvent,
       finalizedEvent,
     );
-    const current = this.getFrame(finalizedEvent.taskId);
+    const current = this.readFrame(finalizedEvent.taskId);
     const evidence = this.attentionEvidence.assemble(finalizedEvent.taskId, current);
     const taskSummary = evidence.taskSignalSummary;
     const globalSummary = evidence.globalSignalSummary;
@@ -250,7 +263,7 @@ export class ApertureCore {
       }
       case "clear": {
         const result = this.frameLifecycle.applyClear(finalizedEvent.taskId);
-        const postAttentionView = this.getAttentionView();
+        const postAttentionView = this.readAttentionView();
         this.notifyTrace(
           this.traceRecorder.recordClear(
             buildPublishTraceSnapshot({
@@ -258,7 +271,7 @@ export class ApertureCore {
               event: finalizedEvent,
               eventTransition,
               evidence,
-              taskView: this.getTaskView(finalizedEvent.taskId),
+              taskView: this.readTaskView(finalizedEvent.taskId),
               attentionView: postAttentionView,
             }),
             finalizedEvent.taskId,
@@ -279,7 +292,7 @@ export class ApertureCore {
         );
         const suppressed = shouldSuppressObsoleteEpisodeCandidate(explanation.decision.candidate);
         const result = this.applyCandidateDecision(explanation, evidence, preAttentionView);
-        const postAttentionView = this.getAttentionView();
+        const postAttentionView = this.readAttentionView();
         this.notifyTrace(
           this.traceRecorder.recordCandidate(
             buildPublishTraceSnapshot({
@@ -287,7 +300,7 @@ export class ApertureCore {
               event: finalizedEvent,
               eventTransition,
               evidence,
-              taskView: this.getTaskView(finalizedEvent.taskId),
+              taskView: this.readTaskView(finalizedEvent.taskId),
               attentionView: postAttentionView,
             }),
             {
@@ -397,12 +410,13 @@ export class ApertureCore {
 
     const candidate = explanation.decision.candidate;
 
-    if (this.frameLifecycle.shouldRetireSupersededEpisodeFrames(candidate, preAttentionView)) {
+    const supersededFrames = findSupersededEpisodeFrames(candidate, preAttentionView);
+    if (supersededFrames.length > 0) {
       return this.frameLifecycle.commitFrame(
         this.frameLifecycle.applyResponseExpiry(
           this.planner.plan(candidate, evidence.currentFrame),
         ),
-        this.frameLifecycle.findSupersededEpisodeFrames(candidate, preAttentionView),
+        supersededFrames,
       );
     }
 
@@ -434,19 +448,19 @@ export class ApertureCore {
   }
 
   getFrame(taskId: string): AttentionFrame | null {
-    return this.taskViews.get(taskId).now ?? null;
+    return structuredClone(this.readFrame(taskId));
   }
 
   subscribe(taskId: string, listener: AttentionFrameListener): () => void {
-    return this.listeners.subscribeFrame(taskId, listener, this.getFrame(taskId));
+    return this.listeners.subscribeFrame(taskId, listener, this.readFrame(taskId));
   }
 
   subscribeTaskView(taskId: string, listener: AttentionTaskViewListener): () => void {
-    return this.listeners.subscribeTaskView(taskId, listener, this.getTaskView(taskId));
+    return this.listeners.subscribeTaskView(taskId, listener, this.readTaskView(taskId));
   }
 
   subscribeAttentionView(listener: AttentionViewListener): () => void {
-    return this.listeners.subscribeAttentionView(listener, this.getAttentionView());
+    return this.listeners.subscribeAttentionView(listener, this.readAttentionView());
   }
 
   onResponse(listener: AttentionResponseListener): () => void {
@@ -467,23 +481,23 @@ export class ApertureCore {
 
   submit(response: AttentionResponse): void {
     assertValidFrameResponse(response);
-    this.frameLifecycle.submit(response);
+    this.frameLifecycle.submit(structuredClone(response));
+  }
+
+  retract(taskId: string, interactionId: string): boolean {
+    return this.frameLifecycle.retract(taskId, interactionId);
   }
 
   getTaskView(taskId: string): AttentionTaskView {
-    return this.taskViews.get(taskId);
+    return structuredClone(this.readTaskView(taskId));
   }
 
   getAttentionView(): AttentionView {
-    return buildAttentionView(this.taskViews.values(), {
-      globalAttentionState: this.getAttentionState(),
-      operatorPresence: this.getOperatorPresence(),
-      focusedInteractionId: this.readOperatorEngagementInteractionId(),
-    });
+    return structuredClone(this.readAttentionView());
   }
 
   getSignals(taskId?: string): AttentionSignal[] {
-    return this.signals.list(taskId);
+    return structuredClone(this.signals.list(taskId));
   }
 
   getSignalSummary(taskId?: string): AttentionSignalSummary {
@@ -492,6 +506,15 @@ export class ApertureCore {
 
   getAttentionState(taskId?: string): AttentionState {
     return deriveAttentionState(this.signals.summarize(taskId));
+  }
+
+  getAttentionPressure(): AttentionPressureSnapshot {
+    const { level } = forecastAttentionPressure(
+      this.signals.summarize(),
+      this.readAttentionView(),
+      this.clock.nowIso(),
+    );
+    return { level };
   }
 
   [APERTURE_INTERNAL_READ_HEALTH](): ApertureCoreHealthSnapshot {
@@ -522,20 +545,19 @@ export class ApertureCore {
   }
 
   engage(taskId: string, interactionId: string, options: { durationMs?: number } = {}): void {
-    if (!this.frameLifecycle.findFrameByInteractionId(taskId, interactionId)) {
+    if (!this.frameLifecycle.findFrame(taskId, interactionId)) {
       return;
     }
 
-    const previousAttentionView = this.getAttentionView();
-    this.operatorEngagement.engage(taskId, interactionId, options, () => {
-      const livePreviousAttentionView = this.getAttentionView();
-      this.operatorEngagement.clear(taskId, interactionId);
-      const nextAttentionView = this.getAttentionView();
+    const previousAttentionView = this.readAttentionView();
+    this.operatorEngagement.engage(taskId, interactionId, options, (expiredInteractionId) => {
+      const livePreviousAttentionView = this.readAttentionView(expiredInteractionId);
+      const nextAttentionView = this.readAttentionView();
       if (!sameAttentionView(livePreviousAttentionView, nextAttentionView)) {
         this.notifyAttentionView();
       }
     });
-    const nextAttentionView = this.getAttentionView();
+    const nextAttentionView = this.readAttentionView();
     if (!sameAttentionView(previousAttentionView, nextAttentionView)) {
       this.notifyAttentionView();
     }
@@ -546,27 +568,25 @@ export class ApertureCore {
   }
 
   snapshotMemoryProfile(now: string = this.nowIso()): MemoryProfile {
-    return distillMemoryProfile(this.baseMemoryProfile, this.signals.list(), now);
+    return this.memory.snapshot(this.baseMemoryProfile, now).profile;
   }
 
   async checkpointMemory(now: string = this.nowIso()): Promise<MemoryProfile | null> {
-    const snapshot = await checkpointMarkdownMemoryProfile({
-      profileStore: this.profileStore,
-      memoryProfile: this.baseMemoryProfile,
-      signals: this.signals.list(),
-      now,
-    });
-    if (!snapshot) {
+    if (!this.profileStore) {
       return null;
     }
-
-    this.baseMemoryProfile = snapshot;
-    this.coordinator = buildApertureCoordinator({
-      apertureProfile: this.apertureProfile,
-      baseMemoryProfile: this.baseMemoryProfile,
-      policyConfig: this.policyConfig,
+    return this.serializePersistence(async () => {
+      const { profile, accounting } = this.memory.snapshot(this.baseMemoryProfile, now);
+      await this.profileStore!.saveMemoryProfile(structuredClone(profile));
+      this.baseMemoryProfile = profile;
+      this.memory.commit(accounting);
+      this.coordinator = buildApertureCoordinator({
+        apertureProfile: this.apertureProfile,
+        baseMemoryProfile: profile,
+        policyConfig: this.policyConfig,
+      });
+      return structuredClone(profile);
     });
-    return snapshot;
   }
 
   markViewed(taskId: string, interactionId: string, options: { surface?: string } = {}): void {
@@ -625,8 +645,38 @@ export class ApertureCore {
 
   recordSignal(signal: AttentionSignal): void {
     assertValidSignal(signal);
+    this.recordOwnedSignal(structuredClone(signal));
+  }
+
+  private recordOwnedSignal(signal: AttentionSignal): void {
+    this.memory.record(signal);
     this.signals.record(signal);
     this.listeners.emitSignal(signal);
+  }
+
+  private readFrame(taskId: string): AttentionFrame | null {
+    return this.taskViews.get(taskId).now;
+  }
+
+  private readTaskView(taskId: string): AttentionTaskView {
+    return this.taskViews.get(taskId);
+  }
+
+  private readAttentionView(focusedInteractionId?: string): AttentionView {
+    return buildAttentionView(this.taskViews.values(), {
+      globalAttentionState: this.getAttentionState(),
+      operatorPresence: this.operatorPresence,
+      focusedInteractionId: focusedInteractionId ?? this.readOperatorEngagementInteractionId(),
+    });
+  }
+
+  private serializePersistence<T>(operation: () => Promise<T>): Promise<T> {
+    const pending = this.persistenceTail ? this.persistenceTail.then(operation) : operation();
+    this.persistenceTail = pending.then(
+      () => {},
+      () => {},
+    );
+    return pending;
   }
 
   private notifyFrame(taskId: string, frame: AttentionFrame | null): void {
@@ -638,13 +688,12 @@ export class ApertureCore {
   }
 
   private notifyAttentionView(): void {
-    this.listeners.emitAttentionView(this.getAttentionView());
+    this.listeners.emitAttentionView(this.readAttentionView());
   }
 
   private readOperatorEngagementInteractionId(): string | null {
     return this.operatorEngagement.readFocusedInteractionId(
-      (taskId, interactionId) =>
-        this.frameLifecycle.findFrameByInteractionId(taskId, interactionId) !== null,
+      (taskId, interactionId) => this.frameLifecycle.findFrame(taskId, interactionId) !== null,
     );
   }
 
@@ -657,13 +706,15 @@ export class ApertureCore {
   }
 
   private async performMarkdownReload(): Promise<boolean> {
-    const { apertureProfile, memoryProfile, policyConfig } = await reloadMarkdownRuntimeState({
-      profileStore: this.profileStore!,
-      markdownRootDir: this.markdownRootDir!,
-      apertureProfile: this.apertureProfile,
-      memoryProfile: this.baseMemoryProfile,
-      policyConfig: this.policyConfig,
-    });
+    const { apertureProfile, memoryProfile, policyConfig } = structuredClone(
+      await reloadMarkdownRuntimeState({
+        profileStore: this.profileStore!,
+        markdownRootDir: this.markdownRootDir!,
+        apertureProfile: structuredClone(this.apertureProfile),
+        memoryProfile: structuredClone(this.baseMemoryProfile),
+        policyConfig: structuredClone(this.policyConfig),
+      }),
+    );
 
     const nextCoordinator = buildApertureCoordinator({
       apertureProfile,

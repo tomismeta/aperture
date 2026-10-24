@@ -213,8 +213,8 @@ const coreMetadata = JSON.parse(
 if (packageMetadata.version !== "0.10.0") {
   throw new Error("Aperture worker payload requires @tomismeta/aperture 0.10.0");
 }
-if (coreMetadata.version !== "0.9.0") {
-  throw new Error("Aperture worker payload requires @tomismeta/aperture-core 0.9.0");
+if (coreMetadata.version !== "0.10.0") {
+  throw new Error("Aperture worker payload requires @tomismeta/aperture-core 0.10.0");
 }
 const esbuildMetadata = JSON.parse(
   await readFile(requireFromScript.resolve("esbuild/package.json"), "utf8"),

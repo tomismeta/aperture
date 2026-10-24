@@ -4,7 +4,6 @@ import test from "node:test";
 import {
   assessAutoresearchEditSurface,
   buildAutoresearchEvaluationCommands,
-  defaultAutoresearchOptimizerPatchPath,
   parseAutoresearchOptimizerFeedback,
   renderAutoresearchOptimizationPrompt,
   renderAutoresearchOptimizerRunMarkdown,
@@ -246,7 +245,3 @@ test("renderAutoresearchOptimizerRunMarkdown preserves gate_blocked status", () 
   assert.match(markdown, /release check: fail/);
 });
 
-test("defaultAutoresearchOptimizerPatchPath writes patch artifacts under the optimizer patches dir", () => {
-  const filePath = defaultAutoresearchOptimizerPatchPath("2026-03-28T00:00:00.000Z");
-  assert.match(filePath, /\.aperture\/lab\/results\/autoresearch\/optimizer\/patches\/autoresearch-optimizer-patch-2026-03-28T00-00-00-000Z\.diff$/);
-});

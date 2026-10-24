@@ -31,15 +31,6 @@ async function main(): Promise<void> {
   const startedAtMs = options.recording ? RECORDING_START_MS : Date.now();
   const traceLines: string[] = [];
   const cleanup = scheduleDemo(core, startedAtMs, options.recording);
-  const surface = {
-    getAttentionView: () => core.getAttentionView(),
-    getSignalSummary: () => core.getSignalSummary(),
-    getAttentionState: () => core.getAttentionState(),
-    subscribeAttentionView: (listener: Parameters<typeof core.subscribeAttentionView>[0]) => core.subscribeAttentionView(listener),
-    onResponse: (listener: Parameters<typeof core.onResponse>[0]) => core.onResponse(listener),
-    submit: (response: Parameters<typeof core.submit>[0]) => core.submit(response),
-    onTrace: (listener: (trace: ApertureTrace) => void) => subscribeInternalTrace(core, listener),
-  };
 
   if (options.traceEnabled) {
     subscribeInternalTrace(core, (trace) => {
@@ -51,7 +42,7 @@ async function main(): Promise<void> {
   }
 
   try {
-    await runAttentionTui(surface, {
+    await runAttentionTui(core, {
       title: "Aperture TUI Demo",
       reducedMotion: options.recording,
     });

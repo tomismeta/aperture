@@ -161,6 +161,17 @@ This is the current standard we should hold all adapters to.
 - pending human-request state is cleaned up conservatively
 - shutdown behavior is deliberate, not best-effort by accident
 
+When the host has already resolved a question and no valid Aperture answer is
+available, adapters call
+`ApertureRuntimeAdapterClient.retract(taskId, interactionId): Promise<boolean>`.
+This uses authenticated `POST /retract` on the runtime control URL with
+`{ taskId, interactionId }` and receives `{ retracted: boolean }`. It withdraws
+only the matching pending interaction, returns `false` when none remains,
+and does not fabricate an `AttentionResponse`. Once the POST succeeds, the client
+returns the server result and refreshes its snapshot in the background. Refresh
+failures reach `onError`; they do not turn an accepted retraction into a rejection.
+Use `submit` only when the host supplies an actual response valid for that frame.
+
 ### 4. Verification
 
 - unit tests cover request or event mapping

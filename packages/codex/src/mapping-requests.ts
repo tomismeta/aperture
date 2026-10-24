@@ -120,7 +120,7 @@ function mapCommandApprovalRequest(
     toolFamily: "bash",
     activityClass: "permission_request",
     title: "Approve Codex command",
-    summary: params.reason ?? "Codex requested approval before running a command.",
+    summary: params.command ?? params.reason ?? "Codex requested approval before running a command.",
     request: {
       kind: "approval",
     },
@@ -434,7 +434,7 @@ function mapExecCommandApprovalRequest(
     toolFamily: "bash",
     activityClass: "permission_request",
     title: "Approve Codex command",
-    summary: params.reason ?? "Codex requested approval before running a command.",
+    summary: params.command.join(" ") || params.reason || "Codex requested approval before running a command.",
     request: {
       kind: "approval",
     },

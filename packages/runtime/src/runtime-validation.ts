@@ -60,6 +60,21 @@ export function validateAttentionResponse(value: unknown): AttentionResponse | n
   }
 }
 
+export function validateRetraction(
+  value: unknown,
+): { taskId: string; interactionId: string } | null {
+  if (
+    !isRecord(value) ||
+    typeof value.taskId !== "string" ||
+    value.taskId.trim() === "" ||
+    typeof value.interactionId !== "string" ||
+    value.interactionId.trim() === ""
+  ) {
+    return null;
+  }
+  return { taskId: value.taskId, interactionId: value.interactionId };
+}
+
 export function validateOperatorEngagement(
   value: unknown,
 ): { taskId: string; interactionId: string; durationMs?: number } | null {

@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { AttentionFrame as Frame, AttentionView } from "@tomismeta/aperture-core";
-import type { CandidateApertureTrace } from "@tomismeta/aperture-core/internal";
-import type { AttentionSignalSummary as SignalSummary } from "../../core/src/signal-summary.js";
-import type { AttentionState } from "../../core/src/attention-state.js";
+import type { CandidateApertureTrace } from "@tomismeta/aperture-core/trace";
+import type { SignalSummary, AttentionState } from "../src/types.js";
 
 import { renderAttentionScreen } from "../src/index.js";
 import { ANSI } from "../src/ansi.js";
@@ -43,14 +42,8 @@ function makeFrame(overrides: Partial<Frame> = {}): Frame {
 }
 
 type CandidateTraceOverrides = {
-  evaluation?: {
-    original?: Partial<CandidateApertureTrace["evaluation"]["original"]>;
-    adjusted?: Partial<CandidateApertureTrace["evaluation"]["adjusted"]>;
-  };
   semantic?: CandidateApertureTrace["semantic"];
   policyRules?: Partial<CandidateApertureTrace["policyRules"]>;
-  utility?: Partial<CandidateApertureTrace["utility"]>;
-  planner?: Partial<CandidateApertureTrace["planner"]>;
   coordination?: Partial<CandidateApertureTrace["coordination"]>;
 };
 
@@ -69,75 +62,31 @@ function makeCandidateTrace(overrides: CandidateTraceOverrides = {}): CandidateA
     eventTransition: cast<CandidateApertureTrace["eventTransition"]>(),
     candidateTransition: cast<CandidateApertureTrace["candidateTransition"]>(),
     frameTransition: cast<CandidateApertureTrace["frameTransition"]>(),
-    evaluation: {
-      kind: "candidate",
-      original: cast<CandidateApertureTrace["evaluation"]["original"]>({}),
-      adjusted: cast<CandidateApertureTrace["evaluation"]["adjusted"]>({
-        interactionId: "interaction-1",
-      }),
-    },
-    heuristics: { scoreOffset: 0, rationale: [] },
-    episode: null,
-    policy: cast<CandidateApertureTrace["policy"]>(),
+    interactionId: "interaction-1",
+    evaluation: { kind: "candidate" },
     policyRules: {
       gateEvaluations: [],
       criterion: null,
       criterionEvaluations: [],
     },
-    utility: {
-      candidate: cast<CandidateApertureTrace["utility"]["candidate"]>(),
-      currentScore: null,
-      currentPriority: null,
-    },
-    planner: { kind: "activate", reasons: [], continuityEvaluations: [] },
     coordination: {
       kind: "activate",
       resultLane: "now",
       candidateScore: 1211,
       currentScore: null,
       currentPriority: null,
-      criterion: null,
       ambiguity: null,
       reasons: ["blocking work requires operator response"],
       continuityEvaluations: [],
     },
-    taskSummary: cast<CandidateApertureTrace["taskSummary"]>(),
-    globalSummary: cast<CandidateApertureTrace["globalSummary"]>(),
-    taskAttentionState: "calm",
-    globalAttentionState: "calm",
-    pressureForecast: cast<CandidateApertureTrace["pressureForecast"]>(),
-    attentionBurden: cast<CandidateApertureTrace["attentionBurden"]>(),
-    current: null,
-    taskView: cast<CandidateApertureTrace["taskView"]>({ now: null, next: [], ambient: [] }),
-    attentionView: { now: null, next: [], ambient: [] },
-    result: null,
   };
 
   return {
     ...base,
     ...(overrides.semantic !== undefined ? { semantic: overrides.semantic } : {}),
-    evaluation: {
-      ...base.evaluation,
-      original: cast<CandidateApertureTrace["evaluation"]["original"]>({
-        ...base.evaluation.original,
-        ...overrides.evaluation?.original,
-      }),
-      adjusted: cast<CandidateApertureTrace["evaluation"]["adjusted"]>({
-        ...base.evaluation.adjusted,
-        ...overrides.evaluation?.adjusted,
-      }),
-    },
     policyRules: {
       ...base.policyRules,
       ...overrides.policyRules,
-    },
-    utility: {
-      ...base.utility,
-      ...overrides.utility,
-    },
-    planner: {
-      ...base.planner,
-      ...overrides.planner,
     },
     coordination: {
       ...base.coordination,
@@ -1065,8 +1014,6 @@ test("renderAttentionScreen why mode keeps threshold details on separate lines",
         },
       ],
     },
-    utility: { currentScore: 1100 },
-    planner: { kind: "queue" },
     coordination: {
       kind: "queue",
       resultLane: "next",

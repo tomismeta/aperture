@@ -33,6 +33,14 @@ function apertureMarkdown(
   ].join("\n");
 }
 
+function barrier(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 test("profile store saves and loads memory without extra dependencies", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-profile-store-"));
   const store = new ProfileStore(root);
@@ -652,7 +660,7 @@ test("concurrent checkpoints and reload serialize; failed persistence never cons
   const root = await mkdtemp(join(tmpdir(), "aperture-checkpoint-order-"));
   const writes: MemoryProfile[] = [];
   const operations: string[] = [];
-  const { promise: gate, resolve: release } = Promise.withResolvers<void>();
+  const { promise: gate, resolve: release } = barrier();
   const profileStore = {
     async saveMemoryProfile(profile: MemoryProfile) {
       operations.push("save");
@@ -702,7 +710,7 @@ test("concurrent checkpoints and reload serialize; failed persistence never cons
 });
 
 test("successful concurrent saves include feedback arriving while the first save is pending", async () => {
-  const { promise: gate, resolve: release } = Promise.withResolvers<void>();
+  const { promise: gate, resolve: release } = barrier();
   let saves = 0;
   const profileStore = {
     async saveMemoryProfile() {
@@ -953,8 +961,8 @@ test("pending successful or failed saves account only their captured classificat
     await t.test(`pending save fails: ${failPendingSave}`, async () => {
       const root = await mkdtemp(join(tmpdir(), "aperture-memory-reclassification-save-"));
       const now = "2026-03-12T10:16:00.000Z";
-      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
-      const { promise: saving, resolve: started } = Promise.withResolvers<void>();
+      const { promise: gate, resolve: release } = barrier();
+      const { promise: saving, resolve: started } = barrier();
       let saves = 0;
       class GatedProfileStore extends ProfileStore {
         override async saveMemoryProfile(profile: MemoryProfile): Promise<void> {

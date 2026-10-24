@@ -51,7 +51,7 @@ const boundaryRules = [
   },
   {
     label: "@tomismeta/aperture-core/internal from TUI",
-    importPattern: /["']@tomismeta\/aperture-core\/internal["']/g,
+    importPattern: /["'](@tomismeta\/aperture-core\/internal)["']/g,
     filePattern: /packages\/tui\/src\//,
     guidance:
       "Keep TUI surfaces on stable frame metadata instead of recomputing or reaching into core internals.",

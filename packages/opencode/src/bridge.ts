@@ -41,7 +41,7 @@ export type OpencodeBridgeClient = Pick<
 
 export type OpencodeRuntimeClient = Pick<
   ApertureRuntimeAdapterClient,
-  "publishSourceEvent" | "publishSourceEventBatch" | "submit" | "onResponse" | "close"
+  "publishSourceEvent" | "publishSourceEventBatch" | "submit" | "retract" | "onResponse" | "close"
 >;
 
 export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBridge {
@@ -51,7 +51,8 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
     ...(options.client.scope ? { scope: options.client.scope } : {}),
     ...(options.sourceLabel ? { sourceLabel: options.sourceLabel } : {}),
   };
-  const adapterId = `opencode-${createOpencodeInstanceKey(mappingContext)}`;
+  const instanceKey = createOpencodeInstanceKey(mappingContext);
+  const adapterId = `opencode-${instanceKey}`;
   const runtimeClientFactory =
     options.runtimeClientFactory
     ?? (() => ApertureRuntimeAdapterClient.connect({
@@ -223,8 +224,17 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
 
     const nativeResolution = mapOpencodeNativeResolution(event, mappingContext);
     if (nativeResolution && runtimeClient) {
-      suppressInteraction(nativeResolution.response.interactionId);
-      await runtimeClient.submit(nativeResolution.response);
+      if (nativeResolution.kind === "retraction") {
+        await runtimeClient.retract(nativeResolution.taskId, nativeResolution.interactionId);
+      } else {
+        suppressInteraction(nativeResolution.response.interactionId);
+        try {
+          await runtimeClient.submit(nativeResolution.response);
+        } catch (error) {
+          clearSuppressedInteraction(nativeResolution.response.interactionId);
+          throw error;
+        }
+      }
       return;
     }
 
@@ -265,12 +275,13 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
   }
 
   async function handleRuntimeResponse(response: AttentionResponse): Promise<void> {
-    if (suppressEgress.has(response.interactionId)) {
-      clearSuppressedInteraction(response.interactionId);
+    const interaction = parseOpencodeInteractionId(response.interactionId);
+    if (!interaction || interaction.instanceKey !== instanceKey) {
       return;
     }
 
-    if (!parseOpencodeInteractionId(response.interactionId)) {
+    if (suppressEgress.has(response.interactionId)) {
+      clearSuppressedInteraction(response.interactionId);
       return;
     }
 
@@ -347,7 +358,6 @@ export function createOpencodeBridge(options: OpencodeBridgeOptions): OpencodeBr
     }
 
     bridgeIssueActive = false;
-    const instanceKey = createOpencodeInstanceKey(mappingContext);
     const event: SourceEvent = {
       id: `opencode:${instanceKey}:bridge:recovered:${Date.now()}`,
       type: "task.updated",

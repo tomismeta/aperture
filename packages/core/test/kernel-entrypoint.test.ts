@@ -16,6 +16,7 @@ import type { ApertureEvent } from "../src/events.js";
 import type { SourceEvent } from "../src/source-event.js";
 import { EventEvaluator } from "../src/event-evaluator.js";
 import { enrichApertureEvent, normalizeSourceEvent } from "../src/semantic-normalizer.js";
+import { ROUTINE_SUCCESS_PHRASES } from "../src/semantic-patterns.js";
 
 const timestamp = "2026-04-22T18:30:00.000Z";
 
@@ -181,6 +182,116 @@ test("kernel conservative success prose remains capability-opaque", () => {
     assert.equal(result.observation?.polarity, "failure", summary);
     assert.equal(result.observation?.evidenceLoss, "unknown", summary);
     assert.equal(result.observation?.consequenceBaseline, "high", summary);
+  }
+});
+
+test("legacy JSON envelope ownership fences remain distinct from typed evidence opacity", () => {
+  const summary = '{"exit_code":"0","wall_time":"0.1s","output":"command finished"}';
+  for (const capabilityFamily of ["bash", "edit", "catalog", "read", "search", "web", "write"]) {
+    const legacy = evaluateApertureKernelEvent(
+      failedTaskEvent("legacy-envelope", summary, {
+        capabilityFamily,
+      }),
+    );
+    if (capabilityFamily === "bash" || capabilityFamily === "edit") {
+      assert.equal(legacy.observation?.polarity, "success", capabilityFamily);
+    } else {
+      assert.notEqual(legacy.observation?.polarity, "success", capabilityFamily);
+    }
+    const typed = evaluateApertureKernelEvent(
+      failedTaskEvent("typed-envelope", summary, {
+        capabilityFamily,
+        evidence: {
+          kind: "diagnostic",
+          diagnostic: "runtime",
+          subject: "command",
+          channel: "command",
+          complete: true,
+        },
+      }),
+    );
+    assert.equal(typed.observation?.diagnosticClass, "runtime", capabilityFamily);
+    assert.equal(typed.observation?.polarity, "failure", capabilityFamily);
+    assert.equal(
+      typed.observationJudgment?.statusEvidence,
+      "visible_diagnostic_failure",
+      capabilityFamily,
+    );
+  }
+  const exact = evaluateApertureKernelEvent(
+    failedTaskEvent(
+      "exact-envelope",
+      '{"exit_code":0,"wall_time":"0.1s","output":"command finished"}',
+      { capabilityFamily: "catalog" },
+    ),
+  );
+  assert.equal(exact.observation?.polarity, "success");
+});
+
+test("live kernel preserves read payload and expected-diagnostic boundaries", () => {
+  for (const [summary, capabilityFamily, kind, consequence] of [
+    ["Observation: contents of /workspace/app.log showing top 20 lines", "read", "payload", "low"],
+    [
+      "Observation path /var/log/system.log showing first 20 lines [ 12.34 ] kernel: ok",
+      "read",
+      "payload",
+      "low",
+    ],
+    [
+      "Observation path /workspace/src/app.ts export function run() { return true; }",
+      "read",
+      "payload",
+      "high",
+    ],
+    [
+      "Form is valid false Form errors errorlist Decompress result none usd",
+      "bash",
+      "diagnostic",
+      "medium",
+    ],
+  ] as const) {
+    const result = evaluateApertureKernelEvent(
+      failedTaskEvent("observation-boundary", summary, {
+        capabilityFamily,
+      }),
+    );
+    assert.equal(result.observation?.kind, kind, summary);
+    assert.equal(result.observationJudgment?.baselineConsequence, consequence, summary);
+  }
+  const filenameOnly = evaluateApertureKernelEvent(
+    failedTaskEvent("filename-only", "README_FAILED_TESTS.md was mentioned during the review.", {
+      capabilityFamily: "read",
+    }),
+  );
+  assert.notEqual(filenameOnly.observation?.kind, "payload");
+});
+
+test("live kernel recognizes routine command outcomes without obsolete detector gates", () => {
+  for (const phrase of ROUTINE_SUCCESS_PHRASES) {
+    for (const summary of [phrase, `OBSERVATION: ${phrase}`]) {
+      const result = evaluateApertureKernelEvent(
+        failedTaskEvent("routine-outcome", summary, {
+          capabilityFamily: "bash",
+        }),
+      );
+      assert.equal(result.observation?.polarity, "success", summary);
+      assert.equal(result.observationJudgment?.baselineConsequence, "low", summary);
+    }
+  }
+  for (const summary of [
+    "The command completed successfully.",
+    "README_FAILED_TESTS.md was mentioned during the review.",
+    "Your command ran successfully and did not produce any output. Traceback follows.",
+    "Your command ran successfully and did not produce any output. Error: deployment failed with exit code 1.",
+    "Form is valid false Exception traceback while running the repro",
+    "Form is valid false Form errors errorlist exited with code 1",
+  ]) {
+    const result = evaluateApertureKernelEvent(
+      failedTaskEvent("non-outcome", summary, {
+        capabilityFamily: "bash",
+      }),
+    );
+    assert.notEqual(result.observation?.polarity, "success", summary);
   }
 });
 

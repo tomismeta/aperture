@@ -40,9 +40,11 @@ export function normalizeApertureCoreRuntimeSetup(
   options: ApertureCoreRuntimeSetupOptions = {},
 ): ApertureCoreRuntimeSetupState {
   return {
-    apertureProfile: options.apertureProfile,
-    baseMemoryProfile: options.memoryProfile ?? defaultMemoryProfile(),
-    policyConfig: options.policyConfig,
+    apertureProfile: structuredClone(options.apertureProfile),
+    baseMemoryProfile: options.memoryProfile
+      ? structuredClone(options.memoryProfile)
+      : defaultMemoryProfile(),
+    policyConfig: structuredClone(options.policyConfig),
     surfaceCapabilities: cloneSurfaceCapabilities(options.surfaceCapabilities),
     operatorPresence: options.operatorPresence ?? "present",
     responseExpiryMs: options.responseExpiryMs,

@@ -19,10 +19,12 @@ export type RuntimeRouteCore = Pick<
   | "checkpointMemory"
   | "reloadMarkdown"
   | "submit"
+  | "retract"
   | "engage"
   | "getAttentionView"
   | "getSignalSummary"
   | "getAttentionState"
+  | "getAttentionPressure"
 > &
   InternalHealthEmitter;
 
@@ -37,7 +39,7 @@ export type BuildRuntimeRoutesOptions = {
   core: RuntimeRouteCore;
   state: RuntimeState;
   getListeningPort: () => number | null;
-  publishSourceEvents: (events: SourceEvent[]) => void;
+  publishSourceEvents: (events: SourceEvent[], ownership?: "work") => void;
   syncSurfaceCapabilities: () => void;
   exportSessionCapture: () => ReturnType<RuntimeState["exportSessionCapture"]>;
   setLearningPersistence: (state: LearningPersistenceState | undefined) => void;

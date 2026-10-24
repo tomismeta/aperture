@@ -32,6 +32,7 @@ export function toPublicApertureTrace(trace: InternalApertureTrace): PublicApert
     event: trace.event,
     eventTransition: trace.eventTransition,
     evaluation: { kind: "candidate" },
+    interactionId: trace.evaluation.adjusted.interactionId,
     candidateTransition: trace.candidateTransition,
     frameTransition: trace.frameTransition,
     ...(trace.semantic !== undefined ? { semantic: trace.semantic } : {}),

@@ -3,401 +3,375 @@ import type { AttentionCandidate } from "./interaction-candidate.js";
 import type { AttentionSignal } from "./interaction-signal.js";
 import { APERTURE_STATE_SCHEMA_VERSION } from "./judgment-defaults.js";
 import { readBoundedToolFamily, sourceKey } from "./interaction-taxonomy.js";
-import type { MemoryProfile } from "./profile-store.js";
+import type { MemoryProfile, SourceTrustMemory } from "./profile-store.js";
 
-export function distillMemoryProfile(
-  baseMemoryProfile: MemoryProfile,
-  signals: AttentionSignal[],
-  now: string,
-): MemoryProfile {
-  const toolFamilies = toolFamilyMemory(baseMemoryProfile, signals);
-  const sourceTrust = sourceTrustMemory(baseMemoryProfile, signals);
-  const consequenceProfiles = consequenceMemory(baseMemoryProfile, signals);
+type ToolInteraction = {
+  family: string;
+  presented: boolean;
+  responded: boolean;
+  dismissed: boolean;
+  responseLatency?: number;
+  dismissalLatency?: number;
+  expanded: boolean;
+  deferred: boolean;
+  returned: boolean;
+};
+type SourceInteraction = {
+  source: string;
+  consequence: string;
+  responded: boolean;
+  rejected: boolean;
+  dismissed: boolean;
+};
+type ToolTotals = {
+  presentations: number;
+  responses: number;
+  dismissals: number;
+  responseLatency: number;
+  responseSamples: number;
+  dismissalLatency: number;
+  dismissalSamples: number;
+  expanded: number;
+  deferrals: number;
+  returns: number;
+  baselineReturnAfterDeferralRate?: number | undefined;
+};
+type MemoryContributions = {
+  tools: Map<string, ToolTotals>;
+  sources: Map<
+    string,
+    { source: string; consequence: string; confirmations: number; disagreements: number }
+  >;
+  consequences: Map<string, { reviewed: number; rejected: number }>;
+};
 
-  return {
-    ...baseMemoryProfile,
-    version: APERTURE_STATE_SCHEMA_VERSION,
-    updatedAt: now,
-    sessionCount: baseMemoryProfile.sessionCount + 1,
-    ...(Object.keys(toolFamilies).length > 0 ? { toolFamilies } : {}),
-    ...(Object.keys(sourceTrust).length > 0 ? { sourceTrust } : {}),
-    ...(Object.keys(consequenceProfiles).length > 0 ? { consequenceProfiles } : {}),
-  };
+const TOOL_MEMORY_SIGNAL_KINDS: Partial<Record<AttentionSignal["kind"], true>> = {
+  presented: true,
+  responded: true,
+  dismissed: true,
+  context_expanded: true,
+  deferred: true,
+  returned: true,
+};
+
+/** Session accounting is independent of the bounded, public feedback history. */
+export class MemoryAccumulator {
+  private readonly tools = new Map<string, ToolInteraction>();
+  private readonly sources = new Map<string, SourceInteraction>();
+  private readonly consequences = new Map<string, { consequence: string; rejected: boolean }>();
+  private accounted: MemoryContributions | null = null;
+
+  record(signal: AttentionSignal): void {
+    const key = JSON.stringify([signal.taskId, signal.interactionId]);
+    const family = readSignalString(signal.metadata, "toolFamily");
+    const source = readSignalString(signal.metadata, "sourceKey");
+    const consequence = readSignalString(signal.metadata, "consequence");
+    const validConsequence =
+      consequence === "low" || consequence === "medium" || consequence === "high";
+    if (family && TOOL_MEMORY_SIGNAL_KINDS[signal.kind]) {
+      const current = this.tools.get(key) ?? {
+        family,
+        presented: false,
+        responded: false,
+        dismissed: false,
+        expanded: false,
+        deferred: false,
+        returned: false,
+      };
+      current.family = family;
+      switch (signal.kind) {
+        case "presented":
+          current.presented = true;
+          break;
+        case "responded":
+          current.responded = true;
+          current.dismissed = false;
+          if (signal.latencyMs !== undefined) current.responseLatency = signal.latencyMs;
+          break;
+        case "dismissed":
+          if (!current.responded) {
+            current.dismissed = true;
+            if (signal.latencyMs !== undefined) current.dismissalLatency = signal.latencyMs;
+          }
+          break;
+        case "context_expanded":
+          current.expanded = true;
+          break;
+        case "deferred":
+          current.deferred = true;
+          break;
+        case "returned":
+          current.returned = true;
+          break;
+      }
+      this.tools.set(key, current);
+    }
+    if (
+      source &&
+      validConsequence &&
+      (signal.kind === "responded" || signal.kind === "dismissed")
+    ) {
+      const current = this.sources.get(key) ?? {
+        source,
+        consequence,
+        responded: false,
+        rejected: false,
+        dismissed: false,
+      };
+      current.source = source;
+      current.consequence = consequence;
+      if (signal.kind === "responded") {
+        current.responded = true;
+        current.dismissed = false;
+        current.rejected = signal.responseKind === "rejected";
+      } else if (!current.responded) {
+        current.dismissed = true;
+      }
+      this.sources.set(key, current);
+    }
+    if (validConsequence && signal.kind === "responded") {
+      this.consequences.set(key, {
+        consequence,
+        rejected: signal.responseKind === "rejected",
+      });
+    }
+  }
+
+  snapshot(
+    base: MemoryProfile,
+    now: string,
+  ): { profile: MemoryProfile; accounting: MemoryContributions } {
+    const accounting = this.contributions();
+    const profile = structuredClone(base);
+    profile.version = APERTURE_STATE_SCHEMA_VERSION;
+    profile.updatedAt = now;
+    profile.sessionCount += this.accounted === null ? 1 : 0;
+    for (const family of new Set([
+      ...accounting.tools.keys(),
+      ...(this.accounted?.tools.keys() ?? []),
+    ])) {
+      const current = accounting.tools.get(family) ?? emptyToolTotals();
+      const prior = this.accounted?.tools.get(family) ?? emptyToolTotals();
+      const previous = ownValue(profile.toolFamilies, family) ?? {
+        presentations: 0,
+        responses: 0,
+        dismissals: 0,
+      };
+      // Session deferrals override this rate; a reclassification must restore the prior-session value.
+      current.baselineReturnAfterDeferralRate =
+        prior.deferrals > 0
+          ? prior.baselineReturnAfterDeferralRate
+          : previous.returnAfterDeferralRate;
+      const presentations = previous.presentations + current.presentations - prior.presentations;
+      const responses = previous.responses + current.responses - prior.responses;
+      const dismissals = previous.dismissals + current.dismissals - prior.dismissals;
+      const avgResponseLatencyMs = deltaAverage(
+        previous.avgResponseLatencyMs,
+        previous.responses - prior.responses + prior.responseSamples,
+        current.responseLatency - prior.responseLatency,
+        current.responseSamples - prior.responseSamples,
+      );
+      const avgDismissalLatencyMs = deltaAverage(
+        previous.avgDismissalLatencyMs,
+        previous.dismissals - prior.dismissals + prior.dismissalSamples,
+        current.dismissalLatency - prior.dismissalLatency,
+        current.dismissalSamples - prior.dismissalSamples,
+      );
+      profile.toolFamilies ??= {};
+      setOwnValue(profile.toolFamilies, family, {
+        presentations,
+        responses,
+        dismissals,
+        ...(avgResponseLatencyMs === undefined ? {} : { avgResponseLatencyMs }),
+        ...(avgDismissalLatencyMs === undefined ? {} : { avgDismissalLatencyMs }),
+        ...(presentations > 0
+          ? {
+              contextExpansionRate: roundRate(
+                ((previous.contextExpansionRate ?? 0) * previous.presentations +
+                  current.expanded -
+                  prior.expanded) /
+                  presentations,
+              ),
+            }
+          : {}),
+        ...(current.deferrals > 0
+          ? { returnAfterDeferralRate: roundRate(current.returns / current.deferrals) }
+          : current.baselineReturnAfterDeferralRate === undefined
+            ? {}
+            : { returnAfterDeferralRate: current.baselineReturnAfterDeferralRate }),
+      });
+    }
+    for (const [key, { source, consequence }] of new Map([
+      ...(this.accounted?.sources ?? []),
+      ...accounting.sources,
+    ])) {
+      const current = accounting.sources.get(key);
+      const prior = this.accounted?.sources.get(key);
+      const sourceTrust: Record<string, SourceTrustMemory> =
+        ownValue(profile.sourceTrust, source) ?? {};
+      const previous = ownValue(sourceTrust, consequence);
+      const confirmations =
+        (previous?.confirmations ?? 0) +
+        (current?.confirmations ?? 0) -
+        (prior?.confirmations ?? 0);
+      const disagreements =
+        (previous?.disagreements ?? 0) +
+        (current?.disagreements ?? 0) -
+        (prior?.disagreements ?? 0);
+      const total = confirmations + disagreements;
+      profile.sourceTrust ??= {};
+      setOwnValue(profile.sourceTrust, source, sourceTrust);
+      setOwnValue(sourceTrust, consequence, {
+        confirmations,
+        disagreements,
+        trustAdjustment:
+          total > 0
+            ? Math.round(((confirmations - disagreements) / total) * 10 * Math.min(total / 5, 1))
+            : 0,
+      });
+    }
+    for (const consequence of new Set([
+      ...accounting.consequences.keys(),
+      ...(this.accounted?.consequences.keys() ?? []),
+    ])) {
+      const current = accounting.consequences.get(consequence);
+      const prior = this.accounted?.consequences.get(consequence);
+      const previous = ownValue(profile.consequenceProfiles, consequence);
+      const previousCount = previous?.reviewedCount ?? 0;
+      const reviewedCount = previousCount + (current?.reviewed ?? 0) - (prior?.reviewed ?? 0);
+      profile.consequenceProfiles ??= {};
+      setOwnValue(profile.consequenceProfiles, consequence, {
+        reviewedCount,
+        rejectionRate:
+          reviewedCount > 0
+            ? roundRate(
+                (previousCount * (previous?.rejectionRate ?? 0) +
+                  (current?.rejected ?? 0) -
+                  (prior?.rejected ?? 0)) /
+                  reviewedCount,
+              )
+            : 0,
+      });
+    }
+    return { profile, accounting };
+  }
+
+  commit(accounting: MemoryContributions): void {
+    this.accounted = accounting;
+  }
+
+  private contributions(): MemoryContributions {
+    const result: MemoryContributions = {
+      tools: new Map(),
+      sources: new Map(),
+      consequences: new Map(),
+    };
+    for (const interaction of this.tools.values()) {
+      const totals = result.tools.get(interaction.family) ?? emptyToolTotals();
+      if (interaction.presented || interaction.responded || interaction.dismissed)
+        totals.presentations += 1;
+      if (interaction.responded) {
+        totals.responses += 1;
+        if (interaction.responseLatency !== undefined) {
+          totals.responseLatency += interaction.responseLatency;
+          totals.responseSamples += 1;
+        }
+      } else if (interaction.dismissed) {
+        totals.dismissals += 1;
+        if (interaction.dismissalLatency !== undefined) {
+          totals.dismissalLatency += interaction.dismissalLatency;
+          totals.dismissalSamples += 1;
+        }
+      }
+      if (interaction.expanded) totals.expanded += 1;
+      if (interaction.deferred) {
+        totals.deferrals += 1;
+        if (interaction.returned) totals.returns += 1;
+      }
+      result.tools.set(interaction.family, totals);
+    }
+    for (const interaction of this.sources.values()) {
+      const key = JSON.stringify([interaction.source, interaction.consequence]);
+      const totals = result.sources.get(key) ?? {
+        source: interaction.source,
+        consequence: interaction.consequence,
+        confirmations: 0,
+        disagreements: 0,
+      };
+      if (interaction.responded) {
+        if (interaction.rejected) totals.disagreements += 1;
+        else totals.confirmations += 1;
+      } else if (interaction.dismissed) totals.disagreements += 1;
+      result.sources.set(key, totals);
+    }
+    for (const interaction of this.consequences.values()) {
+      const totals = result.consequences.get(interaction.consequence) ?? {
+        reviewed: 0,
+        rejected: 0,
+      };
+      totals.reviewed += 1;
+      if (interaction.rejected) totals.rejected += 1;
+      result.consequences.set(interaction.consequence, totals);
+    }
+    return result;
+  }
 }
 
 export function signalMetadataForFrame(frame: AttentionFrame): Record<string, unknown> {
-  const metadata: Record<string, unknown> = {
-    consequence: frame.consequence,
-  };
-
-  const toolFamily = signalToolFamily(frame);
-  if (toolFamily) {
-    metadata.toolFamily = toolFamily;
-  }
-
-  const key = sourceKey(frame.source);
-  if (key) {
-    metadata.sourceKey = key;
-  }
-
+  const metadata = signalMetadataForCandidate(frame);
   const episode = frame.metadata?.episode;
-  if (episode && typeof episode === "object" && !Array.isArray(episode)) {
-    metadata.episode = episode;
-  }
-
+  if (episode && typeof episode === "object" && !Array.isArray(episode)) metadata.episode = episode;
   return metadata;
 }
 
-export function signalMetadataForCandidate(candidate: AttentionCandidate): Record<string, unknown> {
-  const metadata: Record<string, unknown> = {
-    consequence: candidate.consequence,
-  };
-
-  const toolFamily = signalToolFamily(candidate);
-  if (toolFamily) {
-    metadata.toolFamily = toolFamily;
-  }
-
+export function signalMetadataForCandidate(
+  candidate: AttentionCandidate | AttentionFrame,
+): Record<string, unknown> {
+  const metadata: Record<string, unknown> = { consequence: candidate.consequence };
+  const toolFamily = readBoundedToolFamily(candidate);
+  if (toolFamily) metadata.toolFamily = toolFamily;
   const key = sourceKey(candidate.source);
-  if (key) {
-    metadata.sourceKey = key;
-  }
-
+  if (key) metadata.sourceKey = key;
   return metadata;
 }
 
-function signalToolFamily(input: AttentionFrame | AttentionCandidate): string | null {
-  return readBoundedToolFamily(input);
+function emptyToolTotals(): ToolTotals {
+  return {
+    presentations: 0,
+    responses: 0,
+    dismissals: 0,
+    responseLatency: 0,
+    responseSamples: 0,
+    dismissalLatency: 0,
+    dismissalSamples: 0,
+    expanded: 0,
+    deferrals: 0,
+    returns: 0,
+  };
 }
 
-function toolFamilyMemory(
-  baseMemoryProfile: MemoryProfile,
-  signals: AttentionSignal[],
-): NonNullable<MemoryProfile["toolFamilies"]> {
-  const next = { ...(baseMemoryProfile.toolFamilies ?? {}) };
-  const session = new Map<
-    string,
-    {
-      presentations: number;
-      responses: number;
-      dismissals: number;
-      responseLatencyTotal: number;
-      responseLatencyCount: number;
-      dismissalLatencyTotal: number;
-      dismissalLatencyCount: number;
-      contextExpanded: number;
-      deferrals: number;
-      returns: number;
-    }
-  >();
-  const interactions = new Map<
-    string,
-    {
-      toolFamily: string;
-      presented: boolean;
-      responded: boolean;
-      dismissed: boolean;
-      responseLatencyMs?: number;
-      dismissalLatencyMs?: number;
-      contextExpanded: boolean;
-      deferred: boolean;
-      returned: boolean;
-    }
-  >();
-
-  for (const signal of signals) {
-    const toolFamily = readSignalString(signal.metadata, "toolFamily");
-    if (!toolFamily) {
-      continue;
-    }
-
-    const interactionKey = `${toolFamily}::${signal.interactionId}`;
-    const current = interactions.get(interactionKey) ?? {
-      toolFamily,
-      presented: false,
-      responded: false,
-      dismissed: false,
-      contextExpanded: false,
-      deferred: false,
-      returned: false,
-    };
-    switch (signal.kind) {
-      case "presented":
-        current.presented = true;
-        break;
-      case "responded":
-        current.responded = true;
-        current.dismissed = false;
-        if (signal.latencyMs !== undefined) {
-          current.responseLatencyMs = signal.latencyMs;
-        }
-        break;
-      case "dismissed":
-        if (!current.responded) {
-          current.dismissed = true;
-          if (signal.latencyMs !== undefined) {
-            current.dismissalLatencyMs = signal.latencyMs;
-          }
-        }
-        break;
-      case "context_expanded":
-        current.contextExpanded = true;
-        break;
-      case "deferred":
-        current.deferred = true;
-        break;
-      case "returned":
-        current.returned = true;
-        break;
-    }
-
-    interactions.set(interactionKey, current);
-  }
-
-  for (const interaction of interactions.values()) {
-    const current = session.get(interaction.toolFamily) ?? {
-      presentations: 0,
-      responses: 0,
-      dismissals: 0,
-      responseLatencyTotal: 0,
-      responseLatencyCount: 0,
-      dismissalLatencyTotal: 0,
-      dismissalLatencyCount: 0,
-      contextExpanded: 0,
-      deferrals: 0,
-      returns: 0,
-    };
-
-    if (interaction.presented || interaction.responded || interaction.dismissed) {
-      current.presentations += 1;
-    }
-    if (interaction.responded) {
-      current.responses += 1;
-      if (interaction.responseLatencyMs !== undefined) {
-        current.responseLatencyTotal += interaction.responseLatencyMs;
-        current.responseLatencyCount += 1;
-      }
-    } else if (interaction.dismissed) {
-      current.dismissals += 1;
-      if (interaction.dismissalLatencyMs !== undefined) {
-        current.dismissalLatencyTotal += interaction.dismissalLatencyMs;
-        current.dismissalLatencyCount += 1;
-      }
-    }
-    if (interaction.contextExpanded) {
-      current.contextExpanded += 1;
-    }
-    if (interaction.deferred) {
-      current.deferrals += 1;
-      if (interaction.returned) {
-        current.returns += 1;
-      }
-    }
-
-    session.set(interaction.toolFamily, current);
-  }
-
-  for (const [toolFamily, current] of session.entries()) {
-    const previous = next[toolFamily] ?? {
-      presentations: 0,
-      responses: 0,
-      dismissals: 0,
-    };
-    const presentations = previous.presentations + current.presentations;
-    const responses = previous.responses + current.responses;
-    const dismissals = previous.dismissals + current.dismissals;
-    const currentResponseAverage =
-      current.responseLatencyCount > 0
-        ? current.responseLatencyTotal / current.responseLatencyCount
-        : undefined;
-    const currentDismissalAverage =
-      current.dismissalLatencyCount > 0
-        ? current.dismissalLatencyTotal / current.dismissalLatencyCount
-        : undefined;
-    const previousContextExpanded =
-      previous.contextExpansionRate !== undefined
-        ? previous.contextExpansionRate * previous.presentations
-        : 0;
-    const currentContextExpanded = current.contextExpanded;
-    next[toolFamily] = {
-      presentations,
-      responses,
-      dismissals,
-      ...(currentResponseAverage !== undefined
-        ? {
-            avgResponseLatencyMs: weightedAverage(
-              previous.avgResponseLatencyMs,
-              previous.responses,
-              currentResponseAverage,
-              current.responseLatencyCount,
-            ),
-          }
-        : previous.avgResponseLatencyMs !== undefined
-          ? { avgResponseLatencyMs: previous.avgResponseLatencyMs }
-          : {}),
-      ...(currentDismissalAverage !== undefined
-        ? {
-            avgDismissalLatencyMs: weightedAverage(
-              previous.avgDismissalLatencyMs,
-              previous.dismissals,
-              currentDismissalAverage,
-              current.dismissalLatencyCount,
-            ),
-          }
-        : previous.avgDismissalLatencyMs !== undefined
-          ? { avgDismissalLatencyMs: previous.avgDismissalLatencyMs }
-          : {}),
-      ...(presentations > 0
-        ? {
-            contextExpansionRate: roundRate(
-              (previousContextExpanded + currentContextExpanded) / presentations,
-            ),
-          }
-        : previous.contextExpansionRate !== undefined
-          ? { contextExpansionRate: previous.contextExpansionRate }
-          : {}),
-      ...(current.deferrals > 0
-        ? {
-            returnAfterDeferralRate: roundRate(current.returns / current.deferrals),
-          }
-        : previous.returnAfterDeferralRate !== undefined
-          ? { returnAfterDeferralRate: previous.returnAfterDeferralRate }
-          : {}),
-    };
-  }
-
-  return next;
+function deltaAverage(
+  previous: number | undefined,
+  previousCount: number,
+  totalDelta: number,
+  countDelta: number,
+): number | undefined {
+  if (totalDelta === 0 && countDelta === 0) return previous;
+  const count = (previous === undefined ? 0 : previousCount) + countDelta;
+  return count > 0 ? Math.round(((previous ?? 0) * previousCount + totalDelta) / count) : undefined;
 }
 
-function sourceTrustMemory(
-  baseMemoryProfile: MemoryProfile,
-  signals: AttentionSignal[],
-): NonNullable<MemoryProfile["sourceTrust"]> {
-  const next = structuredClone(baseMemoryProfile.sourceTrust ?? {});
-  const interactions = new Map<
-    string,
-    {
-      source: string;
-      consequence: "low" | "medium" | "high";
-      responded: boolean;
-      rejected: boolean;
-      dismissed: boolean;
-    }
-  >();
-
-  for (const signal of signals) {
-    const source = readSignalString(signal.metadata, "sourceKey");
-    const consequence = readSignalString(signal.metadata, "consequence");
-    if (!source || (consequence !== "low" && consequence !== "medium" && consequence !== "high")) {
-      continue;
-    }
-    const interactionKey = `${source}::${consequence}::${signal.interactionId}`;
-    const current = interactions.get(interactionKey) ?? {
-      source,
-      consequence,
-      responded: false,
-      rejected: false,
-      dismissed: false,
-    };
-    if (signal.kind === "responded") {
-      current.responded = true;
-      current.dismissed = false;
-      current.rejected = signal.responseKind === "rejected";
-    } else if (signal.kind === "dismissed") {
-      if (!current.responded) {
-        current.dismissed = true;
-      }
-    }
-
-    interactions.set(interactionKey, current);
-  }
-
-  for (const interaction of interactions.values()) {
-    const current = next[interaction.source]?.[interaction.consequence] ?? {
-      confirmations: 0,
-      disagreements: 0,
-      trustAdjustment: 0,
-    };
-
-    if (interaction.responded) {
-      if (interaction.rejected) {
-        current.disagreements += 1;
-      } else {
-        current.confirmations += 1;
-      }
-    } else if (interaction.dismissed) {
-      current.disagreements += 1;
-    }
-
-    const total = current.confirmations + current.disagreements;
-    current.trustAdjustment =
-      total > 0
-        ? Math.round(
-            ((current.confirmations - current.disagreements) / total) * 10 * Math.min(total / 5, 1),
-          )
-        : 0;
-
-    next[interaction.source] = {
-      ...(next[interaction.source] ?? {}),
-      [interaction.consequence]: current,
-    };
-  }
-
-  return next;
+function ownValue<T>(values: Record<string, T> | undefined, key: string): T | undefined {
+  return values && Object.hasOwn(values, key) ? values[key] : undefined;
 }
 
-function consequenceMemory(
-  baseMemoryProfile: MemoryProfile,
-  signals: AttentionSignal[],
-): NonNullable<MemoryProfile["consequenceProfiles"]> {
-  const next = { ...(baseMemoryProfile.consequenceProfiles ?? {}) };
-  const interactions = new Map<
-    string,
-    { consequence: "low" | "medium" | "high"; rejected: boolean }
-  >();
-
-  for (const signal of signals) {
-    const consequence = readSignalString(signal.metadata, "consequence");
-    if (consequence !== "low" && consequence !== "medium" && consequence !== "high") {
-      continue;
-    }
-
-    if (signal.kind !== "responded") {
-      continue;
-    }
-
-    interactions.set(`${consequence}::${signal.interactionId}`, {
-      consequence,
-      rejected: signal.responseKind === "rejected",
-    });
-  }
-
-  const totals = new Map<string, { reviewed: number; rejected: number }>();
-  for (const interaction of interactions.values()) {
-    const current = totals.get(interaction.consequence) ?? { reviewed: 0, rejected: 0 };
-    current.reviewed += 1;
-    if (interaction.rejected) {
-      current.rejected += 1;
-    }
-    totals.set(interaction.consequence, current);
-  }
-
-  for (const [consequence, current] of totals.entries()) {
-    const previous = next[consequence] ?? { rejectionRate: 0, reviewedCount: 0 };
-    const reviewedCount = (previous.reviewedCount ?? 0) + current.reviewed;
-    next[consequence] = {
-      rejectionRate:
-        reviewedCount > 0
-          ? roundRate(
-              ((previous.reviewedCount ?? 0) * previous.rejectionRate + current.rejected) /
-                reviewedCount,
-            )
-          : 0,
-      reviewedCount,
-    };
-  }
-
-  return next;
+function setOwnValue<T>(values: Record<string, T>, key: string, value: T): void {
+  Object.defineProperty(values, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
 }
 
 function readSignalString(
@@ -410,20 +384,4 @@ function readSignalString(
 
 function roundRate(value: number): number {
   return Math.round(value * 1000) / 1000;
-}
-
-function weightedAverage(
-  previousAverage: number | undefined,
-  previousCount: number,
-  currentAverage: number,
-  currentCount: number,
-): number {
-  const totalCount = previousCount + currentCount;
-  if (totalCount <= 0) {
-    return Math.round(currentAverage);
-  }
-
-  const previousTotal = (previousAverage ?? 0) * previousCount;
-  const currentTotal = currentAverage * currentCount;
-  return Math.round((previousTotal + currentTotal) / totalCount);
 }

@@ -6,6 +6,61 @@ import test from "node:test";
 
 import { checkPackageBoundaries, renderBoundaryCheckReport } from "./check-package-boundaries.ts";
 
+test("boundary checker rejects runtime and type-only core internals in TUI production", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aperture-boundaries-"));
+  try {
+    await writeRepoFile(
+      root,
+      "packages/tui/src/posture.ts",
+      'import { forecastAttentionPressure } from "@tomismeta/aperture-core/internal";\n',
+    );
+    await writeRepoFile(
+      root,
+      "packages/tui/src/types.ts",
+      'import type { ApertureTrace } from "@tomismeta/aperture-core/internal";\n',
+    );
+    await writeRepoFile(
+      root,
+      "packages/tui/src/public.ts",
+      'import type { AttentionFrame } from "@tomismeta/aperture-core";\n',
+    );
+    await writeRepoFile(
+      root,
+      "packages/runtime/src/internal.ts",
+      'import type { ApertureTrace } from "@tomismeta/aperture-core/internal";\n',
+    );
+
+    const result = await checkPackageBoundaries(root);
+    assert.deepEqual(
+      result.importViolations
+        .map(({ file, label, imports }) => ({
+          file: file.slice(root.length + 1),
+          label,
+          imports,
+        }))
+        .sort((a, b) => a.file.localeCompare(b.file)),
+      [
+        {
+          file: "packages/tui/src/posture.ts",
+          label: "@tomismeta/aperture-core/internal from TUI",
+          imports: ["@tomismeta/aperture-core/internal"],
+        },
+        {
+          file: "packages/tui/src/types.ts",
+          label: "@tomismeta/aperture-core/internal from TUI",
+          imports: ["@tomismeta/aperture-core/internal"],
+        },
+      ],
+    );
+    assert.match(
+      renderBoundaryCheckReport(root, result),
+      /Keep TUI surfaces on stable frame metadata/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("boundary checker rejects corpus labels in production core", async () => {
   const root = await mkdtemp(join(tmpdir(), "aperture-boundaries-"));
   try {

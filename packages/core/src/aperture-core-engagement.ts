@@ -9,6 +9,7 @@ export type OperatorEngagement = {
 export class OperatorEngagementController {
   private engagement: OperatorEngagement | null = null;
   private timer: NodeJS.Timeout | null = null;
+  private onExpire: ((interactionId: string) => void) | undefined;
 
   constructor(private readonly timeSource: () => number) {}
 
@@ -16,7 +17,7 @@ export class OperatorEngagementController {
     taskId: string,
     interactionId: string,
     options: { durationMs?: number } = {},
-    onExpire?: () => void,
+    onExpire?: (interactionId: string) => void,
   ): void {
     const durationMs = normalizeOperatorEngagementDuration(options.durationMs);
     this.engagement = {
@@ -24,7 +25,8 @@ export class OperatorEngagementController {
       interactionId,
       expiresAtMs: this.timeSource() + durationMs,
     };
-    this.scheduleExpiry(durationMs, taskId, interactionId, onExpire);
+    this.onExpire = onExpire;
+    this.scheduleExpiry(durationMs, this.engagement);
   }
 
   readFocusedInteractionId(
@@ -36,7 +38,7 @@ export class OperatorEngagementController {
     }
 
     if (engagement.expiresAtMs <= this.timeSource()) {
-      this.clear();
+      this.expire(engagement);
       return null;
     }
 
@@ -63,33 +65,39 @@ export class OperatorEngagementController {
     }
 
     this.engagement = null;
+    this.onExpire = undefined;
     this.clearTimer();
   }
 
   dispose(): void {
-    this.engagement = null;
-    this.clearTimer();
+    this.clear();
   }
 
-  private scheduleExpiry(
-    durationMs: number,
-    taskId: string,
-    interactionId: string,
-    onExpire?: () => void,
-  ): void {
+  private expire(engagement: OperatorEngagement): void {
+    if (this.engagement !== engagement) {
+      return;
+    }
+    const onExpire = this.onExpire;
+    this.clear();
+    onExpire?.(engagement.interactionId);
+  }
+
+  private scheduleExpiry(durationMs: number, engagement: OperatorEngagement): void {
     this.clearTimer();
-    this.timer = setTimeout(() => {
-      if (this.engagement?.taskId !== taskId || this.engagement?.interactionId !== interactionId) {
-        return;
-      }
-
-      if (onExpire) {
-        onExpire();
-        return;
-      }
-
-      this.clear();
-    }, durationMs);
+    this.timer = setTimeout(
+      () => {
+        if (this.engagement !== engagement) {
+          return;
+        }
+        const remainingMs = engagement.expiresAtMs - this.timeSource();
+        if (remainingMs > 0) {
+          this.scheduleExpiry(remainingMs, engagement);
+          return;
+        }
+        this.expire(engagement);
+      },
+      Math.min(durationMs, 2_147_483_647),
+    );
     this.timer.unref?.();
   }
 
@@ -112,6 +120,9 @@ export function sameAttentionView(left: AttentionView, right: AttentionView): bo
 function normalizeOperatorEngagementDuration(durationMs: number | undefined): number {
   if (durationMs === undefined) {
     return 12_000;
+  }
+  if (!Number.isFinite(durationMs)) {
+    throw new RangeError("Operator engagement duration must be finite");
   }
 
   return Math.max(25, Math.floor(durationMs));

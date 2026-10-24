@@ -1,11 +1,12 @@
 import type {
   AttentionResponse,
-  AttentionSurfaceCapabilities,
+  AttentionSignalSummary,
+  AttentionState,
   AttentionView,
 } from "@tomismeta/aperture-core";
-import type { AttentionSignalSummary, AttentionState } from "@tomismeta/aperture-core/internal";
 
 import type {
+  ApertureRuntimeClientOptions,
   ApertureRuntimeEvent,
   ApertureRuntimeSessionCapture,
   ApertureRuntimeSnapshot,
@@ -36,21 +37,6 @@ export type {
   ApertureRuntimeSnapshotListener,
 } from "./runtime-client-subscriptions.js";
 
-export type ApertureRuntimeClientOptions = {
-  baseUrl: string;
-  authToken?: string;
-  pollIntervalMs?: number;
-  label?: string;
-  surfaceRole?: ApertureRuntimeSurfaceRole;
-  acceptsResponses?: boolean;
-  signal?: AbortSignal;
-  surfaceCapabilities?: PartialSurfaceCapabilities;
-};
-
-type PartialSurfaceCapabilities = {
-  topology?: Partial<AttentionSurfaceCapabilities["topology"]>;
-  responses?: Partial<AttentionSurfaceCapabilities["responses"]>;
-};
 const RUNTIME_DETACH_TIMEOUT_MS = 1_000;
 
 export class ApertureRuntimeClient {
@@ -59,7 +45,7 @@ export class ApertureRuntimeClient {
   private readonly label: string;
   private readonly surfaceRole: ApertureRuntimeSurfaceRole;
   private readonly acceptsResponses: boolean;
-  private readonly surfaceCapabilities: PartialSurfaceCapabilities | undefined;
+  private readonly surfaceCapabilities: ApertureRuntimeClientOptions["surfaceCapabilities"];
   private readonly explicitAuthToken: string | undefined;
   private readonly requestOptions: RuntimeRequestOptions;
   private readonly subscriptions = new RuntimeClientSubscriptions();
@@ -68,6 +54,7 @@ export class ApertureRuntimeClient {
   private authToken = "";
   private session: RuntimeAttachmentSession | null = null;
   private lastError: Error | null = null;
+  private stateRefresh: Promise<void> = Promise.resolve();
 
   private constructor(options: ApertureRuntimeClientOptions) {
     const runtimeUrls = normalizeRuntimeUrls(options.baseUrl);
@@ -108,6 +95,10 @@ export class ApertureRuntimeClient {
     return this.snapshotState.attentionState;
   }
 
+  getAttentionPressure(): ApertureRuntimeSnapshot["attentionPressure"] {
+    return { ...this.snapshotState.attentionPressure };
+  }
+
   getLastError(): Error | null {
     return this.lastError;
   }
@@ -132,11 +123,9 @@ export class ApertureRuntimeClient {
     return this.subscriptions.onError(listener);
   }
 
-  submit(response: AttentionResponse): void {
-    this.runInBackground(async () => {
-      await this.post("/response", response);
-      await this.refreshState();
-    });
+  async submit(response: AttentionResponse): Promise<void> {
+    await this.post("/response", response);
+    this.runInBackground(() => this.refreshState());
   }
 
   engage(taskId: string, interactionId: string, options: { durationMs?: number } = {}): void {
@@ -201,9 +190,13 @@ export class ApertureRuntimeClient {
           events: ApertureRuntimeEvent[];
           nextSequence: number;
           stateVersion: number;
+          attentionPressure: ApertureRuntimeSnapshot["attentionPressure"];
         }>(`/events?since=${since}`),
       onPoll: async (payload) => {
-        if (payload.stateVersion !== this.snapshotState.version) {
+        if (
+          payload.stateVersion !== this.snapshotState.version ||
+          payload.attentionPressure.level !== this.snapshotState.attentionPressure.level
+        ) {
           await this.refreshState();
         }
         for (const event of payload.events) this.subscriptions.emitEvent(event);
@@ -213,14 +206,21 @@ export class ApertureRuntimeClient {
     await this.session.start();
   }
 
-  private async refreshState(): Promise<void> {
-    const snapshot = await this.get<ApertureRuntimeSnapshot>("/state");
-    const versionChanged = snapshot.version !== this.snapshotState.version;
-    this.snapshotState = snapshot;
-    this.lastError = null;
-    if (versionChanged) {
-      this.subscriptions.emitSnapshot(snapshot.attentionView, () => this.getSnapshot());
-    }
+  private refreshState(): Promise<void> {
+    const refresh = this.stateRefresh.then(async () => {
+      const snapshot = await this.get<ApertureRuntimeSnapshot>("/state");
+      const changed =
+        snapshot.version !== this.snapshotState.version ||
+        snapshot.attentionPressure.level !== this.snapshotState.attentionPressure.level;
+      this.snapshotState = snapshot;
+      this.lastError = null;
+      if (changed) {
+        this.subscriptions.emitSnapshot(snapshot.attentionView, () => this.getSnapshot());
+      }
+    });
+    // Keep the queue usable after failure; the caller still owns its rejection.
+    this.stateRefresh = refresh.catch(() => {});
+    return refresh;
   }
 
   private async get<T>(path: string): Promise<T> {
@@ -264,8 +264,7 @@ export class ApertureRuntimeClient {
   }
 
   private reportError(error: unknown): void {
-    const nextError = error instanceof Error ? error : new Error(String(error));
-    this.lastError = nextError;
-    this.subscriptions.emitError(nextError);
+    this.lastError = error instanceof Error ? error : new Error(String(error));
+    this.subscriptions.emitError(this.lastError);
   }
 }

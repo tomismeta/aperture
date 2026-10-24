@@ -92,6 +92,7 @@ async function buildRoutesForTest(): Promise<RuntimeRoute[]> {
     checkpointMemory: async () => null,
     reloadMarkdown: async () => false,
     submit: () => undefined,
+    retract: () => false,
     engage: () => undefined,
     getAttentionView: () => {
       throw new Error("unused in route-table tests");
@@ -100,6 +101,9 @@ async function buildRoutesForTest(): Promise<RuntimeRoute[]> {
       throw new Error("unused in route-table tests");
     },
     getAttentionState: () => {
+      throw new Error("unused in route-table tests");
+    },
+    getAttentionPressure: () => {
       throw new Error("unused in route-table tests");
     },
     [APERTURE_INTERNAL_READ_HEALTH]: () => {

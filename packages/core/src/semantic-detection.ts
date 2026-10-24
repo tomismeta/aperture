@@ -2,17 +2,14 @@ import type { AttentionConsequenceLevel } from "./frame.js";
 import {
   EXPLICIT_BLOCKING_PHRASES,
   EXPLICIT_WAITING_PHRASES,
+  HIGH_CONSEQUENCE_COMMAND_PATTERN,
   HIGH_RISK_PHRASES,
   IMPLIED_OPERATOR_ASKS,
   IMPLIED_OPERATOR_ASK_PATTERNS,
   IMPLIED_OPERATOR_NEGATIONS,
 } from "./semantic-patterns.js";
 import { semanticTextShapeMatcher } from "./semantic-evidence.js";
-import {
-  containsAnySemanticPhrase,
-  containsSemanticPhrase,
-  normalizeSemanticText,
-} from "./semantic-text.js";
+import { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
 import { isSemanticCommandExecutionToolFamily } from "./semantic-tool-family.js";
 
 export { containsAnySemanticPhrase, normalizeSemanticText } from "./semantic-text.js";
@@ -65,6 +62,13 @@ export function inferConsequenceFromSemanticText(
   fallback: AttentionConsequenceLevel,
   toolFamily?: string,
 ): AttentionConsequenceLevel {
+  if (
+    isSemanticCommandExecutionToolFamily(toolFamily) &&
+    HIGH_CONSEQUENCE_COMMAND_PATTERN.test(text)
+  ) {
+    return "high";
+  }
+
   const hasShape = semanticTextShapeMatcher(text, toolFamily);
 
   if (hasShape("routine_success")) {
@@ -77,7 +81,7 @@ export function inferConsequenceFromSemanticText(
     return fallback;
   }
 
-  if (containsAnySemanticRiskPhrase(text, HIGH_RISK_PHRASES)) {
+  if (containsAnySemanticPhrase(text, HIGH_RISK_PHRASES)) {
     return "high";
   }
 
@@ -90,67 +94,4 @@ export function inferConsequenceFromSemanticText(
   }
 
   return fallback;
-}
-
-export function detectObservationalFailureStatus(text: string, toolFamily?: string): boolean {
-  const hasShape = semanticTextShapeMatcher(text, toolFamily);
-
-  if (isSemanticCommandExecutionToolFamily(toolFamily)) {
-    return hasShape("routine_success");
-  }
-
-  if (toolFamily !== "edit" && toolFamily !== "read") {
-    return false;
-  }
-
-  return hasShape("observational_readback") || hasShape("tagged_file") || hasShape("read_payload");
-}
-
-export function detectRoutineObservationalFailureLowConsequence(
-  text: string,
-  toolFamily?: string,
-): boolean {
-  const hasShape = semanticTextShapeMatcher(text, toolFamily);
-
-  if (isSemanticCommandExecutionToolFamily(toolFamily)) {
-    return hasShape("routine_success");
-  }
-
-  if (toolFamily === "search") {
-    return hasShape("search_result");
-  }
-
-  if (toolFamily === "read") {
-    if (hasShape("search_result")) {
-      return true;
-    }
-
-    if (!hasShape("tagged_file") && !hasShape("read_payload")) {
-      return false;
-    }
-
-    if (hasShape("source_code")) {
-      return false;
-    }
-
-    return hasShape("log") || hasShape("build_metadata");
-  }
-
-  return false;
-}
-
-export function detectExpectedDiagnosticFailure(text: string, toolFamily?: string): boolean {
-  if (!isSemanticCommandExecutionToolFamily(toolFamily)) {
-    return false;
-  }
-
-  return semanticTextShapeMatcher(text, toolFamily)("expected_diagnostic");
-}
-
-function containsAnySemanticRiskPhrase(value: string, phrases: readonly string[]): boolean {
-  return phrases.some((phrase) => containsSemanticRiskPhrase(value, phrase));
-}
-
-function containsSemanticRiskPhrase(value: string, phrase: string): boolean {
-  return containsSemanticPhrase(value, phrase);
 }

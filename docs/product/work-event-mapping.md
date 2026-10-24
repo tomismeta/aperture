@@ -236,6 +236,48 @@ For structured `input.requested` work:
 - producers can `DELETE /work/response/{interactionId}` to cancel a stale pending request
 - response state moves through `pending`, `answered`, `expired`, or `cancelled`
 
+Cancellation retracts only the matching pending interaction from core and its
+attention views; other interactions on the same work item remain answerable.
+It does not synthesize a human response. Repeating cancellation preserves the
+cancelled record and its retention deadline, while cancelling an answered
+interaction returns `409`.
+
+Retained `cancelled`, `expired`, and `answered` records cannot be overwritten by
+late answers. A producer can explicitly publish another `input.requested` event
+with the same interaction ID to reopen the response loop as `pending`.
+
+The pending deadline is the earlier of the Work TTL and the core frame's response
+expiry, when present. Runtime state and Work-record reads and response submission
+prune expired Work records and withdraw their frames together. Submitting through
+the runtime after expiry or cancellation returns `409` without emitting a response;
+cancellation does not change an already expired record. Only `POST /work` owns
+these ledger records. Adapter traffic through `/runtime/events/source` and direct
+host publication remain core/adapter-owned and do not inherit Work TTL or consume
+Work ledger capacity. The supplied core's global expiry policy is unchanged.
+Embeddings using a custom clock should supply the same `timeSource` to the runtime
+and their core so both deadlines describe the same timeline.
+
+A core-emitted accepted response is an authoritative fact: if an embedding host
+submits directly to core while its Work record is still pending, that record
+becomes answered even when wall time has passed its deadline. Already expired or
+cancelled records stay terminal. HTTP response submission always checks the Work
+deadline before allowing core acceptance.
+
+When capacity is exhausted by pending records, `POST /work` rejects the entire
+batch with `503 work_response_capacity` before publishing any source events.
+Terminal records are evicted first to admit new Work; pending records are never
+silently evicted. A configured zero Work TTL accepts the Work receipt and records
+immediate expiry without publishing a pending core frame.
+
+Adapters may use authenticated `POST /runtime/retract` with `{ taskId,
+interactionId }` to withdraw any source interaction without inventing a human
+answer. The result is `{ retracted: boolean }`; a matching pending Work record is
+also cancelled, while a missing or wrong core tuple returns `false`.
+
+[runtime-response-lifecycle.ts](../../packages/runtime/src/runtime-response-lifecycle.ts)
+coordinates core acceptance and withdrawal with the ledger. HTTP routes decode
+and validate payloads; they do not implement a second response lifecycle.
+
 The runtime path is:
 
 `string | WorkEvent | WorkEvent[] -> SourceEvent -> ApertureEvent -> EnrichedApertureEvent -> judgment`

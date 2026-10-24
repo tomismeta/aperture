@@ -1,7 +1,5 @@
-import type { AttentionSignal } from "./interaction-signal.js";
 import { loadPolicyConfig, type PolicyConfig } from "./policy-config.js";
 import { APERTURE_STATE_SCHEMA_VERSION } from "./judgment-defaults.js";
-import { distillMemoryProfile } from "./memory-aggregator.js";
 import { ProfileStore, type MemoryProfile, type ApertureProfile } from "./profile-store.js";
 import { formatTimestamp } from "./time.js";
 
@@ -60,21 +58,6 @@ export async function reloadMarkdownRuntimeState(
     memoryProfile,
     policyConfig,
   };
-}
-
-export async function checkpointMarkdownMemoryProfile(options: {
-  profileStore: ProfileStore | undefined;
-  memoryProfile: MemoryProfile;
-  signals: AttentionSignal[];
-  now: string;
-}): Promise<MemoryProfile | null> {
-  if (!options.profileStore) {
-    return null;
-  }
-
-  const snapshot = distillMemoryProfile(options.memoryProfile, options.signals, options.now);
-  await options.profileStore.saveMemoryProfile(snapshot);
-  return snapshot;
 }
 
 function defaultApertureProfile(): ApertureProfile {

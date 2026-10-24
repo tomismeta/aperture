@@ -21,8 +21,8 @@ It runs as a local CLI/TUI product. Start it with `aperture`, connect your
 agent surfaces, and keep approvals, follow-up questions, failures, and blocked
 work in one place.
 
-The latest npm release is `0.5.0`. This `main` README describes the `0.10.0`
-release candidate and can lead the published package until that candidate ships.
+This README describes `@tomismeta/aperture@0.10.0`, which bundles Core `0.10.0`.
+See the release notes below for changes and migration requirements.
 
 ## Start Here
 
@@ -127,6 +127,11 @@ await work.publish({
 `state === "answered"` before reading `response`; pending, expired, and
 cancelled responses expose only the fields valid for those states.
 
+Work cancellation and expiry retract attention without inventing a human answer.
+Pending requests are not evicted to admit new work: capacity exhaustion returns
+HTTP `503`, and batch admission is all-or-nothing. Expiry is demand-driven rather
+than an idle timer, and Work deadlines do not apply to source-adapter requests.
+
 If you are troubleshooting a real session from the repo, the quickest bridge
 from a captured bundle into offline review is documented in
 [docs/lab/capture-review-quickstart.md](https://github.com/tomismeta/aperture/blob/main/docs/lab/capture-review-quickstart.md).
@@ -209,7 +214,7 @@ For an unsigned local development payload, use
 Its BUILDINFO records `payloadProfile: "development"` and the exact volatile
 focus-coordinator contract.
 
-The staged payload also includes a private `@tomismeta/aperture-omp@0.1.1`
+The staged payload also includes a private `@tomismeta/aperture-omp@0.2.0`
 manifest and `integrations/omp/aperture-omp-extension.mjs`, a first-class OMP
 extension. When
 the worker owns `$XDG_RUNTIME_DIR/omarchy/aperture/attention.sock`, the extension
@@ -348,6 +353,6 @@ npm uninstall -g @tomismeta/aperture
 
 - npm package: [`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture)
 - SDK package: [`@tomismeta/aperture-core`](https://www.npmjs.com/package/@tomismeta/aperture-core)
-- Release notes: [Aperture v0.5.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-v0.5.0.md)
+- Release notes: [Aperture v0.10.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-v0.10.0.md)
 - GitHub repo: [tomismeta/aperture](https://github.com/tomismeta/aperture)
 - Architecture overview: [docs/product/architecture-overview.md](https://github.com/tomismeta/aperture/blob/main/docs/product/architecture-overview.md)

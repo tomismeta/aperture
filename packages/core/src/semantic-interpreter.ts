@@ -35,8 +35,19 @@ import { projectTaskFailureObservationFromEvent } from "./task-failure-observati
 type SemanticProvenanceField = keyof SemanticFieldProvenance;
 
 export function interpretSourceEvent(event: SourceEvent): SemanticInterpretation {
-  return applySemanticHints(inferSemanticInterpretation(event), readApplicableSemanticHints(event));
+  const inferred = inferSemanticInterpretation(event);
+  return applySemanticHints(
+    inferred,
+    readApplicableSemanticHints(event),
+    event.type === "human.input.requested" && event.riskHint !== undefined,
+  );
 }
+
+const CONSEQUENCE_WEIGHT: Record<SemanticConsequenceLevel, number> = {
+  low: 1,
+  medium: 2,
+  high: 3,
+};
 
 function readApplicableSemanticHints(event: SourceEvent): SemanticInterpretationHints | undefined {
   const hints = event.semanticHints;
@@ -138,12 +149,11 @@ function inferTaskUpdateSemantics(
   const blockingSignal = detectSemanticBlockingSignal(text);
   const relationHints = detectSemanticRelationHints(rawText);
   const evidenceAuthority = event.status === "failed" && event.evidence !== undefined;
-  const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily);
   const failureObservationCore =
     event.status === "failed" ? projectTaskFailureObservationFromEvent(event) : null;
   const awaitsAuthorization = failureObservationCore?.recoveryHint === "await_authorization";
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(
-    taxonomyInput,
+    event,
     !awaitsAuthorization && !evidenceAuthority && failureObservationCore === null,
   );
   const relationProvenance =
@@ -333,9 +343,8 @@ function inferTaskUpdateSemantics(
 function inferHumanInputSemantics(
   event: Extract<SourceEvent, { type: "human.input.requested" }>,
 ): SemanticInterpretation {
-  const taxonomyInput = buildTaxonomyInput(event.title, event.summary, event.toolFamily);
   const { toolFamily, source: toolFamilySource } = resolveSemanticToolFamily(
-    taxonomyInput,
+    event,
     event.request.kind === "approval",
   );
   const rawText = joinSemanticTextParts(event.title, event.summary);
@@ -453,12 +462,21 @@ function resolveSemanticToolFamily(
 function applySemanticHints(
   inferred: SemanticInterpretation,
   hints: SemanticInterpretationHints | undefined,
+  preserveSourceConsequence: boolean,
 ): SemanticInterpretation {
   if (!hints) {
     return inferred;
   }
 
   const overridden = pickDefined(hints);
+  if (
+    preserveSourceConsequence &&
+    inferred.consequence !== undefined &&
+    overridden.consequence !== undefined &&
+    CONSEQUENCE_WEIGHT[overridden.consequence] < CONSEQUENCE_WEIGHT[inferred.consequence]
+  ) {
+    delete overridden.consequence;
+  }
   const confidence = mergeSemanticConfidence(inferred.confidence, hints.confidence);
   const relationHints = mergeSemanticRelationHints(inferred.relationHints, hints.relationHints);
 
@@ -602,32 +620,13 @@ function consequenceFromRequestKind(
 ): SemanticConsequenceLevel {
   switch (kind) {
     case "approval":
-      if (toolFamily === "read" || toolFamily === "search") {
-        return "low";
-      }
-      return "medium";
+      return toolFamily === "read" || toolFamily === "search" ? "low" : "medium";
     case "choice":
     case "form":
       return "medium";
     default:
       return unreachableRequestKind(kind);
   }
-}
-
-function buildTaxonomyInput(
-  title: string,
-  summary?: string,
-  toolFamily?: string,
-): {
-  title: string;
-  summary?: string;
-  toolFamily?: string;
-} {
-  return {
-    title,
-    ...(summary !== undefined ? { summary } : {}),
-    ...(toolFamily !== undefined ? { toolFamily } : {}),
-  };
 }
 
 function unreachableSourceEvent(event: never): never {

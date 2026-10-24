@@ -19,6 +19,7 @@ export function handleActiveKeypress(
   frame: Frame,
   key: { name?: string; sequence?: string },
 ): void {
+  if (state.pendingSubmission) return;
   core.engage(frame.taskId, frame.interactionId, { durationMs: ACTIVE_ENGAGEMENT_HOLD_MS });
   const spec = frame.responseSpec;
   if (!spec || spec.kind === "none") {
@@ -28,21 +29,27 @@ export function handleActiveKeypress(
   switch (spec.kind) {
     case "acknowledge": {
       if (key.name === "return" || key.name === "a") {
-        core.submit(acknowledgedResponse(frame));
+        submitDraft(core, state, acknowledgedResponse(frame));
       } else if (key.name === "x" || key.name === "escape") {
-        core.submit(dismissedResponse(frame));
+        submitDraft(core, state, dismissedResponse(frame));
       } else {
         state.statusLine = "Use [enter] acknowledge or [x] dismiss";
       }
       break;
     }
     case "approval": {
-      if (key.name === "a") {
-        core.submit(approvedResponse(frame));
+      if ((key.name === "a" || key.name === "r") && spec.requireReason) {
+        state.inputDraft = {
+          ...createTextDraft(frame),
+          approvalDecision: key.name === "a" ? "approved" : "rejected",
+        };
+        state.statusLine = "Enter a reason before sending";
+      } else if (key.name === "a") {
+        submitDraft(core, state, approvedResponse(frame));
       } else if (key.name === "r") {
-        core.submit(rejectedResponse(frame));
+        submitDraft(core, state, rejectedResponse(frame));
       } else if (key.name === "x" || key.name === "escape") {
-        core.submit(dismissedResponse(frame));
+        submitDraft(core, state, dismissedResponse(frame));
       } else {
         state.statusLine = "Use [a] approve, [r] reject, [x] dismiss";
       }
@@ -51,7 +58,7 @@ export function handleActiveKeypress(
     case "choice": {
       if (spec.selectionMode === "multiple") {
         if (key.name === "x") {
-          core.submit(dismissedResponse(frame));
+          submitDraft(core, state, dismissedResponse(frame));
           break;
         }
         const draft = createChoiceDraft(frame);
@@ -75,7 +82,7 @@ export function handleActiveKeypress(
       if (index !== null) {
         const option = spec.options[index];
         if (option) {
-          core.submit({
+          submitDraft(core, state, {
             taskId: frame.taskId,
             interactionId: frame.interactionId,
             response: { kind: "option_selected", optionIds: [option.id] },
@@ -84,7 +91,7 @@ export function handleActiveKeypress(
           state.statusLine = "That choice is out of range";
         }
       } else if (key.name === "x" || key.name === "escape") {
-        core.submit(dismissedResponse(frame));
+        submitDraft(core, state, dismissedResponse(frame));
       } else if (spec.allowTextResponse && key.name === "i") {
         state.inputDraft = createTextDraft(frame);
         state.statusLine = "Editing reply";
@@ -100,7 +107,7 @@ export function handleActiveKeypress(
         state.inputDraft = createFormDraft(frame);
         state.statusLine = `Editing ${spec.fields[0]?.label ?? "form"}`;
       } else if (key.name === "x" || key.name === "escape") {
-        core.submit(dismissedResponse(frame));
+        submitDraft(core, state, dismissedResponse(frame));
       } else {
         state.statusLine = "Press [i] to fill the form";
       }
@@ -114,6 +121,7 @@ export function handleInputKeypress(
   state: TuiState,
   key: { name?: string; sequence?: string; ctrl?: boolean },
 ): void {
+  if (state.pendingSubmission) return;
   if (state.inputDraft?.kind === "text") {
     handleTextKeypress(core, state, key);
     return;
@@ -174,8 +182,7 @@ function handleChoiceKeypress(
   core.engage(active.taskId, active.interactionId, { durationMs: ACTIVE_ENGAGEMENT_HOLD_MS });
 
   if (key.name === "x") {
-    core.submit(dismissedResponse(active));
-    state.inputDraft = null;
+    if (submitDraft(core, state, dismissedResponse(active))) state.inputDraft = null;
     return;
   }
 
@@ -194,12 +201,14 @@ function handleChoiceKeypress(
     const selected = active.responseSpec.options
       .filter((option) => draft.optionIds.includes(option.id))
       .map((option) => option.id);
-    core.submit({
-      taskId: active.taskId,
-      interactionId: active.interactionId,
-      response: { kind: "option_selected", optionIds: selected },
-    });
-    state.inputDraft = null;
+    if (
+      submitDraft(core, state, {
+        taskId: active.taskId,
+        interactionId: active.interactionId,
+        response: { kind: "option_selected", optionIds: selected },
+      })
+    )
+      state.inputDraft = null;
     return;
   }
 
@@ -250,15 +259,25 @@ function handleFormKeypress(
   }
 
   if (key.name === "return") {
-    draft.values[field.id] = normalizeFieldValue(field, draft.buffer);
+    try {
+      const value = normalizeFieldValue(field, draft.buffer);
+      if (value === undefined) delete draft.values[field.id];
+      else draft.values[field.id] = value;
+    } catch (error) {
+      state.statusLine = error instanceof Error ? error.message : String(error);
+      return;
+    }
     const nextIndex = draft.fieldIndex + 1;
     if (nextIndex >= active.responseSpec.fields.length) {
-      core.submit({
-        taskId: active.taskId,
-        interactionId: active.interactionId,
-        response: { kind: "form_submitted", values: draft.values },
-      });
-      state.inputDraft = null;
+      if (
+        submitDraft(core, state, {
+          taskId: active.taskId,
+          interactionId: active.interactionId,
+          response: { kind: "form_submitted", values: { ...draft.values } },
+        })
+      ) {
+        state.inputDraft = null;
+      }
       return;
     }
 
@@ -300,20 +319,57 @@ function handleTextKeypress(
 
   if (key.name === "return") {
     if (draft.buffer.trim() === "") {
-      state.statusLine = "Enter a reply before sending";
+      state.statusLine = draft.approvalDecision
+        ? "Enter a reason before sending"
+        : "Enter a reply before sending";
       return;
     }
-    core.submit({
-      taskId: active.taskId,
-      interactionId: active.interactionId,
-      response: { kind: "text_submitted", text: draft.buffer },
-    });
-    state.inputDraft = null;
+    if (
+      submitDraft(core, state, {
+        taskId: active.taskId,
+        interactionId: active.interactionId,
+        response: draft.approvalDecision
+          ? { kind: draft.approvalDecision, reason: draft.buffer }
+          : { kind: "text_submitted", text: draft.buffer },
+      })
+    )
+      state.inputDraft = null;
     return;
   }
 
   if (key.sequence && key.sequence.length === 1 && !key.ctrl) {
     draft.buffer += key.sequence;
+  }
+}
+
+function submitDraft(core: AttentionSurface, state: TuiState, response: FrameResponse): boolean {
+  const draft = state.inputDraft;
+  const failed = (error: unknown) => {
+    state.statusLine = `Response not sent: ${error instanceof Error ? error.message : String(error)}`;
+    if (state.inputDraft === draft && draft?.kind === "form") {
+      const spec = state.attentionView.now?.responseSpec;
+      if (spec?.kind === "form") {
+        draft.fieldIndex = 0;
+        draft.buffer = fieldSeed(spec.fields[0], draft.values);
+      }
+    }
+  };
+  try {
+    const result = core.submit(response);
+    if (result) {
+      state.pendingSubmission = result
+        .then(() => {
+          if (state.inputDraft === draft) state.inputDraft = null;
+        }, failed)
+        .finally(() => {
+          state.pendingSubmission = undefined;
+        });
+      return false;
+    }
+    return true;
+  } catch (error) {
+    failed(error);
+    return false;
   }
 }
 
@@ -441,11 +497,25 @@ function fieldSeed(field: FrameField | undefined, values: Record<string, unknown
 }
 
 function normalizeFieldValue(field: FrameField, raw: string): unknown {
+  if (raw.trim() === "") {
+    if (field.required) throw new Error(`${field.label} is required`);
+    return undefined;
+  }
   switch (field.type) {
-    case "number":
-      return raw.trim() === "" ? raw : Number(raw);
+    case "number": {
+      const value = Number(raw);
+      if (!Number.isFinite(value)) throw new Error(`${field.label} must be a finite number`);
+      return value;
+    }
     case "boolean":
-      return /^(1|true|y|yes)$/i.test(raw.trim());
+      if (/^(1|true|y|yes)$/i.test(raw.trim())) return true;
+      if (/^(0|false|n|no)$/i.test(raw.trim())) return false;
+      throw new Error(`${field.label} must be yes or no`);
+    case "select":
+      if (!field.options?.some((option) => option.value === raw)) {
+        throw new Error(`${field.label} must match an available option`);
+      }
+      return raw;
     default:
       return raw;
   }

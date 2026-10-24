@@ -1,7 +1,7 @@
 import { idleAttentionBurden, type AttentionBurden } from "./attention-burden.js";
 import { deriveAttentionBurden } from "./attention-burden.js";
 import type { AttentionState } from "./attention-state.js";
-import type { EpisodeSummary } from "./episode-tracker.js";
+import type { EpisodeSummary } from "./episode-evidence.js";
 import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
 import {
   forecastAttentionPressure,

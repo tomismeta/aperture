@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import type { ServerResponse } from "node:http";
 import test from "node:test";
 
 import { createApertureRuntime } from "@aperture/runtime";
-import { ApertureCore } from "@tomismeta/aperture-core";
-import { createOpencodeBridge } from "../src/index.js";
+import { ApertureCore, type AttentionResponse, type SourceEvent } from "@tomismeta/aperture-core";
+import { createOpencodeBridge, createOpencodeInstanceKey } from "../src/index.js";
 
 test("bootstraps pending permissions and routes runtime responses back to OpenCode", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
@@ -116,6 +117,252 @@ test("bootstraps pending permissions and routes runtime responses back to OpenCo
     await new Promise<void>((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());
     });
+  }
+});
+
+test("bridges isolate broadcast responses when native request and session IDs overlap", async (t) => {
+  for (const scenario of [
+    {
+      name: "different servers",
+      clients: [
+        { baseUrl: "http://127.0.0.1:4096" },
+        { baseUrl: "http://127.0.0.1:4097" },
+      ],
+    },
+    {
+      name: "different directories on one server",
+      clients: [
+        { baseUrl: "http://127.0.0.1:4096", scope: { directory: "/workspace/a" } },
+        { baseUrl: "http://127.0.0.1:4096", scope: { directory: "/workspace/b" } },
+      ],
+    },
+  ]) {
+    await t.test(scenario.name, async () => {
+      const listeners = new Set<(response: AttentionResponse) => void>();
+      const fixtures = scenario.clients.map((client) => {
+        const published: SourceEvent[] = [];
+        const replies: Array<{ kind: string; id: string }> = [];
+        const bridge = createOpencodeBridge({
+          runtimeBaseUrl: "http://runtime.invalid",
+          client,
+          bridgeClient: {
+            async listPermissions() {
+              return [{ id: "shared-request", sessionID: "shared-session", message: "Approve deploy" }];
+            },
+            async listQuestions() { return []; },
+            async replyToPermission(id) { replies.push({ kind: "permission", id }); },
+            async replyToQuestion(id) { replies.push({ kind: "question", id }); },
+            async rejectQuestion(id) { replies.push({ kind: "reject", id }); },
+            async promptSession(id) { replies.push({ kind: "prompt", id }); },
+            async *streamEvents({ signal } = {}) {
+              yield { type: "server.connected", properties: {} };
+              if (signal && !signal.aborted) {
+                await new Promise<void>((resolve) => {
+                  signal.addEventListener("abort", () => resolve(), { once: true });
+                });
+              }
+            },
+          },
+          runtimeClientFactory: async () => ({
+            async publishSourceEvent(event) { published.push(event); },
+            async publishSourceEventBatch(events) { published.push(...events); },
+            async submit() {},
+            async retract() { return false; },
+            async close() {},
+            onResponse(listener) {
+              listeners.add(listener);
+              return () => { listeners.delete(listener); };
+            },
+          }),
+        });
+        return { bridge, client, published, replies };
+      });
+
+      try {
+        for (const fixture of fixtures) {
+          await fixture.bridge.start();
+        }
+        assert.equal(listeners.size, 2);
+        assert.notEqual(fixtures[0]?.published[0]?.taskId, fixtures[1]?.published[0]?.taskId);
+
+        for (const [index, fixture] of fixtures.entries()) {
+          const permission = fixture.published[0];
+          assert.equal(permission?.type, "human.input.requested");
+          if (permission?.type !== "human.input.requested") {
+            throw new Error("Expected a bootstrapped permission.");
+          }
+          const instanceKey = createOpencodeInstanceKey(fixture.client);
+          const responses: AttentionResponse[] = [
+            { taskId: permission.taskId, interactionId: permission.interactionId, response: { kind: "approved" } },
+            {
+              taskId: permission.taskId,
+              interactionId: `opencode:${instanceKey}:question:shared-request`,
+              response: { kind: "option_selected", optionIds: ["yes"] },
+            },
+            {
+              taskId: permission.taskId,
+              interactionId: `opencode:${instanceKey}:question:shared-request`,
+              response: { kind: "rejected" },
+            },
+            {
+              taskId: permission.taskId,
+              interactionId: `opencode:${instanceKey}:followup:shared-session|shared-part`,
+              response: { kind: "text_submitted", text: "Continue." },
+            },
+          ];
+          for (const response of responses) {
+            for (const listener of listeners) {
+              listener(response);
+            }
+          }
+          await Promise.resolve();
+
+          assert.deepEqual(fixture.replies, [
+            { kind: "permission", id: "shared-request" },
+            { kind: "question", id: "shared-request" },
+            { kind: "reject", id: "shared-request" },
+            { kind: "prompt", id: "shared-session" },
+          ]);
+          assert.equal(fixtures[1 - index]?.replies.length, index === 0 ? 0 : 4);
+        }
+      } finally {
+        for (const fixture of fixtures) {
+          await fixture.bridge.close();
+        }
+      }
+    });
+  }
+});
+
+test("native question resolutions retract exact choice and form frames without responses or echoes", async (t) => {
+  for (const kind of ["choice", "form"] as const) {
+    for (const resolution of ["question.replied", "question.rejected"] as const) {
+      await t.test(`${kind}: ${resolution}`, async () => {
+        const runtime = createApertureRuntime({ controlPort: 0 });
+        const { controlUrl } = await runtime.listen();
+        const core = runtime.getCore();
+        const responses: AttentionResponse[] = [];
+        const issues: string[] = [];
+        core.onResponse((response) => { responses.push(response); });
+        core.subscribeAttentionView((view) => {
+          for (const frame of [view.now, ...view.next, ...view.ambient]) {
+            if (frame?.title.includes("OpenCode event stream") || frame?.title === "OpenCode reply failed") {
+              issues.push(frame.title);
+            }
+          }
+        });
+        const requests: string[] = [];
+        const sseClients = new Set<ServerResponse>();
+        let connections = 0;
+        const questions = kind === "choice"
+          ? [{ header: "Choose destination", question: "Where?", options: [{ label: "Local" }, { label: "Remote" }] }]
+          : [{ header: "Destination", question: "Where?" }, { header: "Reason", question: "Why?" }];
+        const server = createServer(async (req, res) => {
+          const url = new URL(req.url ?? "/", "http://127.0.0.1");
+          if (req.method === "GET" && url.pathname === "/permission") {
+            res.setHeader("Content-Type", "application/json");
+            res.end("[]");
+            return;
+          }
+          if (req.method === "GET" && url.pathname === "/question") {
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify(["target", "sibling"].map((id) => ({
+              id, sessionID: "shared-session", questions,
+            }))));
+            return;
+          }
+          if (req.method === "GET" && url.pathname === "/event") {
+            connections += 1;
+            res.writeHead(200, { "Content-Type": "text/event-stream" });
+            sseClients.add(res);
+            res.write(`data: ${JSON.stringify({ type: "server.connected", properties: {} })}\n\n`);
+            req.on("close", () => { sseClients.delete(res); });
+            return;
+          }
+          if (req.method === "POST") {
+            requests.push(url.pathname);
+            await readJson(req);
+            res.setHeader("Content-Type", "application/json");
+            res.end("{}");
+            return;
+          }
+          res.statusCode = 404;
+          res.end();
+        });
+        await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+        const address = server.address();
+        if (!address || typeof address === "string") {
+          throw new Error("test server did not bind");
+        }
+        const baseUrl = `http://127.0.0.1:${address.port}`;
+        const instanceKey = createOpencodeInstanceKey({ baseUrl });
+        const taskId = `opencode:${instanceKey}:session:shared-session`;
+        const interactionId = (id: string) => `opencode:${instanceKey}:question:${id}`;
+        const frames = () => {
+          const view = core.getTaskView(taskId);
+          return [...(view.now ? [view.now] : []), ...view.next, ...view.ambient];
+        };
+        const send = (type: string, properties: Record<string, unknown>) => {
+          for (const client of sseClients) {
+            client.write(`data: ${JSON.stringify({ type, properties })}\n\n`);
+          }
+        };
+        const bridge = createOpencodeBridge({ runtimeBaseUrl: controlUrl, client: { baseUrl } });
+        try {
+          await bridge.start();
+          assert.ok(await waitFor(() => sseClients.size === 1 ? true : null));
+          assert.deepEqual(frames().map((frame) => frame.interactionId).sort(),
+            [interactionId("target"), interactionId("sibling")].sort());
+          assert.ok(frames().every((frame) => frame.responseSpec?.kind === kind));
+
+          send(resolution, { requestID: "target", sessionID: "shared-session", answers: [["Local"]] });
+          assert.ok(await waitFor(() => frames().length === 1 ? true : null));
+          assert.equal(frames()[0]?.interactionId, interactionId("sibling"));
+          assert.deepEqual(responses, []);
+          assert.deepEqual(requests, []);
+
+          send(resolution, { requestID: "sibling", sessionID: "shared-session" });
+          assert.ok(await waitFor(() => frames().length === 0 ? true : null));
+          send(resolution, { requestID: "target", sessionID: "shared-session" });
+          send(resolution, { requestID: "unknown", sessionID: "unknown-session" });
+          send("permission.asked", {
+            id: "native-permission", sessionID: "shared-session", message: "Approve deployment",
+          });
+          const permissionId = `opencode:${instanceKey}:permission:native-permission`;
+          assert.ok(await waitFor(() => frames().find((frame) => frame.interactionId === permissionId) ?? null));
+          const reply = resolution === "question.replied" ? "once" : "reject";
+          send("permission.replied", {
+            requestID: "native-permission", sessionID: "shared-session", reply, message: "Not now",
+          });
+          assert.ok(await waitFor(() => responses.length === 1 && frames().length === 0 ? true : null));
+          assert.deepEqual(responses, [{
+            taskId,
+            interactionId: permissionId,
+            response: reply === "once" ? { kind: "approved" } : { kind: "rejected", reason: "Not now" },
+          }]);
+
+          // A subsequent real response proves the poll loop reached the native response
+          // without echoing it, and that suppression does not affect other interactions.
+          send("permission.asked", {
+            id: "outbound-permission", sessionID: "shared-session", message: "Approve release",
+          });
+          const outboundId = `opencode:${instanceKey}:permission:outbound-permission`;
+          assert.ok(await waitFor(() => frames().find((frame) => frame.interactionId === outboundId) ?? null));
+          core.submit({ taskId, interactionId: outboundId, response: { kind: "approved" } });
+          assert.ok(await waitFor(() => requests.length > 0 ? true : null, { timeoutMs: 1_000 }));
+          assert.deepEqual(requests, ["/session/shared-session/permissions/outbound-permission"]);
+          assert.equal(responses.length, 2);
+          assert.deepEqual(issues, []);
+          assert.equal(connections, 1);
+        } finally {
+          await bridge.close();
+          await runtime.close();
+          await new Promise<void>((resolve, reject) => {
+            server.close((error) => error ? reject(error) : resolve());
+          });
+        }
+      });
+    }
   }
 });
 

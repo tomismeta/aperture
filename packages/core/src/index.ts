@@ -2,6 +2,7 @@ export { ApertureCore } from "./aperture-core.js";
 export type {
   ApertureCoreOptions,
   PublishOptions,
+  AttentionPressureSnapshot,
   AttentionFrameListener,
   AttentionTaskViewListener,
   AttentionViewListener,
@@ -27,6 +28,8 @@ export type {
 } from "./frame.js";
 export type { AttentionResponse } from "./frame-response.js";
 export type { AttentionSignal } from "./interaction-signal.js";
+export type { AttentionSignalSummary } from "./signal-summary.js";
+export type { AttentionState } from "./attention-state.js";
 export type {
   AttentionTopologyCapabilities,
   AttentionResponseCapabilities,

@@ -234,7 +234,6 @@ function renderCandidateTrace(trace: CandidateTrace, color: boolean, expanded: b
 
 function readPreferenceRationale(trace: CandidateTrace): string[] {
   return uniqueStrings([
-    ...(Array.isArray(trace.policy.rationale) ? trace.policy.rationale : []),
     ...(trace.policyRules.criterion?.rationale ?? []),
     ...trace.policyRules.gateEvaluations.flatMap((evaluation) => evaluation.rationale),
   ]).filter((rationale) => rationale.includes("control mode"));

@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { AttentionFrame as Frame } from "@tomismeta/aperture-core";
-import type { AttentionSignalSummary as SignalSummary } from "../../core/src/signal-summary.js";
-import type { AttentionState } from "../../core/src/attention-state.js";
+import { ApertureCore, type AttentionFrame as Frame } from "@tomismeta/aperture-core";
+import type { SignalSummary, AttentionState } from "../src/types.js";
 
 import {
   handleActiveKeypress,
@@ -14,6 +13,7 @@ import {
 } from "../src/interaction.js";
 import type { AttentionSurface, TuiState, FrameResponse } from "../src/types.js";
 import { createAnimationState } from "../src/animation.js";
+import { renderInputDraft } from "../src/render-input.js";
 
 function makeFrame(overrides: Partial<Frame> = {}): Frame {
   return {
@@ -61,10 +61,13 @@ function makeSurface(submitted: FrameResponse[] = []): AttentionSurface {
     getAttentionView: () => ({ now: null, next: [], ambient: [] }),
     getSignalSummary: () => ({}) as SignalSummary,
     getAttentionState: () => "calm" as AttentionState,
+    getAttentionPressure: () => ({ level: "steady" }),
     subscribeAttentionView: () => () => {},
     onResponse: () => () => {},
     engage: () => {},
-    submit: (response: FrameResponse) => submitted.push(response),
+    submit: (response: FrameResponse) => {
+      submitted.push(response);
+    },
   };
 }
 
@@ -408,4 +411,135 @@ test("describeResponse appends next active info when different", () => {
 
   assert.match(result, /Approved/);
   assert.match(result, /Next task/);
+});
+
+test("required approval reasons remain editable until a valid decision is submitted", () => {
+  for (const decision of ["a", "r"] as const) {
+    const core = new ApertureCore();
+    core.publishSourceEvent({
+      id: `reason-${decision}`,
+      taskId: "reason-task",
+      interactionId: "reason-interaction",
+      timestamp: new Date().toISOString(),
+      type: "human.input.requested",
+      title: "Approve deployment",
+      summary: "Review the deployment before approval",
+      request: { kind: "approval", requireReason: true },
+    });
+    const frame = core.getAttentionView().now!;
+    assert.ok(frame);
+    const state = makeState({ attentionView: core.getAttentionView() });
+    const responses: FrameResponse[] = [];
+    core.onResponse((response) => responses.push(response));
+    handleActiveKeypress(core, state, frame, { name: decision });
+    assert.equal(state.inputDraft?.kind, "text");
+    handleInputKeypress(core, state, { name: "return" });
+    assert.ok(state.inputDraft);
+    assert.match(renderInputDraft(frame, state.inputDraft, false).join("\n"), /reason/);
+    assert.equal(responses.length, 0);
+    assert.match(state.statusLine, /reason/);
+    for (const sequence of "Reviewed") handleInputKeypress(core, state, { sequence });
+    handleInputKeypress(core, state, { name: "return" });
+    assert.deepEqual(responses[0]?.response, {
+      kind: decision === "a" ? "approved" : "rejected",
+      reason: "Reviewed",
+    });
+    assert.equal(state.inputDraft, null);
+  }
+});
+
+test("numeric forms retain invalid input, omit optional blanks and send corrected values", () => {
+  const submitted: FrameResponse[] = [];
+  const surface = makeSurface(submitted);
+  const frame = makeFrame({
+    mode: "form",
+    responseSpec: {
+      kind: "form",
+      fields: [
+        { id: "optional", label: "Optional", type: "number" },
+        { id: "count", label: "Count", type: "number", required: true },
+      ],
+      actions: [],
+    },
+  });
+  const state = makeState({
+    attentionView: { now: frame, next: [], ambient: [] },
+    inputDraft: createAutomaticInputDraft(frame),
+  });
+  handleInputKeypress(surface, state, { name: "return" });
+  handleInputKeypress(surface, state, { name: "return" });
+  assert.match(state.statusLine, /Count is required/);
+  handleInputKeypress(surface, state, { sequence: "x" });
+  handleInputKeypress(surface, state, { name: "return" });
+  assert.match(state.statusLine, /finite number/);
+  assert.equal(submitted.length, 0);
+  assert.equal(state.inputDraft?.kind === "form" && state.inputDraft.buffer, "x");
+  handleInputKeypress(surface, state, { name: "backspace" });
+  handleInputKeypress(surface, state, { sequence: "2" });
+  handleInputKeypress(surface, state, { name: "return" });
+  assert.deepEqual(submitted[0]?.response, { kind: "form_submitted", values: { count: 2 } });
+});
+
+test("rejected async form submission preserves the editable draft and retries successfully", async () => {
+  const frame = makeFrame({
+    mode: "form",
+    responseSpec: {
+      kind: "form",
+      fields: [{ id: "count", label: "Count", type: "number" }],
+      actions: [],
+    },
+  });
+  const draft = createAutomaticInputDraft(frame)!;
+  assert.equal(draft.kind, "form");
+  if (draft.kind !== "form") throw new Error("Expected form draft");
+  draft.buffer = "2";
+  const state = makeState({
+    attentionView: { now: frame, next: [], ambient: [] },
+    inputDraft: draft,
+  });
+  const surface = makeSurface();
+  surface.submit = async () => {
+    await Promise.resolve();
+    throw new Error("Count rejected by current response specification");
+  };
+  handleInputKeypress(surface, state, { name: "return" });
+  assert.equal(state.inputDraft, draft);
+  handleInputKeypress(surface, state, { sequence: "9" });
+  assert.equal(draft.buffer, "2");
+  await state.pendingSubmission;
+  assert.equal(state.inputDraft, draft);
+  assert.match(state.statusLine, /Response not sent: Count rejected/);
+  handleInputKeypress(surface, state, { name: "backspace" });
+  handleInputKeypress(surface, state, { sequence: "3" });
+  surface.submit = async () => {};
+  handleInputKeypress(surface, state, { name: "return" });
+  assert.equal(state.inputDraft, draft);
+  await state.pendingSubmission;
+  assert.equal(state.inputDraft, null);
+});
+
+test("synchronous form validation failure retains fields for correction", () => {
+  const frame = makeFrame({
+    mode: "form",
+    responseSpec: {
+      kind: "form",
+      fields: [{ id: "value", label: "Value", type: "text" }],
+      actions: [],
+    },
+  });
+  const draft = createAutomaticInputDraft(frame)!;
+  if (draft.kind !== "form") throw new Error("Expected form draft");
+  draft.buffer = "original";
+  const state = makeState({
+    attentionView: { now: frame, next: [], ambient: [] },
+    inputDraft: draft,
+  });
+  const surface = makeSurface();
+  surface.submit = () => {
+    throw new Error("Form specification changed");
+  };
+  handleInputKeypress(surface, state, { name: "return" });
+  assert.equal(state.inputDraft, draft);
+  assert.equal(draft.buffer, "original");
+  assert.match(state.statusLine, /Form specification changed/);
 });

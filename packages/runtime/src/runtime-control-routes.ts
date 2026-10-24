@@ -1,15 +1,12 @@
-import {
-  isApertureCoreResponseExpiredError,
-  isApertureCoreValidationError,
-} from "@tomismeta/aperture-core/internal";
-
 import type { BuildRuntimeRoutesOptions } from "./runtime-routes.js";
 import { readJson, RuntimeHttpError, writeJson } from "./runtime-http.js";
 import { matchLiteral, type RuntimeRoute } from "./runtime-router.js";
+import { retractRuntimeInteraction, submitRuntimeResponse } from "./runtime-response-lifecycle.js";
 import {
   normalizeSourceEventPayload,
   validateAttentionResponse,
   validateOperatorEngagement,
+  validateRetraction,
 } from "./runtime-validation.js";
 import type { LearningPersistenceState } from "./learning-persistence.js";
 import type { SourceEvent } from "@tomismeta/aperture-core";
@@ -94,10 +91,12 @@ export function createRuntimeControlRoutes(options: BuildRuntimeRoutesOptions): 
       match: matchLiteral(`${options.controlPathPrefix}/events`),
       handler: async ({ res, url }) => {
         const since = Number(url.searchParams.get("since") ?? "0");
+        const attentionPressure = options.core.getAttentionPressure();
         writeJson(res, 200, {
           events: options.state.eventsSince(since),
           nextSequence: options.state.nextSequence(),
           stateVersion: options.state.version,
+          attentionPressure,
         });
       },
     },
@@ -125,24 +124,24 @@ export function createRuntimeControlRoutes(options: BuildRuntimeRoutesOptions): 
             "Invalid attention response payload.",
           );
         }
-        try {
-          options.core.submit(response);
-        } catch (error) {
-          if (isApertureCoreResponseExpiredError(error)) {
-            throw new RuntimeHttpError(
-              409,
-              error.code,
-              error.message,
-              "Refresh the pending frame or republish the interaction before submitting a response.",
-            );
-          }
-          if (isApertureCoreValidationError(error)) {
-            throw new RuntimeHttpError(400, error.code, error.message);
-          }
-          throw error;
-        }
-        options.state.recordSubmittedResponse(response, new Date().toISOString());
+        submitRuntimeResponse(options, response);
         writeJson(res, 200, {});
+      },
+    },
+    {
+      name: "runtime.retract",
+      method: "POST",
+      match: matchLiteral(`${options.controlPathPrefix}/retract`),
+      mutating: true,
+      rateLimitKey: "control",
+      handler: async ({ req, res }) => {
+        const payload = await readJson(req, options.bodyLimits.general);
+        const retraction = validateRetraction(payload);
+        if (!retraction) {
+          throw new RuntimeHttpError(400, "invalid_retraction", "Invalid retraction payload.");
+        }
+        const retracted = retractRuntimeInteraction(options, retraction);
+        writeJson(res, 200, { retracted });
       },
     },
     {

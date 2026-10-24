@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { AttentionResponse, SourceEvent } from "@tomismeta/aperture-core";
+import { ApertureCore } from "@tomismeta/aperture-core";
 
 import {
   bindAperturePiExtension,
@@ -48,7 +49,7 @@ test("maps Pi tool calls into approval requests", () => {
   assert.equal(mapped[0].summary, "rm -rf dist");
   assert.equal(mapped[0].toolFamily, "bash");
   assert.equal(mapped[0].activityClass, "permission_request");
-  assert.equal(mapped[0].riskHint, "high");
+  assert.equal(mapped[0].riskHint, "medium");
   assert.deepEqual(mapped[0].metadata, {
     execution: {
       runner: "pi",
@@ -62,6 +63,29 @@ test("maps Pi tool calls into approval requests", () => {
     { id: "toolCallId", label: "Tool Call ID", value: "tool-1" },
     { id: "cwd", label: "Working Directory", value: "/workspace/project" },
   ]);
+});
+
+test("core infers ordinary and destructive Pi command risk from preserved command text", () => {
+  for (const [command, consequence] of [
+    ["git push origin main", "medium"],
+    ["rm -rf ./dist", "high"],
+    ["git reset --hard HEAD", "high"],
+  ] as const) {
+    const mapped = mapPiEvent(
+      {
+        type: "tool_call",
+        toolCallId: "tool-risk",
+        toolName: "bash",
+        input: { command },
+      },
+      context,
+    );
+    assert.equal(mapped[0]?.type, "human.input.requested");
+    if (mapped[0]?.type !== "human.input.requested") throw new Error("Expected approval");
+    assert.equal(mapped[0].summary, command);
+    const core = new ApertureCore();
+    assert.equal(core.publishSourceEvent(mapped[0])?.consequence, consequence, command);
+  }
 });
 
 test("maps safe Pi read-like tools as low consequence approvals", () => {

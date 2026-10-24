@@ -90,7 +90,7 @@ export class ApertureCoreListeners {
       }
     };
     try {
-      listener(currentFrame);
+      listener(structuredClone(currentFrame));
     } catch (error) {
       unsubscribe();
       throw error;
@@ -117,7 +117,7 @@ export class ApertureCoreListeners {
       }
     };
     try {
-      listener(taskView);
+      listener(structuredClone(taskView));
     } catch (error) {
       unsubscribe();
       throw error;
@@ -133,7 +133,7 @@ export class ApertureCoreListeners {
     const registration = createListenerRegistration(listener);
     this.attentionViewListeners.add(registration);
     try {
-      listener(attentionView);
+      listener(structuredClone(attentionView));
     } catch (error) {
       this.attentionViewListeners.delete(registration);
       throw error;
@@ -180,7 +180,9 @@ export class ApertureCoreListeners {
     if (!listeners) {
       return;
     }
-    this.emitRegistrations(listeners, this.frameHealth, (listener) => listener(frame));
+    this.emitRegistrations(listeners, this.frameHealth, (listener) =>
+      listener(structuredClone(frame)),
+    );
     if (listeners.size === 0) {
       this.frameListeners.delete(taskId);
     }
@@ -191,7 +193,9 @@ export class ApertureCoreListeners {
     if (!listeners) {
       return;
     }
-    this.emitRegistrations(listeners, this.taskViewHealth, (listener) => listener(taskView));
+    this.emitRegistrations(listeners, this.taskViewHealth, (listener) =>
+      listener(structuredClone(taskView)),
+    );
     if (listeners.size === 0) {
       this.taskViewListeners.delete(taskId);
     }
@@ -199,27 +203,32 @@ export class ApertureCoreListeners {
 
   emitAttentionView(attentionView: AttentionView): void {
     this.emitRegistrations(this.attentionViewListeners, this.attentionViewHealth, (listener) =>
-      listener(attentionView),
+      listener(structuredClone(attentionView)),
     );
   }
 
   emitResponse(response: AttentionResponse): void {
     this.emitRegistrations(this.responseListeners, this.responseHealth, (listener) =>
-      listener(response),
+      listener(structuredClone(response)),
     );
   }
 
   emitSignal(signal: AttentionSignal): void {
-    this.emitRegistrations(this.signalListeners, this.signalHealth, (listener) => listener(signal));
+    this.emitRegistrations(this.signalListeners, this.signalHealth, (listener) =>
+      listener(structuredClone(signal)),
+    );
   }
 
   emitTrace(trace: InternalApertureTrace): void {
     this.emitRegistrations(this.internalTraceListeners, this.internalTraceHealth, (listener) =>
-      listener(trace),
+      listener(structuredClone(trace)),
     );
+    if (this.traceListeners.size === 0) {
+      return;
+    }
     const publicTrace = toPublicApertureTrace(trace);
     this.emitRegistrations(this.traceListeners, this.traceHealth, (listener) =>
-      listener(publicTrace),
+      listener(structuredClone(publicTrace)),
     );
   }
 

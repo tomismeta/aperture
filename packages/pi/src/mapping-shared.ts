@@ -148,7 +148,6 @@ export function riskHintForTool(toolName: string | undefined): "low" | "medium" 
       return "low";
     case "edit":
     case "write":
-    case "bash":
       return "high";
     default:
       return "medium";

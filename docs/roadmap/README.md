@@ -6,7 +6,6 @@ Aperture is headed.
 The most important current source-of-truth docs are:
 
 - [Engine Status Pillars](../engine/engine-status-pillars.md)
-- [Core Engine Audit (2026-03)](../engine/core-engine-audit-2026-03.md)
 - [Engine Roadmap](./engine-roadmap.md)
 - [Technical Product Roadmap](./technical-product-roadmap.md)
 
@@ -21,7 +20,6 @@ These notes are still active and should be read as current direction:
 - [Architecture Hardening Program](./architecture-hardening-program.md)
 - [Semantic Contract Maturation Plan](./semantic-contract-maturation-plan.md)
 - [Semantic Contract Decision](./semantic-contract-decision.md)
-- [Core Semantic Hardening Release Readiness](./core-semantic-hardening-release-readiness.md)
 - [Host Surface Expansion Note](./host-surface-expansion-note.md)
 
 ## Historical Or Supporting Notes
@@ -29,6 +27,8 @@ These notes are still active and should be read as current direction:
 These notes are still useful, but they are supporting context rather than the
 current source of truth:
 
+- [Core Engine Audit (2026-03)](../engine/core-engine-audit-2026-03.md)
+- [Core Semantic Hardening Release Readiness](./core-semantic-hardening-release-readiness.md)
 - [Aperture Cloud (Exploration Note)](./aperture-cloud.md)
 - [Package Launch Plan](./package-launch-plan.md)
 - [Package Splitting Decision](./package-splitting-decision.md)

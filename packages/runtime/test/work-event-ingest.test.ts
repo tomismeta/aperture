@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { TypeCompiler } from "@sinclair/typebox/compiler";
+import { ApertureCore, type AttentionResponse } from "@tomismeta/aperture-core";
 
 import { createApertureRuntime } from "../src/runtime.js";
 import { ApertureRuntimeAdapterClient } from "../src/adapter-client.js";
+import type { ApertureRuntimeSnapshot } from "../src/runtime-contract.js";
 import {
   mapWorkTextToSourceEvent,
   mapWorkEventToSourceEvent,
@@ -807,6 +809,138 @@ test("work endpoint accepts only the current Work contract version", async () =>
   }
 });
 
+test("cancelling work retracts only that interaction and ignores late answers until republished", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, authToken } = await runtime.listen();
+  const core = runtime.getCore();
+  const taskId = "task:cancel-round-trip";
+  const interactionId = `interaction:${taskId}:approval`;
+  const siblingId = `interaction:${taskId}:migration`;
+  const responsePath = `/work/response/${encodeURIComponent(interactionId)}`;
+  const responses: AttentionResponse[] = [];
+  const unsubscribe = core.onResponse((response) => responses.push(response));
+  const pendingIds = () => {
+    const view = core.getTaskView(taskId);
+    return [view.now, ...view.next, ...view.ambient]
+      .filter((frame) => frame !== null)
+      .map((frame) => frame.interactionId)
+      .sort();
+  };
+  const readResponse = async (path = responsePath) => {
+    const response = await authorizedFetch(baseUrl, authToken, path);
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(workResponseCompiler.Check(payload), true);
+    return payload as {
+      state: string;
+      cancelledAt?: string;
+      response?: { kind: string };
+    };
+  };
+
+  try {
+    const published = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify([
+        workApprovalEvent(taskId),
+        {
+          ...workApprovalEvent(taskId),
+          id: `${taskId}:migration`,
+          interaction: { id: siblingId },
+          request: {
+            kind: "approval",
+            title: "Approve database migration",
+            summary: "Approve the separate database migration.",
+          },
+        },
+      ]),
+    });
+    assert.equal(published.status, 200);
+    assert.deepEqual(pendingIds(), [interactionId, siblingId].sort());
+    assert.equal((await readResponse()).state, "pending");
+
+    const cancelled = await authorizedFetch(baseUrl, authToken, responsePath, { method: "DELETE" });
+    assert.equal(cancelled.status, 200);
+    const cancellation = await cancelled.json();
+    assert.ok(workResponseCompiler.Check(cancellation));
+    assert.equal(cancellation.state, "cancelled");
+    assert.equal(typeof cancellation.cancelledAt, "string");
+    assert.deepEqual(pendingIds(), [siblingId]);
+    assert.equal(responses.length, 0);
+    const attention = core.getAttentionView();
+    assert.equal(
+      [attention.now, ...attention.next, ...attention.ambient].some(
+        (frame) => frame?.interactionId === interactionId,
+      ),
+      false,
+    );
+
+    const lateAnswer: AttentionResponse = {
+      taskId,
+      interactionId,
+      response: { kind: "approved" },
+    };
+    core.submit(lateAnswer);
+    const lateSubmit = await authorizedFetch(baseUrl, authToken, "/runtime/response", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(lateAnswer),
+    });
+    assert.equal(lateSubmit.status, 409);
+    assert.deepEqual(await readResponse(), cancellation);
+    assert.deepEqual(pendingIds(), [siblingId]);
+    assert.equal(responses.length, 0);
+
+    const repeated = await authorizedFetch(baseUrl, authToken, responsePath, { method: "DELETE" });
+    assert.equal(repeated.status, 200);
+    assert.deepEqual(await repeated.json(), cancellation);
+
+    core.submit({ taskId, interactionId: siblingId, response: { kind: "approved" } });
+    assert.equal(
+      (await readResponse(`/work/response/${encodeURIComponent(siblingId)}`)).state,
+      "answered",
+    );
+    assert.deepEqual(
+      responses.map((response) => response.interactionId),
+      [siblingId],
+    );
+    assert.deepEqual(await readResponse(), cancellation);
+
+    const republished = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...workApprovalEvent(taskId),
+        id: `${taskId}:republished`,
+        time: new Date().toISOString(),
+      }),
+    });
+    assert.equal(republished.status, 200);
+    const pending = await readResponse();
+    assert.equal(pending.state, "pending");
+    assert.equal(pending.cancelledAt, undefined);
+    assert.deepEqual(pendingIds(), [interactionId]);
+
+    core.submit(lateAnswer);
+    const answered = await readResponse();
+    assert.equal(answered.state, "answered");
+    assert.deepEqual(answered.response, { kind: "approved" });
+    assert.deepEqual(
+      responses.map((response) => response.interactionId),
+      [siblingId, interactionId],
+    );
+    const cannotCancel = await authorizedFetch(baseUrl, authToken, responsePath, {
+      method: "DELETE",
+    });
+    assert.equal(cannotCancel.status, 409);
+    assert.deepEqual(await readResponse(), answered);
+  } finally {
+    unsubscribe();
+    await runtime.close();
+  }
+});
+
 test("work response can be cancelled and later expire when unanswered", async () => {
   const runtime = createApertureRuntime({
     controlPort: 0,
@@ -863,6 +997,178 @@ test("work response can be cancelled and later expire when unanswered", async ()
   }
 });
 
+for (const coreExpiryMs of [undefined, 100]) {
+  for (const firstRead of ["response", "state"] as const) {
+    test(`Work expiry coordinates core withdrawal (${coreExpiryMs ?? "TTL"}, ${firstRead})`, async () => {
+      let nowMs = Date.parse("2026-10-24T12:00:00.000Z");
+      const core = new ApertureCore({
+        timeSource: () => nowMs,
+        ...(coreExpiryMs !== undefined ? { responseExpiryMs: coreExpiryMs } : {}),
+      });
+      const runtime = createApertureRuntime({
+        core,
+        controlPort: 0,
+        timeSource: () => nowMs,
+        workResponsePendingTtlMs: 1_000,
+      });
+      const { baseUrl, authToken } = await runtime.listen();
+      const taskId = "task:expiry-boundary";
+      const interactionId = `interaction:${taskId}:approval`;
+      const responsePath = `/work/response/${encodeURIComponent(interactionId)}`;
+      const responses: AttentionResponse[] = [];
+      const unsubscribe = core.onResponse((response) => responses.push(response));
+      const publish = () =>
+        authorizedFetch(baseUrl, authToken, "/work", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...workApprovalEvent(taskId),
+            id: `${taskId}:${nowMs}`,
+            time: new Date(nowMs).toISOString(),
+          }),
+        });
+      const submit = () =>
+        authorizedFetch(baseUrl, authToken, "/runtime/response", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ taskId, interactionId, response: { kind: "approved" } }),
+        });
+      try {
+        assert.equal((await publish()).status, 200);
+        // A host-owned interaction must not inherit the runtime's Work TTL.
+        core.publishSourceEvent(
+          mapWorkEventToSourceEvent({
+            ...workApprovalEvent("task:host-owned"),
+            time: new Date(nowMs).toISOString(),
+          }),
+        );
+        const before = await authorizedFetch(baseUrl, authToken, "/runtime/state");
+        const beforeState = (await before.json()) as ApertureRuntimeSnapshot;
+        nowMs += coreExpiryMs ?? 1_000;
+        if (firstRead === "state") {
+          const snapshot = await authorizedFetch(baseUrl, authToken, "/runtime/state");
+          const state = (await snapshot.json()) as ApertureRuntimeSnapshot;
+          assert.ok(state.version > beforeState.version);
+          assert.equal(state.health.workResponses.counts.expired, 1);
+          const repeated = await authorizedFetch(baseUrl, authToken, "/runtime/state");
+          assert.equal(((await repeated.json()) as ApertureRuntimeSnapshot).version, state.version);
+        }
+        const rejected = await submit();
+        assert.equal(rejected.status, 409);
+        const rejection = (await rejected.json()) as { error: { code: string } };
+        assert.equal(rejection.error.code, "response_expired");
+        assert.equal(responses.length, 0);
+        assert.equal(core.getTaskView(taskId).now, null);
+        assert.deepEqual(core.getTaskView(taskId).next, []);
+        assert.deepEqual(core.getTaskView(taskId).ambient, []);
+        const hostView = core.getTaskView("task:host-owned");
+        assert.ok([hostView.now, ...hostView.next, ...hostView.ambient].some(Boolean));
+        const retained = await authorizedFetch(baseUrl, authToken, responsePath);
+        const expired = await retained.json();
+        assert.ok(workResponseCompiler.Check(expired));
+        assert.equal(expired.state, "expired");
+        const cancellation = await authorizedFetch(baseUrl, authToken, responsePath, {
+          method: "DELETE",
+        });
+        assert.deepEqual(await cancellation.json(), expired);
+        assert.equal((await submit()).status, 409);
+        assert.equal((await publish()).status, 200);
+        const stopAdvancingClock = core.onSignal((signal) => {
+          if (signal.kind === "responded" && signal.interactionId === interactionId) {
+            nowMs += 1_000;
+          }
+        });
+        try {
+          // Once core accepts, synchronous listener work crossing the deadline
+          // cannot turn that accepted answer into an expired ledger record.
+          assert.equal((await submit()).status, 200);
+        } finally {
+          stopAdvancingClock();
+        }
+        assert.equal(responses.length, 1);
+        const submittedStep = runtime
+          .exportSessionCapture()
+          .captureSteps.find(
+            (step) => step.kind === "submit" && step.response.interactionId === interactionId,
+          );
+        assert.equal(submittedStep?.recordedAt, new Date(nowMs).toISOString());
+        const answered = await authorizedFetch(baseUrl, authToken, responsePath);
+        const answeredRecord = await answered.json();
+        assert.ok(workResponseCompiler.Check(answeredRecord));
+        assert.equal(answeredRecord.state, "answered");
+      } finally {
+        unsubscribe();
+        await runtime.close();
+      }
+    });
+  }
+}
+
+test("authenticated retraction handles generic source tuples and cancels matching Work", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, authToken } = await runtime.listen();
+  const core = runtime.getCore();
+  const taskId = "task:native-retract";
+  const interactionId = `interaction:${taskId}:approval`;
+  const responses: AttentionResponse[] = [];
+  const unsubscribe = core.onResponse((response) => responses.push(response));
+  const retract = (payload: unknown) =>
+    authorizedFetch(baseUrl, authToken, "/runtime/retract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  try {
+    const unauthorized = await fetch(`${baseUrl}/runtime/retract`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ taskId, interactionId }),
+    });
+    assert.equal(unauthorized.status, 401);
+    for (const invalid of [
+      null,
+      [],
+      {},
+      { taskId, interactionId: "" },
+      { taskId: " ", interactionId },
+    ]) {
+      const rejected = await retract(invalid);
+      assert.equal(rejected.status, 400);
+    }
+    assert.deepEqual(await (await retract({ taskId, interactionId })).json(), { retracted: false });
+    core.publishSourceEvent(mapWorkEventToSourceEvent(workApprovalEvent(taskId)));
+    assert.deepEqual(await (await retract({ taskId: "task:wrong", interactionId })).json(), {
+      retracted: false,
+    });
+    assert.ok(core.getTaskView(taskId).now);
+    assert.deepEqual(await (await retract({ taskId, interactionId })).json(), { retracted: true });
+    assert.equal(core.getTaskView(taskId).now, null);
+    assert.deepEqual(await (await retract({ taskId, interactionId })).json(), { retracted: false });
+    assert.equal(responses.length, 0);
+    const published = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(workApprovalEvent(taskId)),
+    });
+    assert.equal(published.status, 200);
+    assert.deepEqual(await (await retract({ taskId: "task:wrong", interactionId })).json(), {
+      retracted: false,
+    });
+    const responsePath = `/work/response/${encodeURIComponent(interactionId)}`;
+    const pending = await (await authorizedFetch(baseUrl, authToken, responsePath)).json();
+    assert.ok(workResponseCompiler.Check(pending));
+    assert.equal(pending.state, "pending");
+    assert.deepEqual(await (await retract({ taskId, interactionId })).json(), { retracted: true });
+    const cancelled = await (await authorizedFetch(baseUrl, authToken, responsePath)).json();
+    assert.ok(workResponseCompiler.Check(cancelled));
+    assert.equal(cancelled.state, "cancelled");
+    assert.equal(responses.length, 0);
+  } finally {
+    unsubscribe();
+    await runtime.close();
+  }
+});
+
 test("work endpoint rejects forbidden keys and control characters", async () => {
   const runtime = createApertureRuntime({ controlPort: 0 });
   const { baseUrl, authToken } = await runtime.listen();
@@ -888,6 +1194,174 @@ test("work endpoint rejects forbidden keys and control characters", async () => 
       }),
     });
     assert.equal(controlChars.status, 400);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("direct accepted core submission after Work TTL remains a truthful answer", async () => {
+  let nowMs = Date.parse("2026-10-24T12:00:00.000Z");
+  const runtime = createApertureRuntime({
+    controlPort: 0,
+    timeSource: () => nowMs,
+    workResponsePendingTtlMs: 100,
+  });
+  const { baseUrl, authToken } = await runtime.listen();
+  const taskId = "task:direct-accepted";
+  const interactionId = `interaction:${taskId}:approval`;
+  try {
+    const published = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(workApprovalEvent(taskId)),
+    });
+    assert.equal(published.status, 200);
+    nowMs += 101;
+    runtime.getCore().submit({ taskId, interactionId, response: { kind: "approved" } });
+    const retained = await authorizedFetch(
+      baseUrl,
+      authToken,
+      `/work/response/${encodeURIComponent(interactionId)}`,
+    );
+    const answer = await retained.json();
+    assert.ok(workResponseCompiler.Check(answer));
+    assert.equal(answer.state, "answered");
+    assert.equal(runtime.getCore().getTaskView(taskId).now, null);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("adapter source interactions do not inherit Work TTL or occupy its ledger", async () => {
+  let nowMs = Date.parse("2026-10-24T12:00:00.000Z");
+  const runtime = createApertureRuntime({
+    controlPort: 0,
+    timeSource: () => nowMs,
+    workResponsePendingTtlMs: 100,
+  });
+  const { baseUrl, authToken } = await runtime.listen();
+  const client = await ApertureRuntimeAdapterClient.connect({
+    baseUrl,
+    authToken,
+    kind: "native-test",
+  });
+  const taskId = "task:adapter-lifetime";
+  const interactionId = `interaction:${taskId}:approval`;
+  try {
+    await client.publishSourceEvent(mapWorkEventToSourceEvent(workApprovalEvent(taskId)));
+    nowMs += 101;
+    const response = await authorizedFetch(baseUrl, authToken, "/runtime/state");
+    const state = (await response.json()) as ApertureRuntimeSnapshot;
+    assert.equal(state.health.workResponses.total, 0);
+    const view = runtime.getCore().getTaskView(taskId);
+    assert.ok(
+      [view.now, ...view.next, ...view.ambient].some(
+        (frame) => frame?.interactionId === interactionId,
+      ),
+    );
+    const retained = await authorizedFetch(
+      baseUrl,
+      authToken,
+      `/work/response/${encodeURIComponent(interactionId)}`,
+    );
+    assert.equal(retained.status, 404);
+    assert.equal(await client.retract(taskId, interactionId), true);
+  } finally {
+    await client.close();
+    await runtime.close();
+  }
+});
+
+test("Work capacity rejects a whole new batch before publication and reuses terminal slots", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0, workResponseMaxEntries: 1 });
+  const { baseUrl, authToken } = await runtime.listen();
+  const publish = (payload: WorkEvent | WorkEvent[]) =>
+    authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  try {
+    const rejectedBatch = await publish([
+      workApprovalEvent("task:first"),
+      workApprovalEvent("task:second"),
+    ]);
+    assert.equal(rejectedBatch.status, 503);
+    const rejection = await rejectedBatch.json();
+    assert.ok(rejection && typeof rejection === "object" && "error" in rejection);
+    assert.ok(rejection.error && typeof rejection.error === "object" && "code" in rejection.error);
+    assert.equal(rejection.error.code, "work_response_capacity");
+    assert.equal(runtime.getCore().getAttentionView().now, null);
+    assert.equal(runtime.exportSessionCapture().publishedSourceEvents.length, 0);
+    assert.equal((await publish(workApprovalEvent("task:first"))).status, 200);
+    assert.equal((await publish(workApprovalEvent("task:second"))).status, 503);
+    const firstId = "interaction:task:first:approval";
+    const firstPath = `/work/response/${encodeURIComponent(firstId)}`;
+    const retained = await authorizedFetch(baseUrl, authToken, firstPath);
+    const pending = await retained.json();
+    assert.ok(workResponseCompiler.Check(pending));
+    assert.equal(pending.state, "pending");
+    assert.ok(runtime.getCore().getTaskView("task:first").now);
+    assert.equal(runtime.getCore().getTaskView("task:second").now, null);
+    const cancelled = await authorizedFetch(baseUrl, authToken, firstPath, { method: "DELETE" });
+    assert.equal(cancelled.status, 200);
+    assert.equal((await publish(workApprovalEvent("task:second"))).status, 200);
+    assert.equal((await authorizedFetch(baseUrl, authToken, firstPath)).status, 404);
+    assert.ok(runtime.getCore().getTaskView("task:second").now);
+  } finally {
+    await runtime.close();
+  }
+});
+
+test("zero Work TTL retains immediate expiry without publishing a core frame", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0, workResponsePendingTtlMs: 0 });
+  const { baseUrl, authToken } = await runtime.listen();
+  const taskId = "task:immediate-expiry";
+  const interactionId = `interaction:${taskId}:approval`;
+  const responses: AttentionResponse[] = [];
+  const unsubscribe = runtime.getCore().onResponse((response) => responses.push(response));
+  try {
+    const published = await authorizedFetch(baseUrl, authToken, "/work", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(workApprovalEvent(taskId)),
+    });
+    assert.equal(published.status, 200);
+    const retained = await authorizedFetch(
+      baseUrl,
+      authToken,
+      `/work/response/${encodeURIComponent(interactionId)}`,
+    );
+    const expired = await retained.json();
+    assert.ok(workResponseCompiler.Check(expired));
+    assert.equal(expired.state, "expired");
+    assert.deepEqual(runtime.getCore().getTaskView(taskId), { now: null, next: [], ambient: [] });
+    assert.equal(responses.length, 0);
+  } finally {
+    unsubscribe();
+    await runtime.close();
+  }
+});
+
+test("events feed captures versions after an effectful attention-pressure read", async () => {
+  const runtime = createApertureRuntime({ controlPort: 0 });
+  const { baseUrl, authToken } = await runtime.listen();
+  const core = runtime.getCore();
+  const taskId = "task:effectful-pressure";
+  const interactionId = `interaction:${taskId}:approval`;
+  try {
+    runtime.publishSourceEvent(mapWorkEventToSourceEvent(workApprovalEvent(taskId)));
+    const readPressure = core.getAttentionPressure.bind(core);
+    core.getAttentionPressure = () => {
+      core.retract(taskId, interactionId);
+      return readPressure();
+    };
+    const feedResponse = await authorizedFetch(baseUrl, authToken, "/runtime/events");
+    const feed = (await feedResponse.json()) as { stateVersion: number };
+    const stateResponse = await authorizedFetch(baseUrl, authToken, "/runtime/state");
+    const state = (await stateResponse.json()) as ApertureRuntimeSnapshot;
+    assert.equal(feed.stateVersion, state.version);
+    assert.equal(state.attentionView.now, null);
   } finally {
     await runtime.close();
   }

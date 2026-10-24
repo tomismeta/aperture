@@ -5,6 +5,9 @@ import type { InteractionSignal } from "../src/index.js";
 
 import { ApertureCore } from "../src/aperture-core.js";
 import { readInternalCoreHealthSnapshot } from "../src/internal.js";
+import type { ApertureEvent } from "../src/events.js";
+import type { AttentionSignal } from "../src/interaction-signal.js";
+import type { AttentionResponse } from "../src/frame-response.js";
 
 test("submit records a responded interaction signal", () => {
   const core = new ApertureCore();
@@ -808,4 +811,197 @@ test("core health prunes stale signal tasks from long-running sessions", () => {
   assert.equal(health.stores.signals.signalCount, 1);
   assert.equal(health.stores.signals.prunedTasks >= 1, true);
   assert.equal(health.stores.signals.latestSignalAt, "2026-03-10T00:00:00.000Z");
+});
+
+test("public frames, views, ingress and each listener own independent nested snapshots", () => {
+  const core = new ApertureCore();
+  const metadata = { nested: { value: "owned" } };
+  const event: ApertureEvent = {
+    id: "evt:ownership",
+    taskId: "task:ownership",
+    interactionId: "interaction:ownership",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    type: "human.input.requested",
+    title: "Choose a target",
+    summary: "Select a target.",
+    source: { id: "source:ownership" },
+    request: { kind: "choice", selectionMode: "single", options: [{ id: "a", label: "A" }] },
+    metadata,
+  };
+  const observedTitles: string[] = [];
+  const observedSignalSources: Array<string | undefined> = [];
+  const observedTraceIds: string[] = [];
+  core.subscribe(event.taskId, (frame) => {
+    if (!frame) return;
+    frame.title = "listener mutation";
+    if (frame.responseSpec?.kind === "choice") frame.responseSpec.options[0]!.id = "bad";
+  });
+  core.subscribe(event.taskId, (frame) => {
+    if (frame) observedTitles.push(frame.title);
+  });
+  core.subscribeTaskView(event.taskId, (view) => {
+    if (view.now) view.now.timing.updatedAt = "bad";
+    view.next.length = 0;
+  });
+  core.subscribeAttentionView((view) => {
+    if (view.now) view.now.title = "attention listener mutation";
+  });
+  core.onSignal((signal) => {
+    if (signal.source) signal.source.id = "bad";
+  });
+  core.onSignal((signal) => observedSignalSources.push(signal.source?.id));
+  core.onTrace((trace) => {
+    trace.event.id = "bad";
+  });
+  core.onTrace((trace) => observedTraceIds.push(trace.event.id));
+  const published = core.publish(event);
+  assert.ok(published);
+  published.title = "return mutation";
+  if (published.responseSpec?.kind === "choice") published.responseSpec.options[0]!.id = "bad";
+  event.source!.id = "bad";
+  assert.equal(event.request.kind, "choice");
+  if (event.request.kind !== "choice") throw new Error("Expected choice fixture");
+  event.request.options[0]!.id = "bad";
+  metadata.nested.value = "bad";
+  const frame = core.getFrame(event.taskId)!;
+  const taskView = core.getTaskView(event.taskId);
+  const attentionView = core.getAttentionView();
+  frame.title = "getter mutation";
+  taskView.now!.source!.id = "bad";
+  attentionView.now!.timing.updatedAt = "bad";
+  assert.equal(core.getFrame(event.taskId)?.title, "Choose a target");
+  assert.equal(core.getFrame(event.taskId)?.source?.id, "source:ownership");
+  assert.equal(core.getFrame(event.taskId)?.timing.updatedAt, event.timestamp);
+  assert.deepEqual(core.getFrame(event.taskId)?.metadata?.nested, { value: "owned" });
+  assert.deepEqual(observedTitles, ["Choose a target"]);
+  assert.deepEqual(observedSignalSources, ["source:ownership"]);
+  assert.deepEqual(observedTraceIds, ["evt:ownership"]);
+
+  const observedResponses: AttentionResponse[] = [];
+  core.onResponse((response) => {
+    if (response.response.kind === "option_selected") response.response.optionIds[0] = "bad";
+  });
+  core.onResponse((response) => observedResponses.push(response));
+  const response: AttentionResponse = {
+    taskId: event.taskId,
+    interactionId: event.interactionId,
+    response: { kind: "option_selected", optionIds: ["a"] },
+  };
+  core.submit(response);
+  assert.deepEqual(observedResponses, [response]);
+  assert.equal(core.getFrame(event.taskId), null);
+});
+
+test("signal ingress and signal getter mutation cannot rewrite feedback or memory", () => {
+  const core = new ApertureCore();
+  const metadata = {
+    toolFamily: "read",
+    consequence: "low",
+    sourceKey: "owned",
+    nested: { value: 1 },
+  };
+  const signal: AttentionSignal = {
+    kind: "responded",
+    responseKind: "approved",
+    taskId: "task:owned-signal",
+    interactionId: "interaction:owned-signal",
+    timestamp: "2026-03-08T12:00:00.000Z",
+    metadata,
+  };
+  core.onSignal((received) => {
+    received.metadata!.toolFamily = "bad";
+  });
+  core.recordSignal(signal);
+  signal.metadata!.toolFamily = "bad";
+  metadata.nested.value = 2;
+  const received = core.getSignals()[0]!;
+  received.metadata!.toolFamily = "bad";
+  const nested = received.metadata!.nested;
+  assert.ok(nested && typeof nested === "object" && "value" in nested);
+  nested.value = 3;
+  assert.equal(core.getSignals()[0]?.metadata?.toolFamily, "read");
+  assert.deepEqual(core.getSignals()[0]?.metadata?.nested, { value: 1 });
+  assert.equal(core.getSignalSummary().counts.responded, 1);
+  assert.equal(core.snapshotMemoryProfile().toolFamilies?.read?.responses, 1);
+  assert.equal(core.snapshotMemoryProfile().toolFamilies?.bad, undefined);
+});
+
+test("retract removes one pending interaction, not its siblings, without answering", () => {
+  for (const target of ["active", "queued"]) {
+    const core = new ApertureCore();
+    core.publish({
+      id: "evt:active",
+      taskId: "task:retract",
+      interactionId: "interaction:active",
+      timestamp: "2026-03-08T12:00:00.000Z",
+      type: "human.input.requested",
+      title: "Approve deploy",
+      summary: "Approval required.",
+      consequence: "high",
+      request: { kind: "approval" },
+    });
+    core.publish({
+      id: "evt:queued",
+      taskId: "task:retract",
+      interactionId: "interaction:queued",
+      timestamp: "2026-03-08T12:00:20.000Z",
+      type: "human.input.requested",
+      title: "Choose fallback",
+      summary: "Choose a fallback.",
+      consequence: "medium",
+      request: { kind: "choice", selectionMode: "single", options: [{ id: "a", label: "A" }] },
+    });
+    assert.equal(core.getTaskView("task:retract").next[0]?.interactionId, "interaction:queued");
+    const responses: AttentionResponse[] = [];
+    const visible: Array<string | null> = [];
+    core.onResponse((response) => responses.push(response));
+    core.subscribeAttentionView((view) => visible.push(view.now?.interactionId ?? null));
+    core.engage("task:retract", `interaction:${target}`);
+    assert.equal(core.retract("wrong-task", `interaction:${target}`), false);
+    assert.equal(core.retract("task:retract", `interaction:${target}`), true);
+    const sibling = target === "active" ? "queued" : "active";
+    assert.equal(core.getTaskView("task:retract").now?.interactionId, `interaction:${sibling}`);
+    assert.equal(visible.at(-1), `interaction:${sibling}`);
+    const signals = core.getSignals();
+    const notificationCount = visible.length;
+    assert.equal(core.retract("task:retract", `interaction:${target}`), false);
+    core.submit({
+      taskId: "task:retract",
+      interactionId: `interaction:${target}`,
+      response: { kind: "approved" },
+    });
+    assert.deepEqual(core.getSignals(), signals);
+    assert.equal(visible.length, notificationCount);
+    assert.deepEqual(responses, []);
+    core.submit({
+      taskId: "task:retract",
+      interactionId: `interaction:${sibling}`,
+      response:
+        sibling === "queued" ? { kind: "option_selected", optionIds: ["a"] } : { kind: "approved" },
+    });
+    assert.equal(responses.length, 1);
+  }
+});
+
+test("public pressure reflects the core clock and sheds stale demand without exposing internals", () => {
+  let now = Date.parse("2026-03-08T12:00:00.000Z");
+  const core = new ApertureCore({ timeSource: () => now });
+  for (let index = 0; index < 8; index += 1) {
+    core.recordSignal({
+      kind: "presented",
+      taskId: "task:pressure",
+      interactionId: `interaction:${index}`,
+      timestamp: new Date(now).toISOString(),
+    });
+    core.recordSignal({
+      kind: "deferred",
+      reason: "suppressed",
+      taskId: "task:pressure",
+      interactionId: `interaction:${index}`,
+      timestamp: new Date(now).toISOString(),
+    });
+  }
+  assert.deepEqual(core.getAttentionPressure(), { level: "high" });
+  now += 24 * 60 * 60 * 1000;
+  assert.deepEqual(core.getAttentionPressure(), { level: "steady" });
 });

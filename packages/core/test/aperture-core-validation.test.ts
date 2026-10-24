@@ -7,6 +7,13 @@ import {
   assertValidSignal,
   assertValidSourceEvent,
 } from "../src/aperture-core-validation.js";
+import { ApertureCore } from "../src/aperture-core.js";
+import {
+  ApertureCoreValidationError,
+  ApertureCoreResponseExpiredError,
+} from "../src/aperture-core-error.js";
+import type { HumanInputRequest } from "../src/events.js";
+import type { AttentionResponse } from "../src/frame-response.js";
 
 test("assertValidEvent accepts a minimal valid direct event", () => {
   assert.doesNotThrow(() => {
@@ -180,3 +187,205 @@ test("assertValidSignal rejects invalid timestamps", () => {
     });
   }, /signal\.timestamp must be a valid ISO timestamp/);
 });
+
+test("submit rejects frame-incompatible answers before changing state or notifying listeners", () => {
+  const cases: Array<{
+    request: HumanInputRequest;
+    invalid: AttentionResponse["response"][];
+    valid: AttentionResponse["response"];
+  }> = [
+    {
+      request: { kind: "approval", requireReason: true },
+      invalid: [
+        { kind: "acknowledged" },
+        { kind: "approved" },
+        { kind: "rejected", reason: " " },
+        { kind: "text_submitted", text: "yes" },
+      ],
+      valid: { kind: "approved", reason: "Reviewed" },
+    },
+    {
+      request: {
+        kind: "choice",
+        selectionMode: "single",
+        options: [
+          { id: "a", label: "A" },
+          { id: "b", label: "B" },
+        ],
+      },
+      invalid: [
+        { kind: "approved" },
+        { kind: "option_selected", optionIds: ["unknown"] },
+        { kind: "option_selected", optionIds: ["a", "b"] },
+        { kind: "option_selected", optionIds: ["a", "a"] },
+        { kind: "text_submitted", text: "custom" },
+      ],
+      valid: { kind: "option_selected", optionIds: ["a"] },
+    },
+    {
+      request: {
+        kind: "form",
+        fields: [
+          { id: "name", label: "Name", type: "text", required: true },
+          { id: "count", label: "Count", type: "number", required: true },
+          { id: "enabled", label: "Enabled", type: "boolean", required: true },
+          {
+            id: "target",
+            label: "Target",
+            type: "select",
+            options: [{ value: "dev", label: "Dev" }],
+            required: true,
+          },
+        ],
+      },
+      invalid: [
+        { kind: "acknowledged" },
+        { kind: "text_submitted", text: "name" },
+        ...[
+          {},
+          { name: " ", count: 1, enabled: true, target: "dev" },
+          { name: "Name", count: "1", enabled: true, target: "dev" },
+          { name: "Name", count: Number.NaN, enabled: true, target: "dev" },
+          { name: "Name", count: 1, enabled: "true", target: "dev" },
+          { name: "Name", count: 1, enabled: true, target: "prod" },
+          { name: "Name", count: 1, enabled: true, target: "dev", surprise: true },
+        ].map((values): AttentionResponse["response"] => ({ kind: "form_submitted", values })),
+      ],
+      valid: {
+        kind: "form_submitted",
+        values: { name: "Name", count: 0, enabled: false, target: "dev" },
+      },
+    },
+  ];
+  for (const { request, invalid, valid } of cases) {
+    const core = responseCore(request);
+    core.engage("task:response", "interaction:response");
+    const view = core.getAttentionView();
+    const signals = core.getSignals();
+    let emissions = 0;
+    const unsubscribers = [
+      core.subscribe("task:response", () => {
+        emissions += 1;
+      }),
+      core.subscribeTaskView("task:response", () => {
+        emissions += 1;
+      }),
+      core.subscribeAttentionView(() => {
+        emissions += 1;
+      }),
+      core.onSignal(() => {
+        emissions += 1;
+      }),
+      core.onResponse(() => {
+        emissions += 1;
+      }),
+    ];
+    emissions = 0;
+    for (const response of invalid) {
+      assert.throws(
+        () =>
+          core.submit({ taskId: "task:response", interactionId: "interaction:response", response }),
+        ApertureCoreValidationError,
+      );
+      assert.deepEqual(core.getAttentionView(), view);
+      assert.deepEqual(core.getSignals(), signals);
+      assert.equal(emissions, 0);
+    }
+    core.submit({
+      taskId: "task:response",
+      interactionId: "interaction:response",
+      response: valid,
+    });
+    assert.equal(core.getFrame("task:response"), null);
+    assert.ok(emissions > 0);
+    for (const unsubscribe of unsubscribers) unsubscribe();
+  }
+});
+
+test("submit preserves explicit text, multi-select, dismissal and missing-interaction contracts", () => {
+  const cases: Array<{ request: HumanInputRequest; response: AttentionResponse["response"] }> = [
+    { request: { kind: "approval", requireReason: true }, response: { kind: "dismissed" } },
+    {
+      request: {
+        kind: "choice",
+        selectionMode: "single",
+        allowTextResponse: true,
+        options: [{ id: "a", label: "A" }],
+      },
+      response: { kind: "text_submitted", text: "custom" },
+    },
+    {
+      request: {
+        kind: "choice",
+        selectionMode: "multiple",
+        options: [
+          { id: "a", label: "A" },
+          { id: "b", label: "B" },
+        ],
+      },
+      response: { kind: "option_selected", optionIds: ["a", "b"] },
+    },
+    {
+      request: {
+        kind: "form",
+        fields: [{ id: "text", label: "Text", type: "textarea", required: true }],
+      },
+      response: { kind: "text_submitted", text: "answer" },
+    },
+    {
+      request: { kind: "form", fields: [{ id: "count", label: "Count", type: "number" }] },
+      response: { kind: "form_submitted", values: {} },
+    },
+  ];
+  for (const { request, response } of cases) {
+    const core = responseCore(request);
+    const responses: AttentionResponse[] = [];
+    core.onResponse((answer) => responses.push(answer));
+    core.submit({
+      taskId: "task:response",
+      interactionId: "missing",
+      response: { kind: "approved" },
+    });
+    assert.equal(responses.length, 0);
+    core.submit({ taskId: "task:response", interactionId: "interaction:response", response });
+    assert.equal(responses.length, 1);
+    assert.equal(core.getFrame("task:response"), null);
+  }
+});
+
+test("expired responses retain the frame and feedback even when the response kind matches", () => {
+  let now = Date.parse("2026-04-06T00:00:00.000Z");
+  const core = responseCore({ kind: "approval" }, { timeSource: () => now, responseExpiryMs: 100 });
+  const view = core.getAttentionView();
+  const signals = core.getSignals();
+  now += 101;
+  assert.throws(
+    () =>
+      core.submit({
+        taskId: "task:response",
+        interactionId: "interaction:response",
+        response: { kind: "approved" },
+      }),
+    ApertureCoreResponseExpiredError,
+  );
+  assert.deepEqual(core.getAttentionView(), view);
+  assert.deepEqual(core.getSignals(), signals);
+});
+
+function responseCore(
+  request: HumanInputRequest,
+  options: { timeSource?: () => number; responseExpiryMs?: number } = {},
+): ApertureCore {
+  const core = new ApertureCore(options);
+  core.publish({
+    id: "evt:response",
+    type: "human.input.requested",
+    taskId: "task:response",
+    interactionId: "interaction:response",
+    timestamp: "2026-04-06T00:00:00.000Z",
+    title: "Human input",
+    summary: "Review this request.",
+    request,
+  });
+  return core;
+}

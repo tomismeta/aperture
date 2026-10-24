@@ -21,6 +21,7 @@ export const evaluateConfiguredPolicyGateRule: PolicyGateRule = (input) => {
     policyRule?.autoApprove === true &&
     candidate.mode === "approval" &&
     candidate.responseSpec.kind === "approval" &&
+    !candidate.responseSpec.requireReason &&
     !requireContextExpansion;
   const autoApproveBlockedByControlMode = configuredAutoApprove && controlMode === "hands-on";
   const autoApprove = configuredAutoApprove && !autoApproveBlockedByControlMode;

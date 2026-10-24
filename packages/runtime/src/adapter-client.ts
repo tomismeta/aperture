@@ -138,6 +138,15 @@ export class ApertureRuntimeAdapterClient {
     await this.refreshState();
   }
 
+  async retract(taskId: string, interactionId: string): Promise<boolean> {
+    const result = await this.postControl<{ retracted: boolean }>("/retract", {
+      taskId,
+      interactionId,
+    });
+    void this.refreshState().catch((error) => this.reportError(error));
+    return result.retracted;
+  }
+
   async close(): Promise<void> {
     await this.session?.close();
     this.session = null;
@@ -186,6 +195,7 @@ export class ApertureRuntimeAdapterClient {
           events: ApertureRuntimeEvent[];
           nextSequence: number;
           stateVersion: number;
+          attentionPressure: ApertureRuntimeSnapshot["attentionPressure"];
         }>(`/events?since=${since}`),
       onPoll: async (payload) => {
         if (payload.stateVersion !== this.snapshotState.version) {

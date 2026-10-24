@@ -29,6 +29,7 @@ type SourceEventBase = {
   source?: SourceRef;
   /**
    * Adapter-preserved metadata for audit, provenance, and review surfaces.
+   * Values must be structured-cloneable; callbacks and live handles are not data.
    *
    * Core does not route on arbitrary metadata directly. Promote source-quality
    * facts through `semanticHints` when they should affect interpretation;

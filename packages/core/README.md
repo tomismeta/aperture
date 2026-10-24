@@ -120,7 +120,7 @@ the TUI, see [Architecture Overview](https://github.com/tomismeta/aperture/blob/
 If you want the replay, benchmark, and calibration direction for evaluating
 judgment changes, see [Aperture Lab](https://github.com/tomismeta/aperture/blob/main/docs/lab/aperture-lab.md).
 
-For the current workspace hardening tranche, see [Aperture Core SDK v0.9.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.9.0.md).
+For changes and migration requirements, see [Aperture Core SDK v0.10.0](https://github.com/tomismeta/aperture/blob/main/docs/releases/aperture-core-v0.10.0.md).
 The source workspace may occasionally be ahead of npm between release commits;
 compare the package version you installed with npm when in doubt.
 
@@ -128,7 +128,7 @@ Runnable repo examples live in:
 
 - [examples/core-full-engine/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-full-engine/index.ts)
 - [examples/core-attention-evaluator/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-attention-evaluator/index.ts)
-- [examples/core-judgment-primitives/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-judgment-primitives/index.ts)
+- [examples/core-judgment-primitives/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-judgment-primitives/index.ts) (workspace-only internals, not a public SDK entrypoint)
 - [examples/core-kernel-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-kernel-entrypoint/index.ts)
 - [examples/core-kernel-host-embedder/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-kernel-host-embedder/index.ts)
 - [examples/core-semantic-entrypoint/index.ts](https://github.com/tomismeta/aperture/blob/main/examples/core-semantic-entrypoint/index.ts)
@@ -519,8 +519,8 @@ If you call `coordinator.explain(...)` or inspect Aperture traces, you now get r
 
 For the deeper implementation note behind that shape, see [docs/core-engine-architecture.md](https://github.com/tomismeta/aperture/blob/main/docs/engine/core-engine-architecture.md).
 
-Those components describe how the engine is structured internally. They are not
-the intended public npm entrypoints for most SDK consumers.
+Those components describe the engine's private implementation; they are not
+public npm exports. Use `/evaluator` or `/kernel` for stateless SDK judgment.
 
 ## 1. What Do I Send Into Aperture?
 
@@ -655,9 +655,27 @@ If you want the whole current surface after each event, call `core.getAttentionV
 For async integrations, you can also subscribe instead of polling:
 
 - `core.subscribe(taskId, listener)`
+- `core.subscribeTaskView(taskId, listener)`
 - `core.subscribeAttentionView(listener)`
 - `core.onResponse(listener)`
 - `core.onSignal(listener)`
+
+Published frames, getters, and each listener delivery are independent snapshots,
+including nested response options, metadata, signals, and traces. Mutating one
+does not change core state or another listener's delivery. Core owns event,
+response, signal, and configuration inputs after ingestion; internal judgment
+continues to use owned references rather than repeatedly copying state.
+Metadata and other payload values must be structured-cloneable data (including
+plain objects, dates, and maps), not callbacks or live handles. Non-cloneable
+values throw `DataCloneError` before state changes. HTTP payloads remain JSON.
+
+`core.engage(taskId, interactionId, { durationMs })` temporarily holds focus.
+When that hold expires and ordering changes, attention-view subscribers receive
+the new view without polling. `core.getAttentionPressure()` returns the public
+`AttentionPressureSnapshot` (`{ level: "steady" | "elevated" | "high" }`) computed
+by core from its current view, feedback, and clock; hosts need not duplicate
+pressure inference.
+Engagement durations must be finite; long holds span bounded native timer intervals.
 
 ## Why Are `publish(...)` And `submit(...)` Separate?
 
@@ -712,9 +730,35 @@ The response fields that matter most are:
 - `response.kind`
   - tells Aperture what the human actually decided
 - `reason`
-  - useful when a rejection or dismissal should carry explanation
+  - optional explanation for approval/rejection, required when the frame sets `requireReason`
 - `optionIds` or `values`
   - the concrete human choice for choice and form interactions
+
+Core validates an answer against the pending frame **before** changing feedback,
+engagement, episode state, or the visible queue:
+
+- Approvals accept `approved` or `rejected`; `requireReason` requires nonblank text.
+- Choices accept unique declared option IDs, respecting single/multiple selection.
+  Text is accepted only when `allowTextResponse` is enabled.
+- Forms accept declared fields only, enforce required values and field types
+  (finite numbers, booleans, strings, and declared select values). Optional absent,
+  `null`, or empty values are allowed. A single text/textarea form also accepts
+  `text_submitted`.
+- Acknowledgement is valid for acknowledgement or response-free status frames.
+  Dismissal remains available for any pending frame.
+
+Invalid answers throw `ApertureCoreValidationError` without consuming the
+interaction. Opt-in expired responses retain their existing
+`ApertureCoreResponseExpiredError` behavior. A well-shaped answer for an unknown
+or already-resolved interaction is a no-op.
+
+For host cancellation rather than a human answer, call
+`core.retract(taskId, interactionId)`. It returns whether that pending interaction
+was removed, preserves sibling interactions, promotes remaining queued work as
+needed, and updates subscriptions without emitting `onResponse`. A later answer
+to the retracted interaction is a no-op; an explicit new publication can reopen it.
+Retraction also withdraws that interaction's accumulated episode evidence and
+refreshes surviving episode metadata without counting another observation.
 
 ## 3. Do I Need Any Config Or Persistent Files?
 
@@ -738,6 +782,22 @@ The main options are:
   - writes the current learned memory snapshot
 - `core.reloadMarkdown()`
   - reloads markdown-backed state
+
+`snapshotMemoryProfile()` previews the current session without consuming it.
+Checkpoints count a core instance as one session, not one session per save.
+Per-interaction contributions survive bounded feedback-history retention and
+split presentation/response checkpoints; repeated or concurrent saves do not
+double-count them. Saves and reloads run in order. Only successful persistence
+advances accounting; a rejected save leaves contributions available for retry.
+Reload uses the loaded profile as the baseline and retains the session's already
+saved accounting, so the same feedback is not added again. Feedback remains
+available through `getSignals()` under its normal retention policy.
+The accumulator retains compact per-interaction facts for the lifetime of this
+core instance, not a second signal log. This allows late or corrected feedback
+to update an existing contribution even after its history entries were pruned.
+Corrections may change tool family, source identity, or consequence: the latest
+classification replaces the old contribution rather than counting it twice.
+Opaque source identities, including object-prototype names, remain ordinary data.
 
 If you use markdown-backed state, Aperture keeps the local model intentionally small:
 

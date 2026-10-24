@@ -11,7 +11,20 @@ import { isSoftenedFailureStatusCandidate } from "./peripheral-status-candidate.
 
 export const evaluatePeripheralStatusPolicyGateRule: PolicyGateRule = (input) => {
   const { candidate } = input;
-  if (candidate.activityClass === "result_ready") {
+  if (
+    candidate.mode !== "status" ||
+    candidate.consequence === "high" ||
+    candidate.tone === "critical" ||
+    hasActionableBlockedLikeStatusSemantics(candidate)
+  ) {
+    return noopPolicyGateRule("peripheral_status");
+  }
+
+  if (
+    candidate.activityClass === "result_ready" &&
+    !candidate.blocking &&
+    candidate.responseSpec.kind === "none"
+  ) {
     return verdictPolicyGateRule("result_ready", {
       autoApprove: false,
       mayInterrupt: false,
@@ -20,14 +33,6 @@ export const evaluatePeripheralStatusPolicyGateRule: PolicyGateRule = (input) =>
       minimumLaneIsSticky: true,
       rationale: ["completed result is ready for review"],
     });
-  }
-  if (
-    candidate.mode !== "status" ||
-    candidate.consequence === "high" ||
-    candidate.tone === "critical" ||
-    hasActionableBlockedLikeStatusSemantics(candidate)
-  ) {
-    return noopPolicyGateRule("peripheral_status");
   }
 
   const requiresOperatorResponse = candidate.responseSpec.kind !== "none";

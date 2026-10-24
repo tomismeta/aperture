@@ -1,4 +1,5 @@
-import { findVisibleEpisodeFrames } from "./episode-tracker.js";
+import { findVisibleEpisodeFrames, readFrameEpisodeId } from "./episode-tracker.js";
+import type { EpisodeSummary } from "./episode-evidence.js";
 import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
 import type { AttentionCandidate } from "./interaction-candidate.js";
 import type { AttentionSignal } from "./interaction-signal.js";
@@ -113,6 +114,31 @@ export class ApertureCoreRelationLifecycle {
       this.runtime.recordSignal(signal);
     }
   }
+}
+
+export function refreshEpisodeFrames(
+  taskViews: TaskViewStore,
+  episode: EpisodeSummary | null,
+): Set<string> {
+  const changedTaskIds = new Set<string>();
+  if (episode) {
+    for (const view of taskViews.values()) {
+      for (const frame of [view.now, ...view.next, ...view.ambient]) {
+        if (!frame || readFrameEpisodeId(frame) !== episode.id) {
+          continue;
+        }
+        taskViews.replace({
+          ...frame,
+          metadata: {
+            ...frame.metadata,
+            episode: { ...episode, evidenceReasons: [...episode.evidenceReasons] },
+          },
+        });
+        changedTaskIds.add(frame.taskId);
+      }
+    }
+  }
+  return changedTaskIds;
 }
 
 export function findSupersededEpisodeFrames(

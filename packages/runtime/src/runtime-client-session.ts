@@ -1,9 +1,10 @@
-import type { ApertureRuntimeEvent } from "./runtime-contract.js";
+import type { ApertureRuntimeEvent, ApertureRuntimeSnapshot } from "./runtime-contract.js";
 
 export type RuntimeEventFeed = {
   events: ApertureRuntimeEvent[];
   nextSequence: number;
   stateVersion: number;
+  attentionPressure: ApertureRuntimeSnapshot["attentionPressure"];
 };
 
 type RuntimeAttachment = {

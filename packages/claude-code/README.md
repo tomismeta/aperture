@@ -2,6 +2,9 @@
 
 The Claude Code adapter for Aperture.
 
+This is a private workspace package, bundled into `@tomismeta/aperture` rather
+than published as a separate npm adapter.
+
 It connects Claude Code's hook surface to Aperture's shared runtime and
 judgment engine without leaking Claude-specific hook details into
 `@tomismeta/aperture-core`.
@@ -69,9 +72,20 @@ The package currently includes:
 - structured elicitation mapping for choice, form, reply, and URL-auth requests
 - transcript-enriched `AskUserQuestion` mapping into Aperture choice/form requests
 - a best-effort `AskUserQuestion` answer bridge that feeds Aperture selections back to Claude via hook context
-- tool-aware risk hints for Bash, read, write, edit, and web-style tool calls
+- core-owned generic command-risk inference from preserved command summaries, with `classifyCommand` supplying a source risk hint/floor (not an override that can suppress core high consequence), plus source risk hints for read, write, edit, and web-style tools
 - subagent lifecycle summaries with stable agent identity
 - mapping from `AttentionResponse` back into Claude hook responses
+
+Both `PreToolUse` and `PermissionRequest` preserve built-in Bash commands and
+mark them with `toolFamily: "bash"` for core command-risk matching. Integrations
+with custom command tools must likewise preserve command text and supply a known
+command family (`bash`, `exec_command`, or `run_shell_command`), or provide an
+explicit risk floor. Unknown-family text is not guaranteed command-specific
+classification, and read/search content is not interpreted as command execution.
+
+Command-risk API migration: `bashConsequence` is no longer exported.
+`classifyToolRisk` may return `undefined` when no explicit command policy applies;
+canonical consequence comes from core normalization, not an adapter fallback.
 
 ## Current Assessment
 

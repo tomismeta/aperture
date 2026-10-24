@@ -2,6 +2,9 @@
 
 The OpenCode adapter for Aperture.
 
+This is a private workspace package, bundled into `@tomismeta/aperture` rather
+than published as a separate npm adapter.
+
 It connects OpenCode's server and event stream to Aperture's shared runtime and
 judgment engine without leaking OpenCode-specific transport details into
 `@tomismeta/aperture-core`.
@@ -14,6 +17,16 @@ judgment engine without leaking OpenCode-specific transport details into
 - translates OpenCode events into `SourceEvent`
 - publishes those events into Aperture runtime and core
 - maps `AttentionResponse` back into OpenCode reply calls
+
+Each bridge routes responses only for its own server URL and directory scope.
+Runtime responses are broadcast to adapters, so the bridge checks the originating
+interaction's instance key before mapping a reply. Separate servers or directory
+scopes can reuse native permission, question, and session IDs without receiving
+one another's answers.
+
+When a question is answered or rejected in OpenCode, the bridge retracts that
+exact Aperture interaction. It does not fabricate a human answer or send a second
+reply back to the native host.
 
 ## Napkin
 

@@ -81,6 +81,7 @@ export function createEmptyRuntimeSnapshot(): ApertureRuntimeSnapshot {
       lastSignalAt: null,
     },
     attentionState: "monitoring",
+    attentionPressure: { level: "steady" },
     adapters: [],
     surfaceCount: 0,
     responseSurfaceCount: 0,

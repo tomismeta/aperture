@@ -282,9 +282,35 @@ fields for hosts to populate. Typed evidence is authoritative when present;
 otherwise the same path uses the bounded structural text grammar. Both lower
 through the single private syntax-to-Observation path before judgment.
 
-`facts.capabilityFamily` remains opaque identity. It can establish ownership,
-but its value never infers evidence kind, subject, channel, polarity, or
-diagnostic class. See [Source Evidence Contract v1](./source-evidence-contract-v1.md).
+With typed `SourceEvidence`, `facts.capabilityFamily` is opaque identity: it
+establishes ownership but does not infer evidence kind, subject, channel,
+polarity, or diagnostic class. Typed facts win over contradictory text and
+capability names. See [Source Evidence Contract v1](./source-evidence-contract-v1.md).
+
+The legacy text-only fallback retains a bounded structured-envelope exception.
+Command-execution families and `edit` accept native envelopes (including string
+exit codes and recoverable truncated envelopes); `read`, `search`, `web`, and
+`write` do not claim execution-envelope ownership; other or absent families
+require an exact complete envelope whose exit code, if present, is numeric.
+These are parsing safety fences, not permission to infer an outcome from a capability name alone.
+Hosts needing capability-independent interpretation should supply typed evidence.
+
+For human-input requests, explicit source `riskHint` is a consequence floor:
+semantic hints may escalate it but cannot downgrade it or an evidence-based
+escalation above it. Core owns generic command-risk inference from canonical
+request text. Sources must preserve the command and identify command execution
+as `bash`, `exec_command`, or `run_shell_command` for command-specific matching,
+or supply an explicit risk floor when the capability is unknown. Read/search
+content is not treated as command intent. Matching includes `rm -rf` / `rm -fr`,
+separated recursive/force flags and their long forms, and `git push -f` / `--force`.
+`result_ready` grants sticky `next` only to completed, nonblocking,
+response-free status work, never high-consequence, critical, or actionable
+blocked-like work. Its completion disposition preserves effective semantic
+consequence rather than forcing low risk. Existing observational and actionable
+blocked-like precedence remains authoritative; low-confidence or abstained
+blocked-like evidence alone does not override explicit completion routing.
+Configured auto-approval does not apply to approvals requiring a reason: those
+remain pending for an operator response with nonblank reason text.
 
 The architecture shape is intentionally small:
 

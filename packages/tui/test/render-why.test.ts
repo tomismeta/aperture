@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ApertureTrace } from "@tomismeta/aperture-core/internal";
+import { ApertureCore } from "@tomismeta/aperture-core";
+import type { ApertureTrace } from "@tomismeta/aperture-core/trace";
 
 import { renderWhyOverlay } from "../src/render-why.js";
 
@@ -37,113 +38,43 @@ function makeCandidateTrace(
         reasons: semantic.reasons,
       },
     },
-    evaluation: {
-      kind: "candidate",
-      original: {
-        taskId: "task:1",
-        interactionId: "interaction:1",
-        timestamp: "2026-03-27T20:00:00.000Z",
-        mode: "choice",
-        priority: "normal",
-        tone: "focused",
-        consequence: "medium",
-        title: "Should we read the config first?",
-        responseSpec: {
-          kind: "choice",
-          allowTextResponse: false,
-          options: [{ id: "yes", label: "Yes" }],
-        },
-        blocking: true,
-      },
-      adjusted: {
-        taskId: "task:1",
-        interactionId: "interaction:1",
-        timestamp: "2026-03-27T20:00:00.000Z",
-        mode: "choice",
-        priority: "normal",
-        tone: "focused",
-        consequence: "medium",
-        title: "Should we read the config first?",
-        responseSpec: {
-          kind: "choice",
-          allowTextResponse: false,
-          options: [{ id: "yes", label: "Yes" }],
-        },
-        blocking: true,
-      },
-    },
-    heuristics: {
-      scoreOffset: 0,
-      rationale: [],
-    },
+    interactionId: "interaction:1",
+    evaluation: { kind: "candidate" },
     semantic,
-    episode: null,
-    policy: { gate: "allow", criterion: null, reasons: [] },
     policyRules: { gateEvaluations: [], criterion: null, criterionEvaluations: [] },
-    utility: {
-      candidate: {
-        total: 100,
-        components: {
-          priority: 100,
-          consequence: 10,
-          tone: 1,
-          blocking: 1000,
-          heuristics: 0,
-          sourceTrust: 0,
-          consequenceCalibration: 0,
-          responseAffinity: 0,
-          contextCost: 0,
-          deferralAffinity: 0,
-        },
-        rationale: [],
-      },
-      currentScore: null,
-      currentPriority: null,
-    },
-    planner: {
-      kind: "activate",
-      reasons: ["no current frame is active for this task"],
-      continuityEvaluations: [],
-    },
     coordination: {
       kind: "activate",
       resultLane: "now",
       candidateScore: 100,
       currentScore: null,
       currentPriority: null,
-      criterion: null,
       ambiguity: null,
       reasons: ["no current frame is active for this task"],
       continuityEvaluations: [],
     },
-    taskSummary: {
-      counts: { presented: 0, responded: 0, dismissed: 0, contextExpanded: 0 },
-      pending: { now: 0, next: 0, ambient: 0 },
-      deferred: { total: 0, suppressions: 0, resumed: 0, suppressed: 0 },
-      responseRate: 0,
-      dismissalRate: 0,
-      averageResponseLatencyMs: null,
-      averageDismissalLatencyMs: null,
-    },
-    globalSummary: {
-      counts: { presented: 0, responded: 0, dismissed: 0, contextExpanded: 0 },
-      pending: { now: 0, next: 0, ambient: 0 },
-      deferred: { total: 0, suppressions: 0, resumed: 0, suppressed: 0 },
-      responseRate: 0,
-      dismissalRate: 0,
-      averageResponseLatencyMs: null,
-      averageDismissalLatencyMs: null,
-    },
-    taskAttentionState: "steady",
-    globalAttentionState: "steady",
-    pressureForecast: { level: "low", score: 0, reasons: [] },
-    attentionBurden: { level: "low", score: 0, reasons: [] },
-    current: null,
-    taskView: { current: null, backlog: [] },
-    attentionView: { now: null, next: [], ambient: [] },
-    result: null,
   } as ApertureTrace;
 }
+
+test("real public traces retain interaction identity and render without private policy data", () => {
+  const core = new ApertureCore();
+  const traces: ApertureTrace[] = [];
+  core.onTrace((trace) => traces.push(trace));
+  core.publishSourceEvent({
+    id: "public-trace",
+    taskId: "public-task",
+    timestamp: "2026-10-24T12:00:00.000Z",
+    type: "human.input.requested",
+    interactionId: "public-interaction",
+    title: "Approve deployment",
+    summary: "Review the deployment before approval",
+    request: { kind: "approval" },
+  });
+  const trace = traces.find((entry) => "interactionId" in entry);
+  assert.ok(trace && "interactionId" in trace);
+  assert.equal(trace.interactionId, core.getAttentionView().now?.interactionId);
+  assert.equal("policy" in trace, false);
+  assert.match(renderWhyOverlay(trace, false).join("\n"), /decision/);
+});
 
 test("renderWhyOverlay shows semantic summary and influence notes", () => {
   const output = renderWhyOverlay(

@@ -258,6 +258,12 @@ The first local session-bundle helpers are now live in `@aperture/lab`:
 - bundle load/write helpers
 - bundle replay through the same deterministic runner
 
+Replay applies current frame-response validation. Older captures that encode an
+acknowledgement for an approval (or another incompatible response) are rejected,
+not silently reinterpreted as authorization. Preserve the original capture;
+create a corrected replay fixture only when source evidence establishes the
+actual decision. Schema compatibility alone does not establish lifecycle validity.
+
 ### 3. Episode slice
 
 A focused decision stream extracted from a larger session.

@@ -42,7 +42,8 @@ const BODY_LIMIT_BYTES = {
 } as const;
 
 export function createApertureRuntime(options: ApertureRuntimeOptions = {}): ApertureRuntime {
-  const core = options.core ?? new ApertureCore();
+  const timeSource = options.timeSource ?? Date.now;
+  const core = options.core ?? new ApertureCore({ timeSource });
   const kind = options.kind ?? DEFAULT_KIND;
   const controlHost = options.controlHost ?? DEFAULT_CONTROL_HOST;
   const controlPort = options.controlPort ?? 0;
@@ -86,6 +87,9 @@ export function createApertureRuntime(options: ApertureRuntimeOptions = {}): Ape
   const unsubscribeTrace = subscribeInternalTrace(core, (trace) => {
     runtimeState?.recordRuntimeTrace(trace);
   });
+  const unsubscribePublicTrace = core.onTrace((trace) => {
+    runtimeState?.recordPublicTrace(trace);
+  });
   const unsubscribeSignal = core.onSignal((signal) => {
     runtimeState?.recordSignal(signal);
   });
@@ -117,6 +121,10 @@ export function createApertureRuntime(options: ApertureRuntimeOptions = {}): Ape
         maxEntries: workResponseMaxEntries,
         pendingTtlMs: workResponsePendingTtlMs,
         retentionMs: workResponseRetentionMs,
+        timeSource,
+        onExpire: (taskId, interactionId) => {
+          core.retract(taskId, interactionId);
+        },
       });
       runtimeState = new RuntimeState({
         runtimeId,
@@ -130,6 +138,7 @@ export function createApertureRuntime(options: ApertureRuntimeOptions = {}): Ape
         ...(learningPersistence ? { learningPersistence } : {}),
         workResponses,
         telemetry,
+        timeSource,
       });
 
       const routeHandler = createRuntimeRouteHandler({
@@ -231,6 +240,7 @@ export function createApertureRuntime(options: ApertureRuntimeOptions = {}): Ape
 
       unsubscribeResponse();
       unsubscribeTrace();
+      unsubscribePublicTrace();
       unsubscribeSignal();
       unsubscribeAttentionView();
 
@@ -287,11 +297,29 @@ export function createApertureRuntime(options: ApertureRuntimeOptions = {}): Ape
     core.setSurfaceCapabilities(state.aggregateSurfaceCapabilities());
   }
 
-  function publishSourceEvents(events: SourceEvent[]): void {
-    const recordedAt = new Date().toISOString();
+  function publishSourceEvents(events: SourceEvent[], ownership?: "work"): void {
+    const recordedAt = new Date(timeSource()).toISOString();
     for (const event of events) {
-      runtimeState?.registerPendingWorkResponse(event, recordedAt);
+      const workResponse =
+        ownership === "work" ? runtimeState?.registerPendingWorkResponse(event, recordedAt) : null;
+      if (workResponse?.state === "expired") {
+        runtimeState?.recordPublishedSourceEvent(event, recordedAt);
+        continue;
+      }
       core.publishSourceEvent(event);
+      if (ownership === "work" && event.type === "human.input.requested") {
+        const view = core.getTaskView(event.taskId);
+        const frame = [view.now, ...view.next, ...view.ambient].find(
+          (entry) => entry?.interactionId === event.interactionId,
+        );
+        if (frame?.timing.expiresAt) {
+          runtimeState?.limitWorkResponseExpiry(
+            event.taskId,
+            event.interactionId,
+            frame.timing.expiresAt,
+          );
+        }
+      }
       runtimeState?.recordPublishedSourceEvent(event, recordedAt);
     }
   }

@@ -78,6 +78,7 @@ export type ApertureTrace =
       evaluation: {
         kind: "candidate";
       };
+      interactionId: string;
       candidateTransition: TraceCandidateTransition;
       frameTransition: TraceFrameTransition;
       semantic?: TraceSemanticSummary;

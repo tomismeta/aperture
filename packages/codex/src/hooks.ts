@@ -440,7 +440,7 @@ function mapPreToolUse(
   event: CodexPreToolUseHookEvent,
   context: CodexHookMappingContext,
 ): SourceHumanInputRequestedEvent {
-  const summary = summarizeToolInput(event.tool_name, event.tool_input);
+  const summary = summarizeApprovalInput(event.tool_name, event.tool_input);
   return {
     id: `codex:hook:${encodeURIComponent(event.session_id)}:preToolUse:${encodeURIComponent(event.tool_use_id)}`,
     type: "human.input.requested",
@@ -474,7 +474,7 @@ function mapPermissionRequest(
   event: CodexPermissionRequestHookEvent,
   context: CodexHookMappingContext,
 ): SourceHumanInputRequestedEvent {
-  const summary = summarizeToolInput(event.tool_name, event.tool_input);
+  const summary = summarizeApprovalInput(event.tool_name, event.tool_input);
   return {
     id: `codex:hook:${encodeURIComponent(event.session_id)}:permissionRequest:${stableToken(event.tool_input)}`,
     type: "human.input.requested",
@@ -874,6 +874,15 @@ function codexToolFamily(toolName: string): string {
     return "mcp";
   }
   return toolName.toLowerCase();
+}
+
+function summarizeApprovalInput(toolName: string, input: unknown): string {
+  if (isRecord(input)) {
+    const command = readOptionalString(input.command);
+    if (command) return command;
+  }
+  if (typeof input === "string" && codexToolFamily(toolName) === "bash") return input;
+  return summarizeToolInput(toolName, input);
 }
 
 function summarizeToolInput(toolName: string, input: unknown): string {

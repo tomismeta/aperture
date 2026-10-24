@@ -101,7 +101,7 @@ async function validateMetadata(
     artifactLimits.maximumTextArtifactBytes === MAXIMUM_MARKETPLACE_ARTIFACT_BYTES,
     "invalid marketplace text artifact limit",
   );
-  assert(buildInfo.apertureCoreVersion === "0.9.0", "invalid ApertureCore version");
+  assert(buildInfo.apertureCoreVersion === "0.10.0", "invalid ApertureCore version");
   assertUtcTimestamp(buildInfo.builtAt);
   assert(
     !("provenanceAttestationReference" in buildInfo) &&

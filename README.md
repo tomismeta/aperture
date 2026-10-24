@@ -21,9 +21,9 @@ It keeps work that needs a person in one place, decides what belongs `now`, what
 can wait until `next`, and what should stay `ambient`, then carries the response
 back into the same loop.
 
-The latest published `@tomismeta/aperture` release is `0.5.0`; `main` is the
-`0.10.0` release candidate. Repository documentation may describe candidate
-behavior that is not yet available from npm.
+This documentation describes the `0.10.0` product and Core SDK. The npm badges
+show the currently published versions; the release notes below describe changes
+and migration requirements.
 
 ## Getting Started
 
@@ -217,8 +217,8 @@ Repo-level examples and capture-review quickstarts live in
 
 - Product package: [`@tomismeta/aperture`](https://www.npmjs.com/package/@tomismeta/aperture)
 - SDK package: [`@tomismeta/aperture-core`](https://www.npmjs.com/package/@tomismeta/aperture-core)
-- Latest published product notes (`0.5.0`): [docs/releases/aperture-v0.5.0.md](./docs/releases/aperture-v0.5.0.md)
-- SDK release notes: [docs/releases/aperture-core-v0.9.0.md](./docs/releases/aperture-core-v0.9.0.md)
+- Product release notes: [docs/releases/aperture-v0.10.0.md](./docs/releases/aperture-v0.10.0.md)
+- SDK release notes: [docs/releases/aperture-core-v0.10.0.md](./docs/releases/aperture-core-v0.10.0.md)
 - Architecture overview: [docs/product/architecture-overview.md](./docs/product/architecture-overview.md)
 - Host-neutral ingestion contract: [docs/product/host-neutral-ingestion-contract.md](./docs/product/host-neutral-ingestion-contract.md)
 - Attention judgment doctrine: [docs/engine/attention-judgment-doctrine.md](./docs/engine/attention-judgment-doctrine.md)

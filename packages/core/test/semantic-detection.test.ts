@@ -7,13 +7,9 @@ import {
   HIGH_RISK_PHRASES,
   ISSUE_SIGNAL_PHRASES,
   REPEAT_PHRASES,
-  ROUTINE_SUCCESS_PHRASES,
 } from "../src/semantic-patterns.js";
 import {
   detectImpliedOperatorAsk,
-  detectExpectedDiagnosticFailure,
-  detectObservationalFailureStatus,
-  detectRoutineObservationalFailureLowConsequence,
   detectSemanticBlockingSignal,
   detectSemanticRelationHints,
   inferConsequenceFromSemanticText,
@@ -34,6 +30,67 @@ test("risk phrase matching still reads exact prod tokens as high consequence", (
   const text = normalizeSemanticText("Approve the prod deploy before continuing.");
 
   assert.equal(inferConsequenceFromSemanticText(text, "low"), "high");
+});
+
+test("command risk recognizes equivalent destructive flags within command families", () => {
+  for (const toolFamily of ["bash", "exec_command", "run_shell_command"]) {
+    for (const command of [
+      "rm -rf ./dist",
+      "rm -fr ./dist",
+      "rm -rfv ./dist",
+      "rm -rvf ./dist",
+      "rm -v -r --verbose -f ./dist",
+      "rm -r -f ./dist",
+      "rm -f -r ./dist",
+      "rm -R -f ./dist",
+      "rm --recursive --force ./dist",
+      "rm --force --recursive ./dist",
+      "rm -r --force ./dist",
+      "rm --force -r ./dist",
+      "rm --recursive -f ./dist",
+      "rm -f --recursive ./dist",
+      "git push -f origin main",
+      "git push --force origin main",
+      "git push --force-with-lease origin main",
+    ]) {
+      assert.equal(
+        inferConsequenceFromSemanticText(command, "medium", toolFamily),
+        "high",
+        command,
+      );
+    }
+    for (const command of [
+      "pwd",
+      "git push origin main",
+      "git status",
+      "rm ./scratch",
+      "rm -- -rf",
+    ]) {
+      assert.equal(
+        inferConsequenceFromSemanticText(command, "medium", toolFamily),
+        "medium",
+        command,
+      );
+    }
+  }
+});
+
+test("command-shaped read and search content does not imply command execution", () => {
+  for (const toolFamily of ["read", "search"]) {
+    for (const content of ["rm -fr ./dist", "git push -f origin main", "git reset --hard HEAD"]) {
+      assert.equal(inferConsequenceFromSemanticText(content, "low", toolFamily), "low");
+    }
+  }
+  for (const toolFamily of [undefined, "custom"]) {
+    assert.equal(
+      inferConsequenceFromSemanticText("git reset --hard HEAD", "medium", toolFamily),
+      "medium",
+    );
+    assert.equal(
+      inferConsequenceFromSemanticText("git push -f origin main", "medium", toolFamily),
+      "medium",
+    );
+  }
 });
 
 test("blocking phrase detection survives normalization of apostrophes", () => {
@@ -139,100 +196,6 @@ test("tool family inference prefers the highest-risk family over incidental read
     }),
     "write",
   );
-});
-
-test("observational failure detection recognizes readback payloads but not filenames alone", () => {
-  const readback = normalizeSemanticText(
-    "Observation: contents of /workspace/app.log showing top 20 lines",
-  );
-  const filenameOnly = normalizeSemanticText(
-    "README_FAILED_TESTS.md was mentioned during the review.",
-  );
-
-  assert.equal(detectObservationalFailureStatus(readback, "read"), true);
-  assert.equal(detectObservationalFailureStatus(filenameOnly, "read"), false);
-});
-
-test("routine observational failure stays low consequence for log-like reads but not source code", () => {
-  const logObservation = normalizeSemanticText(
-    "Observation path /var/log/system.log showing first 20 lines [ 12.34 ] kernel: ok",
-  );
-  const sourceCodeObservation = normalizeSemanticText(
-    "Observation path /workspace/src/app.ts export function run() { return true; }",
-  );
-
-  assert.equal(detectRoutineObservationalFailureLowConsequence(logObservation, "read"), true);
-  assert.equal(
-    detectRoutineObservationalFailureLowConsequence(sourceCodeObservation, "read"),
-    false,
-  );
-});
-
-test("routine successful bash observations demote failed transport status", () => {
-  for (const phrase of ROUTINE_SUCCESS_PHRASES) {
-    const routineSuccess = normalizeSemanticText(phrase);
-
-    assert.equal(detectObservationalFailureStatus(routineSuccess, "bash"), true);
-    assert.equal(detectRoutineObservationalFailureLowConsequence(routineSuccess, "bash"), true);
-  }
-});
-
-test("routine successful bash observation detection stays bounded", () => {
-  const routineSuccess = normalizeSemanticText(
-    "Your command ran successfully and did not produce any output.",
-  );
-  const nearMiss = normalizeSemanticText("The command completed successfully.");
-  const terminalFailure = normalizeSemanticText(
-    "Traceback (most recent call last): Error: subprocess failed.",
-  );
-  const mixedFailure = normalizeSemanticText(
-    "Your command ran successfully and did not produce any output. Traceback follows.",
-  );
-  const mixedExitCodeFailure = normalizeSemanticText(
-    "Your command ran successfully and did not produce any output. Error: deployment failed with exit code 1.",
-  );
-  const prefixedSuccess = normalizeSemanticText(
-    "OBSERVATION: Your command ran successfully and did not produce any output.",
-  );
-  const titledSuccess = normalizeSemanticText(
-    "bash failure Your command ran successfully and did not produce any output.",
-  );
-
-  assert.equal(detectObservationalFailureStatus(prefixedSuccess, "bash"), true);
-  assert.equal(detectRoutineObservationalFailureLowConsequence(prefixedSuccess, "bash"), true);
-  assert.equal(detectObservationalFailureStatus(titledSuccess, "bash"), true);
-  assert.equal(detectRoutineObservationalFailureLowConsequence(titledSuccess, "bash"), true);
-  assert.equal(detectObservationalFailureStatus(routineSuccess), false);
-  assert.equal(detectRoutineObservationalFailureLowConsequence(routineSuccess), false);
-  assert.equal(detectObservationalFailureStatus(routineSuccess, "read"), false);
-  assert.equal(detectRoutineObservationalFailureLowConsequence(routineSuccess, "read"), false);
-  assert.equal(detectObservationalFailureStatus(nearMiss, "bash"), false);
-  assert.equal(detectRoutineObservationalFailureLowConsequence(nearMiss, "bash"), false);
-  assert.equal(detectObservationalFailureStatus(terminalFailure, "bash"), false);
-  assert.equal(detectRoutineObservationalFailureLowConsequence(terminalFailure, "bash"), false);
-  assert.equal(detectObservationalFailureStatus(mixedFailure, "bash"), false);
-  assert.equal(detectRoutineObservationalFailureLowConsequence(mixedFailure, "bash"), false);
-  assert.equal(detectObservationalFailureStatus(mixedExitCodeFailure, "bash"), false);
-  assert.equal(
-    detectRoutineObservationalFailureLowConsequence(mixedExitCodeFailure, "bash"),
-    false,
-  );
-});
-
-test("expected diagnostic failure detection excludes terminal-style failures", () => {
-  const diagnostic = normalizeSemanticText(
-    "Form is valid false Form errors errorlist Decompress result none usd",
-  );
-  const terminalFailure = normalizeSemanticText(
-    "Form is valid false Exception traceback while running the repro",
-  );
-  const exitCodeFailure = normalizeSemanticText(
-    "Form is valid false Form errors errorlist exited with code 1",
-  );
-
-  assert.equal(detectExpectedDiagnosticFailure(diagnostic, "bash"), true);
-  assert.equal(detectExpectedDiagnosticFailure(terminalFailure, "bash"), false);
-  assert.equal(detectExpectedDiagnosticFailure(exitCodeFailure, "bash"), false);
 });
 
 test("relation detection recognizes repeating escalations with issue language", () => {

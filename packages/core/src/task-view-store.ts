@@ -45,6 +45,17 @@ export class TaskViewStore {
     return this.upsert(taskId, "ambient", frame);
   }
 
+  replace(frame: AttentionFrame): AttentionTaskView {
+    const taskView = this.get(frame.taskId);
+    const replaceFrame = (current: AttentionFrame): AttentionFrame =>
+      current.interactionId === frame.interactionId ? frame : current;
+    return this.persist(frame.taskId, {
+      now: taskView.now ? replaceFrame(taskView.now) : null,
+      next: taskView.next.map(replaceFrame),
+      ambient: taskView.ambient.map(replaceFrame),
+    });
+  }
+
   clear(taskId: string): AttentionTaskView {
     const next: AttentionTaskView = {
       now: null,

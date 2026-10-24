@@ -125,6 +125,13 @@ These are in-session adjustments, not durable memory.
 
 That lets Aperture treat related steps as one evolving decision instead of many isolated interrupts.
 
+The tracker owns episode identity, interaction bindings, obsolescence, and
+retention. [episode-evidence.ts](../../packages/core/src/episode-evidence.ts)
+owns deterministic per-interaction accumulation and withdrawal recomputation.
+Qualified resolution is adjudicated before accumulation, not reinterpreted by
+the evidence store. Frame lifecycle owns transition signals and notifications;
+relation lifecycle refreshes surviving episode metadata.
+
 Examples:
 
 - repeated failures on the same task
@@ -258,7 +265,7 @@ Those summaries already influence in-session judgment through:
 
 ### 3. Signals become durable memory
 
-When Aperture checkpoints learned state, [distillMemoryProfile](../../packages/core/src/memory-aggregator.ts) distills signals into compact durable memory.
+When Aperture checkpoints learned state, [MemoryAccumulator](../../packages/core/src/memory-aggregator.ts) distills per-interaction session contributions into compact durable memory. Its accounting is independent of bounded feedback retention; successful saves advance the accounted contribution, so repeated checkpoints and reloads do not replay the same feedback.
 
 That memory currently includes:
 

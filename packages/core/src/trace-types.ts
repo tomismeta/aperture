@@ -1,6 +1,6 @@
 import type { AttentionBurden } from "./attention-burden.js";
 import type { AttentionState } from "./attention-state.js";
-import type { EpisodeSummary } from "./episode-tracker.js";
+import type { EpisodeSummary } from "./episode-evidence.js";
 import type { ApertureEvent } from "./events.js";
 import type { AttentionFrame, AttentionTaskView, AttentionView } from "./frame.js";
 import type { AttentionCandidate, AttentionPriority } from "./interaction-candidate.js";

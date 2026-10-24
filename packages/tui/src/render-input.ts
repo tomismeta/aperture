@@ -50,8 +50,11 @@ function stringifyFieldValue(value: unknown): string {
 
 function renderTextDraft(textDraft: TextDraft, color: boolean, prefix: string): string[] {
   const value = textDraft.buffer || "";
+  const label = textDraft.approvalDecision
+    ? `${textDraft.approvalDecision === "approved" ? "Approve" : "Reject"} reason`
+    : "Reply";
   return renderPrefixedBlock(
-    `${prefix}${styleStrong("›", color)} ${stylePrompt("Reply", color)} ${styleMuted("·", color)} `,
+    `${prefix}${styleStrong("›", color)} ${stylePrompt(label, color)} ${styleMuted("·", color)} `,
     value || styleMuted("(empty)", color),
     `${prefix}  `,
   );

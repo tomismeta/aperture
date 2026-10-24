@@ -68,8 +68,8 @@ independent labeling or statistical accuracy over arbitrary agent output.
 ## Core 0.10.0 release reseal
 
 The Core 0.10.0 release candidate freezes the Core tree at commit
-`2e3841861162a2f49eef8f1d72557df28ef1e172`, with tree identity
-`1adf72caeff6160bbcacf5f8be0102b43478f5bc`. The active artifact was regenerated
+`442d60968b21b22f3be22e741e8d5ebbfca04af9`, with tree identity
+`6c555bc531be1f74630959124dd780400ddcd8bc`. The active artifact was regenerated
 through `kernel:observation:release:assemble`, followed by the existing guarded
 refresh, seal, and first-run commands.
 
@@ -82,3 +82,9 @@ structural-fallback fixtures passed, with stable results across two runs.
 This is a reseal of the existing maintainer-authored regression set, not a new
 independent holdout. Numbered historical artifacts remain unchanged, and the
 prior active evidence remains available in Git history.
+
+The initial candidate freeze at
+`2e3841861162a2f49eef8f1d72557df28ef1e172` was superseded after Node 20 CI
+identified a Node 22-only Promise helper in checkpoint concurrency tests. The
+tests now use the existing plain-Promise barrier pattern; that compatibility
+correction changes neither product behavior nor holdout expectations.
